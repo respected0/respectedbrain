@@ -7,10 +7,13 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
+from types import SimpleNamespace
 from contextlib import redirect_stdout
 import io
 
@@ -60,9 +63,45 @@ class MultiAITest(unittest.TestCase):
             bridge.output("antigravity", "end", "")
         self.assertEqual(json.loads(captured.getvalue()), {"decision": "stop"})
 
+    def test_global_bridge_distinguishes_windows_vault_and_external_paths(self):
+        bridge = load("bridge_windows_paths", ROOT / "template/.beyin/hooks/bridge.py")
+        parts = bridge.ROOT.parts
+        self.assertGreaterEqual(len(parts), 4)
+        native_root = f"{parts[2].upper()}:\\" + "\\".join(parts[3:])
+        self.assertTrue(bridge.inside_vault(native_root))
+        self.assertTrue(bridge.inside_vault(native_root + "\\nested"))
+        self.assertFalse(bridge.inside_vault("C:\\Projects\\unrelated"))
+        self.assertFalse(bridge.inside_vault("relative-project"))
+
     def test_runner_has_windows_user_local_agy_discovery(self):
         runner = (ROOT / "template/.beyin/model_runner.py").read_text(encoding="utf-8")
         self.assertIn('"AppData" / "Local" / "agy" / "bin" / "agy.exe"', runner)
+
+    def test_runner_supports_cursor_headless(self):
+        runner = load("model_runner_cursor", ROOT / "template/.beyin/model_runner.py")
+        with mock.patch.object(runner.shutil, "which", side_effect=lambda name: "/bin/cursor-agent" if name == "cursor-agent" else None):
+            command, stdin = runner._command("cursor", "özetle", "text")
+        self.assertEqual(command, ["/bin/cursor-agent", "-p", "--output-format", "text", "özetle"])
+        self.assertIsNone(stdin)
+
+    def test_runner_falls_back_only_for_retryable_provider_errors(self):
+        runner = load("model_runner_fallback", ROOT / "template/.beyin/model_runner.py")
+        commands = {"antigravity": (["agy"], None), "claude": (["claude"], "prompt")}
+        with mock.patch.object(runner, "_available", return_value=["antigravity", "claude"]), \
+             mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode: commands[provider]), \
+             mock.patch.object(runner.subprocess, "run", side_effect=[
+                 SimpleNamespace(returncode=1, stdout="", stderr="429 quota exceeded"),
+                 SimpleNamespace(returncode=0, stdout="özet", stderr=""),
+             ]):
+            output, error, provider = runner.run_model("prompt", ROOT, "text", 10, preferred="antigravity")
+        self.assertEqual((output, error, provider), ("özet", None, "claude"))
+
+        with mock.patch.object(runner, "_available", return_value=["antigravity", "claude"]), \
+             mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode: commands[provider]), \
+             mock.patch.object(runner.subprocess, "run", return_value=SimpleNamespace(returncode=1, stdout="", stderr="authentication failed")) as run:
+            output, error, provider = runner.run_model("prompt", ROOT, "text", 10, preferred="antigravity")
+        self.assertEqual((output, error, provider), (None, "antigravity-exit-1", "antigravity"))
+        self.assertEqual(run.call_count, 1)
 
     def test_canonical_skills_are_identical_for_all_agents(self):
         canonical_root = ROOT / "template/.beyin/skills"
@@ -123,6 +162,33 @@ class MultiAITest(unittest.TestCase):
                 if path.is_file() and "respot-backups" not in path.parts
             }
             self.assertEqual(snapshot, repeated)
+
+    def test_generic_global_installer_accepts_any_vault_name_and_all_providers(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            vault = root / "Ada Brain"
+            shutil.copytree(ROOT / "template", vault)
+            home = root / "user"
+            home.mkdir()
+            (home / ".codex").mkdir()
+            (home / ".codex/AGENTS.md").write_text("# Kendi Codex kuralım\n", encoding="utf-8")
+            (home / ".cursor").mkdir()
+            (home / ".cursor/hooks.json").write_text(json.dumps({"version": 1, "hooks": {"sessionStart": [{"command": "existing"}]}}), encoding="utf-8")
+            command = [sys.executable, str(ROOT / "scripts/install_global.py"), str(vault), "--home", str(home), "--providers", "all", "--apply"]
+            first = subprocess.run(command, capture_output=True, text=True, check=False)
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            self.assertIn("Ada Brain", (home / ".codex/AGENTS.md").read_text(encoding="utf-8"))
+            self.assertIn("# Kendi Codex kuralım", (home / ".codex/AGENTS.md").read_text(encoding="utf-8"))
+            self.assertIn("existing", (home / ".cursor/hooks.json").read_text(encoding="utf-8"))
+            self.assertTrue((home / ".gemini/config/hooks.json").is_file())
+            self.assertTrue((home / ".claude/settings.json").is_file())
+            self.assertTrue((home / ".agents/skills/beyin-doktor/SKILL.md").is_file())
+            self.assertTrue((home / ".cursor/skills/gecmis-import/SKILL.md").is_file())
+            managed_files = {path.relative_to(home): path.read_bytes() for path in home.rglob("*") if path.is_file() and ".respot-backups" not in path.parts}
+            second = subprocess.run(command, capture_output=True, text=True, check=False)
+            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+            repeated = {path.relative_to(home): path.read_bytes() for path in home.rglob("*") if path.is_file() and ".respot-backups" not in path.parts}
+            self.assertEqual(managed_files, repeated)
 
     def test_installer_preserves_personalized_instruction_as_canonical(self):
         with tempfile.TemporaryDirectory() as temporary:

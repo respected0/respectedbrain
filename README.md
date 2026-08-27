@@ -9,6 +9,10 @@ skill'ler `.beyin/skills/` altında tek kez tutulur; `CLAUDE.md`, `AGENTS.md`, C
 Antigravity rules/hook dosyaları buradan üretilir. Ayrıntılar ve mevcut v2 vault'u güvenli taşıma
 komutu için [MULTI_AI.md](MULTI_AI.md) dosyasına bak.
 
+Vault adı kullanıcıya aittir; `respectedOS` veya başka sabit bir ad zorunlu değildir. İsteğe bağlı
+`scripts/install_global.py`, seçilen vault'u Claude, Codex, Cursor ve Antigravity'ye kullanıcı
+düzeyinde bağlayarak başka kod repolarında da aynı merkezi hafızayı kullanır.
+
 **v1'in tezi devamlılıktı: oturum açılınca geçen oturum bağlama giriyordu.** İşe yarıyordu ama tek
 bir kırılgan varsayıma dayanıyordu: modelin oturum biterken hafıza dosyalarını güncellemeyi
 hatırlaması. Hatırlamadığı her seferde o gün kayboluyordu. **v2'nin tezi şu: hafıza rica değil,
@@ -148,7 +152,8 @@ Antigravity seçilirse onların yerel headless komutu kullanılır.
 
 ## Gereksinimler
 
-Zorunlu, her platformda: desteklenen yerel AI CLI'lardan en az biri (`claude`, `codex`, `agy`),
+Zorunlu, her platformda: desteklenen yerel AI CLI'lardan en az biri (`claude`, `codex`, `agy`,
+`cursor-agent`),
 [Obsidian](https://obsidian.md) ve `python3` (macOS'ta Command Line Tools ile gelir). `python3`
 opsiyonel değil: günlük log da gece derlemesi de onun üstünde çalışır.
 
@@ -204,7 +209,8 @@ passes.
 
 Platform honesty: the original macOS path remains supported. Linux desktop remains unverified.
 Windows + WSL has been verified with Windows-side hooks invoking the Python memory engine through
-`wsl.exe`; a global Antigravity installer can connect code repositories outside the vault.
+`wsl.exe`; a provider-neutral global installer can connect any named vault to Claude, Codex,
+Cursor and Antigravity across unrelated code repositories.
 
 No extra API key is required: background work uses an authenticated local AI CLI. The core uses
 bash and the Python standard library. Knowledge-compilation architecture credit:

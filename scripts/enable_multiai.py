@@ -24,7 +24,7 @@ RUNTIME = (
     ".claude/hooks/prompt-counter.sh", ".claude/hooks/session-end.sh",
     ".claude/hooks/pre-compact.sh",
     ".claude/scripts/flush.py", ".claude/scripts/compile.py",
-    "scripts/render_integrations.py", "scripts/install_antigravity_global.py",
+    "scripts/render_integrations.py", "scripts/install_antigravity_global.py", "scripts/install_global.py",
 )
 
 

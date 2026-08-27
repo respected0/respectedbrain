@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import Any
@@ -109,12 +110,40 @@ def output(provider: str, event: str, context: str) -> None:
         print(json.dumps({"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": context}}, ensure_ascii=False))
 
 
+def inside_vault(active: str) -> bool:
+    """Compare native Windows and POSIX workspace paths without treating C:\\... as relative in WSL."""
+    normalized = active.replace("\\", "/").rstrip("/")
+    if re.match(r"^[A-Za-z]:/", normalized):
+        parts = ROOT.parts
+        if len(parts) < 4 or parts[1] != "mnt" or len(parts[2]) != 1:
+            return False
+        root_native = f"{parts[2]}:/" + "/".join(parts[3:])
+        candidate = normalized.casefold()
+        root_folded = root_native.rstrip("/").casefold()
+        return candidate == root_folded or candidate.startswith(root_folded + "/")
+    path = Path(active)
+    if not path.is_absolute():
+        return False
+    try:
+        path.resolve().relative_to(ROOT)
+    except (OSError, ValueError):
+        return False
+    return True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--provider", choices=("codex", "cursor", "antigravity"), required=True)
+    parser.add_argument("--provider", choices=("claude", "codex", "cursor", "antigravity"), required=True)
     parser.add_argument("--event", choices=tuple(EVENT_SCRIPT), required=True)
+    parser.add_argument("--global-hook", action="store_true", help="vault dışındaki repolar için kullanıcı düzeyi hook")
     args = parser.parse_args()
     payload = normalize(args.provider, load_input())
+
+    if args.global_hook:
+        active = payload.get("cwd")
+        if isinstance(active, str) and inside_vault(active):
+            output(args.provider, args.event, "")
+            return 0
 
     # Antigravity invokes PreInvocation before every model call. Initialize only once.
     if args.provider == "antigravity" and args.event == "start" and payload.get("invocationNum") not in (None, 0):

@@ -100,7 +100,7 @@ def _backup(paths: list[Path], backup: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("vault", type=Path, help="WSL'den görülen respectedOS vault yolu")
+    parser.add_argument("vault", type=Path, help="WSL'den görülen, adı serbest vault yolu")
     parser.add_argument(
         "--antigravity-home",
         required=True,

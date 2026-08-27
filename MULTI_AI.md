@@ -42,7 +42,7 @@ python3 scripts/enable_multiai.py "/mutlak/yol/Vault" --apply
 Windows uygulamaları + WSL kullanıyorsan ve otomatik algılama mümkün değilse profili açıkça ver:
 
 ```bash
-python3 scripts/enable_multiai.py "/mnt/c/Users/<ad>/Documents/respectedOS" --platform windows-wsl --apply
+python3 scripts/enable_multiai.py "/mnt/c/Users/<ad>/Documents/<vault-adı>" --platform windows-wsl --apply
 ```
 
 Bu profil Cursor ve Antigravity'nin Windows hook komutlarını `wsl.exe --cd <vault>` üzerinden
@@ -56,35 +56,38 @@ isim, biyografi ve davranış ayarları kaybolmaz. Üzerine yazılacak üretilmi
 Codex proje hook'larını ilk kez gördüğünde `/hooks` ekranından güvenmeni ister. Cursor ve
 Antigravity proje hook dosyalarını kendi standart konumlarından yükler.
 
-## Antigravity'yi bütün kod projelerinde Respot'a bağlamak
+## Her AI aracını bütün kod projelerinde vault'a bağlamak
 
-Workspace içindeki `.agents/` adaptörü yalnız vault veya onu içeren bir workspace açıkken
-bulunur. Windows Antigravity'yi ana aracın olarak kullanıyor ve başka klasörlerdeki kod
-repolarını açıyorsan kullanıcı düzeyi bağlantıyı kur:
+Vault'un adı serbesttir: `respectedOS`, `Ada Brain`, `Notlarım` veya başka bir ad olabilir.
+Araçların başka kod repolarında çalışırken de merkezi vault'u bulması için kullanıcı düzeyi
+bağlantıyı kur:
 
 ```bash
-python3 scripts/install_antigravity_global.py \
-  "/mnt/c/Users/<ad>/Documents/respectedOS" \
-  --antigravity-home "/mnt/c/Users/<ad>"
+python3 scripts/install_global.py \
+  "/mnt/c/Users/<ad>/Documents/<vault-adı>" \
+  --home "/mnt/c/Users/<ad>" \
+  --platform windows-wsl \
+  --providers all
 ```
 
-Önizlemeyi kontrol ettikten sonra aynı komuta `--apply` ekle. Kurucu mevcut global hook'ları ve
-`GEMINI.md` içeriğini korur; yalnız `respot-brain` hook'unu ve işaretli Respot kural bloğunu
-yönetir. Ortak `.beyin/skills` paketlerini de Antigravity'nin global skill klasörüne üretir.
-Böylece aktif kod reposu başka yerde olsa da konuşma özeti respectedOS'a yazılır; göreceli hafıza
-yolları kod reposuna değil respectedOS köküne göre çözülür.
+Önizlemeyi kontrol ettikten sonra `--apply` ekle. `all` yerine virgülle `antigravity,codex`,
+`codex,cursor` gibi seçim yapılabilir. Kurucu mevcut kullanıcı kurallarını, hook'larını ve ayarlarını
+korur; yönettiği Respot bloklarını birleştirir, yedek alır ve ortak skill'leri her aracın kullanıcı
+düzeyi konumuna kopyalar. Global hook, vault kendi workspace'i olarak açıksa proje hook'unu
+çift çalıştırmaz. Böylece aktif kod reposu başka yerde olsa da konuşma özeti seçilen vault'a yazılır.
 
 ## Arka plan modeli nasıl seçilir?
 
-Hook hangi araçtan geldiyse önce onun yerel CLI'ı denenir. Antigravity için `agy` veya WSL'den
-erişilebilen `agy.exe` aranır; bulunamazsa sırayla `claude` ve `codex` denenir. Cursor'ın kararlı
-bir yerel headless CLI sözleşmesi olmadığı için Cursor
-oturumlarında kurulu olan diğer CLI'lardan biri arka plan özetleyici olarak kullanılır.
+Hook hangi araçtan geldiyse önce onun yerel CLI'ı denenir. Antigravity için `agy`, Codex için
+`codex`, Claude için `claude`, Cursor için `cursor-agent` kullanılır. Tercih edilen CLI kurulu
+değilse diğerleri denenir. Kota, rate-limit, geçici kapasite, timeout veya 5xx servis hatasında
+otomatik olarak sıradaki kullanılabilir CLI'a geçilir; kimlik doğrulama ve kalıcı yapılandırma
+hataları gizlenmez.
 
 Seçimi sabitlemek istersen:
 
 ```bash
-export BEYIN_MODEL_PROVIDER=codex       # claude | codex | antigravity | auto
+export BEYIN_MODEL_PROVIDER=codex       # isteğe bağlı: claude | codex | antigravity | cursor | auto
 ```
 
 Başka bir yerel model komutu kullanmak istersen komut prompt'u stdin'den almalıdır:
@@ -132,3 +135,4 @@ Testleri çalıştırıp farkı incelemeden commit atma. Tek bir upstream düzel
 - Antigravity masaüstü uygulaması ile Antigravity CLI ayrı parçalardır. Arka plan özetlerinin
   Antigravity kotasını kullanması için `agy` CLI kurulu ve oturum açmış olmalıdır; yalnız IDE
   kuruluysa sistem kullanılabilir başka CLI'a geçer.
+- Cursor kotasını kullanmak için `cursor-agent` CLI kurulu ve oturum açmış olmalıdır.

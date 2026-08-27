@@ -35,7 +35,7 @@ def _available(preferred: str | None) -> list[str]:
     configured = os.environ.get("BEYIN_MODEL_PROVIDER", "auto").strip().lower()
     if configured and configured != "auto":
         names.append(configured)
-    names.extend(("claude", "codex", "antigravity"))
+    names.extend(("claude", "codex", "antigravity", "cursor"))
     return list(dict.fromkeys(names))
 
 
@@ -58,7 +58,27 @@ def _command(provider: str, prompt: str, mode: Mode) -> tuple[list[str], str | N
         if executable is None:
             return None
         return ([executable, "-p", prompt, "--output-format", "text", "--sandbox"], None)
+    if provider == "cursor":
+        executable = shutil.which("cursor-agent") or shutil.which("cursor-agent.exe")
+        if executable is None:
+            return None
+        argv = [executable, "-p", "--output-format", "text"]
+        if mode == "workspace":
+            argv.append("--force")
+        argv.append(prompt)
+        return (argv, None)
     return None
+
+
+def _retryable_failure(stdout: str, stderr: str) -> bool:
+    message = f"{stdout}\n{stderr}".casefold()
+    signals = (
+        "rate limit", "rate_limit", "usage limit", "quota", "too many requests", "429",
+        "overloaded", "capacity", "temporarily unavailable", "service unavailable",
+        "internal server error", "connection reset", "timed out", "timeout",
+        "bad gateway", "gateway timeout", "502", "503", "504",
+    )
+    return any(signal in message for signal in signals)
 
 
 def run_model(
@@ -74,10 +94,8 @@ def run_model(
     environment = os.environ.copy()
     environment["BEYIN_INVOKED_BY"] = "beyin-scripts"
 
+    last_error: tuple[str, str] | None = None
     for provider in candidates:
-        if provider == "cursor":
-            # Cursor has hooks but no stable local headless runner contract. Fall through.
-            continue
         if provider == "custom":
             try:
                 argv = shlex.split(custom or "")
@@ -103,10 +121,19 @@ def run_model(
                 check=False,
             )
         except subprocess.TimeoutExpired:
-            return None, f"{provider}-timeout", provider
+            last_error = (f"{provider}-timeout", provider)
+            continue
         except OSError:
-            return None, f"{provider}-exec-error", provider
+            last_error = (f"{provider}-exec-error", provider)
+            continue
         if result.returncode != 0:
-            return None, f"{provider}-exit-{result.returncode}", provider
+            error = f"{provider}-exit-{result.returncode}"
+            if _retryable_failure(result.stdout, result.stderr):
+                last_error = (error, provider)
+                continue
+            return None, error, provider
         return result.stdout.strip(), None, provider
+    if last_error is not None:
+        error, provider = last_error
+        return None, error, provider
     return None, "model-cli-missing", None
