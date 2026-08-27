@@ -24,8 +24,11 @@
 6. **Be the demo.** This is often filmed. Narrate what you are doing in short Turkish lines as you
    go: "Vault iskeletini kuruyorum...", "Hafıza motorunu bağlıyorum...", "Derleyiciyi yerine
    koyuyorum...". Short sentences, no walls of text.
-7. **Everything is free.** No API key is required anywhere. The background summarizer and the
-   compiler run on the user's existing Claude subscription through `claude -p`.
+7. **No extra API key is required.** The background summarizer and compiler use an authenticated
+   local CLI (`claude`, `codex`, `agy`, or `cursor-agent`) and consume that provider's existing
+   subscription/quota.
+8. **Do not force one provider.** Default the summary provider to `auto`. Only persist a specific
+   provider when the user explicitly asks. Switching the coding agent must not require migration.
 
 Placeholders you must resolve:
 `{{OS_NAME}}` · `{{USER_NAME}}` · `{{USER_BIO}}` · `{{COMPANION}}` · `{{VAULT_PATH}}` ·
@@ -120,6 +123,10 @@ Ask (Turkish, conversational, not a form):
 5. **Semantik hafıza (mem0)?** Temel sürümü **ücretsiz** (mem0.ai, kredi kartı yok). Dosya
    tabanlı hafıza onsuz da tam çalışır, mem0 üstüne anlamsal arama katar. Önerilir. →
    `{{USE_MEM0}}`
+6. **Hangi agentları kullanıyorsun?** Claude Code, Codex, Cursor, Antigravity arasından seçtir.
+   Birden fazla seçim normaldir. Bu değer global kurulumun `--providers` listesidir.
+7. **Her kod reposunda aynı beyin otomatik açılsın mı?** Evet önerilir. Evetse kullanıcı düzeyi
+   global bağlantıyı PHASE 3B'de önizle, açık onaydan sonra uygula.
 
 Pick the vault path → `{{VAULT_PATH}}`:
 
@@ -165,7 +172,8 @@ else
 fi
 ```
 
-**v2 hard requirement. Both of these must be present, on every platform:**
+**v2 hard requirement:** `python3` and at least one supported authenticated local AI CLI must be
+present. Claude is not mandatory.
 
 ```bash
 BEYIN_MISSING=0
@@ -175,10 +183,15 @@ else
   echo "🔴 python3 YOK"
   BEYIN_MISSING=$((BEYIN_MISSING + 1))
 fi
-if command -v claude >/dev/null 2>&1; then
-  echo "claude CLI ✓ $(command -v claude)"
-else
-  echo "🔴 claude CLI YOK"
+BEYIN_CLI_COUNT=0
+for BEYIN_CLI in claude codex agy cursor-agent; do
+  if command -v "$BEYIN_CLI" >/dev/null 2>&1; then
+    echo "$BEYIN_CLI CLI ✓ $(command -v "$BEYIN_CLI")"
+    BEYIN_CLI_COUNT=$((BEYIN_CLI_COUNT + 1))
+  fi
+done
+if [ "$BEYIN_CLI_COUNT" -eq 0 ]; then
+  echo "🔴 DESTEKLENEN AI CLI YOK: claude | codex | agy | cursor-agent"
   BEYIN_MISSING=$((BEYIN_MISSING + 1))
 fi
 echo "ONKOSUL SONUC: $BEYIN_MISSING eksik"
@@ -231,10 +244,48 @@ verify none remain:
 grep -rl "{{" "{{VAULT_PATH}}" || echo "✓ tüm placeholder'lar dolduruldu"
 ```
 
-Also update the structure section of `CLAUDE.md` to list any optional scope folders you created.
+Also update the structure section of `.beyin/instructions.md` to list optional scope folders, then
+regenerate the provider adapters:
+
+```bash
+cd "{{VAULT_PATH}}"
+python3 scripts/render_integrations.py
+python3 scripts/render_integrations.py --check
+```
+
+Do not edit generated `CLAUDE.md`, `AGENTS.md`, `.cursor/rules/beyin.mdc`, or
+`.agents/rules/beyin.md` independently.
 The memory folder stays `🔮 850-Companion` even when the companion has a name: the hooks and the
 scripts reference that fixed path. The persona name lives in the file *contents*, not in the
 folder name. Say this to the user in one line so it does not look like a bug.
+
+## PHASE 3B: Optional global multi-agent connection
+
+If the user answered yes to global connection, run a preview first. `{{PROVIDERS}}` is `all` or a
+comma-separated subset such as `antigravity,codex`. The vault name is arbitrary.
+
+Portable macOS/Linux:
+
+```bash
+python3 "{{VAULT_PATH}}/scripts/install_global.py" "{{VAULT_PATH}}" \
+  --home "$HOME" --platform portable --providers "{{PROVIDERS}}"
+```
+
+Windows applications with a WSL vault use the Windows user root visible under `/mnt`, for example:
+
+```bash
+python3 "{{VAULT_PATH}}/scripts/install_global.py" "{{VAULT_PATH}}" \
+  --home "/mnt/c/Users/<windows-user>" --platform windows-wsl --providers "{{PROVIDERS}}"
+```
+
+Show the listed files. Only after approval, repeat the exact command with `--apply`. The installer
+merges existing user rules/hooks, takes a backup, installs global skills, and avoids double-running
+when the vault itself is the active workspace. Leave `.beyin/config.json` at
+`{"summary_provider":"auto"}` unless the user explicitly chooses another provider; if they do:
+
+```bash
+cd "{{VAULT_PATH}}" && python3 scripts/set_summary_provider.py <provider>
+```
 
 ## PHASE 4: Git (new in v2)
 
@@ -352,11 +403,9 @@ the folder in Obsidian by hand always works.
 
 ## PHASE 7: First doctor run
 
-```bash
-cd "{{VAULT_PATH}}" && claude "beyin doktor"
-```
-
-The `beyin-doktor` skill prints one health table. Close every 🔴 row before you report success.
+Ask the agent performing setup to run the `beyin-doktor` skill against `{{VAULT_PATH}}`. The
+canonical skill is rendered for every supported agent; Claude is not required. Close every 🔴 row
+before you report success.
 If the doctor cannot run for any reason, do the manual check instead:
 
 ```bash
@@ -371,6 +420,11 @@ python3 -m py_compile .claude/scripts/flush.py .claude/scripts/compile.py && ech
 ```bash
 ls -la "{{VAULT_PATH}}"
 test -f "{{VAULT_PATH}}/CLAUDE.md" && echo "CLAUDE.md ✓"
+test -f "{{VAULT_PATH}}/AGENTS.md" && echo "AGENTS.md ✓"
+test -f "{{VAULT_PATH}}/.codex/hooks.json" && echo "Codex hooks ✓"
+test -f "{{VAULT_PATH}}/.cursor/hooks.json" && echo "Cursor hooks ✓"
+test -f "{{VAULT_PATH}}/.agents/hooks.json" && echo "Antigravity hooks ✓"
+test -f "{{VAULT_PATH}}/.beyin/config.json" && echo "özetleyici ayarı ✓"
 test -f "{{VAULT_PATH}}/🔮 850-Companion/Last-Session.md" && echo "hafıza ✓"
 test -f "{{VAULT_PATH}}/.beyin-version" && echo "sürüm $(cat "{{VAULT_PATH}}/.beyin-version") ✓"
 test -d "$HOME/Desktop/{{OS_NAME}}.app" && echo "launcher 🧠 ✓"
@@ -522,9 +576,9 @@ grep -rl "{{" "/kullanicinin/mutlak/vault/yolu/knowledge" \
 
 ## PHASE U5: Doctor
 
-```bash
-cd "/kullanicinin/mutlak/vault/yolu" && claude "beyin doktor"
-```
+Ask the agent currently performing the setup to run the `beyin-doktor` skill against the vault.
+The same canonical skill is available to Claude, Codex, Cursor and Antigravity after the multi-AI
+layer is enabled. If skill discovery is not yet active, run the manual checks from PHASE 7.
 
 Close every 🔴 row before you go on. The version has not been stamped yet, so the doctor is
 looking at an honest half-upgraded vault. That is the point.
@@ -558,6 +612,20 @@ de bu beyne aktarmak ister misin? `geçmiş import` yeter."** The `gecmis-import
 everything locally; nothing is uploaded anywhere. Large exports take several evenings to compile,
 and that is fine.
 
+## PHASE U7: Enable multi-AI and optional global access
+
+The v1→v2 transaction intentionally preserves the original Claude-compatible core. After finalize,
+add the provider-neutral adapters from this fork:
+
+```bash
+python3 scripts/enable_multiai.py "/kullanicinin/mutlak/vault/yolu"
+python3 scripts/enable_multiai.py "/kullanicinin/mutlak/vault/yolu" --apply
+```
+
+On Windows + WSL add `--platform windows-wsl` to the apply command. Then follow PHASE 3B if the
+user wants the same vault available automatically in unrelated code repositories. Keep summary
+provider `auto` unless the user explicitly requests another first choice.
+
 ## What the script guarantees, so you do not have to promise it yourself
 
 - **One process.** No variable survives between your Bash calls, so none is used across them.
@@ -579,26 +647,20 @@ and that is fine.
 
 Report in Turkish:
 
-- ✅ **Ne kuruldu:** klasörler, 4 kanca, arka plan özetleyici, gece derleyicisi, hafıza dosyaları,
-  ortağın adı, masaüstü kısayolu. Yükseltme modunda: hangi dosyalara dokunulmadığını da say, eski
-  hafıza klasörü adının neden değiştiğini de tek cümleyle tekrarla.
-- ▶️ **İlk çalıştırma:** Obsidian'ı aç → vault olarak `{{VAULT_PATH}}` seç (bir kez tanıtır,
-  masaüstündeki 🧠 ikonu bundan sonra tek tıkla açar). Sonra o klasörde `claude` çalıştır.
+- ✅ **Ne kuruldu:** vault yolu ve kullanıcı seçtiği adı, hafıza motoru, `daily/`, `knowledge/`,
+  canonical rules/skills, kurulan workspace adaptörleri ve varsa global provider bağlantıları.
+- 🔁 **Agent değiştirme:** bir agentın kapanış özeti ortak vault'a yazıldıktan sonra diğer agent
+  aynı bağlamı alır; sağlayıcının ham chat UI geçmişi taşınmaz.
+- 🤖 **Özetleyici:** varsayılan `auto`; mevcut agent önce denenir, geçici limitte kurulu ve giriş
+  yapılmış başka CLI'a fallback edilir. Kalıcı seçim yalnız kullanıcı isterse yapılır.
+- ▶️ **İlk çalıştırma:** Obsidian'da `{{VAULT_PATH}}` klasörünü bir kez vault olarak aç. Sonra
+  kullanıcının ana agentında kısa ama anlamlı bir test konuşması başlat.
 
-## Sihri göster, ama önce doğrula
+## Prove one real lifecycle
 
-The SessionEnd hook detaches the summarizer and returns in under a second. That is on purpose,
-the hook budget is tight. It also means the daily log is **not** on disk the moment the user types
-`/exit`. Do not send them back into `claude` before you have seen the file.
-
-Tell them, in Turkish, exactly this shape of thing:
-
-> "Şimdi benimle bir şey konuş, sonra `/exit` yaz. Arka planda küçük bir özetleyici çalışacak,
-> genelde birkaç saniye sürer. Ben günlük logun diske düştüğünü görene kadar bekleyeceğim, sonra
-> `claude`'u tekrar açacağız."
-
-After they type `/exit`, run this bounded poll from the repo and wait for it. Do not skip it, and
-do not tell the user "oldu" before it prints its success line:
+The exact close action depends on the host: Claude CLI may use `/exit`; Codex, Cursor and
+Antigravity use their own end/close controls. Do not prescribe `/exit` to every product. Ask the
+user to end the test session normally, then poll for the daily log:
 
 ```bash
 BEYIN_LOG="{{VAULT_PATH}}/daily/$(date +%F).md"
@@ -620,35 +682,22 @@ else
 fi
 ```
 
-Wait for one of the two final lines. There is no third outcome, and neither of them is silent.
+- `GUNLUK LOG HAZIR`: show the tail. Then open a **different installed agent** and confirm its
+  first context contains the last session/topic. This proves cross-agent continuity, not merely
+  same-agent memory.
+- `GUNLUK LOG 120 SANIYEDE YAZILMADI`: run `beyin doktor`. Check that the session was long enough,
+  hook trust is granted, `python3` exists, and at least one local AI CLI is authenticated.
 
-- `GUNLUK LOG HAZIR` → show the tail to the user, that is the actual demo. Now relaunch `claude`.
-- `GUNLUK LOG 120 SANIYEDE YAZILMADI` → do not relaunch yet. Run `beyin doktor` in the vault and
-  read the result. Two boring causes cover almost every case: the conversation was too short to be
-  worth summarizing (the summarizer answers `FLUSH_BOS` and writes nothing, which is correct
-  behavior, not a bug), or `python3` is missing.
+## Honest timing and quota behavior
 
-## Honest timing, say it in Turkish
+- **Daily log:** starts at a supported session-end/pre-compact event and normally takes seconds.
+- **Knowledge compile:** starts after 18:00 on the next eligible session close, at most once per
+  changed daily input; it can take minutes. There is no scheduler opening an AI app by itself.
+- **Quota:** usage belongs to whichever CLI actually answered. Retryable limit/timeout/5xx errors
+  fall through to another installed CLI. Authentication/configuration failures stop visibly.
 
-- **Günlük log:** oturum kapanışında, arka planda, küçük bir Haiku çağrısı. Saniyeler.
-- **Bilgi derlemesi:** aynı akşam değil, saat 18'den sonraki ilk oturum kapanışında, günde bir kez,
-  ve bir Sonnet çağrısı olduğu için **dakikalar** sürebilir. `knowledge/` klasörünün o an boş
-  olması normal. Ertesi sabah `claude` açtığında indeks kendiliğinden bağlama girer.
+Do not end with only "kuruldu". Report the tested provider, whether fallback alternatives are
+actually installed/authenticated, the global backup path, and any one-time action still needed
+(for example Codex `/hooks` trust or restarting an IDE to reload user hooks).
 
-Never promise the knowledge articles in the same minute. Promise the daily log, show the daily
-log, and be precise about when the rest arrives.
-
-## Kapanış
-
-- 🩺 **Bir şey ters giderse:** `beyin doktor` yaz. Tek tabloda her parçanın durumunu verir.
-- 💸 **Maliyet:** Ekstra ücret yok; arka plan özetleyici ve derleyici mevcut Claude aboneliğinin
-  günlük limitinden küçük bir pay kullanır (özet: her oturum sonunda küçük bir Haiku çağrısı;
-  derleme: günde bir Sonnet çağrısı).
-- 🔗 **Sen de kurdun mu?** Bir arkadaşına gönder: `avenox.lol/beyin.md`
-
-Do not end the session by saying "kuruldu" alone. Show the pipeline once, with the user watching.
-
----
-
-Done. You just gave someone a second brain that remembers without being asked.
-Avenox · https://avenox.lol
+Done. The user now has one portable memory layer instead of four disconnected agent memories.

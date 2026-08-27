@@ -84,11 +84,17 @@ değilse diğerleri denenir. Kota, rate-limit, geçici kapasite, timeout veya 5x
 otomatik olarak sıradaki kullanılabilir CLI'a geçilir; kimlik doğrulama ve kalıcı yapılandırma
 hataları gizlenmez.
 
-Seçimi sabitlemek istersen:
+Varsayılan `auto` ayarını değiştirmek gerekmez. Kullanıcı özellikle başka bir özetleyiciyi ilk
+tercih yapmak isterse vault içinde kalıcı seçim yapılabilir:
 
 ```bash
-export BEYIN_MODEL_PROVIDER=codex       # isteğe bağlı: claude | codex | antigravity | cursor | auto
+python3 scripts/set_summary_provider.py auto
+python3 scripts/set_summary_provider.py codex   # claude | codex | antigravity | cursor
 ```
+
+Bu ayar coding agentı sabitlemez; yalnız arka plan özeti ve bilgi derlemesinde denenecek ilk CLI'ı
+seçer. Seçilen CLI geçici kota/servis hatası verirse fallback devam eder. Geçici shell oturumları
+için `BEYIN_MODEL_PROVIDER` ortam değişkeni dosyadaki seçimin önüne geçebilir.
 
 Başka bir yerel model komutu kullanmak istersen komut prompt'u stdin'den almalıdır:
 

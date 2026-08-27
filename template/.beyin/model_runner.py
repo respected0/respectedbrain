@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import shlex
@@ -12,6 +13,20 @@ from typing import Literal
 
 
 Mode = Literal["text", "workspace"]
+PROVIDERS = ("claude", "codex", "antigravity", "cursor")
+
+
+def _configured_provider() -> str:
+    environment = os.environ.get("BEYIN_MODEL_PROVIDER", "").strip().lower()
+    if environment:
+        return environment
+    path = Path(__file__).with_name("config.json")
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return "auto"
+    value = document.get("summary_provider", "auto") if isinstance(document, dict) else "auto"
+    return value if value in ("auto", *PROVIDERS) else "auto"
 
 
 def _windows_vault_binary(name: str) -> str | None:
@@ -30,12 +45,12 @@ def _windows_vault_binary(name: str) -> str | None:
 
 def _available(preferred: str | None) -> list[str]:
     names = []
-    if preferred:
-        names.append(preferred)
-    configured = os.environ.get("BEYIN_MODEL_PROVIDER", "auto").strip().lower()
+    configured = _configured_provider()
     if configured and configured != "auto":
         names.append(configured)
-    names.extend(("claude", "codex", "antigravity", "cursor"))
+    if preferred:
+        names.append(preferred)
+    names.extend(PROVIDERS)
     return list(dict.fromkeys(names))
 
 

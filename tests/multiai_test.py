@@ -84,6 +84,31 @@ class MultiAITest(unittest.TestCase):
         self.assertEqual(command, ["/bin/cursor-agent", "-p", "--output-format", "text", "özetle"])
         self.assertIsNone(stdin)
 
+    def test_summary_provider_can_be_persisted_and_overrides_current_agent(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "My Vault"
+            (root / ".beyin").mkdir(parents=True)
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/set_summary_provider.py"), "cursor", "--root", str(root)],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads((root / ".beyin/config.json").read_text())["summary_provider"], "cursor")
+        runner = load("model_runner_config", ROOT / "template/.beyin/model_runner.py")
+        with mock.patch.object(runner, "_configured_provider", return_value="cursor"):
+            self.assertEqual(runner._available("codex")[:2], ["cursor", "codex"])
+
+    def test_public_docs_describe_provider_neutral_setup(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        setup = (ROOT / "SETUP.md").read_text(encoding="utf-8")
+        for required in ("Agent değiştirmek", "set_summary_provider.py", "install_global.py", "Vault'un adı"):
+            self.assertIn(required, readme)
+        self.assertIn("Claude is not mandatory", setup)
+        self.assertIn("PHASE 3B: Optional global multi-agent connection", setup)
+        self.assertIn("PHASE U7: Enable multi-AI", setup)
+        self.assertNotIn("Claude aboneliğinin", setup)
+        self.assertNotIn("claude CLI YOK", setup)
+
     def test_runner_falls_back_only_for_retryable_provider_errors(self):
         runner = load("model_runner_fallback", ROOT / "template/.beyin/model_runner.py")
         commands = {"antigravity": (["agy"], None), "claude": (["claude"], "prompt")}
@@ -214,6 +239,24 @@ class MultiAITest(unittest.TestCase):
             self.assertIn("wsl.exe --cd", antigravity)
             codex = json.loads((vault / ".codex/hooks.json").read_text(encoding="utf-8"))
             self.assertIn("commandWindows", json.dumps(codex))
+            selected = subprocess.run(
+                [sys.executable, str(vault / "scripts/set_summary_provider.py"), "cursor"],
+                cwd=vault,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(selected.returncode, 0, selected.stdout + selected.stderr)
+            repeated = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/enable_multiai.py"), str(vault), "--platform", "windows-wsl", "--apply"],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
+            config = json.loads((vault / ".beyin/config.json").read_text(encoding="utf-8"))
+            self.assertEqual(config["summary_provider"], "cursor")
 
 
 if __name__ == "__main__":

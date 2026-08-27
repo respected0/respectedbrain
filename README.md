@@ -10,8 +10,25 @@ Antigravity rules/hook dosyaları buradan üretilir. Ayrıntılar ve mevcut v2 v
 komutu için [MULTI_AI.md](MULTI_AI.md) dosyasına bak.
 
 Vault adı kullanıcıya aittir; `respectedOS` veya başka sabit bir ad zorunlu değildir. İsteğe bağlı
-`scripts/install_global.py`, seçilen vault'u Claude, Codex, Cursor ve Antigravity'ye kullanıcı
-düzeyinde bağlayarak başka kod repolarında da aynı merkezi hafızayı kullanır.
+global kurulum, seçilen vault'u Claude, Codex, Cursor ve Antigravity'ye kullanıcı düzeyinde
+bağlayarak başka kod repolarında da aynı merkezi hafızayı kullanır.
+
+## Kısaca nasıl çalışır?
+
+Respot bir sohbet uygulaması veya yeni bir model değildir. Agentların arasında duran ortak,
+dosya tabanlı hafıza katmanıdır:
+
+```text
+Antigravity ─┐
+Codex ───────┼─→ aynı vault → daily/ → knowledge/ → sonraki agent oturumu
+Claude ──────┤
+Cursor ──────┘
+```
+
+Bir projeye Antigravity ile başlayıp ertesi gün Codex'e geçebilirsin. Codex, Antigravity'nin özel
+sohbet ekranını veya bütün ham geçmişini devralmaz; bunun yerine ortak vault'taki son oturum,
+aktif konular, kararlar, kurallar, günlük özetleri ve bilgi indeksini alır. Araç değiştirirken
+taşınabilir olan şey **iş bağlamıdır**, sağlayıcının kendi sohbet arayüzü değildir.
 
 **v1'in tezi devamlılıktı: oturum açılınca geçen oturum bağlama giriyordu.** İşe yarıyordu ama tek
 bir kırılgan varsayıma dayanıyordu: modelin oturum biterken hafıza dosyalarını güncellemeyi
@@ -21,29 +38,104 @@ mekanizmadır.** Artık oturum kapanışını bir kanca yakalıyor, konuşmayı 
 `knowledge/` altında birbirine bağlanan makalelere dönüştürüyor. Ertesi sabah bu bilgi tabanının
 indeksi kendiliğinden bağlama giriyor. Kimsenin bir şey yazmayı hatırlaması gerekmiyor.
 
-Video izlemene gerek yok, kurulum videosu da yok. Orijinal Claude kurulumu aşağıdaki gibi çalışır;
-çoklu-AI katmanı ve mevcut vault taşıma adımları için [MULTI_AI.md](MULTI_AI.md) dosyasına bak.
+Video izlemene gerek yok. Kurulum ve günlük kullanım bu README'de; ayrıntılı davranış ve bakım
+notları [MULTI_AI.md](MULTI_AI.md), coding agentın uygulayacağı kurulum runbook'u [SETUP.md](SETUP.md)
+içindedir.
 
 ---
 
 ## Hızlı başlangıç
 
-Terminalde `claude` çalıştır ve şunu yapıştır:
-
-```
-Read https://avenox.lol/beyin.md and follow it exactly to build my second brain.
-```
-
-Ya da multi-AI fork'unu doğrudan klonla:
+### 1. Forku klonla
 
 ```bash
 git clone https://github.com/respected0/respot-brain.git
 cd respot-brain
 ```
 
-Kullandığın coding agent'a `Read SETUP.md and follow it exactly to set up my second brain from
-this template.` yaz. Agent birkaç soru sorar (adın, ne iş yaptığın, AI ortağının adı), vault'u
-kurar ve uygun araç adaptörlerini bağlar.
+### 2. Bu klasörü tercih ettiğin coding agentta aç
+
+Antigravity, Codex, Claude Code veya Cursor'a şunu yaz:
+
+```text
+SETUP.md dosyasını tamamen oku ve ikinci beynimi kurmak için adımları uygula.
+Vault adını ve yolunu bana sor. Kullandığım agentları global bağla. Özetleyici tercihini auto bırak.
+```
+
+Agent; adını, kullanım amacını, AI ortağının adını, vault adını/yolunu ve hangi araçları
+kullandığını sorar. Önizlemeyi gösterir, onayından sonra kurar ve test eder.
+
+### 3. Kurulumdan sonra normal projeni aç
+
+Global bağlantıyı seçtiysen vault klasöründe çalışmak zorunda değilsin. Herhangi bir kod reposunu
+desteklenen agentlardan biriyle aç; ilk oturumda ortak hafıza bağlama girer, kapanışta özet merkezi
+vault'a yazılır. Codex yeni global hook'u ilk kez gördüğünde `/hooks` ekranından bir defalık güven
+isteyebilir.
+
+### Agent kullanmadan elle global kurulum
+
+Kurulum agentı olmadan da aynı işlemi yapabilirsin. Komut ilk çalıştırmada yalnız önizleme
+gösterir; dosya yazmak için sonucu kontrol edip `--apply` ekle.
+
+Windows + WSL örneği:
+
+```bash
+python3 scripts/install_global.py "/mnt/c/Users/KULLANICI/Documents/BenimBeynim" \
+  --home "/mnt/c/Users/KULLANICI" --platform windows-wsl --providers all
+
+# Önizleme doğruysa:
+python3 scripts/install_global.py "/mnt/c/Users/KULLANICI/Documents/BenimBeynim" \
+  --home "/mnt/c/Users/KULLANICI" --platform windows-wsl --providers all --apply
+```
+
+macOS/Linux örneği:
+
+```bash
+python3 scripts/install_global.py "/mutlak/yol/BenimBeynim" \
+  --home "$HOME" --platform portable --providers all
+```
+
+`--providers all` yerine yalnız kullandığın araçları virgülle yazabilirsin. Kurucu mevcut global
+kurallarını silmez; yönetilen Respot bölümünü birleştirir ve değişecek dosyaları yedekler. Vault'un
+adı serbesttir.
+
+## Agent değiştirmek
+
+Ekstra taşıma komutu yoktur:
+
+1. İlk agentın oturumunu normal biçimde bitir ve günlük özetin yazılması için birkaç saniye ver.
+2. Aynı veya başka projeyi diğer agentta aç.
+3. Yeni agent global/project hook üzerinden aynı vault bağlamını alır.
+
+Örnek: Antigravity'de alınan karar kapanışta `daily/` dosyasına yazılır; Codex açıldığında son
+oturum ve bilgi indeksi bağlama eklenir. Henüz kapanmamış veya özetlenmemiş son birkaç mesajın
+aktarılması garanti değildir; kritik bir geçişte ilk agent oturumunu kapatmak önemlidir.
+
+## Özetlemeyi hangi AI yapar, limit biterse ne olur?
+
+Varsayılan `auto` modudur ve çoğu kullanıcı bunu değiştirmemelidir:
+
+1. Oturum hangi agenttan geldiyse önce onun CLI'ı denenir.
+2. CLI kurulu değilse sıradaki kurulu sağlayıcı denenir.
+3. Kota/rate-limit, timeout, geçici kapasite veya 5xx hatasında otomatik fallback yapılır.
+4. Kimlik doğrulama veya bozuk yapılandırma gibi kalıcı hata gizlenmez; düzeltilmesi için raporlanır.
+
+Örnek: Codex oturumunun kapanışında Codex limiti bittiyse ve Claude veya `agy` kurulu ve giriş
+yapılmışsa özet onlardan biriyle tamamlanabilir. Fallback yalnız makinede kurulu ve oturum açılmış
+CLI'lar arasında çalışır.
+
+İsteyen kullanıcı özetleyicinin ilk tercihini vault içinde kalıcı olarak değiştirebilir:
+
+```bash
+python3 scripts/set_summary_provider.py auto          # önerilen
+python3 scripts/set_summary_provider.py claude
+python3 scripts/set_summary_provider.py codex
+python3 scripts/set_summary_provider.py antigravity
+python3 scripts/set_summary_provider.py cursor
+```
+
+Bu seçim kod yazdığın ana agentı değiştirmez; yalnız kapanış özeti ve bilgi derlemesinde önce hangi
+yerel CLI'ın çağrılacağını belirler. Seçilen sağlayıcı geçici olarak kullanılamazsa fallback devam eder.
 
 ### Zaten v1 beynin varsa
 
@@ -95,7 +187,7 @@ eklenir, dört kanca dosyası yenisiyle değiştirilir, `settings.json` kanca ka
         |                                    |
         +------------------+-----------------+
                            v
-                       flush.py           (claude / codex / agy / özel CLI)
+                       flush.py   (claude / codex / agy / cursor-agent / özel CLI)
                   transkripti okur, Türkçe özet çıkarır
                            v
                  daily/YYYY-MM-DD.md      <-- makine yazar, sen değil
@@ -113,6 +205,19 @@ eklenir, dört kanca dosyası yenisiyle değiştirilir, `settings.json` kanca ka
 
 Yazma tarafı makineye ait, ilişki katmanı sana ait: ortağın hâlâ `Last-Session.md` ve `Threads.md`
 dosyalarını kendi eliyle günceller. Makine katmanı onun yerine geçmez, altını doldurur.
+
+### Agent uyumluluk tablosu
+
+| Agent | Ortak talimat | Skill kaynağı | Oturum kancaları | Arka plan özetleyici |
+| --- | --- | --- | --- | --- |
+| Antigravity | `.agents/rules/beyin.md` | `.agents/skills/` | başlangıç + kapanış | `agy` |
+| Codex | `AGENTS.md` | `.agents/skills/` | başlangıç, prompt, kapanış, pre-compact | `codex exec` |
+| Cursor | `.cursor/rules/beyin.mdc` + `AGENTS.md` | `.agents/skills/` | başlangıç, prompt, kapanış, pre-compact | `cursor-agent -p` |
+| Claude Code | `CLAUDE.md` | `.claude/skills/` | başlangıç, prompt, kapanış, pre-compact | `claude -p` |
+
+Talimat ve skill içerikleri `.beyin/` altındaki tek kaynaktan üretilir; yani dört ayrı kopyayı
+elle güncellemezsin. Dosya adları ve kanca olayları agentların kendi formatları farklı olduğu için
+aynı değildir, fakat verdikleri hafıza davranışı ortaktır.
 
 ## Ne alıyorsun
 
@@ -147,8 +252,8 @@ dosyalarını kendi eliyle günceller. Makine katmanı onun yerine geçmez, alt�
 ## Maliyet, dürüst hâliyle
 
 Ekstra bir API anahtarı gerekmez; arka plan özetleyici ve derleyici seçilen yerel CLI'ın mevcut
-oturumunu/aboneliğini kullanır. Claude seçilirse eski Haiku/Sonnet davranışı korunur; Codex veya
-Antigravity seçilirse onların yerel headless komutu kullanılır.
+oturumunu/aboneliğini kullanır. Hangi sağlayıcı özeti çıkarırsa kullanım onun kotasına yazılır.
+Birden fazla CLI kuruluysa geçici limitlerde otomatik fallback yapılabilir.
 
 ## Gereksinimler
 
@@ -159,13 +264,35 @@ opsiyonel değil: günlük log da gece derlemesi de onun üstünde çalışır.
 
 | Platform | Durum | Ne çalışır, ne çalışmaz |
 | --- | --- | --- |
-| macOS | **test edildi** | hepsi: kancalar, `daily/`, `knowledge/`, 🧠 masaüstü kısayolu |
+| macOS | **orijinal akış test edildi** | Claude tabanlı kancalar, `daily/`, `knowledge/`, 🧠 masaüstü kısayolu; multi-AI adaptörleri otomatik testlidir. |
 | Linux | **test edilmedi** | kurulum `uname` ile dallanır: Homebrew, Obsidian cask ve macOS `.app` adımları atlanır, yerine XDG `.desktop` kısayolu yazılır. Vault, kancalar ve scriptler taşınabilir yazıldı ama gerçek bir Linux masaüstünde doğrulanmadı. Denersen sorun aç. |
 | Windows + WSL | **doğrulandı** | Windows Antigravity/Cursor hook'ları `wsl.exe` ile WSL'deki Python motoruna bağlanır; Obsidian aynı vault'u Windows yolundan açar. |
 
 Masaüstü kısayolu macOS'ta `osacompile` ve AppKit kullanır, ikisi de Linux'ta yoktur. Vault'un
-kendisi düz Markdown, yani her yerde açılır; kurulum akışının tamamı için doğrulanmış tek platform
-şu an macOS.
+kendisi düz Markdown, yani her yerde açılır. Windows + WSL global multi-agent köprüsü doğrulandı;
+Linux masaüstü kısayolu hâlâ saha testi bekliyor.
+
+## Sık sorulan sorular
+
+### Vault'un adı `respectedOS` olmak zorunda mı?
+
+Hayır. Bu yalnız bir kullanıcının kişisel seçimidir. Kurulumda verilen herhangi bir klasör adı ve
+mutlak yol kullanılabilir. İçerideki `🔮 850-Companion` klasörü ise runtime sözleşmesinin sabit
+parçasıdır; AI ortağının görünen adı dosyaların içindedir.
+
+### Her agentın hesabına ayrıca giriş gerekir mi?
+
+Yalnız kullanmak istediğin sağlayıcıların yerel CLI'larına giriş gerekir. En az bir desteklenen CLI
+yeterlidir; otomatik fallback için birden fazlasının kurulu ve giriş yapılmış olması gerekir.
+
+### Aynı anda iki agent kullanabilir miyim?
+
+Evet. Günlük yazımı kilit ve tekrar kontrolüyle korunur. Yine de aynı dosyayı iki agentın aynı anda
+düzenlemesi normal git/uygulama çakışması yaratabilir; bu hafıza sisteminden bağımsızdır.
+
+### Saat 18.00'de bilgisayar kendi kendine agent açar mı?
+
+Hayır. Zamanlanmış görev yoktur. 18.00'den sonraki ilk uygun oturum kapanışı derlemeyi tetikler.
 
 ## Bir şey ters giderse
 
@@ -194,7 +321,7 @@ MIT, [LICENSE](LICENSE) dosyasına bak. PR'lar açık.
 **avenoxbeyin multi-AI** is an open-source Obsidian second brain for Claude Code, Codex, Cursor,
 and Antigravity. It keeps one canonical instruction and skill source, then generates each agent's
 native rules and hooks. Session-end and pre-compaction events feed conversations into `daily/`;
-the selected local CLI (`claude`, `codex`, or `agy`) compiles those logs into linked articles under
+the selected local CLI (`claude`, `codex`, `agy`, or `cursor-agent`) compiles those logs into linked articles under
 `knowledge/`. The next session starts with that knowledge index already in context.
 
 Install: `git clone https://github.com/respected0/respot-brain.git && cd respot-brain`, then ask
@@ -211,6 +338,10 @@ Platform honesty: the original macOS path remains supported. Linux desktop remai
 Windows + WSL has been verified with Windows-side hooks invoking the Python memory engine through
 `wsl.exe`; a provider-neutral global installer can connect any named vault to Claude, Codex,
 Cursor and Antigravity across unrelated code repositories.
+
+Users may switch coding agents without migrating the vault. `auto` prefers the agent that emitted
+the hook; a persistent first-choice summarizer can be selected with `set_summary_provider.py`, and
+retryable quota/timeout/5xx failures fall back to another installed authenticated CLI.
 
 No extra API key is required: background work uses an authenticated local AI CLI. The core uses
 bash and the Python standard library. Knowledge-compilation architecture credit:

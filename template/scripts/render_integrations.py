@@ -65,7 +65,7 @@ def render(check: bool) -> bool:
     instructions = (SOURCE / "instructions.md").read_text(encoding="utf-8")
     generated = GENERATED_HEADER + instructions
     changed = False
-    for helper_name in ("render_integrations.py", "install_antigravity_global.py", "install_global.py"):
+    for helper_name in ("render_integrations.py", "install_antigravity_global.py", "install_global.py", "set_summary_provider.py"):
         helper_source = REPO / "scripts" / helper_name
         helper_target = TEMPLATE / "scripts" / helper_name
         if helper_source.is_file() and helper_source.resolve() != helper_target.resolve():

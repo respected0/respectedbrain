@@ -25,6 +25,7 @@ RUNTIME = (
     ".claude/hooks/pre-compact.sh",
     ".claude/scripts/flush.py", ".claude/scripts/compile.py",
     "scripts/render_integrations.py", "scripts/install_antigravity_global.py", "scripts/install_global.py",
+    "scripts/set_summary_provider.py",
 )
 
 
@@ -56,7 +57,7 @@ def main() -> int:
         parser.error("CLAUDE.md veya .beyin/instructions.md bulunamadı")
     print(f"kanonik talimat kaynağı: {source_instructions}")
     print("yönetilen adaptörler:")
-    for relative in (*GENERATED, *RUNTIME, ".agents/skills", ".claude/skills"):
+    for relative in (*GENERATED, *RUNTIME, ".beyin/config.json", ".agents/skills", ".claude/skills"):
         print(f"  {relative}")
     if not args.apply:
         print("ÖNİZLEME: hiçbir dosya değişmedi. Uygulamak için --apply ekle.")
@@ -75,6 +76,10 @@ def main() -> int:
         canonical_text = canonical_text[len(header):]
     instructions.parent.mkdir(parents=True, exist_ok=True)
     instructions.write_text(canonical_text, encoding="utf-8")
+
+    config = vault / ".beyin/config.json"
+    if not config.exists():
+        copy_file(TEMPLATE / ".beyin/config.json", config)
 
     for relative in RUNTIME:
         copy_file(TEMPLATE / relative, vault / relative)
