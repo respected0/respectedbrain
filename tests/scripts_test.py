@@ -273,6 +273,34 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
         self.assertTrue(capped.startswith("**"))
         self.assertRegex(capped, r"^\*\*(User|Assistant):\*\* id\d+:")
 
+    def test_antigravity_transcript_format_is_extracted(self) -> None:
+        transcript = self.root / "antigravity.jsonl"
+        records = [
+            {
+                "source": "USER_EXPLICIT",
+                "type": "USER_INPUT",
+                "content": "<USER_REQUEST>\nGerçek kullanıcı isteği\n</USER_REQUEST>\n<ADDITIONAL_METADATA>gizli meta</ADDITIONAL_METADATA>",
+            },
+            {
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "Gerçek model yanıtı",
+            },
+            {
+                "source": "MODEL",
+                "type": "LIST_DIRECTORY",
+                "content": "araç çıktısı",
+            },
+        ]
+        transcript.write_text(
+            "\n".join(json.dumps(record) for record in records) + "\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(
+            FLUSH.read_transcript(transcript),
+            [("user", "Gerçek kullanıcı isteği"), ("assistant", "Gerçek model yanıtı")],
+        )
+
     def test_flush_bos_appends_nothing_and_records_success(self) -> None:
         transcript = self._write_transcript([("user", "yalnızca selam")])
         hook = self._write_hook("bos-session", transcript)

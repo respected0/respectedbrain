@@ -16,6 +16,7 @@ import stat
 import subprocess
 import tempfile
 import time
+import sys
 from typing import Any, Sequence
 
 
@@ -525,44 +526,48 @@ def _promote_changes(
 
 
 def _run_claude(prompt: str, stage: Path) -> str | None:
-    claude = shutil.which("claude")
-    if claude is None:
-        return "claude-cli-missing"
-
-    environment = os.environ.copy()
-    environment["BEYIN_INVOKED_BY"] = "beyin-scripts"
+    """Compatibility name; dispatches to the selected/available local AI CLI."""
+    runner_dir = VAULT_ROOT / ".beyin"
+    if str(runner_dir) not in sys.path:
+        sys.path.insert(0, str(runner_dir))
     try:
-        result = subprocess.run(
-            [
-                claude,
-                "-p",
-                "--model",
-                "sonnet",
-                "--output-format",
-                "text",
-                "--safe-mode",
-                "--tools",
-                "Read,Write,Edit,Glob,Grep",
-                "--permission-mode",
-                "acceptEdits",
-                "--allowedTools",
-                "Read,Write,Edit,Glob,Grep",
-            ],
-            input=prompt,
-            text=True,
-            capture_output=True,
-            cwd=stage,
-            env=environment,
-            timeout=900,
-            check=False,
+        from model_runner import run_model
+
+        _stdout, error, _provider = run_model(
+            prompt,
+            stage,
+            "workspace",
+            900,
+            os.environ.get("BEYIN_PROVIDER"),
         )
-    except subprocess.TimeoutExpired:
-        return "claude-timeout"
+    except ImportError:
+        # v2 vault compatibility: upgrades may briefly have scripts before .beyin.
+        claude = shutil.which("claude")
+        if claude is None:
+            return "model-cli-missing"
+        environment = os.environ.copy()
+        environment["BEYIN_INVOKED_BY"] = "beyin-scripts"
+        try:
+            result = subprocess.run(
+                [claude, "-p", "--model", "sonnet", "--output-format", "text", "--safe-mode", "--tools", "Read,Write,Edit,Glob,Grep", "--permission-mode", "acceptEdits", "--allowedTools", "Read,Write,Edit,Glob,Grep"],
+                input=prompt,
+                text=True,
+                capture_output=True,
+                cwd=stage,
+                env=environment,
+                timeout=900,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return "claude-timeout"
+        except OSError:
+            return "claude-exec-error"
+        if result.returncode != 0:
+            return f"claude-exit-{result.returncode}"
+        return None
     except OSError:
-        return "claude-exec-error"
-    if result.returncode != 0:
-        return f"claude-exit-{result.returncode}"
-    return None
+        return "model-runner-error"
+    return error
 
 
 def _compile_one(

@@ -2,6 +2,7 @@
 # these paths, so anything it guards must also be ignored here, otherwise the very first
 # snapshot stages a secret and the upgrade dies before it starts.
 .claude/settings.local.json
+.beyin/backups/
 .env
 *.yedek
 *.yedek-*

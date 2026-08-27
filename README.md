@@ -1,8 +1,13 @@
-# 🧠 avenoxbeyin v2: hatırlamayı unutmayan ikinci beyin
+# 🧠 avenoxbeyin multi-AI: hatırlamayı unutmayan ikinci beyin
 
-[Obsidian](https://obsidian.md) + [Claude Code](https://claude.com/claude-code) üstünde çalışan,
+[Obsidian](https://obsidian.md) ile Claude Code, Codex, Cursor ve Antigravity üstünde çalışan,
 açık kaynak bir **ikinci beyin**. Yerel bir Markdown vault, kalıcı hafıza, sıfır bağımlılık,
 sıfır ekstra ücret. Dosya yönetmezsin, konuşursun.
+
+Bu dalın temel farkı araç bağımsızlığıdır: ortak talimatlar `.beyin/instructions.md` içinde,
+skill'ler `.beyin/skills/` altında tek kez tutulur; `CLAUDE.md`, `AGENTS.md`, Cursor rules ve
+Antigravity rules/hook dosyaları buradan üretilir. Ayrıntılar ve mevcut v2 vault'u güvenli taşıma
+komutu için [MULTI_AI.md](MULTI_AI.md) dosyasına bak.
 
 **v1'in tezi devamlılıktı: oturum açılınca geçen oturum bağlama giriyordu.** İşe yarıyordu ama tek
 bir kırılgan varsayıma dayanıyordu: modelin oturum biterken hafıza dosyalarını güncellemeyi
@@ -12,8 +17,8 @@ mekanizmadır.** Artık oturum kapanışını bir kanca yakalıyor, konuşmayı 
 `knowledge/` altında birbirine bağlanan makalelere dönüştürüyor. Ertesi sabah bu bilgi tabanının
 indeksi kendiliğinden bağlama giriyor. Kimsenin bir şey yazmayı hatırlaması gerekmiyor.
 
-Video izlemene gerek yok, kurulum videosu da yok. Aşağıdaki tek satırı yapıştır, kurulumu Claude
-Code'un kendisi yapar.
+Video izlemene gerek yok, kurulum videosu da yok. Orijinal Claude kurulumu aşağıdaki gibi çalışır;
+çoklu-AI katmanı ve mevcut vault taşıma adımları için [MULTI_AI.md](MULTI_AI.md) dosyasına bak.
 
 ---
 
@@ -25,16 +30,16 @@ Terminalde `claude` çalıştır ve şunu yapıştır:
 Read https://avenox.lol/beyin.md and follow it exactly to build my second brain.
 ```
 
-Ya da repoyu doğrudan klonla, üç komut:
+Ya da multi-AI fork'unu doğrudan klonla:
 
 ```bash
-git clone https://github.com/avenoxai/avenoxbeyin.git
-cd avenoxbeyin
-claude "Read SETUP.md and follow it exactly to set up my second brain from this template."
+git clone https://github.com/respected0/respot-brain.git
+cd respot-brain
 ```
 
-Claude birkaç soru sorar (adın, ne iş yaptığın, AI ortağının adı), vault'u kurar, kancaları bağlar,
-masaüstüne 🧠 ikonlu bir kısayol koyar.
+Kullandığın coding agent'a `Read SETUP.md and follow it exactly to set up my second brain from
+this template.` yaz. Agent birkaç soru sorar (adın, ne iş yaptığın, AI ortağının adı), vault'u
+kurar ve uygun araç adaptörlerini bağlar.
 
 ### Zaten v1 beynin varsa
 
@@ -86,14 +91,14 @@ eklenir, dört kanca dosyası yenisiyle değiştirilir, `settings.json` kanca ka
         |                                    |
         +------------------+-----------------+
                            v
-                       flush.py           (claude -p --model haiku)
+                       flush.py           (claude / codex / agy / özel CLI)
                   transkripti okur, Türkçe özet çıkarır
                            v
                  daily/YYYY-MM-DD.md      <-- makine yazar, sen değil
                            |
         (saat 18'den sonra, günde bir kez, değişen log varsa)
                            v
-                      compile.py          (claude -p --model sonnet)
+                      compile.py          (seçilen yerel AI CLI)
                            v
    knowledge/concepts/*.md + knowledge/connections/*.md + knowledge/index.md
                            |
@@ -119,7 +124,11 @@ dosyalarını kendi eliyle günceller. Makine katmanı onun yerine geçmez, alt�
 ├── knowledge/                # makine derler: makaleler + bağlantılar + indeks
 ├── 📦 900-Archive/
 ├── 📋 Templates/
-└── .claude/                  # kancalar, scriptler, skill'ler (süreklilik motoru)
+├── .beyin/                   # tek kaynak: talimatlar, skill'ler, ortak adaptör
+├── .claude/                  # Claude uyumluluk ve süreklilik motoru
+├── .codex/                   # Codex hook'ları
+├── .cursor/                  # Cursor rules ve hook'ları
+└── .agents/                  # Antigravity rules, skill ve hook'ları
 ```
 
 - **İsmini sen koyduğun bir AI ortağı.** Varsayılan dili Türkçe.
@@ -133,13 +142,13 @@ dosyalarını kendi eliyle günceller. Makine katmanı onun yerine geçmez, alt�
 
 ## Maliyet, dürüst hâliyle
 
-Ekstra ücret yok; arka plan özetleyici ve derleyici mevcut Claude aboneliğinin günlük limitinden
-küçük bir pay kullanır (özet: her oturum sonunda küçük bir Haiku çağrısı; derleme: günde bir
-Sonnet çağrısı).
+Ekstra bir API anahtarı gerekmez; arka plan özetleyici ve derleyici seçilen yerel CLI'ın mevcut
+oturumunu/aboneliğini kullanır. Claude seçilirse eski Haiku/Sonnet davranışı korunur; Codex veya
+Antigravity seçilirse onların yerel headless komutu kullanılır.
 
 ## Gereksinimler
 
-Zorunlu, her platformda: [Claude Code](https://claude.com/claude-code),
+Zorunlu, her platformda: desteklenen yerel AI CLI'lardan en az biri (`claude`, `codex`, `agy`),
 [Obsidian](https://obsidian.md) ve `python3` (macOS'ta Command Line Tools ile gelir). `python3`
 opsiyonel değil: günlük log da gece derlemesi de onun üstünde çalışır.
 
@@ -147,7 +156,7 @@ opsiyonel değil: günlük log da gece derlemesi de onun üstünde çalışır.
 | --- | --- | --- |
 | macOS | **test edildi** | hepsi: kancalar, `daily/`, `knowledge/`, 🧠 masaüstü kısayolu |
 | Linux | **test edilmedi** | kurulum `uname` ile dallanır: Homebrew, Obsidian cask ve macOS `.app` adımları atlanır, yerine XDG `.desktop` kısayolu yazılır. Vault, kancalar ve scriptler taşınabilir yazıldı ama gerçek bir Linux masaüstünde doğrulanmadı. Denersen sorun aç. |
-| Windows | **test edilmedi**, WSL önerilir | WSL içinde Linux yolu geçerli. Yerel Windows için kurulum yolu yok. |
+| Windows + WSL | **doğrulandı** | Windows Antigravity/Cursor hook'ları `wsl.exe` ile WSL'deki Python motoruna bağlanır; Obsidian aynı vault'u Windows yolundan açar. |
 
 Masaüstü kısayolu macOS'ta `osacompile` ve AppKit kullanır, ikisi de Linux'ta yoktur. Vault'un
 kendisi düz Markdown, yani her yerde açılır; kurulum akışının tamamı için doğrulanmış tek platform
@@ -155,7 +164,7 @@ kendisi düz Markdown, yani her yerde açılır; kurulum akışının tamamı i�
 
 ## Bir şey ters giderse
 
-Vault klasöründe `claude` açıp `beyin doktor` yaz. Kancalar, scriptler, python3, `claude` CLI,
+Vault klasöründe kullandığın ajana `beyin doktor` yaz. Kancalar, scriptler, python3, yerel AI CLI,
 günlük log tazeliği, son derleme durumu, iCloud çakışma dosyaları ve git durumu tek tabloda gelir,
 her kırmızı satırın altında düzeltme komutu yazar.
 
@@ -177,15 +186,14 @@ MIT, [LICENSE](LICENSE) dosyasına bak. PR'lar açık.
 
 ## In English (short version)
 
-**avenoxbeyin** is an open-source AI second brain: an Obsidian vault driven by Claude Code, with
-memory that survives across sessions. v1 gave you continuity but depended on the model remembering
-to write its memory files. v2's thesis is that **memory must be a mechanism, not a discipline**: a
-`SessionEnd` and a `PreCompact` hook flush every conversation into `daily/` logs automatically via
-a small background Haiku call, and once a day a Sonnet compile pass turns those logs into linked
-articles under `knowledge/`. The next session starts with that knowledge index already in context.
+**avenoxbeyin multi-AI** is an open-source Obsidian second brain for Claude Code, Codex, Cursor,
+and Antigravity. It keeps one canonical instruction and skill source, then generates each agent's
+native rules and hooks. Session-end and pre-compaction events feed conversations into `daily/`;
+the selected local CLI (`claude`, `codex`, or `agy`) compiles those logs into linked articles under
+`knowledge/`. The next session starts with that knowledge index already in context.
 
-Install: `git clone https://github.com/avenoxai/avenoxbeyin.git && cd avenoxbeyin && claude "Read
-SETUP.md and follow it exactly to set up my second brain from this template."` Already running v1?
+Install: `git clone https://github.com/respected0/respot-brain.git && cd respot-brain`, then ask
+your coding agent to read and follow `SETUP.md`. Already running v1?
 The same command detects it and hands the work to one committed script, `scripts/upgrade.sh`:
 additive only, your memory files are never touched, the settings merge is idempotent, and it takes
 a **verified** git snapshot before it changes anything. Two things it will ask you about, and stop
@@ -194,11 +202,11 @@ contents never move), and removing v1 hook wiring left behind in `settings.local
 stop firing twice. The `.beyin-version` stamp is the last write of all, only after every gate
 passes.
 
-Platform honesty: macOS is the tested path. The installer branches on `uname` and writes an XDG
-`.desktop` launcher instead of a macOS app on Linux, but that path has not been verified on a real
-Linux desktop. Windows is WSL-only, also unverified.
+Platform honesty: the original macOS path remains supported. Linux desktop remains unverified.
+Windows + WSL has been verified with Windows-side hooks invoking the Python memory engine through
+`wsl.exe`; a global Antigravity installer can connect code repositories outside the vault.
 
-No extra cost: everything runs on your existing Claude subscription through `claude -p`. No API
-keys, no paid services, bash and python3 stdlib only. Knowledge-compilation architecture credit:
+No extra API key is required: background work uses an authenticated local AI CLI. The core uses
+bash and the Python standard library. Knowledge-compilation architecture credit:
 Andrej Karpathy's LLM knowledge base pattern,
 https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f. MIT licensed.

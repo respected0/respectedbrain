@@ -1,6 +1,11 @@
-# SETUP.md v2: Activate this second brain (Claude Code runbook)
+# SETUP.md multi-AI: Activate this second brain (agent runbook)
 
-> You are Claude Code, run from inside a freshly cloned `avenoxbeyin` repo. The user wants their
+> Bu fork Claude Code, Codex, Cursor ve Antigravity ile kullanılabilir. Kurulum sonunda
+> `python3 scripts/render_integrations.py` çalıştır; mevcut kişisel v2 vault için tercih edilen
+> güvenli yol `python3 scripts/enable_multiai.py <vault> --apply` komutudur. Ayrıntı:
+> `MULTI_AI.md`.
+
+> You are a coding agent, run from inside a freshly cloned `avenoxbeyin` repo. The user wants their
 > own AI second brain, or wants to upgrade the one they already have. The scaffold lives in
 > `./template/`. Your job: decide the mode, interview the user, install or upgrade, verify.
 > Execute phase by phase. Speak **Turkish** to the user (the audience is Turkish). This runbook is

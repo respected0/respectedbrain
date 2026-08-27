@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "python3 .beyin/hooks/bridge.py --provider cursor --event start",
+        "timeout": 15
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "python3 .beyin/hooks/bridge.py --provider cursor --event prompt",
+        "timeout": 5
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "python3 .beyin/hooks/bridge.py --provider cursor --event end",
+        "timeout": 10
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "python3 .beyin/hooks/bridge.py --provider cursor --event precompact",
+        "timeout": 10
+      }
+    ]
+  }
+}

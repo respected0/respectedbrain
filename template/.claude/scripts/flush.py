@@ -114,6 +114,12 @@ def _message_parts(record: dict[str, Any]) -> tuple[str | None, Any]:
     if isinstance(message, dict):
         role = message.get("role") or record.get("type")
         return role, message.get("content")
+    source = record.get("source")
+    record_type = record.get("type")
+    if record_type == "USER_INPUT" or source == "USER_EXPLICIT":
+        return "user", record.get("content")
+    if source == "MODEL" and record_type == "PLANNER_RESPONSE":
+        return "assistant", record.get("content")
     return record.get("role") or record.get("type"), record.get("content")
 
 
@@ -137,6 +143,14 @@ def _text_from_content(content: Any) -> str:
     return "\n".join(text_parts)
 
 
+def _clean_turn_text(role: str, text: str) -> str:
+    """Remove Antigravity metadata wrappers while preserving the user's request."""
+    if role != "user":
+        return text
+    match = re.search(r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", text, re.DOTALL)
+    return match.group(1) if match else text
+
+
 def read_transcript(path: Path) -> list[tuple[str, str]]:
     """Return only user and assistant text turns from transcript JSONL."""
     turns: list[tuple[str, str]] = []
@@ -156,7 +170,7 @@ def read_transcript(path: Path) -> list[tuple[str, str]]:
             if role not in {"user", "assistant"}:
                 continue
             text = _text_from_content(content)
-            flattened = re.sub(r"\s+", " ", text).strip()
+            flattened = re.sub(r"\s+", " ", _clean_turn_text(role, text)).strip()
             if flattened:
                 turns.append((role, flattened))
     return turns
@@ -302,13 +316,13 @@ def _session_state_path(state_dir: Path, session_id: str) -> Path:
 
 
 def _run_claude(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
-    claude = shutil.which("claude")
-    if claude is None:
-        return None, "claude-cli-missing"
-
-    environment = os.environ.copy()
-    environment["BEYIN_INVOKED_BY"] = "beyin-scripts"
+    """Compatibility name; dispatches to the selected/available local AI CLI."""
+    runner_dir = vault_root / ".beyin"
+    if str(runner_dir) not in sys.path:
+        sys.path.insert(0, str(runner_dir))
     try:
+        from model_runner import run_model
+
         with tempfile.TemporaryDirectory(prefix="beyin-flush-") as temporary:
             temporary_path = Path(temporary).resolve()
             try:
@@ -320,34 +334,42 @@ def _run_claude(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
                 inside_vault = False
             if inside_vault:
                 return None, "temporary-directory-inside-vault"
-            result = subprocess.run(
-                [
-                    claude,
-                    "-p",
-                    "--model",
-                    "haiku",
-                    "--output-format",
-                    "text",
-                    "--safe-mode",
-                    "--tools",
-                    "",
-                ],
-                input=prompt,
-                text=True,
-                capture_output=True,
-                cwd=temporary_path,
-                env=environment,
-                timeout=240,
-                check=False,
+            summary, error, _provider = run_model(
+                prompt,
+                temporary_path,
+                "text",
+                240,
+                os.environ.get("BEYIN_PROVIDER"),
             )
-    except subprocess.TimeoutExpired:
-        return None, "claude-timeout"
+    except ImportError:
+        # v2 vault compatibility: upgrades may briefly have scripts before .beyin.
+        claude = shutil.which("claude")
+        if claude is None:
+            return None, "model-cli-missing"
+        environment = os.environ.copy()
+        environment["BEYIN_INVOKED_BY"] = "beyin-scripts"
+        try:
+            with tempfile.TemporaryDirectory(prefix="beyin-flush-") as temporary:
+                result = subprocess.run(
+                    [claude, "-p", "--model", "haiku", "--output-format", "text", "--safe-mode", "--tools", ""],
+                    input=prompt,
+                    text=True,
+                    capture_output=True,
+                    cwd=temporary,
+                    env=environment,
+                    timeout=240,
+                    check=False,
+                )
+        except subprocess.TimeoutExpired:
+            return None, "claude-timeout"
+        except OSError:
+            return None, "claude-exec-error"
+        if result.returncode != 0:
+            return None, f"claude-exit-{result.returncode}"
+        return result.stdout.strip(), None
     except OSError:
-        return None, "claude-exec-error"
-
-    if result.returncode != 0:
-        return None, f"claude-exit-{result.returncode}"
-    return result.stdout.strip(), None
+        return None, "model-runner-error"
+    return summary, error
 
 
 def _append_daily(
