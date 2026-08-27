@@ -54,12 +54,13 @@ Düzeltme: dosyanın shebang'inden hemen sonraki satıra `[ -n "${BEYIN_INVOKED_
 ### 4. python3 ve en az bir model CLI yolda mı
 
 ```bash
-if command -v python3 >/dev/null 2>&1; then echo "python3: $(python3 -V 2>&1)"; else echo "python3: YOK"; fi; n=0; for c in claude codex agy; do if command -v "$c" >/dev/null 2>&1; then echo "$c: var"; n=$((n+1)); else echo "$c: yok"; fi; done; echo "model_cli_sayisi: $n"
+if command -v python3 >/dev/null 2>&1; then echo "python3: $(python3 -V 2>&1)"; else echo "python3: YOK"; fi; n=0; for c in claude codex agy cursor-agent; do if command -v "$c" >/dev/null 2>&1; then echo "$c: var"; n=$((n+1)); else echo "$c: yok"; fi; done; echo "model_cli_sayisi: $n"; if [ -f .beyin/config.json ]; then echo "provider_ayari: $(python3 -c 'import json; print(json.load(open(".beyin/config.json")).get("summary_provider", "auto"))' 2>/dev/null || echo bozuk)"; else echo "provider_ayari: YOK"; fi
 ```
 
 🟢 python3 ve en az bir model CLI var. 🔴 python3 yoksa flush ve derleme çalışmaz; model CLI
-yoksa arka plan özetleyici durur. Cursor hook'ları için de arka planda `claude`, `codex`, `agy`
-veya `BEYIN_LLM_COMMAND` gerekir.
+yoksa arka plan özetleyici durur. `auto`, oturumu gönderen agentın CLI'ını önce dener; geçici
+kota/timeout/5xx hatalarında kurulu diğer CLI'lara geçer. Özel komut için `BEYIN_LLM_COMMAND`
+kullanılabilir.
 
 ### 5. python3-missing işareti
 
@@ -99,7 +100,8 @@ if [ -f .claude/scripts/.state/health.json ]; then tail -c 2000 .claude/scripts/
 
 🟢 kayıt yok veya son kayıt 7 günden eski. 🔴 son 48 saatte hata kaydı var.
 Düzeltme: `component` alanına bak. `flush` ise transkript veya claude CLI, `compile` ise model
-çağrısı sorunlu. Hatayı okuduktan sonra dosyayı silebilirsin, script yeniden yazar.
+çağrısı sorunlu. Hata içindeki provider adına bak; hatayı okuduktan sonra dosyayı silebilirsin,
+script yeniden yazar.
 
 ### 9. Bilgi indeksi büyüklüğü
 
@@ -211,7 +213,7 @@ Tüm kontroller bittikten sonra tek tablo bas:
 | Hook dosyaları | 🟢 | dördü de yerinde ve çalıştırılabilir |
 | settings.json bağlantısı | 🟢 | dört olay da bağlı |
 | Özyineleme koruması | 🟢 | hepsinde var |
-| python3 ve claude | 🟢 | python3 3.11.6, claude var |
+| python3 ve model CLI | 🟢 | python3 var, agy ve codex kullanılabilir, provider auto |
 | python3-missing işareti | 🟢 | işaret yok |
 | Günlük log tazeliği | 🟡 | son log 51 saat önce |
 | Derleme durumu | 🔴 | last_status fail:timeout |

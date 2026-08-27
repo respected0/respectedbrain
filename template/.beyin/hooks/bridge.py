@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize Codex, Cursor and Antigravity hooks into the legacy beyin hooks."""
+"""Normalize provider-native hook payloads into the shared Respot Brain runtime."""
 
 from __future__ import annotations
 

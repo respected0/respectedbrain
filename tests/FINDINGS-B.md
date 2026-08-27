@@ -1,5 +1,7 @@
 # FINDINGS-B — upgrade settings regresyonları
 
+> Tarihsel ve çözülmüş regresyon kaydıdır; kurulum talimatı olarak kullanılmamalıdır.
+
 ## B-1 — İzlenen `settings.local.json` finalize aşamasını kilitliyordu
 
 **Durum:** Mevcut worktree'de eşzamanlı başka bir değişiklikle çözülmüş.

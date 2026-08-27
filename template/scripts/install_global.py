@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Connect supported AI tools globally to an arbitrary Avenox/Respot brain vault."""
+"""Connect supported AI tools globally to an arbitrary Respot Brain vault."""
 
 from __future__ import annotations
 

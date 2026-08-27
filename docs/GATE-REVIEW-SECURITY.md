@@ -1,7 +1,12 @@
 # Security + Upgrade Gate Review: Re-derived Findings 1–3
 
-**Target:** branch `v2`, HEAD `0da8e234d5db89e23e6739b1b3afa82fefdbf5fc`; final line references include a concurrent uncommitted PHASE M edit in `SETUP.md` that did not alter Mode B  
-**Verdict:** **NO-GO**. All three findings are release blockers.  
+> **Tarihsel denetim kaydı:** Bu rapor eski `v2` commitini değerlendirir; güncel `main` için hüküm
+> değildir. Üç blocker sonradan giderildi ve regresyon testleriyle korunuyor. Güncel sözleşme için
+> `docs/SPEC-V2.md`, güncel test kapıları için aşağıdaki “Current resolution” bölümüne bak.
+
+**Reviewed target:** branch `v2`, HEAD `0da8e234d5db89e23e6739b1b3afa82fefdbf5fc`
+
+**Historical verdict at that commit:** **NO-GO**. All three findings were release blockers.
 **Method:** current-code trace, the repository's 10 Python and 12 hook tests, local Claude CLI 2.1.240 help, and temp-only reproductions. This review changed no source file.
 
 The threat model treats transcript and daily-log text as untrusted. Model refusal is not a security boundary: an attacker only needs one directive-shaped payload to be followed. All findings have the same severity and are ordered by direct security impact, then upgrade blast radius.
@@ -39,6 +44,19 @@ The blocks do not use `set -euo pipefail` or revalidate a canonical target. With
 
 **Concrete fix.** Parse both settings files before mutation and compute effective hook commands. Remove only exact migrated v1 command entries from `settings.local.json`, retaining unrelated matchers/hooks and all other keys; write atomically and verify the merged result has one effective handler per event. If the user declines cleanup, abort the upgrade or keep wiring in one file—never proceed to a successful version stamp. Put any secret-bearing backup outside the repository with mode `0600`, or install and verify an ignore rule before creating it. Replace `git add -A` with an explicit allow-list and fail if staged paths contain local settings or backups. Add per-session locking/atomic dedup and locked daily append as defense in depth, and make doctor fail on duplicate effective hooks and secret-backup artifacts.
 
-## Gate
+## Current resolution
 
-Release remains **NO-GO** until all three blockers are fixed and regression tests cover: hostile transcript-to-compile taint, rejected out-of-allow-list edits, fresh-shell Mode B execution with injected failures, preservation of unrelated local hooks, ignored secret backups, duplicate effective-hook detection, and concurrent flush deduplication.
+Güncel `main` dalında bu tarihsel kapı **çözülmüştür**:
+
+- Flush çıktısı şema doğrulamasından geçer; compile izole staging ağacında çalışır ve yalnız
+  `knowledge/` allow-list farkları atomik olarak terfi ettirilir.
+- Yükseltme tek `scripts/upgrade.sh --vault <mutlak-yol> --stage ...` transaction'ına taşındı;
+  hedef her süreçte yeniden doğrulanır ve sürüm damgası son yazıdır.
+- `settings.local.json` içindeki yalnız eski beyin hook'ları ayrıştırılarak kaldırılır; ilgisiz
+  hook/env/permissions korunur, secret yedekleri vault dışında `0600` tutulur.
+- Hostile transcript, allow-list ihlali, taze-shell upgrade, duplicate hook, secret staging ve
+  eşzamanlı flush vakaları `tests/scripts_test.py`, `tests/upgrade_settings_test.sh` ve
+  `tests/upgrade_transaction_test.sh` tarafından korunur.
+
+Bu dosyanın geri kalanı bulgunun nasıl keşfedildiğini açıklayan tarihsel kanıttır; satır numaraları
+ve eski Claude-only komutları güncel uygulama talimatı olarak kullanılmamalıdır.

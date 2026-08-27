@@ -1,4 +1,4 @@
-# 🧠 avenoxbeyin multi-AI: hatırlamayı unutmayan ikinci beyin
+# 🧠 Respot Brain: araç bağımsız, hatırlamayı unutmayan ikinci beyin
 
 [Obsidian](https://obsidian.md) ile Claude Code, Codex, Cursor ve Antigravity üstünde çalışan,
 açık kaynak bir **ikinci beyin**. Yerel bir Markdown vault, kalıcı hafıza, sıfır bağımlılık,
@@ -234,7 +234,7 @@ aynı değildir, fakat verdikleri hafıza davranışı ortaktır.
 ├── 📦 900-Archive/
 ├── 📋 Templates/
 ├── .beyin/                   # tek kaynak: talimatlar, skill'ler, ortak adaptör
-├── .claude/                  # Claude uyumluluk ve süreklilik motoru
+├── .claude/                  # ortak çekirdek runtime + Claude adapteri (v2 uyumluluk yolu)
 ├── .codex/                   # Codex hook'ları
 ├── .cursor/                  # Cursor rules ve hook'ları
 └── .agents/                  # Antigravity rules, skill ve hook'ları
@@ -264,7 +264,7 @@ opsiyonel değil: günlük log da gece derlemesi de onun üstünde çalışır.
 
 | Platform | Durum | Ne çalışır, ne çalışmaz |
 | --- | --- | --- |
-| macOS | **orijinal akış test edildi** | Claude tabanlı kancalar, `daily/`, `knowledge/`, 🧠 masaüstü kısayolu; multi-AI adaptörleri otomatik testlidir. |
+| macOS | **orijinal akış test edildi** | ortak runtime, `daily/`, `knowledge/`, 🧠 masaüstü kısayolu; multi-AI adaptörleri otomatik testlidir. |
 | Linux | **test edilmedi** | kurulum `uname` ile dallanır: Homebrew, Obsidian cask ve macOS `.app` adımları atlanır, yerine XDG `.desktop` kısayolu yazılır. Vault, kancalar ve scriptler taşınabilir yazıldı ama gerçek bir Linux masaüstünde doğrulanmadı. Denersen sorun aç. |
 | Windows + WSL | **doğrulandı** | Windows Antigravity/Cursor hook'ları `wsl.exe` ile WSL'deki Python motoruna bağlanır; Obsidian aynı vault'u Windows yolundan açar. |
 
@@ -318,7 +318,7 @@ MIT, [LICENSE](LICENSE) dosyasına bak. PR'lar açık.
 
 ## In English (short version)
 
-**avenoxbeyin multi-AI** is an open-source Obsidian second brain for Claude Code, Codex, Cursor,
+**Respot Brain** is a multi-AI fork of avenoxbeyin: an open-source Obsidian second brain for Claude Code, Codex, Cursor,
 and Antigravity. It keeps one canonical instruction and skill source, then generates each agent's
 native rules and hooks. Session-end and pre-compaction events feed conversations into `daily/`;
 the selected local CLI (`claude`, `codex`, `agy`, or `cursor-agent`) compiles those logs into linked articles under

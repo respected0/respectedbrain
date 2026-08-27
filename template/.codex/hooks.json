@@ -1,5 +1,5 @@
 {
-  "description": "Avenox Beyin çoklu-AI hafıza kancaları (üretilmiştir).",
+  "description": "Respot Brain çoklu-AI hafıza kancaları (üretilmiştir).",
   "hooks": {
     "SessionStart": [
       {

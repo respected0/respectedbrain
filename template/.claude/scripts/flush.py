@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Flush a Claude Code transcript into the vault's daily log safely."""
+"""Flush a supported agent transcript into the vault's daily log safely."""
 
 from __future__ import annotations
 
@@ -315,7 +315,7 @@ def _session_state_path(state_dir: Path, session_id: str) -> Path:
     return state_dir / f"flush-{key}.json"
 
 
-def _run_claude(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
+def _run_model(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
     """Compatibility name; dispatches to the selected/available local AI CLI."""
     runner_dir = vault_root / ".beyin"
     if str(runner_dir) not in sys.path:
@@ -343,15 +343,15 @@ def _run_claude(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
             )
     except ImportError:
         # v2 vault compatibility: upgrades may briefly have scripts before .beyin.
-        claude = shutil.which("claude")
-        if claude is None:
+        legacy_claude = shutil.which("claude")
+        if legacy_claude is None:
             return None, "model-cli-missing"
         environment = os.environ.copy()
         environment["BEYIN_INVOKED_BY"] = "beyin-scripts"
         try:
             with tempfile.TemporaryDirectory(prefix="beyin-flush-") as temporary:
                 result = subprocess.run(
-                    [claude, "-p", "--model", "haiku", "--output-format", "text", "--safe-mode", "--tools", ""],
+                    [legacy_claude, "-p", "--model", "haiku", "--output-format", "text", "--safe-mode", "--tools", ""],
                     input=prompt,
                     text=True,
                     capture_output=True,
@@ -577,7 +577,7 @@ def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
                 warning=True,
             )
 
-        summary, error = _run_claude(build_flush_prompt(transcript), VAULT_ROOT)
+        summary, error = _run_model(build_flush_prompt(transcript), VAULT_ROOT)
         if error is not None:
             _record_flush_failure(
                 STATE_DIR,

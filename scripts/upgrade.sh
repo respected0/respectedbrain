@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# avenoxbeyin v1 -> v2 upgrade. Single process, transactional, fail loud.
+# Respot Brain: avenoxbeyin v1 -> v2 core upgrade. Single process, transactional, fail loud.
 #
 # Why this file exists: the upgrade used to live as a chain of fenced Bash blocks in SETUP.md that
 # assigned shell variables in one block and used them in the next. Every Claude Bash call is a
@@ -27,7 +27,7 @@ BEYIN_MEMORY_DIR_NAME="🔮 850-Companion"
 BEYIN_HOOK_FILES="lib.sh session-start.sh prompt-counter.sh session-end.sh pre-compact.sh"
 BEYIN_SCRIPT_FILES="flush.py compile.py"
 BEYIN_SKILL_DIRS="beyin-doktor gecmis-import"
-BEYIN_BACKUP_ROOT="${BEYIN_BACKUP_ROOT:-$HOME/.avenoxbeyin-yedek}"
+BEYIN_BACKUP_ROOT="${BEYIN_BACKUP_ROOT:-$HOME/.respot-brain-yedek}"
 
 say()  { printf '%s\n' "$*"; }
 step() { printf '\n== %s\n' "$*"; }
@@ -103,7 +103,7 @@ git_id() {
   # "nothing to commit". Uses the user's own identity when it exists.
   GIT_N=$(git -C "$V" config user.name  2>/dev/null || printf '')
   GIT_E=$(git -C "$V" config user.email 2>/dev/null || printf '')
-  [ -n "$GIT_N" ] || GIT_N="avenoxbeyin"
+  [ -n "$GIT_N" ] || GIT_N="respot-brain"
   [ -n "$GIT_E" ] || GIT_E="beyin@localhost"
 }
 

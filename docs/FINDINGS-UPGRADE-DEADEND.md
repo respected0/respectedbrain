@@ -1,5 +1,8 @@
 # Upgrade dead-end: tracked `settings.local.json`
 
+> **Tarihsel ve çözülmüş bulgu.** Güncel kullanım talimatı değildir. Regresyonlar
+> `tests/upgrade_settings_test.sh` ve `beyin-doktor` secret/duplicate-hook kontrollerinde korunur.
+
 Found 2026-08-23 while writing the blocker 2/3 regression tests. Two defects, one root cause,
 both fixed in `scripts/upgrade.sh`. Neither the gate review nor the fix lanes caught them,
 because the developer's own machine masked the precondition.

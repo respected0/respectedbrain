@@ -109,6 +109,33 @@ class MultiAITest(unittest.TestCase):
         self.assertNotIn("Claude aboneliğinin", setup)
         self.assertNotIn("claude CLI YOK", setup)
 
+    def test_public_spec_and_template_have_no_stale_claude_only_setup(self):
+        paths = (
+            ROOT / "docs/SPEC-V2.md",
+            ROOT / "docs/beyin-v2.md",
+            ROOT / "template/🎯 100-Command-Center/Dashboard.md",
+            ROOT / "template/🔮 850-Companion/Last-Session.md",
+        )
+        text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
+        for stale in (
+            "github.com/avenoxai/avenoxbeyin.git",
+            "raw.githubusercontent.com/avenoxai",
+            "claude CLI YOK",
+            "mevcut Claude aboneliğinin",
+            "terminal aç ve `claude` çalıştır",
+            "with Claude Code",
+        ):
+            self.assertNotIn(stale, text)
+        for required in (
+            "github.com/respected0/respot-brain",
+            "summary_provider",
+            "cursor-agent",
+            "Windows + WSL",
+            "Antigravity",
+            "Codex",
+        ):
+            self.assertIn(required, text)
+
     def test_runner_falls_back_only_for_retryable_provider_errors(self):
         runner = load("model_runner_fallback", ROOT / "template/.beyin/model_runner.py")
         commands = {"antigravity": (["agy"], None), "claude": (["claude"], "prompt")}

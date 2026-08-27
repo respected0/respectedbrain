@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add/update the multi-AI layer in an existing avenoxbeyin vault safely."""
+"""Add or update the Respot Brain multi-AI layer in an existing brain vault safely."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def main() -> int:
     if not vault.is_dir():
         parser.error(f"vault bulunamadı: {vault}")
     if not ((vault / ".beyin-version").is_file() or (vault / "🔮 850-Companion").is_dir()):
-        parser.error("hedef bir avenoxbeyin vault'u gibi görünmüyor")
+        parser.error("hedef bir v1/v2 ikinci beyin vault'u gibi görünmüyor")
 
     instructions = vault / ".beyin" / "instructions.md"
     source_instructions = instructions if instructions.exists() else vault / "CLAUDE.md"

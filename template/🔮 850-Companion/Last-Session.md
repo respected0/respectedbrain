@@ -1,8 +1,8 @@
 # Last Session
 
 ## Session: {{TODAY}}: Genesis
-{{COMPANION}} was born today. {{USER_NAME}} set up their second brain with Claude Code.
-Nothing unresolved yet. Next session: start using it: capture, ask, build.
+{{COMPANION}} bugün doğdu. {{USER_NAME}} araç bağımsız ikinci beynini kurdu.
+Henüz açık konu yok. Sonraki oturumda desteklenen herhangi bir agentla yakala, sor ve üret.
 
 ## Previous Sessions
 (none yet)

@@ -525,7 +525,7 @@ def _promote_changes(
         _atomic_copy(source, destination)
 
 
-def _run_claude(prompt: str, stage: Path) -> str | None:
+def _run_model(prompt: str, stage: Path) -> str | None:
     """Compatibility name; dispatches to the selected/available local AI CLI."""
     runner_dir = VAULT_ROOT / ".beyin"
     if str(runner_dir) not in sys.path:
@@ -542,14 +542,14 @@ def _run_claude(prompt: str, stage: Path) -> str | None:
         )
     except ImportError:
         # v2 vault compatibility: upgrades may briefly have scripts before .beyin.
-        claude = shutil.which("claude")
-        if claude is None:
+        legacy_claude = shutil.which("claude")
+        if legacy_claude is None:
             return "model-cli-missing"
         environment = os.environ.copy()
         environment["BEYIN_INVOKED_BY"] = "beyin-scripts"
         try:
             result = subprocess.run(
-                [claude, "-p", "--model", "sonnet", "--output-format", "text", "--safe-mode", "--tools", "Read,Write,Edit,Glob,Grep", "--permission-mode", "acceptEdits", "--allowedTools", "Read,Write,Edit,Glob,Grep"],
+                [legacy_claude, "-p", "--model", "sonnet", "--output-format", "text", "--safe-mode", "--tools", "Read,Write,Edit,Glob,Grep", "--permission-mode", "acceptEdits", "--allowedTools", "Read,Write,Edit,Glob,Grep"],
                 input=prompt,
                 text=True,
                 capture_output=True,
@@ -606,7 +606,7 @@ def _compile_one(
             daily_body,
             timestamp,
         )
-        error = _run_claude(prompt, stage)
+        error = _run_model(prompt, stage)
         if error is not None:
             return error, error
         if _sha256(daily_path) != expected_digest:

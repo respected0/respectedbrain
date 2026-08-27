@@ -1,5 +1,7 @@
 # FINDINGS-A
 
+> Tarihsel test geliştirme kaydıdır. Güncel mimari sözleşmesi `docs/SPEC-V2.md` dosyasındadır.
+
 ## BLOCKER 2: `--no-git` vault yedeği, çözüldü
 
 **Durum:** YEŞİL

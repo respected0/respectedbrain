@@ -83,14 +83,14 @@ def render(check: bool) -> bool:
     )
     changed |= write_text(
         TEMPLATE / ".cursor" / "rules" / "beyin.mdc",
-        "---\ndescription: Avenox Beyin ortak hafıza ve çalışma kuralları\nalwaysApply: true\n---\n\n"
+        "---\ndescription: Respot Brain ortak hafıza ve çalışma kuralları\nalwaysApply: true\n---\n\n"
         + generated,
         check,
     )
     changed |= sync_skills(check)
 
     codex_hooks = {
-        "description": "Avenox Beyin çoklu-AI hafıza kancaları (üretilmiştir).",
+        "description": "Respot Brain çoklu-AI hafıza kancaları (üretilmiştir).",
         "hooks": {
             "SessionStart": [{"hooks": [{"type": "command", "command": command("codex", "start", False), "commandWindows": command("codex", "start", True), "timeout": 15, "additionalContextLimit": 16000}]}],
             "UserPromptSubmit": [{"hooks": [{"type": "command", "command": command("codex", "prompt", False), "commandWindows": command("codex", "prompt", True), "timeout": 5}]}],
@@ -112,7 +112,7 @@ def render(check: bool) -> bool:
     changed |= write_json(TEMPLATE / ".cursor" / "hooks.json", cursor_hooks, check)
 
     antigravity_hooks = {
-        "avenox-beyin": {
+        "respot-brain": {
             "PreInvocation": [{"type": "command", "command": command("antigravity", "start"), "timeout": 15}],
             "Stop": [{"type": "command", "command": command("antigravity", "end"), "timeout": 10}],
         }

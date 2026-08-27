@@ -14,7 +14,8 @@ Hoş geldin {{USER_NAME}}. Bu senin ikinci beynin.
 - 🔮 [[🔮 850-Companion/Core|{{COMPANION}}]]
 
 ## Nasıl kullanılır
-Bu klasörde terminal aç ve `claude` çalıştır, sonra konuş. {{COMPANION}} her şeyi hatırlar,
-düzenler, üstüne koyar. Notları sen yönetmezsin: konuşursun, o organize eder.
+Bu vault'u Antigravity, Codex, Cursor veya Claude Code ile açıp konuş. Global bağlantıyı
+kurduysan normal kod projelerinde çalışırken de {{COMPANION}} aynı hafızayı kullanır. Notları
+tek tek yönetmek zorunda değilsin: konuşursun, sistem kalıcı bağlamı organize eder.
 
 > Masaüstündeki 🧠 ikonu bu vault'u tek tıkla Obsidian'da açar.

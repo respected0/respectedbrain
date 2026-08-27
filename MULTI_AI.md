@@ -1,4 +1,4 @@
-# Avenox Beyin — çoklu AI kullanımı
+# Respot Brain — çoklu AI kullanımı
 
 Bu dalda vault tek bir AI aracına ait değildir. Claude Code, Codex, Cursor ve Antigravity aynı
 Markdown hafızasını, kuralları, skill'leri ve günlük/knowledge hattını paylaşır.

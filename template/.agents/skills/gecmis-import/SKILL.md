@@ -473,14 +473,16 @@ formatında yeniden dışa aktarmasını iste.
 - Yazılan ve atlanan sohbet sayılarını ayrı göster. Her parça dosyasının sohbet ve karakter
   sayısını betik çıktısından aktar.
 - `daily/import-*.md` dosyaları yereldir. Akşam derleyicisi içeriklerini özetleme için
-  kullanıcının kendi Claude aboneliği üzerinden Claude'a gönderir. Başka yere gönderim yapılmaz.
+  `.beyin/config.json` ve fallback sırasına göre seçilen yerel AI CLI'ın modeline gönderir.
+  Başka yere gönderim yapılmaz.
 - Derleyici akşamları bir tur çalışır ve her turda değişen logları işler. Büyük bir arşiv birkaç
   akşama yayılabilir.
 - Kullanıcı beklemek istemezse önce `python3 .claude/scripts/compile.py --dry-run`, sonra açık
   onayıyla `python3 .claude/scripts/compile.py` çalıştırılabilir. Her tur abonelik limitinden pay
   tüketir.
-- Kullanıcı içeriği Claude'a göndermek istemezse derleyiciyi çalıştırmamalı ve ilgili aylık parça
-  dosyalarını akşam derlemesinden önce silmelidir.
+- Kullanıcı içeriği hiçbir harici modele göndermek istemezse derleyiciyi çalıştırmamalı ve ilgili
+  aylık parça dosyalarını akşam derlemesinden önce silmelidir. Belirli bir sağlayıcıyı istemiyorsa
+  derlemeden önce `scripts/set_summary_provider.py` ile başka bir ilk tercih seçebilir.
 - 50 MB sınırı nedeniyle daha eski arşiv atlandıysa bunu açıkça söyle ve ayrı bir tarih aralığıyla
   ikinci tur isteyip istemediğini sor.
 
