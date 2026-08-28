@@ -44,8 +44,9 @@ katmanına uyarlamak ve sonraki incelemede aynı analizi tekrarlamamaktır.
 - Claude gerektirmeyen PowerShell 5.1 uyumlu taze kurucu ve `1.0.0 → 1.1.0` transactional updater;
 - gerçek Windows PowerShell kurulum testi ve Windows Python süreçlerinde dört provider lifecycle,
   concurrency, detached flush, quota fallback ve current-day catch-up sınırı;
-- `.github/workflows/windows.yml` içindeki `windows-latest` release kapısı. Workflow sonucu ilk
-  yetkili `main` push'ından sonra bu kayda eklenecek.
+- `.github/workflows/windows.yml` içindeki `windows-latest` release kapısı. Commit `5855918` için
+  [windows-native #33209497580](https://github.com/respected0/respot-brain/actions/runs/33209497580)
+  42 saniyede geçti; PowerShell fresh-install ve native lifecycle/runtime adımları yeşil.
 
 ### Bilinçli olarak alınmayanlar
 

@@ -287,7 +287,7 @@ Windows komutu `py.exe -3` olur. Python opsiyonel değil: günlük log da bilgi 
 | macOS | **orijinal akış test edildi** | ortak runtime, `daily/`, `knowledge/`, 🧠 masaüstü kısayolu; multi-AI adaptörleri otomatik testlidir. |
 | Linux | **test edilmedi** | kurulum `uname` ile dallanır: Homebrew, Obsidian cask ve macOS `.app` adımları atlanır, yerine XDG `.desktop` kısayolu yazılır. Vault, kancalar ve scriptler taşınabilir yazıldı ama gerçek bir Linux masaüstünde doğrulanmadı. Denersen sorun aç. |
 | Windows + WSL | **doğrulandı** | Windows Antigravity/Cursor hook'ları `wsl.exe` ile WSL'deki Python motoruna bağlanır; Obsidian aynı vault'u Windows yolundan açar. |
-| Windows native | **gerçek Windows süreç testleri geçti; GitHub CI push bekliyor** | `py.exe -3` ile ortak Python lifecycle doğrudan çalışır; WSL/Bash gerekmez. Taze kurulum ve damgalı Respot güncellemesi desteklenir, damgasız v1 dönüşümü henüz WSL ister. |
+| Windows native | **Windows CI doğrulandı; gerçek iki-provider smoke bekliyor** | `py.exe -3` ile ortak Python lifecycle doğrudan çalışır; WSL/Bash gerekmez. Taze kurulum ve damgalı Respot güncellemesi desteklenir, damgasız v1 dönüşümü henüz WSL ister. |
 
 Masaüstü kısayolu macOS'ta `osacompile` ve AppKit kullanır, ikisi de Linux'ta yoktur. Vault'un
 kendisi düz Markdown, yani her yerde açılır. Windows + WSL global multi-agent köprüsü doğrulandı;

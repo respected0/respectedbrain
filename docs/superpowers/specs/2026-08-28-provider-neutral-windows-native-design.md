@@ -1,6 +1,6 @@
 # Provider-Neutral Native Windows Design
 
-**Status:** Proposed
+**Status:** Implemented — local and GitHub Windows CI verified; real two-provider smoke pending
 **Date:** 2026-08-28
 **Scope:** Respot Brain native Windows foundation only
 
