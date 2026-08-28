@@ -105,7 +105,9 @@ class MultiAITest(unittest.TestCase):
             self.assertIn(required, readme)
         self.assertIn("Claude is not mandatory", setup)
         self.assertIn("PHASE 3B: Optional global multi-agent connection", setup)
-        self.assertIn("PHASE U7: Enable multi-AI", setup)
+        self.assertIn("PHASE U7: Optional global access", setup)
+        self.assertIn("directly to Respot Brain", setup)
+        self.assertIn("Do **not**\nrun a second `enable_multiai.py` migration", setup)
         self.assertNotIn("Claude aboneliğinin", setup)
         self.assertNotIn("claude CLI YOK", setup)
 

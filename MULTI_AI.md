@@ -27,6 +27,10 @@ python3 scripts/render_integrations.py --check
 
 ## Mevcut v2 vault'u taşımak
 
+Bu bölüm yalnız daha önce çekirdek v2'ye yükseltilmiş harici/eski bir vault'u elle tamamlamak veya
+onarım yapmak içindir. v1'den güncel Respot Brain'e geçiyorsan bunu ayrıca çalıştırma;
+`scripts/upgrade.sh` çekirdek ve multi-AI katmanını tek doğrulanmış işlemde birlikte kurar.
+
 Komut önce yalnızca nelerin yönetileceğini gösterir:
 
 ```bash

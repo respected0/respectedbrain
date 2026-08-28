@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# v1 -> v2 yükseltmesinin işlem sınırları ve sürüm damgası regresyon testleri.
+# v1/core-v2 -> Respot Brain yükseltmesinin işlem sınırları ve damga regresyon testleri.
 set -euo pipefail
 
 TEST_ROOT=$(CDPATH= cd "$(dirname "$0")/.." 2>/dev/null && pwd)
@@ -279,11 +279,14 @@ test_stamp_only_finalize() {
   run_upgrade "$case_dir" "$case_dir/apply.out" --vault "$vault" --stage apply --confirm-local-hooks
   assert_eq 0 "$RUN_STATUS" "apply başarısız" || return 1
   assert_no_file "$vault/.beyin-version" || return 1
+  assert_no_file "$vault/.beyin-multi-version" || return 1
   run_upgrade "$case_dir" "$case_dir/finalize.out" --vault "$vault" --stage finalize
   assert_eq 0 "$RUN_STATUS" "finalize başarısız" || return 1
   assert_file "$vault/.beyin-version" || return 1
   stamp=$(sed -n '1p' "$vault/.beyin-version")
   assert_eq 2.0.0 "$stamp" "sürüm damgası yanlış" || return 1
+  assert_eq 1.0.0 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
+    "Respot multi-AI damgası yanlış" || return 1
 }
 
 test_fresh_shell_chain() {
@@ -313,6 +316,12 @@ test_fresh_shell_chain() {
       || { diag "v2 scripti kaynakla aynı değil: $script"; return 1; }
   done
   assert_eq 2.0.0 "$(sed -n '1p' "$vault/.beyin-version")" "taze shell zinciri damgası" || return 1
+  assert_eq 1.0.0 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
+    "taze shell Respot multi-AI damgası" || return 1
+  for file in AGENTS.md .beyin/instructions.md .beyin/model_runner.py .beyin/config.json \
+              .agents/hooks.json .codex/hooks.json .cursor/hooks.json; do
+    assert_file "$vault/$file" || return 1
+  done
 }
 
 test_apply_failure_no_stamp() {
@@ -339,6 +348,7 @@ test_finalize_failure_no_stamp() {
   run_upgrade "$case_dir" "$case_dir/finalize.out" --vault "$vault" --stage finalize
   [ "$RUN_STATUS" -ne 0 ] || { diag "eksik lib.sh ile finalize başarılı göründü"; return 1; }
   assert_no_file "$vault/.beyin-version" || return 1
+  assert_no_file "$vault/.beyin-multi-version" || return 1
 }
 
 test_already_v2() {
@@ -347,11 +357,33 @@ test_already_v2() {
   vault="$case_dir/vault"
   make_v1_vault "$vault" --clean-local
   printf '2.0.0\n' > "$vault/.beyin-version"
+  printf '1.0.0\n' > "$vault/.beyin-multi-version"
   before=$(tree_digest "$vault")
   run_upgrade "$case_dir" "$case_dir/apply.out" --vault "$vault" --stage apply
   assert_eq 3 "$RUN_STATUS" "zaten v2 vault apply çıkışı" || return 1
   after=$(tree_digest "$vault")
   assert_eq "$before" "$after" "zaten v2 vault apply ile değişti" || return 1
+}
+
+test_core_only_v2_completes_respot_upgrade() {
+  local case_dir vault
+  case_dir=$(new_case)
+  vault="$case_dir/vault"
+  make_v1_vault "$vault" --clean-local
+  printf '2.0.0\n' > "$vault/.beyin-version"
+  prepare_finalizable_vault "$vault"
+
+  run_upgrade "$case_dir" "$case_dir/apply.out" --vault "$vault" --stage apply
+  assert_eq 0 "$RUN_STATUS" "yalnız v2 çekirdekten Respot apply başarısız" || return 1
+  assert_no_file "$vault/.beyin-multi-version" || return 1
+  run_upgrade "$case_dir" "$case_dir/finalize.out" --vault "$vault" --stage finalize
+  assert_eq 0 "$RUN_STATUS" "yalnız v2 çekirdekten Respot finalize başarısız" || return 1
+  assert_eq 1.0.0 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
+    "çekirdek-only vault Respot damgası almadı" || return 1
+  assert_file "$vault/AGENTS.md" || return 1
+  assert_file "$vault/.agents/hooks.json" || return 1
+  assert_file "$vault/.codex/hooks.json" || return 1
+  assert_file "$vault/.cursor/hooks.json" || return 1
 }
 
 test_no_git_verified_snapshot() {
@@ -485,7 +517,8 @@ run_case "sürüm damgasını apply değil yalnız finalize yazar" test_stamp_on
 run_case "check apply finalize ayrı taze shell süreçlerinde tamamlanır" test_fresh_shell_chain
 run_case "apply kopyalama hatasında başarısız olur ve damga yazmaz" test_apply_failure_no_stamp
 run_case "finalize kapısı bozulunca başarısız olur ve damga yazmaz" test_finalize_failure_no_stamp
-run_case "zaten 2.0.0 damgalı vault apply için 3 döndürür" test_already_v2
+run_case "zaten Respot Brain damgalı vault apply için 3 döndürür" test_already_v2
+run_case "yalnız v2 çekirdeği olan vault Respot Brain'e tamamlanır" test_core_only_v2_completes_respot_upgrade
 run_case "git olmayan vault doğrulanmış anlık görüntü bırakmadan ilerlemiyor" test_no_git_verified_snapshot
 run_case "git ikilisi yokken harici doğrulanmış yedek dalı gerçekten çalışıyor" test_no_git_binary_uses_external_backup
 run_case "yeniden adlandırma onayı yoksa apply atomik olarak 10 döndürür" test_rename_confirmation_is_atomic

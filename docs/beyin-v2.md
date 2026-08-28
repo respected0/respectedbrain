@@ -61,11 +61,14 @@ Vault adı serbesttir. `respectedOS` yalnız kişisel bir örnektir. Companion a
 
 - Beyin yoksa template'ten taze vault oluşturur.
 - `CLAUDE.md` ve `🔮 850-Companion/` bulunan, `.beyin-version` bulunmayan vault'u v1 sayar.
-- v1 bulunduğunda `scripts/upgrade.sh` ile doğrulanmış snapshot → apply → finalize zincirini uygular.
-- Zaten v2 olan vault'a `enable_multiai.py` ile eksik adapter/runtime parçalarını ekleyebilir.
+- v1 bulunduğunda `scripts/upgrade.sh` ile doğrulanmış snapshot → apply → finalize zincirini uygular
+  ve ara bir çekirdek-v2 kurulumu bırakmadan doğrudan Respot Brain'e yükseltir.
+- Yalnız çekirdek `2.0.0` damgası olan vault'u güncel saymaz; aynı yükseltme eksik tek-kaynak
+  talimatlarını ve Claude/Codex/Cursor/Antigravity adapterlarını tamamlar.
+- `enable_multiai.py` bağımsız kullanımı, zaten v2 olan harici/eski vault'ları elle onarmak içindir.
 
 Yükseltme mevcut companion hafızasını, Dashboard'u ve kullanıcı notlarını değiştirmez.
-`.beyin-version` bütün kapılar geçtikten sonra en son yazılır.
+`.beyin-multi-version` ve ardından yetkili `.beyin-version` bütün kapılar geçtikten sonra yazılır.
 
 ## Elle global bağlantı
 

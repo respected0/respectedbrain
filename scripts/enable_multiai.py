@@ -14,6 +14,7 @@ import os
 
 REPO = Path(__file__).resolve().parents[1]
 TEMPLATE = REPO / "template"
+MULTI_VERSION = "1.0.0"
 GENERATED = (
     "AGENTS.md", "CLAUDE.md", ".codex/hooks.json", ".cursor/hooks.json",
     ".cursor/rules/beyin.mdc", ".agents/hooks.json", ".agents/rules/beyin.md",
@@ -38,6 +39,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("vault", type=Path, help="mevcut vault klasörü")
     parser.add_argument("--apply", action="store_true", help="önizleme yerine değişiklikleri uygula")
+    parser.add_argument(
+        "--defer-version-stamp",
+        action="store_true",
+        help="upgrade transaction için adapterları kur ama .beyin-multi-version yazma",
+    )
     parser.add_argument(
         "--platform",
         choices=("auto", "portable", "windows-wsl"),
@@ -97,8 +103,15 @@ def main() -> int:
     if result.returncode != 0:
         print(f"üretim başarısız; yedek: {backup}", file=sys.stderr)
         return result.returncode
-    (vault / ".beyin-multi-version").write_text("1.0.0\n", encoding="utf-8")
-    print(f"çoklu-AI katmanı kuruldu ({platform}); değiştirilen adaptörlerin yedeği: {backup}")
+    if not args.defer_version_stamp:
+        (vault / ".beyin-multi-version").write_text(f"{MULTI_VERSION}\n", encoding="utf-8")
+        version_message = f"multi sürüm: {MULTI_VERSION}"
+    else:
+        version_message = "multi sürüm damgası finalize aşamasına bırakıldı"
+    print(
+        f"çoklu-AI katmanı kuruldu ({platform}); {version_message}; "
+        f"değiştirilen adaptörlerin yedeği: {backup}"
+    )
     return 0
 
 

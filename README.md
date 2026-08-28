@@ -140,28 +140,30 @@ yerel CLI'ın çağrılacağını belirler. Seçilen sağlayıcı geçici olarak
 ### Zaten v1 beynin varsa
 
 Aynı komut yeter. `SETUP.md` önce mevcut bir beyin arar, bulursa yükseltme moduna geçer ve işi
-tek bir script'e devreder: `scripts/upgrade.sh`. Yükseltme **sadece ekler**: mevcut hafıza
-dosyalarına, Dashboard'a, notlarına dokunulmaz. `daily/`, `knowledge/`, scriptler ve skill'ler
-eklenir, dört kanca dosyası yenisiyle değiştirilir, `settings.json` kanca kaydı tekrar tekrar
-çalıştırılabilecek şekilde birleştirilir.
+tek bir script'e devreder: `scripts/upgrade.sh`. Bu işlem ara bir “avenoxbeyin v2” kurulumu
+bırakmaz; çekirdek v2 dosyalarını, tek-kaynak agent talimatlarını ve Claude/Codex/Cursor/
+Antigravity adapterlarını aynı doğrulanmış işlem içinde kurarak doğrudan **Respot Brain**'e
+yükseltir. Yükseltme **sadece ekler**: mevcut hafıza dosyalarına, Dashboard'a ve notlarına
+dokunulmaz. Yalnız eski çekirdek `2.0.0` damgası bulunan yarım bir kurulum da eksik Respot
+katmanı tamamlanmadan “güncel” sayılmaz.
 
 Üç şeyi peşinen bilmen iyi olur:
 
 - **Hafıza klasörünün adı `🔮 850-Companion` olmak zorunda.** Kancalar ve scriptler bu sabit yolu
   okuyor. Klasörün adı ortağının adıysa (`🔮 850-Echo` gibi) script bunu `git mv` ile değiştirmeyi
   teklif eder. İçerik hiç değişmez, sadece klasör adı değişir. Hayır dersen yükseltme hiç
-  başlamaz ve vault'a v2 damgası vurulmaz; yarım kurulmuş bir v2'den dürüst bir v1 iyidir.
+  başlamaz ve vault'a Respot damgaları vurulmaz; yarım kurulmuş bir sistemden dürüst bir v1 iyidir.
 - **İlk iş git anlık görüntüsü.** Alınamazsa yükseltme durur, devam etmez. Geri dönüş her zaman
   açık.
-- **Sürüm damgası en sona yazılır.** Kancalar, scriptler, placeholder'lar, kanca sayısı ve
-  `.gitignore` koruması tek tek doğrulandıktan sonra. Bir kapı bile geçilmezse `.beyin-version`
-  yazılmaz.
+- **İki sürüm damgası en sona yazılır.** Kancalar, scriptler, adapter drift'i, placeholder'lar,
+  kanca sayısı ve `.gitignore` koruması tek tek doğrulandıktan sonra önce multi-AI, ardından
+  yetkili çekirdek damgası yazılır. Bir kapı bile geçilmezse ikisi de yazılmaz.
 
 ---
 
-## v1 → v2
+## v1 → Respot Brain
 
-| | v1 | v2 |
+| | v1 | Respot Brain |
 | --- | --- | --- |
 | Günlük hafıza | model hatırlarsa yazar | oturum kapanışında **otomatik** yazılır |
 | Kanca sayısı | 3 | 4 (`PreCompact` eklendi) |
@@ -326,13 +328,16 @@ the selected local CLI (`claude`, `codex`, `agy`, or `cursor-agent`) compiles th
 
 Install: `git clone https://github.com/respected0/respot-brain.git && cd respot-brain`, then ask
 your coding agent to read and follow `SETUP.md`. Already running v1?
-The same command detects it and hands the work to one committed script, `scripts/upgrade.sh`:
-additive only, your memory files are never touched, the settings merge is idempotent, and it takes
-a **verified** git snapshot before it changes anything. Two things it will ask you about, and stop
+The same command detects it and hands the work to one committed script, `scripts/upgrade.sh`.
+That transaction upgrades directly to Respot Brain: core v2 plus the shared instruction source and
+Claude/Codex/Cursor/Antigravity adapters. It does not leave an intermediate avenoxbeyin-v2 install.
+It is additive only, your memory files are never touched, the settings merge is idempotent, and it takes
+a **verified** git snapshot before it changes anything. A core-only `2.0.0` vault is completed rather
+than treated as current. Two things it will ask you about, and stop
 for if you say no: renaming the memory folder to the fixed `🔮 850-Companion` path (a `git mv`, the
 contents never move), and removing v1 hook wiring left behind in `settings.local.json` so hooks
-stop firing twice. The `.beyin-version` stamp is the last write of all, only after every gate
-passes.
+stop firing twice. Neither version stamp is written early: after every gate passes, the multi-AI
+stamp is written first and the authoritative `.beyin-version` stamp is the final write.
 
 Platform honesty: the original macOS path remains supported. Linux desktop remains unverified.
 Windows + WSL has been verified with Windows-side hooks invoking the Python memory engine through

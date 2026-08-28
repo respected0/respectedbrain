@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Respot Brain: avenoxbeyin v1 -> v2 core upgrade. Single process, transactional, fail loud.
+# Respot Brain: avenoxbeyin v1/core-v2 -> complete Respot Brain. Transactional, fail loud.
 #
 # Why this file exists: the upgrade used to live as a chain of fenced Bash blocks in SETUP.md that
 # assigned shell variables in one block and used them in the next. Every Claude Bash call is a
@@ -13,15 +13,16 @@
 #
 # Stages:
 #   check     read only. Prints the plan and the confirmations the user must give. Mutates nothing.
-#   apply     snapshot, rename, copy, merge, migrate. Does NOT write .beyin-version.
-#   finalize  re-runs every gate, commits with an explicit allow-list, then writes .beyin-version
-#             atomically as the very last filesystem write.
+#   apply     snapshot, core migration and multi-AI adapters. Writes neither version stamp.
+#   finalize  re-runs every gate, commits with an explicit allow-list, then writes the multi-AI
+#             stamp followed by the authoritative core stamp as the final filesystem write.
 #
 # Exit codes: 0 ok | 1 hard failure | 2 usage | 3 nothing to do | 10 needs --confirm-rename
 #             11 needs --confirm-local-hooks
 set -euo pipefail
 
 BEYIN_TARGET_VERSION="2.0.0"
+BEYIN_MULTI_VERSION="1.0.0"
 BEYIN_SCRIPT_VERSION="2.0.0"
 BEYIN_MEMORY_DIR_NAME="🔮 850-Companion"
 BEYIN_HOOK_FILES="lib.sh session-start.sh prompt-counter.sh session-end.sh pre-compact.sh"
@@ -75,6 +76,15 @@ REPO=$(canon_dir "$SELF_DIR/..") || die "repo kökü çözümlenemedi"
 [ -d "$VAULT" ] || die "vault klasörü yok: $VAULT"
 V=$(canon_dir "$VAULT") || die "vault yolu çözümlenemedi: $VAULT"
 
+MULTI_PLATFORM="portable"
+case "$V" in
+  /mnt/*)
+    if [ -n "${WSL_DISTRO_NAME:-}" ] || [ -n "${WSL_INTEROP:-}" ]; then
+      MULTI_PLATFORM="windows-wsl"
+    fi
+    ;;
+esac
+
 [ -n "$V" ]      || die "vault yolu boş çözümlendi"
 [ "$V" != "/" ]  || die "vault olarak / kabul edilmiyor"
 [ "$V" != "$HOME" ] || die "vault olarak ev dizini kabul edilmiyor"
@@ -92,6 +102,9 @@ command -v python3 >/dev/null 2>&1 || die "python3 bulunamadı. v2 makine katman
 
 CUR_VERSION=""
 [ -f "$V/.beyin-version" ] && CUR_VERSION=$(sed -n '1p' "$V/.beyin-version" 2>/dev/null || printf '')
+CUR_MULTI_VERSION=""
+[ -f "$V/.beyin-multi-version" ] \
+  && CUR_MULTI_VERSION=$(sed -n '1p' "$V/.beyin-multi-version" 2>/dev/null || printf '')
 
 STATE_DIR="$V/.claude/scripts/.state"
 MANIFEST="$STATE_DIR/upgrade-manifest.txt"
@@ -158,6 +171,7 @@ ensure_gitignore() {
 .DS_Store
 .obsidian/workspace*
 .obsidian/cache
+.beyin/backups/
 IGN
   say "gitignore: $GI_ADDED satır eklendi"
 }
@@ -232,10 +246,15 @@ PY
 }
 
 # ---------------------------------------------------------------- preconditions shared by stages
-if [ "$CUR_VERSION" = "$BEYIN_TARGET_VERSION" ] && [ "$STAGE" != "finalize" ]; then
-  say "Bu vault zaten v$BEYIN_TARGET_VERSION damgalı: $V"
+if [ "$CUR_VERSION" = "$BEYIN_TARGET_VERSION" ] \
+   && [ "$CUR_MULTI_VERSION" = "$BEYIN_MULTI_VERSION" ] \
+   && [ "$STAGE" != "finalize" ]; then
+  say "Bu vault zaten Respot Brain: çekirdek $BEYIN_TARGET_VERSION, multi-AI $BEYIN_MULTI_VERSION"
   say "Yapılacak bir şey yok. Eksik varsa 'beyin doktor' çalıştır."
   exit 3
+fi
+if [ "$CUR_VERSION" = "$BEYIN_TARGET_VERSION" ] && [ -z "$CUR_MULTI_VERSION" ]; then
+  say "v2 çekirdeği var ama Respot multi-AI damgası yok; upgrade Respot Brain kurulumunu tamamlayacak."
 fi
 if [ -n "$CUR_VERSION" ] && [ "$CUR_VERSION" != "$BEYIN_TARGET_VERSION" ]; then
   say "UYARI: beklenmeyen sürüm damgası bulundu: '$CUR_VERSION'. Devam etmeden kullanıcıya sor."
@@ -270,6 +289,7 @@ if [ "$STAGE" = "check" ]; then
   say "repo            : $REPO"
   say "hafıza klasörü  : $MEM_NAME"
   say "mevcut sürüm    : ${CUR_VERSION:-v1 (.beyin-version yok)}"
+  say "multi-AI sürümü : ${CUR_MULTI_VERSION:-yok (Respot katmanı tamamlanacak)}"
   say "git deposu      : $([ -d "$V/.git" ] && printf 'var' || printf 'yok, kurulacak')"
   say "settings.local  : $LOCAL_MINE adet v1 beyin kancası, $LOCAL_OTHER adet ilgisiz kanca girdisi"
   step "ONAY GEREKLİ"
@@ -314,11 +334,11 @@ if [ "$STAGE" = "apply" ]; then
   mkdir -p "$STATE_DIR"
   : > "$MANIFEST"
 
-  step "1/9 .gitignore (anlık görüntüden ÖNCE, sır sahnelenmesin diye)"
+  step "1/10 .gitignore (anlık görüntüden ÖNCE, sır sahnelenmesin diye)"
   ensure_gitignore
   untrack_ignored_secrets
 
-  step "2/9 anlık görüntü (doğrulanmış)"
+  step "2/10 anlık görüntü (doğrulanmış)"
   SNAP_OK=0
   if command -v git >/dev/null 2>&1; then
     if [ ! -d "$V/.git" ]; then
@@ -356,7 +376,7 @@ if [ "$STAGE" = "apply" ]; then
     say "doğrulanmış yedek: $COPY_DST ($DST_N öğe)"
   fi
 
-  step "3/9 hafıza klasörü adı"
+  step "3/10 hafıza klasörü adı"
   if [ "$NEED_RENAME" = "1" ]; then
     [ ! -e "$V/$BEYIN_MEMORY_DIR_NAME" ] || die "hedef klasör zaten var: $BEYIN_MEMORY_DIR_NAME. Elle çözülmeli."
     BEFORE_N=$(find "$MEM_DIR" -mindepth 1 | wc -l | tr -d ' ')
@@ -376,7 +396,7 @@ if [ "$STAGE" = "apply" ]; then
     say "zaten doğru: $MEM_NAME"
   fi
 
-  step "4/9 klasörler"
+  step "4/10 klasörler"
   mkdir -p "$V/daily" "$V/knowledge/concepts" "$V/knowledge/connections" \
            "$V/.claude/scripts/.state" "$V/.claude/skills" "$V/.claude/hooks"
   for K in "daily/.gitkeep" "knowledge/concepts/.gitkeep" "knowledge/connections/.gitkeep" \
@@ -385,7 +405,7 @@ if [ "$STAGE" = "apply" ]; then
   done
   say "klasörler ve .gitkeep dosyaları yerinde"
 
-  step "5/9 scriptler ve skill'ler (kod, üzerine yazılır)"
+  step "5/10 çekirdek scriptler ve skill'ler (kod, üzerine yazılır)"
   for F in $BEYIN_SCRIPT_FILES; do
     copy_file "$REPO/template/.claude/scripts/$F" "$V/.claude/scripts/$F" ".claude/scripts/$F"
     say "  .claude/scripts/$F"
@@ -396,7 +416,7 @@ if [ "$STAGE" = "apply" ]; then
     say "  .claude/skills/$S/SKILL.md"
   done
 
-  step "6/9 tohum dosyaları (sadece yoksa)"
+  step "6/10 tohum dosyaları (sadece yoksa)"
   SEEDS_TMP=$(mktemp)
   printf '%s\n' "knowledge/index.md" "knowledge/log.md" > "$SEEDS_TMP"
   printf '%s\n' "$BEYIN_MEMORY_DIR_NAME/Kurallar.md" >> "$SEEDS_TMP"
@@ -410,7 +430,7 @@ if [ "$STAGE" = "apply" ]; then
   done < "$SEEDS_TMP"
   rm -f "$SEEDS_TMP"
 
-  step "7/9 kancalar (kod, üzerine yazılır)"
+  step "7/10 çekirdek kancalar (kod, üzerine yazılır)"
   for H in $BEYIN_HOOK_FILES; do
     copy_file "$REPO/template/.claude/hooks/$H" "$V/.claude/hooks/$H" ".claude/hooks/$H"
     chmod +x "$V/.claude/hooks/$H" || die "chmod +x başarısız: $H"
@@ -418,7 +438,7 @@ if [ "$STAGE" = "apply" ]; then
     say "  $H (çalıştırılabilir, sözdizimi ✓)"
   done
 
-  step "8/9 settings.json kanca kaydı (birleştir, tekrar çalıştırılabilir)"
+  step "8/10 settings.json kanca kaydı (birleştir, tekrar çalıştırılabilir)"
   python3 - "$V" "$REPO" <<'PY' || die "settings.json birleştirme başarısız"
 import json, os, sys, tempfile
 vault, repo = sys.argv[1], sys.argv[2]
@@ -463,7 +483,7 @@ print("eklenen kanca girdisi:", added)
 PY
   record ".claude/settings.json"
 
-  step "9/9 settings.local.json geçişi"
+  step "9/10 settings.local.json geçişi"
   if [ "$LOCAL_MINE" = "0" ]; then
     say "settings.local.json içinde v1 beyin kancası yok, dokunulmadı"
   else
@@ -521,11 +541,23 @@ print("kalan anahtarlar :", sorted(d))
 PY
   fi
 
+  step "10/10 Respot Brain multi-AI katmanı"
+  python3 "$REPO/scripts/enable_multiai.py" "$V" \
+    --platform "$MULTI_PLATFORM" --apply --defer-version-stamp \
+    || die "Respot Brain multi-AI katmanı kurulamadı"
+  [ -s "$V/.beyin/instructions.md" ] || die "kanonik talimat kaynağı kurulamadı"
+  [ -s "$V/.beyin/model_runner.py" ] || die "provider-neutral model runner kurulamadı"
+  [ ! -e "$V/.beyin-multi-version" ] \
+    || die "multi sürüm damgası finalize öncesinde yazılmamalıydı"
+  say "multi-AI adapterları hazır ($MULTI_PLATFORM); sürüm damgası finalize aşamasında yazılacak"
+
   printf 'apply %s\n' "$(date +%Y-%m-%dT%H:%M:%S)" > "$STAGE_MARK"
 
   step "APPLY TAMAM"
-  say "Sürüm damgası HENÜZ yazılmadı. Bu bilinçli."
-  LEFT=$(grep -rl "{{" "$V/knowledge" "$V/.claude/skills" "$V/$BEYIN_MEMORY_DIR_NAME" 2>/dev/null || printf '')
+  say "Çekirdek ve Respot multi-AI sürüm damgaları HENÜZ yazılmadı. Bu bilinçli."
+  LEFT=$(grep -rl "{{" "$V/knowledge" "$V/.claude/skills" "$V/.beyin" \
+                    "$V/.agents" "$V/.cursor" "$V/AGENTS.md" "$V/CLAUDE.md" \
+                    "$V/$BEYIN_MEMORY_DIR_NAME" 2>/dev/null || printf '')
   if [ -n "$LEFT" ]; then
     say "Şu dosyalarda hâlâ {{PLACEHOLDER}} var, doldur:"
     printf '%s\n' "$LEFT"
@@ -571,6 +603,41 @@ for S in $BEYIN_SKILL_DIRS; do
   gate "skill $S" "$R"
 done
 
+for F in ".beyin/instructions.md" ".beyin/config.json" ".beyin/model_runner.py" \
+         ".beyin/hooks/bridge.py" "AGENTS.md" "CLAUDE.md" \
+         ".agents/hooks.json" ".agents/rules/beyin.md" ".codex/hooks.json" \
+         ".cursor/hooks.json" ".cursor/rules/beyin.mdc" \
+         "scripts/render_integrations.py" "scripts/install_global.py" \
+         "scripts/set_summary_provider.py"; do
+  R="ok"; [ -s "$V/$F" ] || R="dosya yok veya boş"
+  gate "Respot dosyası $F" "$R"
+done
+
+R=$(python3 - "$V" <<'PY'
+import json, os, sys
+path = os.path.join(sys.argv[1], ".beyin", "config.json")
+try:
+    with open(path, encoding="utf-8") as handle:
+        document = json.load(handle)
+    provider = document.get("summary_provider") if isinstance(document, dict) else None
+except (OSError, ValueError):
+    provider = None
+allowed = {"auto", "claude", "codex", "antigravity", "cursor"}
+print("ok" if provider in allowed else "summary_provider eksik veya geçersiz")
+PY
+) || R="provider ayarı kontrol edilemedi"
+gate "Respot provider ayarı" "$R"
+
+R="ok"
+if ! python3 "$V/scripts/render_integrations.py" --root "$V" \
+     --platform "$MULTI_PLATFORM" --check >/dev/null 2>&1; then
+  R="üretilmiş agent adapterlarında drift var"
+fi
+gate "Respot tek-kaynak adapter drift'i" "$R"
+
+R="ok"; [ ! -e "$V/.beyin-multi-version" ] || R="finalize öncesi multi sürüm damgası var"
+gate "multi sürüm damgası henüz yok" "$R"
+
 for D in "daily" "knowledge/concepts" "knowledge/connections" ".claude/scripts/.state"; do
   R="ok"; [ -d "$V/$D" ] || R="klasör yok"
   gate "klasör $D" "$R"
@@ -581,8 +648,8 @@ for F in "knowledge/index.md" "knowledge/log.md" "$BEYIN_MEMORY_DIR_NAME/Kuralla
 done
 
 R="ok"
+PH=""
 if [ -f "$MANIFEST" ]; then
-  PH=""
   while IFS= read -r M; do
     [ -n "$M" ] || continue
     [ -f "$V/$M" ] || continue
@@ -591,6 +658,12 @@ if [ -f "$MANIFEST" ]; then
   done < "$MANIFEST"
   [ -z "$PH" ] || R="çözülmemiş placeholder:$PH"
 fi
+for M in ".beyin/instructions.md" "AGENTS.md" "CLAUDE.md" \
+         ".agents/rules/beyin.md" ".cursor/rules/beyin.mdc"; do
+  [ -f "$V/$M" ] || continue
+  if grep -q "{{" "$V/$M" 2>/dev/null; then PH="$PH $M"; fi
+done
+[ -z "$PH" ] || R="çözülmemiş placeholder:$PH"
 gate "placeholder çözümü" "$R"
 
 R=$(python3 - "$V" <<'PY'
@@ -642,7 +715,12 @@ if command -v git >/dev/null 2>&1 && [ -d "$V/.git" ]; then
   git -C "$V" reset -q >/dev/null 2>&1 || :
   ALLOW_TMP=$(mktemp)
   printf '%s\n' ".gitignore" "daily" "knowledge" ".claude/hooks" ".claude/scripts" \
-                ".claude/skills" ".claude/settings.json" "$BEYIN_MEMORY_DIR_NAME" > "$ALLOW_TMP"
+                ".claude/skills" ".claude/settings.json" "$BEYIN_MEMORY_DIR_NAME" \
+                ".beyin/instructions.md" ".beyin/config.json" ".beyin/model_runner.py" \
+                ".beyin/hooks" ".beyin/skills" ".agents" ".codex" ".cursor" \
+                "AGENTS.md" "CLAUDE.md" "scripts/render_integrations.py" \
+                "scripts/install_antigravity_global.py" "scripts/install_global.py" \
+                "scripts/set_summary_provider.py" > "$ALLOW_TMP"
   while IFS= read -r P; do
     [ -n "$P" ] || continue
     [ -e "$V/$P" ] || continue
@@ -668,23 +746,34 @@ else
   say "git yok, commit atlandı (anlık görüntü apply aşamasında kopya olarak alınmıştı)"
 fi
 
-step "sürüm damgası (son işlem, atomik)"
+step "Respot Brain sürüm damgaları (son işlem)"
+MULTI_STAMP_TMP="$V/.beyin-multi-version.tmp.$$"
 STAMP_TMP="$V/.beyin-version.tmp.$$"
-printf '%s\n' "$BEYIN_TARGET_VERSION" > "$STAMP_TMP" || die "damga geçici dosyası yazılamadı"
-mv -f "$STAMP_TMP" "$V/.beyin-version" || { rm -f "$STAMP_TMP"; die "damga yerine konamadı"; }
+printf '%s\n' "$BEYIN_MULTI_VERSION" > "$MULTI_STAMP_TMP" \
+  || die "multi damga geçici dosyası yazılamadı"
+printf '%s\n' "$BEYIN_TARGET_VERSION" > "$STAMP_TMP" \
+  || { rm -f "$MULTI_STAMP_TMP"; die "çekirdek damga geçici dosyası yazılamadı"; }
+mv -f "$MULTI_STAMP_TMP" "$V/.beyin-multi-version" \
+  || { rm -f "$MULTI_STAMP_TMP" "$STAMP_TMP"; die "multi damga yerine konamadı"; }
+mv -f "$STAMP_TMP" "$V/.beyin-version" \
+  || { rm -f "$STAMP_TMP" "$V/.beyin-multi-version"; die "çekirdek damga yerine konamadı"; }
+[ "$(sed -n '1p' "$V/.beyin-multi-version")" = "$BEYIN_MULTI_VERSION" ] \
+  || die "multi damga doğrulanamadı"
 [ "$(sed -n '1p' "$V/.beyin-version")" = "$BEYIN_TARGET_VERSION" ] || die "damga doğrulanamadı"
+say ".beyin-multi-version = $BEYIN_MULTI_VERSION"
 say ".beyin-version = $BEYIN_TARGET_VERSION"
 
 if command -v git >/dev/null 2>&1 && [ -d "$V/.git" ]; then
   git_id
-  git -C "$V" add -- ".beyin-version" >/dev/null 2>&1 || :
+  git -C "$V" add -- ".beyin-version" ".beyin-multi-version" >/dev/null 2>&1 || :
   git -C "$V" -c user.name="$GIT_N" -c user.email="$GIT_E" \
-    commit -q -m "v2 sürüm damgası" >/dev/null 2>&1 \
+    commit -q -m "Respot Brain sürüm damgaları" >/dev/null 2>&1 \
     || say "UYARI: damga commit edilemedi, dosya diskte doğru. Vault'ta 'git status' ile bak."
 fi
 
 rm -f "$STAGE_MARK"
 step "YÜKSELTME TAMAM"
 say "vault: $V"
-say "sürüm: $BEYIN_TARGET_VERSION"
+say "çekirdek sürüm: $BEYIN_TARGET_VERSION"
+say "Respot multi-AI sürüm: $BEYIN_MULTI_VERSION"
 exit 0

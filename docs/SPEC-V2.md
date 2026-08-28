@@ -32,8 +32,8 @@ respot-brain/
 │   ├── beyin-v2.md                 bağımsız kurulum kılavuzu
 │   └── *FINDINGS*.md               tarihsel güvenlik/yükseltme kayıtları
 ├── scripts/
-│   ├── upgrade.sh                  v1 → v2 güvenli transaction
-│   ├── enable_multiai.py           mevcut v2 vault'a adapter/runtime ekleme
+│   ├── upgrade.sh                  v1/çekirdek-v2 → Respot güvenli transaction
+│   ├── enable_multiai.py           bağımsız v2 onarımı/adapter-runtime ekleme
 │   ├── render_integrations.py      tek kaynaktan agent dosyaları üretme
 │   ├── install_global.py           dört agent için kullanıcı düzeyi bağlantı
 │   ├── install_antigravity_global.py özel Antigravity yardımcı kurucusu
@@ -156,8 +156,12 @@ adapterlar üretilir, git snapshot alınır ve doktor kontrolü yapılır.
 
 `scripts/upgrade.sh` mutlak `--vault` alır. `check`, `apply`, `finalize` ayrı süreçlerde güvenle
 çalışır. Repo kökü, `/`, göreli hedef ve işaretsiz klasör reddedilir. Kullanıcı hafızası üzerine
-yazılmaz. Snapshot doğrulanmadan mutasyon başlamaz; `.beyin-version` son atomik yazıdır. Ardından
-`enable_multiai.py` provider adapterlarını ekler.
+yazılmaz. Snapshot doğrulanmadan mutasyon başlamaz. `apply`, çekirdek dosyalarla birlikte
+`enable_multiai.py --defer-version-stamp` üzerinden tek-kaynak talimatları ve dört provider
+adapterını kurar. `finalize` adapter drift'ini ve bütün kapıları yeniden doğrular; önce
+`.beyin-multi-version`, sonra işlemin yetkili son yazısı olarak `.beyin-version` damgasını koyar.
+Yalnız çekirdek `2.0.0` damgası bulunan vault tamamlanmış sayılmaz; aynı işlem Respot katmanını
+ekleyerek yükseltmeyi bitirir.
 
 ### Global bağlantı
 

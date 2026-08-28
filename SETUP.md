@@ -1,8 +1,9 @@
 # SETUP.md multi-AI: Activate this second brain (agent runbook)
 
 > Bu fork Claude Code, Codex, Cursor ve Antigravity ile kullanılabilir. Kurulum sonunda
-> `python3 scripts/render_integrations.py` çalıştır; mevcut kişisel v2 vault için tercih edilen
-> güvenli yol `python3 scripts/enable_multiai.py <vault> --apply` komutudur. Ayrıntı:
+> `python3 scripts/render_integrations.py` çalıştır. Mevcut v1 vault'u doğrudan Respot Brain'e
+> yükseltmek için `scripts/upgrade.sh` akışını kullan; bağımsız `enable_multiai.py` yalnız zaten
+> v2 olan eski/harici kurulumları elle tamamlama ve onarım aracıdır. Ayrıntı:
 > `MULTI_AI.md`.
 
 > You are a coding agent, run from inside a freshly cloned `respot-brain` repo. The user wants their
@@ -78,6 +79,11 @@ while IFS= read -r BEYIN_D; do
   else
     echo "  sürüm: v1 (.beyin-version yok)"
   fi
+  if [ -f "$BEYIN_D/.beyin-multi-version" ]; then
+    echo "  Respot multi-AI: $(sed -n '1p' "$BEYIN_D/.beyin-multi-version")"
+  else
+    echo "  Respot multi-AI: yok"
+  fi
 done < "$BEYIN_LIST"
 rm -f "$BEYIN_LIST"
 echo "TARAMA TAMAM: $BEYIN_HITS aday bulundu"
@@ -92,7 +98,8 @@ Decide:
 | --- | --- |
 | `TARAMA TAMAM: 0 aday` | **MODE A, sıfırdan kurulum** (PHASE 0'a git) |
 | Aday var, `.beyin-version` yok | **MODE B, v1'den yükseltme** (PHASE U1'e git) |
-| Aday var, `.beyin-version` = `2.0.0` | Zaten v2. Sadece `beyin-doktor` çalıştır, eksikleri kapat |
+| Aday var, `.beyin-version` = `2.0.0`, `.beyin-multi-version` yok | **MODE B**, Respot katmanını tamamla |
+| İki damga da `2.0.0` / `1.0.0` | Zaten Respot Brain. Sadece `beyin-doktor` çalıştır |
 | Aday var, `.beyin-version` başka bir değer | Kullanıcıya göster, ne yapılacağını sor |
 
 Tell the user which mode you picked and why, in one Turkish sentence. Never guess silently.
@@ -434,7 +441,7 @@ Then jump to **THE DEMO** at the bottom of this file.
 
 ---
 
-# MODE B: Upgrade an existing v1 vault to v2
+# MODE B: Upgrade an existing v1 vault directly to Respot Brain
 
 > The user already has a working brain. Their memory files are the whole point of it. This mode is
 > **additive only**, with exactly one exception that v2 makes mandatory: the memory folder must be
@@ -485,7 +492,10 @@ sits inside it, and any directory without the v1 markers (`CLAUDE.md` plus a `�
 - `.claude/scripts/` (flush.py, compile.py, `.state/`)
 - `.claude/skills/beyin-doktor/`, `.claude/skills/gecmis-import/`
 - `🔮 850-Companion/Kurallar.md`
-- `.beyin-version`, written **last of all**, only after every gate passed
+- `.beyin/` canonical instructions, provider config, bridge, model runner and shared skills
+- `AGENTS.md`, `.agents/`, `.codex/`, `.cursor/` provider-native adapters
+- `.beyin-multi-version`, written only after every gate passed
+- `.beyin-version`, the authoritative stamp written **last of all**
 - missing `.gitignore` entries
 
 **REPLACE:**
@@ -550,8 +560,8 @@ Pass only the confirmation flags the check asked for. Read the numbered output b
 
 | Çıkış kodu | Anlamı | Ne yapacaksın |
 | --- | --- | --- |
-| `0` | apply tamam, sürüm damgası HENÜZ yazılmadı | PHASE U4'e geç |
-| `3` | vault zaten `2.0.0` | yükseltme yok, sadece `beyin doktor` çalıştır |
+| `0` | Respot çekirdeği ve adapterları hazır, iki sürüm damgası da HENÜZ yazılmadı | PHASE U4'e geç |
+| `3` | vault zaten çekirdek `2.0.0` + Respot multi-AI `1.0.0` | yükseltme yok, sadece `beyin doktor` çalıştır |
 | `10` | yeniden adlandırma onayı eksik | PHASE U2'ye dön |
 | `11` | yerel kanca temizliği onayı eksik | PHASE U2'ye dön |
 | `1` | sert hata, ekranda `HATA:` satırı var | DUR. Kullanıcıya oku, düzelt, tekrar çalıştır |
@@ -570,6 +580,11 @@ to repeat what the vault already knows; confirm your reading in one line instead
 ```bash
 grep -rl "{{" "/kullanicinin/mutlak/vault/yolu/knowledge" \
               "/kullanicinin/mutlak/vault/yolu/.claude/skills" \
+              "/kullanicinin/mutlak/vault/yolu/.beyin" \
+              "/kullanicinin/mutlak/vault/yolu/.agents" \
+              "/kullanicinin/mutlak/vault/yolu/.cursor" \
+              "/kullanicinin/mutlak/vault/yolu/AGENTS.md" \
+              "/kullanicinin/mutlak/vault/yolu/CLAUDE.md" \
               "/kullanicinin/mutlak/vault/yolu/🔮 850-Companion" 2>/dev/null \
   || echo "✓ çözülmemiş placeholder yok"
 ```
@@ -583,7 +598,7 @@ layer is enabled. If skill discovery is not yet active, run the manual checks fr
 Close every 🔴 row before you go on. The version has not been stamped yet, so the doctor is
 looking at an honest half-upgraded vault. That is the point.
 
-## PHASE U6: Finalize (the only step that writes `.beyin-version`)
+## PHASE U6: Finalize (the only step that writes both Respot version stamps)
 
 ```bash
 bash scripts/upgrade.sh --vault "/kullanicinin/mutlak/vault/yolu" --stage finalize
@@ -601,30 +616,28 @@ bash scripts/upgrade.sh --vault "/kullanicinin/mutlak/vault/yolu" --stage finali
    event: SessionStart, UserPromptSubmit, SessionEnd, PreCompact
 8. no secret-bearing backup left anywhere inside the vault
 9. `.gitignore` actually protects `.claude/settings.local.json`
+10. canonical `.beyin/` sources, provider config and four agent adapter families are present
+11. generated rules/hooks have no drift from `.beyin/`
+12. neither `.beyin-version` nor `.beyin-multi-version` was written early
 
-Only if all nine pass does it commit with an **explicit path allow-list** (never `git add -A`),
+Only if all twelve pass does it commit with an **explicit path allow-list** (never `git add -A`),
 abort if any staged path looks like local settings or a backup, verify that `HEAD` really moved,
-and only then write `.beyin-version` atomically as the final filesystem write. If any gate fails
-it prints the failing rows, writes nothing, and the vault stays honestly on v1.
+and only then write `.beyin-multi-version = 1.0.0` followed by the authoritative final
+`.beyin-version = 2.0.0` write. If any gate fails it prints the failing rows, writes no stamp, and
+the vault stays honestly unfinished. A vault that already has only the old v2 core stamp is not
+treated as complete; the same upgrade finishes its Respot layer.
 
 Then offer this in one Turkish line, do not push it: **"Eski ChatGPT, Claude veya Gemini geçmişini
 de bu beyne aktarmak ister misin? `geçmiş import` yeter."** The `gecmis-import` skill does
 everything locally; nothing is uploaded anywhere. Large exports take several evenings to compile,
 and that is fine.
 
-## PHASE U7: Enable multi-AI and optional global access
+## PHASE U7: Optional global access
 
-The v1→v2 transaction intentionally preserves the original Claude-compatible core. After finalize,
-add the provider-neutral adapters from this fork:
-
-```bash
-python3 scripts/enable_multiai.py "/kullanicinin/mutlak/vault/yolu"
-python3 scripts/enable_multiai.py "/kullanicinin/mutlak/vault/yolu" --apply
-```
-
-On Windows + WSL add `--platform windows-wsl` to the apply command. Then follow PHASE 3B if the
-user wants the same vault available automatically in unrelated code repositories. Keep summary
-provider `auto` unless the user explicitly requests another first choice.
+The upgrade itself already installed the full provider-neutral Respot workspace layer. Do **not**
+run a second `enable_multiai.py` migration. Follow PHASE 3B only if the user wants the same vault
+available automatically in unrelated code repositories. Keep summary provider `auto` unless the
+user explicitly requests another first choice.
 
 ## What the script guarantees, so you do not have to promise it yourself
 
@@ -641,7 +654,8 @@ provider `auto` unless the user explicitly requests another first choice.
   seed files are skipped when they already exist, and the `settings.local.json` rewrite drops only
   the four exact v1 beyin commands.
 - **Idempotent.** Running `apply` twice prints `eklenen kanca girdisi: 0`, skips every seed and
-  reports the memory folder as already correct. Running anything on a finished vault exits `3`.
+  reports the memory folder as already correct. A fully stamped Respot vault exits `3`; a vault
+  with only the old v2 core stamp is completed instead of being falsely reported as finished.
 
 # THE DEMO (both modes end here)
 
