@@ -40,6 +40,10 @@ Vault adını ve yolunu bana sor. Kullandığım agentları global bağla. Özet
 Kurulumu Claude yapmak zorunda değildir. Antigravity, Codex, Cursor veya Claude Code aynı runbook'u
 uygulayabilir.
 
+Native Windows'ta WSL kullanmadan sıfırdan kurulum için agent runbook'u yerine doğrudan
+`SETUP-WINDOWS.md` içindeki PowerShell kurucusunu kullan. Kurucu seçtiğin provider CLI'ını
+doğrular; buna rağmen vault'a dört agentın adaptörünü birlikte üretir.
+
 ## Kurulum görüşmesinde ne sorulur?
 
 Agent şu kararları kullanıcıdan alır:
@@ -83,6 +87,16 @@ python3 scripts/install_global.py "/mnt/c/Users/KULLANICI/Documents/BenimBeynim"
 
 # Liste doğruysa aynı komuta ekle:
 # --apply
+```
+
+Native Windows:
+
+```powershell
+py -3 scripts/install_global.py `
+  "C:\Users\KULLANICI\Documents\BenimBeynim" `
+  --home "C:\Users\KULLANICI" `
+  --platform windows-native `
+  --providers antigravity,codex
 ```
 
 macOS/Linux:
@@ -195,6 +209,27 @@ Bir defalık yapılabilecekler:
 - AI CLI'larına kendi hesaplarıyla giriş yapmak
 - Codex yeni hook'u ilk gördüğünde `/hooks` ekranından güven vermek
 - Global ayar eklendikten sonra IDE'yi yeniden başlatmak
+
+## Native Windows
+
+Native profil, aynı lifecycle'ı `py.exe -3` ve mutlak Windows bridge yoluyla çalıştırır; WSL veya
+Bash gerekmez. Taze vault:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.ps1 `
+  -VaultPath "$HOME\Documents\BenimBeynim" `
+  -UserName "Ada" `
+  -UserBio "Kodlama için kullanıyor" `
+  -Companion "Echo" `
+  -OsName "AdaOS" `
+  -Providers antigravity,codex
+```
+
+Damgalı `2.0.0` / `1.0.0` Respot vault `update_respot.py --platform windows-native` ile
+`1.1.0` sürümüne çıkar. Damgasız v1'in native dönüşümü henüz yoktur; o işlem WSL'deki
+`upgrade.sh` ile yapılır. `1.1.0`; ortak Python lifecycle, üç profil, native-safe lock/process,
+transactional updater ve native installer kapsamıdır. Doctor/event log genişletmesi ile
+Restic/DPAPI yedeklemesi ayrı sonraki projelerdir.
 
 ## macOS ve Linux
 

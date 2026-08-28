@@ -6,6 +6,22 @@
 > v2 olan eski/harici kurulumları elle tamamlama ve onarım aracıdır. Ayrıntı:
 > `MULTI_AI.md`.
 
+## Platform profiles
+
+Respot has exactly three installed runtime profiles:
+
+| Profile | Runtime command | Use when |
+| --- | --- | --- |
+| `portable` | `python3` | macOS or Linux |
+| `windows-wsl` | `wsl.exe --cd <vault> python3` | Windows IDE + WSL runtime |
+| `windows-native` | `py.exe -3` | Windows without WSL/Bash |
+
+If this checkout is running directly in Windows and the user wants a fresh native vault, stop this
+POSIX-oriented runbook and follow `SETUP-WINDOWS.md`. For an already stamped Respot `2.0.0` /
+`1.0.0` vault, `scripts/update_respot.py --platform windows-native` is supported. An unstamped v1
+vault must not be converted natively yet; use the verified WSL `upgrade.sh` transaction instead.
+Claude is never mandatory when another selected provider CLI is installed and authenticated.
+
 > You are a coding agent, run from inside a freshly cloned `respot-brain` repo. The user wants their
 > own AI second brain, or wants to upgrade the one they already have. The scaffold lives in
 > `./template/`. Your job: decide the mode, interview the user, install or upgrade, verify.
@@ -667,7 +683,8 @@ managed files from that backup and leaves the old `1.0.0` stamp intact.
 
 `--platform auto` is the default and keeps an already explicit profile. An old config without a
 profile is inferred once as `portable`, `windows-wsl`, or `windows-native` and then persisted. An
-unstamped v1 vault is intentionally refused; use MODE B for it.
+unstamped v1 vault is intentionally refused. On POSIX/WSL use MODE B for it; on native Windows use
+WSL for that migration rather than partially stamping the vault.
 
 ## What the script guarantees, so you do not have to promise it yourself
 

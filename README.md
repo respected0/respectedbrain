@@ -46,6 +46,10 @@ içindedir.
 
 ## Hızlı başlangıç
 
+Native Windows'ta WSL kullanmadan sıfırdan kurulum yapacaksan doğrudan
+[SETUP-WINDOWS.md](SETUP-WINDOWS.md) içindeki PowerShell akışını kullan. macOS, Linux ve
+Windows+WSL için aşağıdaki agent destekli `SETUP.md` akışı geçerlidir.
+
 ### 1. Forku klonla
 
 ```bash
@@ -86,6 +90,16 @@ python3 scripts/install_global.py "/mnt/c/Users/KULLANICI/Documents/BenimBeynim"
 # Önizleme doğruysa:
 python3 scripts/install_global.py "/mnt/c/Users/KULLANICI/Documents/BenimBeynim" \
   --home "/mnt/c/Users/KULLANICI" --platform windows-wsl --providers all --apply
+```
+
+Native Windows PowerShell örneği:
+
+```powershell
+py -3 scripts/install_global.py `
+  "C:\Users\KULLANICI\Documents\BenimBeynim" `
+  --home "C:\Users\KULLANICI" `
+  --platform windows-native `
+  --providers codex,cursor
 ```
 
 macOS/Linux örneği:
@@ -147,6 +161,10 @@ yükseltir. Yükseltme **sadece ekler**: mevcut hafıza dosyalarına, Dashboard'
 dokunulmaz. Yalnız eski çekirdek `2.0.0` damgası bulunan yarım bir kurulum da eksik Respot
 katmanı tamamlanmadan “güncel” sayılmaz.
 
+Damgasız v1 vault'un native Windows dönüşümü henüz desteklenmez; bu özel durumda doğrulanmış WSL
+`upgrade.sh` yolu kullanılmalıdır. Native Windows, sıfırdan kurulum ve damgalı Respot
+`1.0.0 → 1.1.0` güncellemesi için desteklenir.
+
 Üç şeyi peşinen bilmen iyi olur:
 
 - **Hafıza klasörünün adı `🔮 850-Companion` olmak zorunda.** Kancalar ve scriptler bu sabit yolu
@@ -174,7 +192,7 @@ katmanı tamamlanmadan “güncel” sayılmaz.
 | Sağlık kontrolü | yok | `beyin doktor` skill'i, tek tabloda tanı |
 | Eski geçmiş | yok | `geçmiş import`: ChatGPT, Claude, Gemini dışa aktarımları |
 | Yükseltme | yok | yerinde, ekleme yapan, tekrar çalıştırılabilir |
-| Bağımlılık | bash | bash + python3 (ikisi de sistemde var) |
+| Bağımlılık | bash | Python 3; POSIX'te ince Bash uyumluluk launcherları, native Windows'ta Bash yok |
 
 ---
 
@@ -260,15 +278,16 @@ Birden fazla CLI kuruluysa geçici limitlerde otomatik fallback yapılabilir.
 ## Gereksinimler
 
 Zorunlu, her platformda: desteklenen yerel AI CLI'lardan en az biri (`claude`, `codex`, `agy`,
-`cursor-agent`),
-[Obsidian](https://obsidian.md) ve `python3` (macOS'ta Command Line Tools ile gelir). `python3`
-opsiyonel değil: günlük log da gece derlemesi de onun üstünde çalışır.
+`cursor-agent`), [Obsidian](https://obsidian.md) ve Python 3. POSIX/WSL komutu `python3`, native
+Windows komutu `py.exe -3` olur. Python opsiyonel değil: günlük log da bilgi derlemesi de onun
+üstünde çalışır.
 
 | Platform | Durum | Ne çalışır, ne çalışmaz |
 | --- | --- | --- |
 | macOS | **orijinal akış test edildi** | ortak runtime, `daily/`, `knowledge/`, 🧠 masaüstü kısayolu; multi-AI adaptörleri otomatik testlidir. |
 | Linux | **test edilmedi** | kurulum `uname` ile dallanır: Homebrew, Obsidian cask ve macOS `.app` adımları atlanır, yerine XDG `.desktop` kısayolu yazılır. Vault, kancalar ve scriptler taşınabilir yazıldı ama gerçek bir Linux masaüstünde doğrulanmadı. Denersen sorun aç. |
 | Windows + WSL | **doğrulandı** | Windows Antigravity/Cursor hook'ları `wsl.exe` ile WSL'deki Python motoruna bağlanır; Obsidian aynı vault'u Windows yolundan açar. |
+| Windows native | **gerçek Windows süreç testleri geçti; GitHub CI push bekliyor** | `py.exe -3` ile ortak Python lifecycle doğrudan çalışır; WSL/Bash gerekmez. Taze kurulum ve damgalı Respot güncellemesi desteklenir, damgasız v1 dönüşümü henüz WSL ister. |
 
 Masaüstü kısayolu macOS'ta `osacompile` ve AppKit kullanır, ikisi de Linux'ta yoktur. Vault'un
 kendisi düz Markdown, yani her yerde açılır. Windows + WSL global multi-agent köprüsü doğrulandı;
@@ -342,15 +361,17 @@ stop firing twice. Neither version stamp is written early: after every gate pass
 stamp is written first and the authoritative `.beyin-version` stamp is the final write.
 
 Platform honesty: the original macOS path remains supported. Linux desktop remains unverified.
-Windows + WSL has been verified with Windows-side hooks invoking the Python memory engine through
-`wsl.exe`; a provider-neutral global installer can connect any named vault to Claude, Codex,
-Cursor and Antigravity across unrelated code repositories.
+Windows + WSL remains verified with Windows-side hooks invoking the Python memory engine through
+`wsl.exe`. Native Windows fresh install and stamped Respot updates use `py.exe -3` without WSL or
+Bash; unstamped v1 migration still uses WSL. A provider-neutral global installer can connect any
+named vault to Claude, Codex, Cursor and Antigravity across unrelated code repositories.
 
 Users may switch coding agents without migrating the vault. `auto` prefers the agent that emitted
 the hook; a persistent first-choice summarizer can be selected with `set_summary_provider.py`, and
 retryable quota/timeout/5xx failures fall back to another installed authenticated CLI.
 
 No extra API key is required: background work uses an authenticated local AI CLI. The core uses
-bash and the Python standard library. Knowledge-compilation architecture credit:
+the Python standard library; POSIX keeps thin Bash compatibility launchers. Knowledge-compilation
+architecture credit:
 Andrej Karpathy's LLM knowledge base pattern,
 https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f. MIT licensed.

@@ -14,7 +14,7 @@ Kurucu paket yöneticisi çalıştırmaz ve hesap girişi yapmaz. Eksik araç va
 durur. PowerShell'de önce yalnız ön kontrol yap:
 
 ```powershell
-pwsh -NoProfile -File scripts/install-windows.ps1 `
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.ps1 `
   -VaultPath "$HOME\Documents\AdaOS" `
   -UserName "Ada" `
   -UserBio "Kodlama ve araştırma için kullanıyor" `
@@ -58,4 +58,3 @@ py -3 scripts/update_respot.py "$HOME\Documents\AdaOS" --platform windows-native
 
 Damgasız eski v1 vault'u native Windows üzerinde doğrudan dönüştürme henüz desteklenmez. O işlem
 şimdilik WSL içindeki `scripts/upgrade.sh` ile yapılır; üretim vault'unda denemeden önce yedek al.
-

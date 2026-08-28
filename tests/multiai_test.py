@@ -164,6 +164,28 @@ class MultiAITest(unittest.TestCase):
         ):
             self.assertIn(required, text)
 
+    def test_public_docs_define_all_three_profiles_and_native_limits(self):
+        paths = (
+            ROOT / "README.md",
+            ROOT / "SETUP.md",
+            ROOT / "MULTI_AI.md",
+            ROOT / "SETUP-WINDOWS.md",
+            ROOT / "docs/SPEC-V2.md",
+            ROOT / "docs/beyin-v2.md",
+        )
+        text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
+        for required in (
+            "portable",
+            "windows-wsl",
+            "windows-native",
+            "py.exe -3",
+            "1.1.0",
+            "Damgasız v1",
+            "Claude zorunlu değildir",
+            "Restic",
+        ):
+            self.assertIn(required, text)
+
     def test_runner_falls_back_only_for_retryable_provider_errors(self):
         runner = load("model_runner_fallback", ROOT / "template/.beyin/model_runner.py")
         commands = {"antigravity": (["agy"], None), "claude": (["claude"], "prompt")}

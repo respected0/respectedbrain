@@ -16,9 +16,10 @@ vault'unu kalıcı bağlam olarak kullanır. Sağlayıcıların ham sohbet ekran
 3. **Güvenli fallback:** eksik CLI ve geçici kota/servis hatası başka kurulu CLI'a geçebilir.
 4. **Yerel ve geri alınabilir:** vault Markdown'dır; yükseltme önce doğrulanmış snapshot alır.
 5. **Ek API anahtarı yok:** arka plan çağrısı giriş yapılmış yerel CLI'ı kullanır.
-6. **Az bağımlılık:** runtime Bash ve Python standart kütüphanesidir; pip/npm gerekmez.
-7. **Dürüst platform durumu:** Windows+WSL köprüsü doğrulandı; Linux masaüstü başlatıcısı saha
-   testi bekliyor; orijinal macOS akışı korunuyor.
+6. **Az bağımlılık:** kanonik runtime Python standart kütüphanesidir; POSIX Bash dosyaları ince
+   uyumluluk launcherlarıdır, pip/npm gerekmez.
+7. **Dürüst platform durumu:** Windows+WSL korunur; native Windows gerçek PowerShell/Python süreç
+   testlerinden geçer; Linux masaüstü başlatıcısı saha testi bekler; orijinal macOS akışı korunur.
 
 ## 2. Repo düzeni
 
@@ -172,10 +173,20 @@ ekleyerek yükseltmeyi bitirir.
 preview'dür; `--apply` açık onaydan sonra verilir. Mevcut global kurallar/hook'lar korunur, Respot
 yönetim bloğu idempotent birleştirilir ve değişen dosyalar yedeklenir.
 
+### Native Windows taze kurulum ve update
+
+`install-windows.ps1`, hedefe dokunmadan önce gerçek Python 3, Git ve kullanıcı tarafından seçilen
+provider CLI'larını çalıştırarak doğrular. Claude zorunlu değildir. Dolu hedef exit `3` ile aynen
+korunur; temiz hedef `windows-native` profiliyle `2.0.0` / `1.1.0` damgalanır. Mevcut damgalı
+Respot vault `update_respot.py --platform windows-native` ile transactional güncellenir. Damgasız
+v1 native dönüşümü reddedilir ve WSL upgrade yolu kullanılır.
+
 ## 8. Platform sözleşmesi
 
 - **Windows + WSL:** Windows IDE hook'u `wsl.exe --cd <vault>` ile WSL Python runtime'ını çağırır.
   Vault `/mnt/<drive>/...` altındadır; Obsidian aynı klasörü Windows yolundan açabilir.
+- **Windows native:** `py.exe -3` mutlak `C:\...\.beyin\hooks\bridge.py` yolunu çağırır. Dört
+  provider aynı Python lifecycle'ı kullanır; WSL, Bash ve POSIX vault yolu gerekmez.
 - **macOS:** orijinal Bash/Python motoru ve isteğe bağlı `.app` başlatıcı korunur.
 - **Linux:** runtime taşınabilirdir; XDG `.desktop` yolu vardır, masaüstü saha testi beklemektedir.
 
@@ -196,12 +207,15 @@ regresyon testlerini belirtir.
 
 ```bash
 python3 scripts/render_integrations.py --check
-python3 -m unittest -v tests/scripts_test.py tests/multiai_test.py
+python3 -m unittest discover -s tests -p '*_test.py'
 bash tests/hooks_test.sh
 bash tests/upgrade_settings_test.sh
 bash tests/upgrade_transaction_test.sh
 git diff --check
 ```
+
+Windows job'ı ayrıca `tests/install_windows_test.ps1`, `tests/windows_native_test.py` ve gerçek
+`runtime_platform` kilit testlerini `windows-latest` üzerinde çalıştırır.
 
 Testler gerçek model/ağ çağrısı yapmaz. Provider stub'larıyla eşzamanlılık, hostile input,
 allow-list, quota fallback, global kurucu idempotency'si, Windows yol köprüsü ve upgrade transaction
@@ -220,7 +234,7 @@ atlayamaz.
 - Vault adı: kullanıcı seçer; `respectedOS` zorunlu değildir.
 - Companion adı: kullanıcı seçer; `Respot` zorunlu değildir.
 - Çekirdek damgası: `.beyin-version = 2.0.0`
-- Multi-AI damgası: `.beyin-multi-version = 1.0.0`
+- Multi-AI damgası: `.beyin-multi-version = 1.1.0`
 - Sabit iç hafıza yolu: `🔮 850-Companion/`
 
 Orijinal proje ve Avenox atfı korunur; yetkili fork kurulum adresi

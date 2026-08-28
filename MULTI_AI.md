@@ -3,6 +3,12 @@
 Bu dalda vault tek bir AI aracına ait değildir. Claude Code, Codex, Cursor ve Antigravity aynı
 Markdown hafızasını, kuralları, skill'leri ve günlük/knowledge hattını paylaşır.
 
+Kurulu platform profili tam olarak üç değerden biridir: macOS/Linux için `portable`, Windows
+uygulamaları ile WSL motoru için `windows-wsl`, WSL/Bash olmadan Windows Python için
+`windows-native`. Native sıfırdan kurulum [SETUP-WINDOWS.md](SETUP-WINDOWS.md) ile yapılır.
+Damgalı `2.0.0` / `1.0.0` Respot vault native güncellenebilir; damgasız v1'in native dönüşümü
+henüz desteklenmez ve doğrulanmış WSL upgrade akışını kullanır.
+
 ## Tek kaynak ilkesi
 
 Elle düzenlenecek ana dosyalar şunlardır:
@@ -169,3 +175,6 @@ kayıtlıdır.
   Antigravity kotasını kullanması için `agy` CLI kurulu ve oturum açmış olmalıdır; yalnız IDE
   kuruluysa sistem kullanılabilir başka CLI'a geçer.
 - Cursor kotasını kullanmak için `cursor-agent` CLI kurulu ve oturum açmış olmalıdır.
+- Multi-AI `1.1.0`, ortak Python lifecycle, portable lock/process katmanı, üç deterministik profil,
+  transactional updater ve native Windows installer anlamına gelir. Genişletilmiş doctor/event log,
+  Restic/DPAPI yedekleme ve damgasız v1'in native migrasyonu sonraki ayrı projelerdir.

@@ -20,8 +20,8 @@ katmanına uyarlamak ve sonraki incelemede aynı analizi tekrarlamamaktır.
 | --- | --- | --- | --- |
 | `avenoxai/avenoxbeyin` `main` | `18c83ff` | Seçerek uyarla | Göktaş compile düzeltmeleri ve Morp1e Windows portu upstream'e girmiş durumda. |
 | `goktas-batuhan/fix/compile-trigger-reliability` | `2331ee2`, `5fed9f6` | **Alındı ve uyarlandı** | Başarılı trigger claim sızıntısı, kaçırılan akşam derlemesi ve kısmi bugünün erken ingest edilmesi gerçek platform-bağımsız hatalardı. Respot'ın `_run_model` ve Antigravity transkript desteği korunarak taşındı. |
-| `morp1e/windows-support` | `ac207ee` | Ayrı Windows-native tasarımına ertelendi | Temiz kurulum için native PowerShell desteği değerli; fakat mevcut hali Claude CLI zorunlu, `_run_claude` kullanıyor ve Respot'ın dört-agent fallback/transkript sözleşmesini geriletiyor. WSL yolu etkilenmedi. |
-| `enesadakli/windows-native` | `920b597` | Parçalara ayrılarak ertelendi | Native Python hook/doctor, immutable bridge log ve Restic yedekleme yaklaşık 6.000 satırlık alternatif mimari. Claude/Codex ağırlıklı; backup ve event log çekirdek compile düzeltmesinden bağımsız kararlar. |
+| `morp1e/windows-support` | `ac207ee` | **Davranış seçilerek alındı** | PowerShell preflight, native lock/process ihtiyaçları ve Windows CI dersleri provider-neutral kurucuya uyarlandı. Claude zorunluluğu, `_run_claude` ve ayrı PowerShell lifecycle kopyaları alınmadı. |
+| `enesadakli/windows-native` | `920b597` | **Temel parçalar alındı** | Native Python lifecycle, reparse-point güvenliği ve installer test yaklaşımı tek ortak runtime'a uyarlandı. Immutable event log, genişletilmiş doctor ve Restic/DPAPI yedekleme ayrı projeler olarak ertelendi. |
 
 ### Bu turda alınan davranış
 
@@ -33,13 +33,27 @@ katmanına uyarlamak ve sonraki incelemede aynı analizi tekrarlamamaktır.
 - Saat 18:00 sonrası normal SessionEnd davranışı değişmez.
 - Model çalıştırma hâlâ provider-neutral `model_runner.py` üzerinden yapılır.
 
+### Provider-neutral native Windows temeli
+
+`5cc4c36` commit'iyle forkların yararlı Windows davranışı Respot mimarisine uyarlandı:
+
+- Claude/Codex/Cursor/Antigravity için tek `lifecycle.py`; POSIX hook'lar yalnız ince launcher;
+- POSIX `fcntl` ve Windows `msvcrt` kullanan ortak kilit, detached process ve path containment API'si;
+- `portable`, `windows-wsl`, `windows-native` olmak üzere üç deterministik profil;
+- `py.exe -3` ve mutlak Windows bridge yolu kullanan proje/global adaptörleri;
+- Claude gerektirmeyen PowerShell 5.1 uyumlu taze kurucu ve `1.0.0 → 1.1.0` transactional updater;
+- gerçek Windows PowerShell kurulum testi ve Windows Python süreçlerinde dört provider lifecycle,
+  concurrency, detached flush, quota fallback ve current-day catch-up sınırı;
+- `.github/workflows/windows.yml` içindeki `windows-latest` release kapısı. Workflow sonucu ilk
+  yetkili `main` push'ından sonra bu kayda eklenecek.
+
 ### Bilinçli olarak alınmayanlar
 
-- Upstream PowerShell hook dosyaları ve Claude-only Windows installer doğrudan kopyalanmadı.
+- Upstream PowerShell hook dosyaları ve Claude-only Windows installer doğrudan kopyalanmadı; aynı
+  ihtiyaç tek Python lifecycle ve provider seçmeli Respot kurucusuyla karşılandı.
 - Enes dalındaki Restic/DPAPI yedekleme otomatik etkinleştirilmedi.
 - Immutable bridge event log ve git-geçmişine dayalı doctor kontrolleri bu bug-fix turuna eklenmedi.
-- Upstream Windows GitHub Actions işi, Respot'ta eşdeğer native Windows çalışma profili bulunmadan
-  eklenmedi.
+- Damgasız v1 vault'un native Windows migrasyonu açılmadı; doğrulanmış WSL transaction korunuyor.
 
 ## Sonraki inceleme
 
