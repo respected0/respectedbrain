@@ -11,23 +11,11 @@ import subprocess
 import sys
 import os
 
+from respot_manifest import GENERATED, MULTI_VERSION, RUNTIME
+
 
 REPO = Path(__file__).resolve().parents[1]
 TEMPLATE = REPO / "template"
-MULTI_VERSION = "1.0.0"
-GENERATED = (
-    "AGENTS.md", "CLAUDE.md", ".codex/hooks.json", ".cursor/hooks.json",
-    ".cursor/rules/beyin.mdc", ".agents/hooks.json", ".agents/rules/beyin.md",
-)
-RUNTIME = (
-    ".beyin/hooks/bridge.py", ".beyin/model_runner.py",
-    ".claude/hooks/lib.sh", ".claude/hooks/session-start.sh",
-    ".claude/hooks/prompt-counter.sh", ".claude/hooks/session-end.sh",
-    ".claude/hooks/pre-compact.sh",
-    ".claude/scripts/flush.py", ".claude/scripts/compile.py",
-    "scripts/render_integrations.py", "scripts/install_antigravity_global.py", "scripts/install_global.py",
-    "scripts/set_summary_provider.py",
-)
 
 
 def copy_file(source: Path, destination: Path) -> None:
@@ -46,7 +34,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--platform",
-        choices=("auto", "portable", "windows-wsl"),
+        choices=("auto", "portable", "windows-wsl", "windows-native"),
         default="auto",
         help="hook çalışma ortamı; WSL içindeki Windows vault'larında otomatik algılanır",
     )
@@ -94,7 +82,10 @@ def main() -> int:
     platform = args.platform
     if platform == "auto":
         in_wsl = bool(os.environ.get("WSL_DISTRO_NAME") or os.environ.get("WSL_INTEROP"))
-        platform = "windows-wsl" if in_wsl and str(vault).startswith("/mnt/") else "portable"
+        if os.name == "nt":
+            platform = "windows-native"
+        else:
+            platform = "windows-wsl" if in_wsl and str(vault).startswith("/mnt/") else "portable"
     result = subprocess.run(
         [sys.executable, str(REPO / "scripts" / "render_integrations.py"), "--root", str(vault), "--platform", platform],
         text=True,

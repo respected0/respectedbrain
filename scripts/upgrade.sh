@@ -22,7 +22,7 @@
 set -euo pipefail
 
 BEYIN_TARGET_VERSION="2.0.0"
-BEYIN_MULTI_VERSION="1.0.0"
+BEYIN_MULTI_VERSION="1.1.0"
 BEYIN_SCRIPT_VERSION="2.0.0"
 BEYIN_MEMORY_DIR_NAME="🔮 850-Companion"
 BEYIN_HOOK_FILES="lib.sh session-start.sh prompt-counter.sh session-end.sh pre-compact.sh"
@@ -604,6 +604,7 @@ for S in $BEYIN_SKILL_DIRS; do
 done
 
 for F in ".beyin/instructions.md" ".beyin/config.json" ".beyin/model_runner.py" \
+         ".beyin/runtime_platform.py" ".beyin/hooks/lifecycle.py" \
          ".beyin/hooks/bridge.py" "AGENTS.md" "CLAUDE.md" \
          ".agents/hooks.json" ".agents/rules/beyin.md" ".codex/hooks.json" \
          ".cursor/hooks.json" ".cursor/rules/beyin.mdc" \
@@ -620,10 +621,25 @@ try:
     with open(path, encoding="utf-8") as handle:
         document = json.load(handle)
     provider = document.get("summary_provider") if isinstance(document, dict) else None
+    platform = document.get("platform") if isinstance(document, dict) else None
+    python_command = document.get("python_command") if isinstance(document, dict) else None
 except (OSError, ValueError):
     provider = None
+    platform = None
+    python_command = None
 allowed = {"auto", "claude", "codex", "antigravity", "cursor"}
-print("ok" if provider in allowed else "summary_provider eksik veya geçersiz")
+valid_platform = platform in {"portable", "windows-wsl", "windows-native"}
+valid_command = isinstance(python_command, list) and bool(python_command) and all(
+    isinstance(part, str) and part for part in python_command
+)
+if provider not in allowed:
+    print("summary_provider eksik veya geçersiz")
+elif not valid_platform:
+    print("platform eksik veya geçersiz")
+elif not valid_command:
+    print("python_command eksik veya geçersiz")
+else:
+    print("ok")
 PY
 ) || R="provider ayarı kontrol edilemedi"
 gate "Respot provider ayarı" "$R"
@@ -717,6 +733,7 @@ if command -v git >/dev/null 2>&1 && [ -d "$V/.git" ]; then
   printf '%s\n' ".gitignore" "daily" "knowledge" ".claude/hooks" ".claude/scripts" \
                 ".claude/skills" ".claude/settings.json" "$BEYIN_MEMORY_DIR_NAME" \
                 ".beyin/instructions.md" ".beyin/config.json" ".beyin/model_runner.py" \
+                ".beyin/runtime_platform.py" \
                 ".beyin/hooks" ".beyin/skills" ".agents" ".codex" ".cursor" \
                 "AGENTS.md" "CLAUDE.md" "scripts/render_integrations.py" \
                 "scripts/install_antigravity_global.py" "scripts/install_global.py" \

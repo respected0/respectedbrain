@@ -99,7 +99,8 @@ Decide:
 | `TARAMA TAMAM: 0 aday` | **MODE A, sıfırdan kurulum** (PHASE 0'a git) |
 | Aday var, `.beyin-version` yok | **MODE B, v1'den yükseltme** (PHASE U1'e git) |
 | Aday var, `.beyin-version` = `2.0.0`, `.beyin-multi-version` yok | **MODE B**, Respot katmanını tamamla |
-| İki damga da `2.0.0` / `1.0.0` | Zaten Respot Brain. Sadece `beyin-doktor` çalıştır |
+| Damgalar `2.0.0` / `1.0.0` | **MODE C, mevcut Respot güncellemesi**: `scripts/update_respot.py` kullan |
+| Damgalar `2.0.0` / `1.1.0` | Zaten güncel Respot Brain. Sadece `beyin-doktor` çalıştır |
 | Aday var, `.beyin-version` başka bir değer | Kullanıcıya göster, ne yapılacağını sor |
 
 Tell the user which mode you picked and why, in one Turkish sentence. Never guess silently.
@@ -561,7 +562,7 @@ Pass only the confirmation flags the check asked for. Read the numbered output b
 | Çıkış kodu | Anlamı | Ne yapacaksın |
 | --- | --- | --- |
 | `0` | Respot çekirdeği ve adapterları hazır, iki sürüm damgası da HENÜZ yazılmadı | PHASE U4'e geç |
-| `3` | vault zaten çekirdek `2.0.0` + Respot multi-AI `1.0.0` | yükseltme yok, sadece `beyin doktor` çalıştır |
+| `3` | vault zaten çekirdek `2.0.0` + Respot multi-AI `1.1.0` | yükseltme yok, sadece `beyin doktor` çalıştır |
 | `10` | yeniden adlandırma onayı eksik | PHASE U2'ye dön |
 | `11` | yerel kanca temizliği onayı eksik | PHASE U2'ye dön |
 | `1` | sert hata, ekranda `HATA:` satırı var | DUR. Kullanıcıya oku, düzelt, tekrar çalıştır |
@@ -622,7 +623,7 @@ bash scripts/upgrade.sh --vault "/kullanicinin/mutlak/vault/yolu" --stage finali
 
 Only if all twelve pass does it commit with an **explicit path allow-list** (never `git add -A`),
 abort if any staged path looks like local settings or a backup, verify that `HEAD` really moved,
-and only then write `.beyin-multi-version = 1.0.0` followed by the authoritative final
+and only then write `.beyin-multi-version = 1.1.0` followed by the authoritative final
 `.beyin-version = 2.0.0` write. If any gate fails it prints the failing rows, writes no stamp, and
 the vault stays honestly unfinished. A vault that already has only the old v2 core stamp is not
 treated as complete; the same upgrade finishes its Respot layer.
@@ -638,6 +639,35 @@ The upgrade itself already installed the full provider-neutral Respot workspace 
 run a second `enable_multiai.py` migration. Follow PHASE 3B only if the user wants the same vault
 available automatically in unrelated code repositories. Keep summary provider `auto` unless the
 user explicitly requests another first choice.
+
+---
+
+# MODE C: Update an existing stamped Respot Brain
+
+Use this only when `.beyin-version` is `2.0.0` and `.beyin-multi-version` is `1.0.0`.
+Do not use the v1 `upgrade.sh` flow and do not run `enable_multiai.py` as a routine updater.
+
+Preview first; this validates and prints managed paths without changing the vault:
+
+```bash
+python3 scripts/update_respot.py "/absolute/path/to/vault"
+```
+
+Then apply:
+
+```bash
+python3 scripts/update_respot.py "/absolute/path/to/vault" --apply
+```
+
+The updater preserves `.beyin/instructions.md`, `summary_provider`, extra config keys and every
+non-managed note. It backs up existing managed files under `.beyin/backups/<timestamp>/`, writes
+runtime files atomically, renders the explicit platform profile, runs syntax/JSON/drift and
+placeholder gates, and writes `.beyin-multi-version = 1.1.0` last. If a gate fails it restores the
+managed files from that backup and leaves the old `1.0.0` stamp intact.
+
+`--platform auto` is the default and keeps an already explicit profile. An old config without a
+profile is inferred once as `portable`, `windows-wsl`, or `windows-native` and then persisted. An
+unstamped v1 vault is intentionally refused; use MODE B for it.
 
 ## What the script guarantees, so you do not have to promise it yourself
 
