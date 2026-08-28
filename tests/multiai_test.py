@@ -63,6 +63,32 @@ class MultiAITest(unittest.TestCase):
             bridge.output("antigravity", "end", "")
         self.assertEqual(json.loads(captured.getvalue()), {"decision": "stop"})
 
+    def test_bridge_dispatches_to_shared_lifecycle_without_shell_hooks(self):
+        bridge = load("bridge_shared_lifecycle", ROOT / "template/.beyin/hooks/bridge.py")
+        with tempfile.TemporaryDirectory() as temporary:
+            vault = Path(temporary) / "Bridge Brain"
+            state = vault / ".claude/scripts/.state"
+            memory = vault / "🔮 850-Companion"
+            state.mkdir(parents=True)
+            memory.mkdir(parents=True)
+            (vault / "knowledge").mkdir()
+            (vault / "daily").mkdir()
+            (memory / "Last-Session.md").write_text(
+                "## Session: Bridge\nOrtak lifecycle bağlamı.\n## Previous\n",
+                encoding="utf-8",
+            )
+            (vault / ".claude/scripts/flush.py").write_text(
+                "# no-op recorder for detached catch-up\n", encoding="utf-8"
+            )
+            bridge.ROOT = vault
+
+            context = bridge.dispatch("codex", "start", {"session_id": "bridge-session"})
+
+            self.assertIn("Ortak lifecycle bağlamı.", context)
+            key = bridge.LIFECYCLE.session_key("bridge-session")
+            self.assertEqual((state / f"prompt_count.{key}").read_text().strip(), "0")
+            self.assertFalse((vault / ".claude/hooks").exists())
+
     def test_global_bridge_distinguishes_windows_vault_and_external_paths(self):
         bridge = load("bridge_windows_paths", ROOT / "template/.beyin/hooks/bridge.py")
         parts = bridge.ROOT.parts

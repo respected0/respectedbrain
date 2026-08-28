@@ -4,6 +4,7 @@ set -eu
 
 TEST_ROOT=$(CDPATH= cd "$(dirname "$0")/.." 2>/dev/null && pwd)
 SOURCE_HOOKS="$TEST_ROOT/template/.claude/hooks"
+SOURCE_BEYIN="$TEST_ROOT/template/.beyin"
 SOURCE_SETTINGS="$TEST_ROOT/template/.claude/settings.json"
 TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/beyin-hooks.XXXXXX")
 trap 'rm -rf "$TEST_TMP"' EXIT HUP INT TERM
@@ -176,7 +177,9 @@ CATCH_SCRIPTS="$CATCH_VAULT/.claude/scripts"
 CATCH_STATE="$CATCH_SCRIPTS/.state"
 mkdir -p "$CATCH_HOOKS" "$CATCH_STATE" "$CATCH_VAULT/🔮 850-Companion"
 cp "$SOURCE_HOOKS"/*.sh "$CATCH_HOOKS/"
+cp -R "$SOURCE_BEYIN" "$CATCH_VAULT/.beyin"
 chmod +x "$CATCH_HOOKS"/*.sh
+rm -f "$CATCH_HOOKS/lib.sh"
 cat > "$CATCH_SCRIPTS/flush.py" <<'PY'
 #!/usr/bin/env python3
 import json
@@ -200,6 +203,7 @@ with open(sys.argv[1], encoding="utf-8") as handle:
     assert json.load(handle) == ["--maybe-compile"]
 PY
 pass "SessionStart bağlamdan sonra tamamlanmış günler için ayrık catch-up başlatıyor"
+pass "ince launcher eski lib.sh olmadan ortak lifecycle çekirdeğini çalıştırıyor"
 
 VAULT="$TEST_TMP/vault"
 HOOKS="$VAULT/.claude/hooks"
@@ -207,6 +211,7 @@ STATE="$VAULT/.claude/scripts/.state"
 MEMORY="$VAULT/🔮 850-Companion"
 mkdir -p "$HOOKS" "$STATE" "$MEMORY" "$VAULT/knowledge" "$VAULT/daily"
 cp "$SOURCE_HOOKS"/*.sh "$HOOKS/"
+cp -R "$SOURCE_BEYIN" "$VAULT/.beyin"
 chmod +x "$HOOKS"/*.sh
 
 cat > "$MEMORY/Last-Session.md" <<'EOF'
@@ -579,6 +584,7 @@ wait_for_file "$STATE/flush-sessionend.json" || fail "SessionEnd flush stub ça�
 python3 - "$STATE/flush-sessionend.json" <<'PY'
 import json
 import os
+from pathlib import Path
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as handle:
@@ -587,6 +593,9 @@ assert call["reason"] == "sessionend"
 assert call["hook_input"] == {
     "session_id": "s-end",
     "transcript_path": "/tmp/end.jsonl",
+    "cwd": str(Path(sys.argv[1]).parents[3]),
+    "model": "",
+    "beyin_provider": "claude",
 }
 assert os.path.basename(call["hook_input_path"]).startswith("hookin-")
 PY
@@ -612,6 +621,7 @@ assert_json_or_empty "$PRECOMPACT_OUT" PreCompact
 wait_for_file "$STATE/flush-precompact.json" || fail "PreCompact flush stub çağrılmadı"
 python3 - "$STATE/flush-precompact.json" <<'PY'
 import json
+from pathlib import Path
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as handle:
@@ -620,6 +630,9 @@ assert call["reason"] == "precompact"
 assert call["hook_input"] == {
     "session_id": "s-pre",
     "transcript_path": "/tmp/pre.jsonl",
+    "cwd": str(Path(sys.argv[1]).parents[3]),
+    "model": "",
+    "beyin_provider": "claude",
 }
 PY
 [ "$(sed -n '1p' "$STATE/session_start_time.$PRE_KEY")" = 123 ] || fail "PreCompact session state değiştirdi"

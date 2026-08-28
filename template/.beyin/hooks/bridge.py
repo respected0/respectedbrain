@@ -14,13 +14,14 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
-HOOKS = ROOT / ".claude" / "hooks"
-EVENT_SCRIPT = {
-    "start": "session-start.sh",
-    "prompt": "prompt-counter.sh",
-    "end": "session-end.sh",
-    "precompact": "pre-compact.sh",
-}
+HOOK_DIR = Path(__file__).resolve().parent
+if str(HOOK_DIR) not in sys.path:
+    sys.path.insert(0, str(HOOK_DIR))
+
+import lifecycle as LIFECYCLE
+
+
+EVENTS = ("start", "prompt", "end", "precompact")
 
 
 def load_input() -> dict[str, Any]:
@@ -110,6 +111,13 @@ def output(provider: str, event: str, context: str) -> None:
         print(json.dumps({"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": context}}, ensure_ascii=False))
 
 
+def dispatch(provider: str, event: str, payload: dict[str, Any]) -> str:
+    if os.environ.get("BEYIN_INVOKED_BY"):
+        return ""
+    normalized = normalize(provider, payload)
+    return LIFECYCLE.handle(event, normalized, ROOT, provider)
+
+
 def inside_vault(active: str) -> bool:
     """Compare native Windows and POSIX workspace paths without treating C:\\... as relative in WSL."""
     normalized = active.replace("\\", "/").rstrip("/")
@@ -134,7 +142,7 @@ def inside_vault(active: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--provider", choices=("claude", "codex", "cursor", "antigravity"), required=True)
-    parser.add_argument("--event", choices=tuple(EVENT_SCRIPT), required=True)
+    parser.add_argument("--event", choices=EVENTS, required=True)
     parser.add_argument("--global-hook", action="store_true", help="vault dışındaki repolar için kullanıcı düzeyi hook")
     args = parser.parse_args()
     payload = normalize(args.provider, load_input())
@@ -150,23 +158,7 @@ def main() -> int:
         output(args.provider, args.event, "")
         return 0
 
-    environment = os.environ.copy()
-    environment["CLAUDE_PROJECT_DIR"] = str(ROOT)
-    environment["BEYIN_PROVIDER"] = args.provider
-    try:
-        result = subprocess.run(
-            [str(HOOKS / EVENT_SCRIPT[args.event])],
-            input=json.dumps(payload, ensure_ascii=False),
-            text=True,
-            capture_output=True,
-            cwd=ROOT,
-            env=environment,
-            timeout=12,
-            check=False,
-        )
-        context = extract_context(result.stdout)
-    except (OSError, subprocess.TimeoutExpired):
-        context = ""
+    context = dispatch(args.provider, args.event, payload)
     output(args.provider, args.event, context)
     return 0
 
