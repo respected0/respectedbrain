@@ -482,6 +482,75 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
             (self.state / "compile-trigger-2026-08-23").exists()
         )
 
+    def test_catch_up_triggers_only_for_completed_days(self) -> None:
+        """Catches off-hours compilation of today's still-changing daily log."""
+        today = self.daily / "2026-08-23.md"
+        yesterday = self.daily / "2026-08-22.md"
+        today.write_text("bugün", encoding="utf-8")
+        yesterday.write_text("dün", encoding="utf-8")
+        launches = []
+
+        def fake_popen(*args, **kwargs):
+            launches.append((args, kwargs))
+            return object()
+
+        current = dt.datetime(2026, 8, 23, 10, 0)
+        self.assertTrue(
+            FLUSH.maybe_trigger_compile(
+                self.vault,
+                current,
+                fake_popen,
+                catch_up=True,
+            )
+        )
+        self.assertEqual(
+            launches[0][0][0][-2:],
+            ["--before-date", "2026-08-23"],
+        )
+
+        (self.state / "compile-trigger-2026-08-23").unlink()
+        yesterday_digest = hashlib.sha256(yesterday.read_bytes()).hexdigest()
+        (self.state / "compile-state.json").write_text(
+            json.dumps({"ingested": {yesterday.name: yesterday_digest}}),
+            encoding="utf-8",
+        )
+        launches.clear()
+        self.assertFalse(
+            FLUSH.maybe_trigger_compile(
+                self.vault,
+                current,
+                fake_popen,
+                catch_up=True,
+            )
+        )
+        self.assertEqual(launches, [])
+
+    def test_catch_up_after_18_still_excludes_current_day(self) -> None:
+        """Catches SessionStart after 18:00 ingesting today's partial log."""
+        today = self.daily / "2026-08-23.md"
+        yesterday = self.daily / "2026-08-22.md"
+        today.write_text("bugün hâlâ yazılıyor", encoding="utf-8")
+        yesterday.write_text("dün tamamlandı", encoding="utf-8")
+        launches = []
+
+        def fake_popen(*args, **kwargs):
+            launches.append((args, kwargs))
+            return object()
+
+        current = dt.datetime(2026, 8, 23, 19, 0)
+        self.assertTrue(
+            FLUSH.maybe_trigger_compile(
+                self.vault,
+                current,
+                fake_popen,
+                catch_up=True,
+            )
+        )
+        self.assertEqual(
+            launches[0][0][0][-2:],
+            ["--before-date", "2026-08-23"],
+        )
+
     def test_hook_and_compile_temp_files_are_cleaned(self) -> None:
         transcript = self._write_transcript([("user", "temizlik")])
         current_hook = self._write_hook("cleanup-session", transcript, managed=True)
@@ -673,6 +742,33 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
             (self.state / "compile-state.json").read_text(encoding="utf-8")
         )
         self.assertEqual(state["last_status"], "fail:no-changes")
+
+    def test_compiler_releases_successful_trigger_claim(self) -> None:
+        """Catches a successful compile blocking every later run that day."""
+        (self.daily / "2026-08-20.md").write_text("log", encoding="utf-8")
+        claim = self.state / "compile-trigger-2026-08-23"
+        claim.write_text("", encoding="utf-8")
+        result = self._run_compile("--trigger-claim", str(claim))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(claim.exists())
+
+    def test_before_date_excludes_partial_current_day(self) -> None:
+        """Catches catch-up ingesting a daily file before that day is complete."""
+        yesterday = self.daily / "2026-08-22.md"
+        today = self.daily / "2026-08-23.md"
+        yesterday.write_text("tam gün", encoding="utf-8")
+        today.write_text("kısmi gün", encoding="utf-8")
+        result = self._run_compile("--before-date", "2026-08-23")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self._stub_calls("sonnet")
+        self.assertEqual(len(calls), 1)
+        self.assertIn(yesterday.name, calls[0]["prompt"])
+        self.assertNotIn(today.name, calls[0]["prompt"])
+        state = json.loads(
+            (self.state / "compile-state.json").read_text(encoding="utf-8")
+        )
+        self.assertIn(yesterday.name, state["ingested"])
+        self.assertNotIn(today.name, state["ingested"])
 
     def test_compile_promotes_allowed_diff_and_hash_skips_unchanged(self) -> None:
         daily_path = self.daily / "2026-08-20.md"

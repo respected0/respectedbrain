@@ -103,7 +103,7 @@ native agent olayı
 .claude/hooks/*.sh
        ↓
 flush.py → daily/YYYY-MM-DD.md
-       ↓  18:00 sonrası ilk uygun kapanış, değişen log varsa
+       ↓  18:00 sonrası kapanış veya sonraki başlangıçta tamamlanmış-gün catch-up
 compile.py → knowledge/concepts + connections + index + log
        ↓
 sonraki agent başlangıcında ortak bağlam enjeksiyonu
@@ -119,7 +119,10 @@ oluşmayan, boş veya şüpheli özet reddedilir. Aynı session için eşzamanl�
 tek kayda indirilir.
 
 Saat 18:00 bir zamanlayıcı değildir. 18:00'den sonraki ilk uygun oturum kapanışında değişmiş daily
-girdisi varsa compile tetiklenir; sistem kendi kendine IDE veya ChatGPT açmaz.
+girdisi varsa compile tetiklenir; sistem kendi kendine IDE veya ChatGPT açmaz. Bu kapanış hiç
+olmazsa sonraki SessionStart, yalnız tarihi bitmiş daily girdileri için ayrık catch-up başlatır.
+İçinde bulunulan gün `--before-date` sınırıyla dışarıda tutulur. Başarılı veya başarısız her compile
+tetik claim'ini bırakır; aynı günün sonraki geçerli tetikleri bloke edilmez.
 
 Derleme geçici staging ağacında yapılır. Yalnız `knowledge/index.md`, `knowledge/log.md`,
 `knowledge/concepts/*.md` ve `knowledge/connections/*.md` doğrulanıp vault'a taşınabilir. Silme,

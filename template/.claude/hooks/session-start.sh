@@ -187,4 +187,13 @@ if [ "${#BEYIN_CONTEXT}" -gt 16000 ]; then
 fi
 
 [ -n "$BEYIN_CONTEXT" ] && beyin_emit SessionStart "$BEYIN_CONTEXT"
+
+# SessionEnd can miss the evening compile when the day's last session closes
+# before 18:00. Run a detached catch-up after context output; flush.py will
+# compile only completed days and return cheaply when nothing is due.
+if command -v python3 >/dev/null 2>&1; then
+  nohup python3 "$BEYIN_PROJECT_DIR/.claude/scripts/flush.py" \
+    --maybe-compile >/dev/null 2>&1 &
+fi
+
 exit 0

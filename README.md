@@ -295,6 +295,8 @@ düzenlemesi normal git/uygulama çakışması yaratabilir; bu hafıza sistemind
 ### Saat 18.00'de bilgisayar kendi kendine agent açar mı?
 
 Hayır. Zamanlanmış görev yoktur. 18.00'den sonraki ilk uygun oturum kapanışı derlemeyi tetikler.
+Bu pencere kaçırılırsa sonraki agent başlangıcı yalnız tamamlanmış önceki günleri catch-up olarak
+derler; bugünün henüz tamamlanmamış loguna dokunmaz.
 
 ## Bir şey ters giderse
 

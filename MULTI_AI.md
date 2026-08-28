@@ -114,8 +114,9 @@ staging klasöründe yapılır ve yalnızca izin verilen `knowledge/` dosyaları
 Sistem saat 18:00 için alarm veya görev kurmaz ve ChatGPT/Antigravity penceresi açmaz. Her oturum
 kapanışında önce konuşma `daily/YYYY-MM-DD.md` dosyasına özetlenir. Bu kapanış yerel saate göre
 18:00'den sonraysa ve derlenmemiş günlük varsa aynı arka plan süreci headless CLI ile
-`knowledge/` derlemesini başlatır. O akşam 18:00'den sonra hiç oturum kapatmazsan derleme bir
-sonraki uygun kapanışta çalışır.
+`knowledge/` derlemesini başlatır. O akşam 18:00'den sonra hiç oturum kapatmazsan sonraki agent
+başlangıcı tamamlanmış önceki günleri catch-up olarak derler; içinde bulunulan günün hâlâ değişen
+daily dosyasını erken derlemez.
 
 ## Upstream yeniliklerini almak
 
@@ -134,6 +135,10 @@ Yeni commit'leri kontrollü birleştirmek için çalışma ağacını temizle ve
 Script bir geri dönüş dalı oluşturur ve birleştirmeyi commit etmeden çalışma ağacına bırakır.
 Testleri çalıştırıp farkı incelemeden commit atma. Tek bir upstream düzeltmesi gerekiyorsa
 `git cherry-pick <commit>` daha az çakışma üretir.
+
+Respot için tercih edilen yöntem tam merge değil, davranışı provider-neutral katmana uyarlamaktır.
+Son incelenen SHA'lar, alınan düzeltmeler ve ertelenen dallar `docs/UPSTREAM-SYNC.md` dosyasında
+kayıtlıdır.
 
 ## Bilinen sınırlar
 

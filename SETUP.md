@@ -705,8 +705,9 @@ fi
 ## Honest timing and quota behavior
 
 - **Daily log:** starts at a supported session-end/pre-compact event and normally takes seconds.
-- **Knowledge compile:** starts after 18:00 on the next eligible session close, at most once per
-  changed daily input; it can take minutes. There is no scheduler opening an AI app by itself.
+- **Knowledge compile:** starts after 18:00 on the next eligible session close. If that window is
+  missed, the next session start catches up completed earlier days without ingesting today's
+  partial log. It can take minutes. There is no scheduler opening an AI app by itself.
 - **Quota:** usage belongs to whichever CLI actually answered. Retryable limit/timeout/5xx errors
   fall through to another installed CLI. Authentication/configuration failures stop visibly.
 

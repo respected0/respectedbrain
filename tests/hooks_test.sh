@@ -170,6 +170,37 @@ for event, (script, timeout) in expected.items():
 PY
 pass "settings.json dört olayı doğru timeout ve proje yollarıyla bağlıyor"
 
+CATCH_VAULT="$TEST_TMP/catchup-vault"
+CATCH_HOOKS="$CATCH_VAULT/.claude/hooks"
+CATCH_SCRIPTS="$CATCH_VAULT/.claude/scripts"
+CATCH_STATE="$CATCH_SCRIPTS/.state"
+mkdir -p "$CATCH_HOOKS" "$CATCH_STATE" "$CATCH_VAULT/🔮 850-Companion"
+cp "$SOURCE_HOOKS"/*.sh "$CATCH_HOOKS/"
+chmod +x "$CATCH_HOOKS"/*.sh
+cat > "$CATCH_SCRIPTS/flush.py" <<'PY'
+#!/usr/bin/env python3
+import json
+from pathlib import Path
+import sys
+
+state = Path(__file__).parent / ".state" / "catchup-call.json"
+state.write_text(json.dumps(sys.argv[1:]), encoding="utf-8")
+PY
+chmod +x "$CATCH_SCRIPTS/flush.py"
+CATCH_OUT="$TEST_TMP/session-start-catchup.out"
+printf '%s\n' '{"session_id":"s-catchup","transcript_path":"/tmp/catchup.jsonl"}' \
+  | CLAUDE_PROJECT_DIR="$CATCH_VAULT" "$CATCH_HOOKS/session-start.sh" > "$CATCH_OUT"
+assert_json_or_empty "$CATCH_OUT" SessionStart
+wait_for_file "$CATCH_STATE/catchup-call.json" || fail "SessionStart catch-up sürecini başlatmadı"
+python3 - "$CATCH_STATE/catchup-call.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    assert json.load(handle) == ["--maybe-compile"]
+PY
+pass "SessionStart bağlamdan sonra tamamlanmış günler için ayrık catch-up başlatıyor"
+
 VAULT="$TEST_TMP/vault"
 HOOKS="$VAULT/.claude/hooks"
 STATE="$VAULT/.claude/scripts/.state"

@@ -429,10 +429,14 @@ def maybe_trigger_compile(
     vault_root: Path = VAULT_ROOT,
     now: dt.datetime | None = None,
     popen_factory: Callable[..., Any] | None = None,
+    catch_up: bool = False,
 ) -> bool:
-    """Start one detached evening compile when daily content has changed."""
+    """Start a scheduled or completed-day catch-up compile when due."""
     current = now or _event_now()
-    if _effective_hour(current) < 18:
+    # SessionEnd owns the after-18:00 pass and may include today. SessionStart
+    # catch-up is completed-days-only at every hour, including after 18:00.
+    on_schedule = _effective_hour(current) >= 18 and not catch_up
+    if not (on_schedule or catch_up):
         return False
 
     state_dir = vault_root / ".claude" / "scripts" / ".state"
@@ -455,15 +459,22 @@ def maybe_trigger_compile(
         daily_paths = sorted(daily_dir.glob("*.md"))
     else:
         daily_paths = []
-    changed = False
+    today_name = f"{current.strftime('%Y-%m-%d')}.md"
+    changed_today = False
+    changed_earlier = False
     for path in daily_paths:
         path_stat = path.lstat()
         if stat.S_ISLNK(path_stat.st_mode) or not stat.S_ISREG(path_stat.st_mode):
             raise ValueError(f"unsafe-daily-source:{path.name}")
         if ingested.get(path.name) != _sha256(path):
-            changed = True
-            break
-    if not changed:
+            if path.name == today_name:
+                changed_today = True
+            else:
+                changed_earlier = True
+                break
+    if not (changed_today or changed_earlier):
+        return False
+    if catch_up and not changed_earlier:
         return False
 
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -477,14 +488,17 @@ def maybe_trigger_compile(
     environment = os.environ.copy()
     environment.pop("BEYIN_INVOKED_BY", None)
     launcher = popen_factory or subprocess.Popen
+    compile_argv = [
+        sys.executable,
+        str(vault_root / ".claude" / "scripts" / "compile.py"),
+        "--trigger-claim",
+        str(trigger),
+    ]
+    if catch_up:
+        compile_argv.extend(["--before-date", current.date().isoformat()])
     try:
         launcher(
-            [
-                sys.executable,
-                str(vault_root / ".claude" / "scripts" / "compile.py"),
-                "--trigger-claim",
-                str(trigger),
-            ],
+            compile_argv,
             cwd=vault_root,
             env=environment,
             stdout=subprocess.DEVNULL,
@@ -529,13 +543,17 @@ def _sweep_stale_hook_inputs(
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--hook-input", required=True, type=Path)
+    parser.add_argument("--hook-input", type=Path)
     parser.add_argument(
         "--reason",
         choices=("sessionend", "precompact"),
         default="sessionend",
     )
-    return parser.parse_args(argv)
+    parser.add_argument("--maybe-compile", action="store_true", help=argparse.SUPPRESS)
+    parsed = parser.parse_args(argv)
+    if not parsed.maybe_compile and parsed.hook_input is None:
+        parser.error("--hook-input is required")
+    return parsed
 
 
 def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
@@ -646,6 +664,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SystemExit as exc:
         if exc.code:
             write_health(STATE_DIR, "invalid-arguments")
+        return 0
+
+    if args.maybe_compile:
+        try:
+            maybe_trigger_compile(VAULT_ROOT, _event_now(), catch_up=True)
+        except (OSError, ValueError, json.JSONDecodeError):
+            write_health(STATE_DIR, "compile-catchup-failed")
+        except Exception as exc:  # Hook boundary: never fail session start.
+            write_health(STATE_DIR, f"unexpected:{exc.__class__.__name__}")
         return 0
 
     managed_input = _managed_hook_input(args.hook_input, STATE_DIR)

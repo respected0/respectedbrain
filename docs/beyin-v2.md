@@ -146,8 +146,9 @@ raporlanır.
 
 Saat 18:00'de bir program ChatGPT veya IDE açmaz. Her başarılı kapanıştan sonra günlük özet oluşur.
 Yerel saat 18:00'den sonraysa, değişmiş ve derlenmemiş daily girdileri bulunduğunda aynı headless
-CLI hattı bilgi derlemesini başlatır. O gün 18:00'den sonra hiç oturum kapanmazsa bir sonraki uygun
-kapanışta çalışır.
+CLI hattı bilgi derlemesini başlatır. O gün 18:00'den sonra hiç oturum kapanmazsa sonraki agent
+başlangıcı tamamlanmış önceki günleri catch-up olarak işler. Bugünün yazılmaya devam eden daily
+dosyası bu catch-up çalışmasına girmez.
 
 Derlenmiş içerik:
 
