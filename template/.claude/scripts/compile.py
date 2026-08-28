@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import fcntl
 import hashlib
 import json
 import os
@@ -23,6 +22,14 @@ from typing import Any, Sequence
 SCRIPT_DIR = Path(__file__).resolve().parent
 VAULT_ROOT = SCRIPT_DIR.parent.parent
 STATE_DIR = SCRIPT_DIR / ".state"
+BEYIN_DIR = VAULT_ROOT / ".beyin"
+if str(BEYIN_DIR) not in sys.path:
+    sys.path.insert(0, str(BEYIN_DIR))
+sys.dont_write_bytecode = True
+
+import runtime_platform
+
+
 DEFAULT_MAX_CALLS = 3
 
 DATE_IN_NAME = re.compile(
@@ -221,10 +228,7 @@ def changed_daily_logs(
     daily_stat = daily_dir.lstat()
     if stat.S_ISLNK(daily_stat.st_mode) or not stat.S_ISDIR(daily_stat.st_mode):
         raise PolicyError("unsafe-daily-directory")
-    if not _path_within(
-        daily_dir.resolve(strict=True),
-        vault_root.resolve(strict=True),
-    ):
+    if not _path_within(daily_dir, vault_root):
         raise PolicyError("daily-directory-escape")
     changed = []
     for path in sorted(daily_dir.glob("*.md"), key=_daily_sort_key):
@@ -254,11 +258,7 @@ def build_compile_prompt(
 
 
 def _path_within(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return False
-    return True
+    return runtime_platform.path_within_vault(path, root)
 
 
 def _check_source(path: Path, vault_root: Path, directory: bool) -> None:
@@ -268,8 +268,7 @@ def _check_source(path: Path, vault_root: Path, directory: bool) -> None:
     expected = stat.S_ISDIR if directory else stat.S_ISREG
     if not expected(source_stat.st_mode):
         raise PolicyError(f"source-type:{path.relative_to(vault_root)}")
-    resolved = path.resolve(strict=True)
-    if not _path_within(resolved, vault_root.resolve(strict=True)):
+    if not _path_within(path, vault_root):
         raise PolicyError(f"source-escape:{path.name}")
 
 
@@ -360,7 +359,6 @@ def _prepare_stage(
 
 
 def _manifest(root: Path) -> dict[str, tuple[str, str]]:
-    root_resolved = root.resolve(strict=True)
     manifest: dict[str, tuple[str, str]] = {}
     for current, directory_names, file_names in os.walk(
         root,
@@ -375,8 +373,7 @@ def _manifest(root: Path) -> dict[str, tuple[str, str]]:
                 raise PolicyError(f"staging-symlink:{path.name}")
             if not stat.S_ISDIR(path_stat.st_mode):
                 raise PolicyError(f"staging-special:{path.name}")
-            resolved = path.resolve(strict=True)
-            if not _path_within(resolved, root_resolved):
+            if not _path_within(path, root):
                 raise PolicyError(f"staging-escape:{path.name}")
             relative = path.relative_to(root).as_posix()
             manifest[relative] = ("dir", "")
@@ -387,8 +384,7 @@ def _manifest(root: Path) -> dict[str, tuple[str, str]]:
                 raise PolicyError(f"staging-symlink:{path.name}")
             if not stat.S_ISREG(path_stat.st_mode) or path_stat.st_nlink != 1:
                 raise PolicyError(f"staging-special:{path.name}")
-            resolved = path.resolve(strict=True)
-            if not _path_within(resolved, root_resolved):
+            if not _path_within(path, root):
                 raise PolicyError(f"staging-escape:{path.name}")
             relative = path.relative_to(root).as_posix()
             manifest[relative] = ("file", _sha256(path))
@@ -454,7 +450,7 @@ def _validate_live_destination(
     if not _is_allowed_output_file(relative):
         raise PolicyError(f"forbidden-promotion:{relative}")
     destination = vault_root / relative
-    knowledge_root = (vault_root / "knowledge").resolve(strict=True)
+    knowledge_root = vault_root / "knowledge"
 
     existing_parent = destination.parent
     missing_parents = []
@@ -464,8 +460,7 @@ def _validate_live_destination(
     parent_stat = existing_parent.lstat()
     if stat.S_ISLNK(parent_stat.st_mode) or not stat.S_ISDIR(parent_stat.st_mode):
         raise PolicyError(f"unsafe-live-parent:{relative}")
-    resolved_parent = existing_parent.resolve(strict=True)
-    if not _path_within(resolved_parent, knowledge_root):
+    if not _path_within(existing_parent, knowledge_root):
         raise PolicyError(f"live-parent-escape:{relative}")
     for parent in reversed(missing_parents):
         parent.mkdir(mode=0o755)
@@ -822,36 +817,36 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     with lock_file:
         try:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            _release_trigger_claim(trigger_claim)
-            return 0
+            with runtime_platform.exclusive_lock(
+                lock_file, blocking=False
+            ) as held:
+                if not held:
+                    _release_trigger_claim(trigger_claim)
+                    return 0
+                try:
+                    return _run_locked(args, trigger_claim)
+                except Exception as exc:  # Preserve the hook exit contract.
+                    state_path = STATE_DIR / "compile-state.json"
+                    try:
+                        state = load_state(state_path)
+                    except (OSError, ValueError, json.JSONDecodeError):
+                        state = _default_state()
+                    _record_failure(
+                        state_path,
+                        state,
+                        "",
+                        "unexpected",
+                        exc.__class__.__name__,
+                        trigger_claim,
+                    )
+                    return 0
+                finally:
+                    # Failure paths release idempotently; this covers success.
+                    _release_trigger_claim(trigger_claim)
         except OSError:
             write_health(STATE_DIR, "lock-failed")
             _release_trigger_claim(trigger_claim)
             return 0
-        try:
-            return _run_locked(args, trigger_claim)
-        except Exception as exc:  # Compiler must preserve the hook exit contract.
-            state_path = STATE_DIR / "compile-state.json"
-            try:
-                state = load_state(state_path)
-            except (OSError, ValueError, json.JSONDecodeError):
-                state = _default_state()
-            _record_failure(
-                state_path,
-                state,
-                "",
-                "unexpected",
-                exc.__class__.__name__,
-                trigger_claim,
-            )
-            return 0
-        finally:
-            # A successful run must not block every later trigger that day.
-            # Failure paths already release this idempotently; finally covers
-            # success, dry-run and no-change exits as well.
-            _release_trigger_claim(trigger_claim)
 
 
 if __name__ == "__main__":

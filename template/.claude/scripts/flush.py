@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import fcntl
 import hashlib
 import json
 import os
@@ -23,6 +22,14 @@ from typing import Any, Callable, Sequence
 SCRIPT_DIR = Path(__file__).resolve().parent
 VAULT_ROOT = SCRIPT_DIR.parent.parent
 STATE_DIR = SCRIPT_DIR / ".state"
+BEYIN_DIR = VAULT_ROOT / ".beyin"
+if str(BEYIN_DIR) not in sys.path:
+    sys.path.insert(0, str(BEYIN_DIR))
+sys.dont_write_bytecode = True
+
+import runtime_platform
+
+
 MAX_TURNS = 30
 MAX_TRANSCRIPT_CHARS = 15_000
 STALE_HOOK_INPUT_SECONDS = 3_600
@@ -325,13 +332,9 @@ def _run_model(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
 
         with tempfile.TemporaryDirectory(prefix="beyin-flush-") as temporary:
             temporary_path = Path(temporary).resolve()
-            try:
-                inside_vault = (
-                    os.path.commonpath([temporary_path, vault_root.resolve()])
-                    == str(vault_root.resolve())
-                )
-            except ValueError:
-                inside_vault = False
+            inside_vault = runtime_platform.path_within_vault(
+                temporary_path, vault_root
+            )
             if inside_vault:
                 return None, "temporary-directory-inside-vault"
             summary, error, _provider = run_model(
@@ -454,6 +457,7 @@ def maybe_trigger_compile(
         if (
             stat.S_ISLNK(daily_stat.st_mode)
             or not stat.S_ISDIR(daily_stat.st_mode)
+            or not runtime_platform.path_within_vault(daily_dir, vault_root)
         ):
             raise ValueError("unsafe-daily-directory")
         daily_paths = sorted(daily_dir.glob("*.md"))
@@ -464,7 +468,11 @@ def maybe_trigger_compile(
     changed_earlier = False
     for path in daily_paths:
         path_stat = path.lstat()
-        if stat.S_ISLNK(path_stat.st_mode) or not stat.S_ISREG(path_stat.st_mode):
+        if (
+            stat.S_ISLNK(path_stat.st_mode)
+            or not stat.S_ISREG(path_stat.st_mode)
+            or not runtime_platform.path_within_vault(path, vault_root)
+        ):
             raise ValueError(f"unsafe-daily-source:{path.name}")
         if ingested.get(path.name) != _sha256(path):
             if path.name == today_name:
@@ -479,11 +487,8 @@ def maybe_trigger_compile(
 
     state_dir.mkdir(parents=True, exist_ok=True)
     trigger = state_dir / f"compile-trigger-{current.strftime('%Y-%m-%d')}"
-    try:
-        descriptor = os.open(trigger, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    except FileExistsError:
+    if not runtime_platform.create_exclusive_claim(trigger):
         return False
-    os.close(descriptor)
 
     environment = os.environ.copy()
     environment.pop("BEYIN_INVOKED_BY", None)
@@ -503,7 +508,7 @@ def maybe_trigger_compile(
             env=environment,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            start_new_session=True,
+            **runtime_platform.detached_process_options(),
         )
     except OSError:
         try:
@@ -516,7 +521,10 @@ def maybe_trigger_compile(
 
 def _managed_hook_input(path: Path, state_dir: Path) -> bool:
     try:
-        same_parent = path.absolute().parent.resolve() == state_dir.resolve()
+        same_parent = (
+            runtime_platform.path_within_vault(path, state_dir)
+            and path.absolute().parent.resolve() == state_dir.resolve()
+        )
     except OSError:
         return False
     return same_parent and HOOK_INPUT_NAME.fullmatch(path.name) is not None
@@ -570,88 +578,91 @@ def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     lock_path = _session_lock_path(STATE_DIR, session_id)
     with lock_path.open("a+", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        if _is_recent_duplicate(STATE_DIR, session_id, now_epoch):
-            return 0
+        with runtime_platform.exclusive_lock(lock_file, blocking=True) as held:
+            if not held:
+                write_health(STATE_DIR, "session-lock-timeout")
+                return 0
+            if _is_recent_duplicate(STATE_DIR, session_id, now_epoch):
+                return 0
 
-        turns = read_transcript(transcript_path)
-        transcript, turn_count = format_turns(turns)
-        minimum_turns = 5 if args.reason == "precompact" else 1
-        if turn_count < minimum_turns:
-            _write_flush_state(
-                STATE_DIR,
-                session_id,
-                now_epoch,
-                "ok",
-                "below-minimum-turns",
-            )
-            return 0
+            turns = read_transcript(transcript_path)
+            transcript, turn_count = format_turns(turns)
+            minimum_turns = 5 if args.reason == "precompact" else 1
+            if turn_count < minimum_turns:
+                _write_flush_state(
+                    STATE_DIR,
+                    session_id,
+                    now_epoch,
+                    "ok",
+                    "below-minimum-turns",
+                )
+                return 0
 
-        _write_flush_state(STATE_DIR, session_id, now_epoch, "inflight")
-        if DIRECTIVE_SHAPED.search(transcript):
-            write_health(
-                STATE_DIR,
-                "warn:directive-shaped-transcript",
-                warning=True,
-            )
+            _write_flush_state(STATE_DIR, session_id, now_epoch, "inflight")
+            if DIRECTIVE_SHAPED.search(transcript):
+                write_health(
+                    STATE_DIR,
+                    "warn:directive-shaped-transcript",
+                    warning=True,
+                )
 
-        summary, error = _run_model(build_flush_prompt(transcript), VAULT_ROOT)
-        if error is not None:
-            _record_flush_failure(
-                STATE_DIR,
-                session_id,
-                now_epoch,
-                error,
-            )
-            return 0
-        if not summary:
-            _record_flush_failure(
-                STATE_DIR,
-                session_id,
-                now_epoch,
-                "summary-empty",
-            )
-            return 0
-        if summary == "FLUSH_BOS":
-            _write_flush_state(
-                STATE_DIR,
-                session_id,
-                now_epoch,
-                "ok",
-                "flush-bos",
-            )
-            return 0
-        if not validate_summary(summary):
-            _record_flush_failure(
-                STATE_DIR,
-                session_id,
-                now_epoch,
-                "summary-schema-invalid",
-            )
-            return 0
+            summary, error = _run_model(build_flush_prompt(transcript), VAULT_ROOT)
+            if error is not None:
+                _record_flush_failure(
+                    STATE_DIR,
+                    session_id,
+                    now_epoch,
+                    error,
+                )
+                return 0
+            if not summary:
+                _record_flush_failure(
+                    STATE_DIR,
+                    session_id,
+                    now_epoch,
+                    "summary-empty",
+                )
+                return 0
+            if summary == "FLUSH_BOS":
+                _write_flush_state(
+                    STATE_DIR,
+                    session_id,
+                    now_epoch,
+                    "ok",
+                    "flush-bos",
+                )
+                return 0
+            if not validate_summary(summary):
+                _record_flush_failure(
+                    STATE_DIR,
+                    session_id,
+                    now_epoch,
+                    "summary-schema-invalid",
+                )
+                return 0
 
-        try:
-            _append_daily(VAULT_ROOT, summary, args.reason, event_time)
-            _write_flush_state(
-                STATE_DIR,
-                session_id,
-                now_epoch,
-                "ok",
-                "appended",
-            )
-        except OSError:
-            _record_flush_failure(
-                STATE_DIR,
-                session_id,
-                now_epoch,
-                "daily-append-failed",
-            )
-            return 0
+            try:
+                _append_daily(VAULT_ROOT, summary, args.reason, event_time)
+                _write_flush_state(
+                    STATE_DIR,
+                    session_id,
+                    now_epoch,
+                    "ok",
+                    "appended",
+                )
+            except OSError:
+                _record_flush_failure(
+                    STATE_DIR,
+                    session_id,
+                    now_epoch,
+                    "daily-append-failed",
+                )
+                return 0
 
-        try:
-            maybe_trigger_compile(VAULT_ROOT, event_time)
-        except (OSError, ValueError, json.JSONDecodeError):
-            write_health(STATE_DIR, "compile-trigger-failed")
+            try:
+                maybe_trigger_compile(VAULT_ROOT, event_time)
+            except (OSError, ValueError, json.JSONDecodeError):
+                write_health(STATE_DIR, "compile-trigger-failed")
     return 0
 
 

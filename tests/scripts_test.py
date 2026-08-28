@@ -51,17 +51,23 @@ class ScriptsTest(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.vault = self.root / "vault"
         self.scripts = self.vault / ".claude" / "scripts"
+        self.beyin = self.vault / ".beyin"
         self.state = self.scripts / ".state"
         self.daily = self.vault / "daily"
         self.knowledge = self.vault / "knowledge"
         self.bin_dir = self.root / "bin"
         self.scripts.mkdir(parents=True)
+        self.beyin.mkdir()
         self.state.mkdir()
         self.daily.mkdir()
         self.knowledge.mkdir()
         self.bin_dir.mkdir()
         shutil.copy2(SOURCE_SCRIPTS / "flush.py", self.scripts / "flush.py")
         shutil.copy2(SOURCE_SCRIPTS / "compile.py", self.scripts / "compile.py")
+        shutil.copy2(
+            REPO_ROOT / "template" / ".beyin" / "runtime_platform.py",
+            self.beyin / "runtime_platform.py",
+        )
         (self.knowledge / "index.md").write_text(
             "# Bilgi İndeksi\n", encoding="utf-8"
         )
@@ -131,6 +137,55 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
             encoding="utf-8",
         )
         stub.chmod(0o755)
+
+    def test_engines_do_not_import_posix_locking_directly(self) -> None:
+        loader = r'''
+import contextlib
+import importlib.abc
+import importlib.util
+import pathlib
+import sys
+import types
+
+runtime = types.ModuleType("runtime_platform")
+@contextlib.contextmanager
+def exclusive_lock(_handle, *, blocking, timeout=300.0):
+    yield True
+runtime.exclusive_lock = exclusive_lock
+runtime.create_exclusive_claim = lambda _path, mode=0o600: True
+runtime.detached_process_options = lambda: {"start_new_session": True}
+runtime.path_within_vault = lambda path, root: pathlib.Path(path).is_relative_to(root)
+sys.modules["runtime_platform"] = runtime
+sys.modules.pop("fcntl", None)
+
+class RejectFcntl(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "fcntl":
+            raise ModuleNotFoundError("direct fcntl import rejected")
+        return None
+
+sys.meta_path.insert(0, RejectFcntl())
+for index, value in enumerate(sys.argv[1:]):
+    spec = importlib.util.spec_from_file_location(f"engine_{index}", value)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+print("loaded")
+'''
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                loader,
+                str(SOURCE_SCRIPTS / "flush.py"),
+                str(SOURCE_SCRIPTS / "compile.py"),
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.strip(), "loaded")
 
     def _environment(self, **overrides: str) -> dict[str, str]:
         environment = os.environ.copy()
