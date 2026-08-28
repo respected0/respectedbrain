@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "python3 .beyin/hooks/bridge.py --provider codex --event start",
-            "commandWindows": "wsl.exe --cd \".\" python3 .beyin/hooks/bridge.py --provider codex --event start",
+            "commandWindows": "wsl.exe --cd . python3 .beyin/hooks/bridge.py --provider codex --event start",
             "timeout": 15,
             "additionalContextLimit": 16000
           }
@@ -20,7 +20,7 @@
           {
             "type": "command",
             "command": "python3 .beyin/hooks/bridge.py --provider codex --event prompt",
-            "commandWindows": "wsl.exe --cd \".\" python3 .beyin/hooks/bridge.py --provider codex --event prompt",
+            "commandWindows": "wsl.exe --cd . python3 .beyin/hooks/bridge.py --provider codex --event prompt",
             "timeout": 5
           }
         ]
@@ -32,7 +32,7 @@
           {
             "type": "command",
             "command": "python3 .beyin/hooks/bridge.py --provider codex --event end",
-            "commandWindows": "wsl.exe --cd \".\" python3 .beyin/hooks/bridge.py --provider codex --event end",
+            "commandWindows": "wsl.exe --cd . python3 .beyin/hooks/bridge.py --provider codex --event end",
             "timeout": 3
           }
         ]
@@ -44,7 +44,7 @@
           {
             "type": "command",
             "command": "python3 .beyin/hooks/bridge.py --provider codex --event precompact",
-            "commandWindows": "wsl.exe --cd \".\" python3 .beyin/hooks/bridge.py --provider codex --event precompact",
+            "commandWindows": "wsl.exe --cd . python3 .beyin/hooks/bridge.py --provider codex --event precompact",
             "timeout": 10
           }
         ]

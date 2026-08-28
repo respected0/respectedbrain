@@ -1,3 +1,7 @@
 {
-  "summary_provider": "auto"
+  "summary_provider": "auto",
+  "platform": "portable",
+  "python_command": [
+    "python3"
+  ]
 }
