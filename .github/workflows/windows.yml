@@ -1,0 +1,26 @@
+name: windows-native
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-native:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: PowerShell fresh-install contract
+        shell: pwsh
+        run: pwsh -NoProfile -File tests/install_windows_test.ps1
+      - name: Native lifecycle and runtime
+        shell: pwsh
+        run: py.exe -3 -m unittest -v tests.windows_native_test tests.runtime_platform_test
+

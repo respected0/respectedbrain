@@ -13,6 +13,12 @@ import sys
 from typing import Any
 
 
+for _stream in (sys.stdout, sys.stderr):
+    reconfigure = getattr(_stream, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(encoding="utf-8")
+
+
 ROOT = Path(__file__).resolve().parents[2]
 HOOK_DIR = Path(__file__).resolve().parent
 if str(HOOK_DIR) not in sys.path:
