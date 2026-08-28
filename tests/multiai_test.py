@@ -6,7 +6,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import shutil
 import subprocess
 import sys
@@ -269,6 +269,81 @@ class MultiAITest(unittest.TestCase):
             self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
             repeated = {path.relative_to(home): path.read_bytes() for path in home.rglob("*") if path.is_file() and ".respot-backups" not in path.parts}
             self.assertEqual(managed_files, repeated)
+
+    def test_native_windows_global_command_is_absolute_and_shell_free(self):
+        installer = load("install_global_native_command", ROOT / "scripts/install_global.py")
+        vault = PureWindowsPath(r"C:\Users\Ada\Ada Brain")
+
+        command = installer.bridge_command(vault, "codex", "start", "windows-native")
+
+        self.assertIn("py.exe -3", command)
+        self.assertIn(r"C:\Users\Ada\Ada Brain\.beyin\hooks\bridge.py", command)
+        self.assertIn("--provider codex", command)
+        self.assertIn("--event start", command)
+        self.assertIn("--global-hook", command)
+        for forbidden in ("wsl.exe", "bash", ".sh", "/mnt/"):
+            self.assertNotIn(forbidden, command)
+
+    def test_native_windows_global_installer_is_selective_and_idempotent(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            vault = root / "Ada Brain"
+            shutil.copytree(ROOT / "template", vault)
+            home = root / "user"
+            (home / ".codex").mkdir(parents=True)
+            (home / ".codex/AGENTS.md").write_text(
+                "# Kendi Codex kuralım\n", encoding="utf-8"
+            )
+            (home / ".cursor").mkdir()
+            (home / ".cursor/hooks.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "hooks": {"sessionStart": [{"command": "existing"}]},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            command = [
+                sys.executable,
+                str(ROOT / "scripts/install_global.py"),
+                str(vault),
+                "--home",
+                str(home),
+                "--platform",
+                "windows-native",
+                "--providers",
+                "codex,cursor",
+                "--apply",
+            ]
+
+            first = subprocess.run(command, capture_output=True, text=True, check=False)
+
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            codex_rule = (home / ".codex/AGENTS.md").read_text(encoding="utf-8")
+            cursor_hooks = (home / ".cursor/hooks.json").read_text(encoding="utf-8")
+            combined = codex_rule + cursor_hooks
+            self.assertIn("# Kendi Codex kuralım", codex_rule)
+            self.assertIn("existing", cursor_hooks)
+            self.assertIn("py.exe -3", combined)
+            self.assertNotIn("wsl.exe", combined)
+            self.assertFalse((home / ".gemini").exists())
+            self.assertFalse((home / ".claude").exists())
+            snapshot = {
+                path.relative_to(home): path.read_bytes()
+                for path in home.rglob("*")
+                if path.is_file() and ".respot-backups" not in path.parts
+            }
+
+            second = subprocess.run(command, capture_output=True, text=True, check=False)
+            repeated = {
+                path.relative_to(home): path.read_bytes()
+                for path in home.rglob("*")
+                if path.is_file() and ".respot-backups" not in path.parts
+            }
+
+            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+            self.assertEqual(snapshot, repeated)
 
     def test_installer_preserves_personalized_instruction_as_canonical(self):
         with tempfile.TemporaryDirectory() as temporary:

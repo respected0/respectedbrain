@@ -80,6 +80,24 @@ korur; yönettiği Respot bloklarını birleştirir, yedek alır ve ortak skill'
 düzeyi konumuna kopyalar. Global hook, vault kendi workspace'i olarak açıksa proje hook'unu
 çift çalıştırmaz. Böylece aktif kod reposu başka yerde olsa da konuşma özeti seçilen vault'a yazılır.
 
+Windows uygulamalarını WSL olmadan doğrudan kullanmak için aynı kurucuyu PowerShell'de native
+profille çalıştır:
+
+```powershell
+py -3 scripts/install_global.py `
+  "C:\Users\<ad>\Documents\<vault-adı>" `
+  --home "C:\Users\<ad>" `
+  --platform windows-native `
+  --providers codex,cursor
+```
+
+Bu profil hook'larda `py.exe -3` ve vault içindeki `bridge.py` dosyasının mutlak Windows yolunu
+kullanır; WSL, Bash veya `.sh` dosyası gerektirmez. `--providers` seçimi ana agent tercihi
+değildir: yalnız kurulu araçların hangilerine global bağlantı yazılacağını belirler. Bugün Codex ve
+Cursor ile başlayıp daha sonra `antigravity` veya `claude` ekleyebilirsin; mevcut kişisel kurallar
+ve diğer provider ayarları korunur. Herkesin vault adı da kendine aittir, `respectedOS` zorunlu
+değildir.
+
 ## Arka plan modeli nasıl seçilir?
 
 Hook hangi araçtan geldiyse önce onun yerel CLI'ı denenir. Antigravity için `agy`, Codex için

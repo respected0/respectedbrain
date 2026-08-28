@@ -7,9 +7,20 @@ import argparse
 import datetime as dt
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 import shutil
 import sys
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from render_integrations import (  # noqa: E402
+    DEFAULT_PYTHON_COMMANDS,
+    Profile,
+    command_text,
+)
 
 
 BEGIN = "<!-- RESPOT-GLOBAL:BEGIN -->"
@@ -73,12 +84,9 @@ def managed_rule(vault: Path) -> str:
     )
 
 
-def bridge_command(vault: Path, provider: str, event: str, windows_wsl: bool) -> str:
-    bridge = ".beyin/hooks/bridge.py"
-    args = f"--global-hook --provider {provider} --event {event}"
-    if windows_wsl:
-        return f'wsl.exe --cd "{vault.as_posix()}" python3 {bridge} {args}'
-    return f'python3 "{vault.as_posix()}/{bridge}" {args}'
+def bridge_command(vault: PurePath, provider: str, event: str, platform: str) -> str:
+    profile = Profile(platform, DEFAULT_PYTHON_COMMANDS[platform])
+    return command_text(profile, vault, provider, event, global_hook=True)
 
 
 def managed_command(value: object, provider: str) -> bool:
@@ -129,7 +137,7 @@ def copy_skills(vault: Path, roots: list[Path]) -> list[tuple[Path, str]]:
     return writes
 
 
-def build(vault: Path, home: Path, providers: tuple[str, ...], windows_wsl: bool) -> tuple[list[tuple[Path, str]], list[Path]]:
+def build(vault: Path, home: Path, providers: tuple[str, ...], platform: str) -> tuple[list[tuple[Path, str]], list[Path]]:
     writes: list[tuple[Path, str]] = []
     touched: list[Path] = []
     rule = managed_rule(vault)
@@ -139,8 +147,8 @@ def build(vault: Path, home: Path, providers: tuple[str, ...], windows_wsl: bool
         hooks_path = config / "hooks.json"
         hooks = load_object(hooks_path)
         hooks["respot-brain"] = {
-            "PreInvocation": [{"type": "command", "command": bridge_command(vault, "antigravity", "start", windows_wsl), "timeout": 15}],
-            "Stop": [{"type": "command", "command": bridge_command(vault, "antigravity", "end", windows_wsl), "timeout": 10}],
+            "PreInvocation": [{"type": "command", "command": bridge_command(vault, "antigravity", "start", platform), "timeout": 15}],
+            "Stop": [{"type": "command", "command": bridge_command(vault, "antigravity", "end", platform), "timeout": 10}],
         }
         rule_path = home / ".gemini/GEMINI.md"
         writes += [(hooks_path, json.dumps(hooks, ensure_ascii=False, indent=2) + "\n"), (rule_path, merge_managed(rule_path.read_text(encoding="utf-8") if rule_path.exists() else "", rule))]
@@ -152,10 +160,10 @@ def build(vault: Path, home: Path, providers: tuple[str, ...], windows_wsl: bool
         hooks_path = config / "hooks.json"
         hooks = load_object(hooks_path)
         commands = {
-            "SessionStart": (bridge_command(vault, "codex", "start", windows_wsl), 15),
-            "UserPromptSubmit": (bridge_command(vault, "codex", "prompt", windows_wsl), 5),
-            "SessionEnd": (bridge_command(vault, "codex", "end", windows_wsl), 3),
-            "PreCompact": (bridge_command(vault, "codex", "precompact", windows_wsl), 10),
+            "SessionStart": (bridge_command(vault, "codex", "start", platform), 15),
+            "UserPromptSubmit": (bridge_command(vault, "codex", "prompt", platform), 5),
+            "SessionEnd": (bridge_command(vault, "codex", "end", platform), 3),
+            "PreCompact": (bridge_command(vault, "codex", "precompact", platform), 10),
         }
         merge_grouped_hooks(hooks, "codex", commands)
         hooks_path_content = json.dumps(hooks, ensure_ascii=False, indent=2) + "\n"
@@ -170,10 +178,10 @@ def build(vault: Path, home: Path, providers: tuple[str, ...], windows_wsl: bool
         hooks = load_object(hooks_path)
         hooks.setdefault("version", 1)
         additions = {
-            "sessionStart": [{"command": bridge_command(vault, "cursor", "start", windows_wsl), "timeout": 15}],
-            "beforeSubmitPrompt": [{"command": bridge_command(vault, "cursor", "prompt", windows_wsl), "timeout": 5}],
-            "sessionEnd": [{"command": bridge_command(vault, "cursor", "end", windows_wsl), "timeout": 10}],
-            "preCompact": [{"command": bridge_command(vault, "cursor", "precompact", windows_wsl), "timeout": 10}],
+            "sessionStart": [{"command": bridge_command(vault, "cursor", "start", platform), "timeout": 15}],
+            "beforeSubmitPrompt": [{"command": bridge_command(vault, "cursor", "prompt", platform), "timeout": 5}],
+            "sessionEnd": [{"command": bridge_command(vault, "cursor", "end", platform), "timeout": 10}],
+            "preCompact": [{"command": bridge_command(vault, "cursor", "precompact", platform), "timeout": 10}],
         }
         merge_simple_hooks(hooks, "cursor", additions)
         rule_path = config / "rules/respot-brain.mdc"
@@ -187,10 +195,10 @@ def build(vault: Path, home: Path, providers: tuple[str, ...], windows_wsl: bool
         settings_path = config / "settings.json"
         settings = load_object(settings_path)
         commands = {
-            "SessionStart": (bridge_command(vault, "claude", "start", windows_wsl), 15),
-            "UserPromptSubmit": (bridge_command(vault, "claude", "prompt", windows_wsl), 5),
-            "SessionEnd": (bridge_command(vault, "claude", "end", windows_wsl), 3),
-            "PreCompact": (bridge_command(vault, "claude", "precompact", windows_wsl), 10),
+            "SessionStart": (bridge_command(vault, "claude", "start", platform), 15),
+            "UserPromptSubmit": (bridge_command(vault, "claude", "prompt", platform), 5),
+            "SessionEnd": (bridge_command(vault, "claude", "end", platform), 3),
+            "PreCompact": (bridge_command(vault, "claude", "precompact", platform), 10),
         }
         merge_grouped_hooks(settings, "claude", commands)
         rule_path = config / "CLAUDE.md"
@@ -206,7 +214,7 @@ def main() -> int:
     parser.add_argument("vault", type=Path, help="adı serbest olan ikinci beyin vault yolu")
     parser.add_argument("--home", required=True, type=Path, help="AI araçlarının kullanıcı kökü")
     parser.add_argument("--providers", default="all", help="all veya virgülle: antigravity,codex,cursor,claude")
-    parser.add_argument("--platform", choices=("portable", "windows-wsl"), default="portable")
+    parser.add_argument("--platform", choices=tuple(DEFAULT_PYTHON_COMMANDS), default="portable")
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
     vault = args.vault.expanduser().resolve()
@@ -220,7 +228,7 @@ def main() -> int:
     if not home.is_dir():
         parser.error(f"kullanıcı kökü bulunamadı: {home}")
     try:
-        writes, touched = build(vault, home, providers, args.platform == "windows-wsl")
+        writes, touched = build(vault, home, providers, args.platform)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"hata: {exc}", file=sys.stderr)
         return 2

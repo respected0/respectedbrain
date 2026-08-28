@@ -96,7 +96,10 @@ def bridge_argv(
             ".beyin/hooks/bridge.py",
             *suffix,
         ]
-    return [*profile.python_command, ".beyin/hooks/bridge.py", *suffix]
+    bridge = vault / ".beyin" / "hooks" / "bridge.py" if global_hook else PurePath(
+        ".beyin/hooks/bridge.py"
+    )
+    return [*profile.python_command, str(bridge), *suffix]
 
 
 def command_text(

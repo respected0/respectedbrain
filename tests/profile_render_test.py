@@ -54,6 +54,30 @@ class ProfileRenderTest(unittest.TestCase):
             ],
         )
 
+    def test_portable_global_bridge_uses_the_absolute_vault_path(self):
+        profile = RENDER.Profile("portable", ("python3",))
+
+        argv = RENDER.bridge_argv(
+            profile,
+            Path("/opt/Ada Brain"),
+            "codex",
+            "start",
+            global_hook=True,
+        )
+
+        self.assertEqual(
+            argv,
+            [
+                "python3",
+                "/opt/Ada Brain/.beyin/hooks/bridge.py",
+                "--provider",
+                "codex",
+                "--event",
+                "start",
+                "--global-hook",
+            ],
+        )
+
     def test_each_profile_renders_explicit_config_and_all_provider_adapters(self):
         cases = {
             "portable": {"required": "python3", "forbidden": ()},
