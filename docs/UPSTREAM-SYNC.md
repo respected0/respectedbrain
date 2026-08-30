@@ -61,3 +61,23 @@ katmanına uyarlamak ve sonraki incelemede aynı analizi tekrarlamamaktır.
 Bir sonraki upstream güncellemesinde bu tablodaki uç SHA'larla yeni uçlar karşılaştırılır. Daha önce
 ertelenen bir dal değişmediyse gerekçesi yeniden keşfedilmez; yalnız Respot'ın platform hedefi veya
 dalın provider-neutral sözleşmesi değiştiyse karar yeniden açılır.
+
+## 2026-08-29 tekrar kontrolü
+
+| Kaynak | Güncel uç | Önceki incelemeye göre | Karar |
+| --- | --- | --- | --- |
+| `avenoxai/avenoxbeyin` `main` | `18c83ff` | Değişmedi | Yeni davranış yok. Actions v7 güncellemesi Respot Windows CI'ında zaten var. |
+| `enesadakli/windows-native` | `920b597` | Değişmedi | Önceki karar korunuyor; ertelenen event log ve yedekleme ayrı özellikler. |
+| `goktas-batuhan/fix/compile-trigger-reliability` | `5fed9f6` | Değişmedi | Compile güvenilirliği düzeltmeleri Respot'a daha önce uyarlandı. |
+| `morp1e/windows-support` | `ac207ee` | Değişmedi | Native Windows davranışı Respot'ın ortak runtime'ında zaten karşılanıyor. |
+| `eryondigital/fix/compile-stage-outside-dot-claude` | `065fb12` | Yeni incelendi | **Alınmalı ve provider-neutral biçimde uyarlanmalı.** |
+
+Eryon düzeltmesi compile staging ağacını `.claude/scripts/.state` altından sistem geçici dizinine
+taşıyor. Claude Code, headless `-p` çalışmasında `.claude/` altındaki yazmayı hassas sayıp onay
+bekleyebildiği için model `0` koduyla fakat hiçbir dosya üretmeden çıkabiliyor. Respot'ın
+`compile.py` dosyasında staging hâlâ aynı hassas konumda bulunduğundan hata bize de uygulanıyor.
+
+Uyarlamada rastgele ve `0700` izinli geçici klasör, her koşulda temizlik, canlı `knowledge/`
+sınırlarının yeniden doğrulanması ve provider-neutral `model_runner.py` korunacak. Bu değişiklik
+özellik backlog'u kesinleştiğinde ayrı regresyon testiyle uygulanacak; bu inceleme turunda çalışma
+kodu değiştirilmedi.
