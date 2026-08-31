@@ -80,3 +80,30 @@ bekleyebildiği için model `0` koduyla fakat hiçbir dosya üretmeden çıkabil
 Uyarlama 2026-08-31'de ayrı regresyon testiyle provider-neutral biçimde uygulandı: staging sistem
 geçici dizinine taşındı; vault dışı sınır, `0700`, canlı `knowledge/` manifest/promote kontrolleri,
 provider-neutral `model_runner.py` ve koşulsuz temizlik korundu.
+
+## 2026-09-01 bütün forklar ve dallar incelemesi
+
+İncelenen depoların yalnız varsayılan dalları değil bütün uzak dalları karşılaştırıldı. Ayrıntılı ve
+kilitlenmiş uygulama kapsamı
+[`UPSTREAM-ADOPTION-BACKLOG.md`](UPSTREAM-ADOPTION-BACKLOG.md) dosyasındadır.
+
+| Kaynak | İncelenen dallar/uçlar | Sonuç |
+| --- | --- | --- |
+| `avenoxai/avenoxbeyin` | `main` `6f4dcb9`, `v2` `4a62dcc` | Referans taban; Respot'ta bulunan davranışlar tekrar alınmayacak. |
+| `Ahmet53535353/avenoxbeyin` | `main` `612a14a`, `v2` `4a62dcc` | `f028135` pyenv/gerçek Python test fikri uyarlanacak. Eski lock düzeltmeleri ortak runtime tarafından aşılmış durumda. |
+| `mehmetturuncx/avenoxbeyin` | `feat/google-antigravity-support` `4d6e90d`, `main` | Antigravity hedefi Respot'ta zaten tek lifecycle ile daha geniş karşılanıyor; kopya motor alınmayacak. |
+| `banadabi/avenoxbeyin` | transcript `857351e`, pycache `f922558`, `main`, `v2` | Modern Codex normalize/retry ve tracked bytecode upgrade davranışları uyarlanacak. |
+| `morp1e/avenoxbeyin` | `main` `888591b`, `windows-support` `ac207ee`, `v2` | `d39319d` unsafe-temp regresyonu eklenecek; Windows/staging üretim davranışı zaten mevcut. |
+| `goktas-batuhan/avenoxbeyin` | compile reliability `5fed9f6`, `main`, `v2` | Compile trigger düzeltmeleri Respot'ta daha önce uyarlandı; yeni üretim kodu alınmayacak. |
+| `enesadakli/avenoxbeyin` | `windows-native` `920b597`, `main`, `v2` | Immutable event log ve Restic yedekleme değerli bulundu; provider-neutral ve cross-platform yeniden tasarımla alınacak. |
+
+### Güncellenen karar
+
+Daha önce ertelenen immutable event log ve Restic/DPAPI yedekleme artık kapsam dışı değildir.
+Kullanıcı onayıyla `1.3.0` yol haritasına alındılar; ancak fork kodları doğrudan cherry-pick
+edilmeyecek. Event log, beş yazarın kullandığı doğrulanmış JSON kayıt + atomik projection modeliyle;
+yedekleme ise opt-in, vault-dışı credential ve gerçek restore/hash doğrulamasıyla tasarlanacaktır.
+
+Toplam yedi kabul edilmiş uyarlama şunlardır: modern Codex transcript'i, güvenli normalize + tek
+şema retry'ı, tracked pycache temizliği, unsafe-temp ve pyenv regresyonları, transactional `1.3.0`
+geçişi, immutable handoff event log ve doğrulanmış Restic yedekleme.

@@ -1,7 +1,8 @@
 # Respot Brain Feature Backlog
 
-Bu dosya uygulama planı kesinleşmeden önce alınan ürün kararlarını kaydeder. Buradaki maddeler
-henüz uygulanmış sayılmaz.
+Bu dosya alınan ürün kararlarını ve yayın durumunu kaydeder. Aşağıdaki dört özellik `1.2.0`
+sürümünde uygulanmıştır. Sonraki onaylı çalışmalar
+[`UPSTREAM-ADOPTION-BACKLOG.md`](UPSTREAM-ADOPTION-BACKLOG.md) dosyasında tutulur.
 
 ## Seçilen geliştirmeler
 
@@ -48,3 +49,6 @@ henüz uygulanmış sayılmaz.
 Üç dilimli mimari 2026-08-31'de onaylandı: güvenli compiler + haritalar, sabah brifingi + platform
 zamanlayıcıları, ardından salt-okunur doktor planı + onay kapılı inbox düzenleme. Gizlilik kontrolü,
 haftalık değerlendirme ve güvenli paylaşım kapsam dışı kalmaya devam ediyor.
+
+Bu mimari `3ec18e6` commit'iyle `1.2.0` olarak tamamlandı. 2026-09-01 fork incelemesinden çıkan
+yedi maddelik `1.3.0` kapsamı ayrı backlog'a kaydedildi; henüz uygulanmış sayılmaz.
