@@ -110,6 +110,8 @@ assert headers == [
     "[Hafıza: Aktif Konular]",
     "[Hafıza: Kurallar]",
     "[Hafıza: Son Journal]",
+    "[Beyin Haritası]",
+    "[Skills Haritası]",
     "[Bilgi Tabanı: İndeks]",
     "[Bugünün Logu]",
 ], headers
@@ -301,6 +303,8 @@ assert_contains "$CONTEXT" '[Hafıza: Son Journal]'
 assert_not_contains "$CONTEXT" 'old-journal-secret'
 assert_contains "$CONTEXT" 'journal-latest-09'
 assert_not_contains "$CONTEXT" 'journal-latest-10'
+assert_contains "$CONTEXT" '[Beyin Haritası]'
+assert_contains "$CONTEXT" '[Skills Haritası]'
 assert_contains "$CONTEXT" '[Bilgi Tabanı: İndeks]'
 assert_contains "$CONTEXT" 'index-150'
 assert_not_contains "$CONTEXT" 'index-151'

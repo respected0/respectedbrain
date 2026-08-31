@@ -23,6 +23,11 @@ if str(BEYIN_DIR) not in sys.path:
 
 import runtime_platform
 
+try:
+    from map_builder import refresh_maps
+except ImportError:  # Compatibility while an older vault is being updated.
+    refresh_maps = None
+
 
 MAX_CONTEXT = 16_000
 CLOSING = (
@@ -87,6 +92,7 @@ def _cleanup_session_state(state_dir: Path, now: datetime) -> None:
         "prompt_count.*",
         "needs_reflection.*",
         "hookin-*.json",
+        "morning-briefing-*.lock",
     )
     for pattern in patterns:
         for candidate in state_dir.glob(pattern):
@@ -278,6 +284,15 @@ def start_context(vault_root: Path, state_dir: Path, session_id: str, now: datet
     _atomic_write(state_dir / f"prompt_count.{key}", "0\n")
 
     memory_dir = vault_root / "🔮 850-Companion"
+    if refresh_maps is not None:
+        try:
+            vault_map_path, skills_map_path = refresh_maps(vault_root)
+        except (OSError, UnicodeError, ValueError):
+            vault_map_path = vault_root / "🎯 100-Command-Center/Vault-Map.md"
+            skills_map_path = vault_root / "🎯 100-Command-Center/Skills-Map.md"
+    else:
+        vault_map_path = vault_root / "🎯 100-Command-Center/Vault-Map.md"
+        skills_map_path = vault_root / "🎯 100-Command-Center/Skills-Map.md"
     sections = {
         "[Hafıza: Son Oturum]": _cap(
             _last_session(memory_dir),
@@ -298,6 +313,16 @@ def start_context(vault_root: Path, state_dir: Path, session_id: str, now: datet
             _latest_journal(memory_dir),
             1_500,
             "[not: son Journal 1.500 karakterde kırpıldı, beyin-doktor çalıştır]",
+        ),
+        "[Beyin Haritası]": _cap(
+            "\n".join(_read_lines(vault_map_path, 120)),
+            2_500,
+            "[not: Vault Map 2.500 karakterde kırpıldı]",
+        ),
+        "[Skills Haritası]": _cap(
+            "\n".join(_read_lines(skills_map_path, 80)),
+            1_500,
+            "[not: Skills Map 1.500 karakterde kırpıldı]",
         ),
         "[Bilgi Tabanı: İndeks]": "\n".join(
             _read_lines(vault_root / "knowledge" / "index.md", 150)

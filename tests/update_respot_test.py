@@ -45,7 +45,7 @@ class UpdateRespotTest(unittest.TestCase):
         self.vault = Path(self.temporary.name) / "Ada Brain"
         shutil.copytree(ROOT / "template", self.vault)
         (self.vault / ".beyin-version").write_text("2.0.0\n", encoding="utf-8")
-        (self.vault / ".beyin-multi-version").write_text("1.0.0\n", encoding="utf-8")
+        (self.vault / ".beyin-multi-version").write_text("1.1.0\n", encoding="utf-8")
         self.instructions = "# Ada Brain\n\nKişisel ve kalıcı talimat.\n"
         (self.vault / ".beyin/instructions.md").write_text(self.instructions, encoding="utf-8")
         config = json.loads((self.vault / ".beyin/config.json").read_text(encoding="utf-8"))
@@ -56,6 +56,8 @@ class UpdateRespotTest(unittest.TestCase):
         )
         self.old_bridge = b"# old managed bridge\n"
         (self.vault / ".beyin/hooks/bridge.py").write_bytes(self.old_bridge)
+        (self.vault / ".beyin/map_builder.py").unlink()
+        (self.vault / ".beyin/morning_briefing.py").unlink()
         self.note = self.vault / "🧠 500-Knowledge" / "personal.md"
         self.note.parent.mkdir(exist_ok=True)
         self.note.write_bytes(b"personal note must survive\n")
@@ -94,7 +96,7 @@ class UpdateRespotTest(unittest.TestCase):
         result = self.run_update("--apply", env={"RESPOT_TEST_FAIL_GATE": "render"})
 
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.0.0")
+        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.1.0")
         self.assertEqual((self.vault / ".beyin/hooks/bridge.py").read_bytes(), self.old_bridge)
         backups = self.backup_directories()
         self.assertEqual(len(backups), 1)
@@ -107,7 +109,7 @@ class UpdateRespotTest(unittest.TestCase):
         result = self.run_update("--apply")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.1.0")
+        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.2.0")
         self.assertEqual((self.vault / ".beyin-version").read_text().strip(), "2.0.0")
         self.assertEqual((self.vault / ".beyin/instructions.md").read_bytes(), instruction_before)
         self.assertEqual(self.note.read_bytes(), note_before)
@@ -117,6 +119,9 @@ class UpdateRespotTest(unittest.TestCase):
         self.assertEqual(config["platform"], "portable")
         self.assertTrue((self.vault / ".beyin/runtime_platform.py").is_file())
         self.assertTrue((self.vault / ".beyin/hooks/lifecycle.py").is_file())
+        self.assertTrue((self.vault / ".beyin/map_builder.py").is_file())
+        self.assertTrue((self.vault / ".beyin/morning_briefing.py").is_file())
+        self.assertTrue((self.vault / "scripts/install_briefing_schedule.py").is_file())
         self.assertIn(self.instructions, (self.vault / "AGENTS.md").read_text(encoding="utf-8"))
         backups = self.backup_directories()
         self.assertEqual(len(backups), 1)

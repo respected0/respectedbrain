@@ -77,7 +77,6 @@ taşıyor. Claude Code, headless `-p` çalışmasında `.claude/` altındaki yaz
 bekleyebildiği için model `0` koduyla fakat hiçbir dosya üretmeden çıkabiliyor. Respot'ın
 `compile.py` dosyasında staging hâlâ aynı hassas konumda bulunduğundan hata bize de uygulanıyor.
 
-Uyarlamada rastgele ve `0700` izinli geçici klasör, her koşulda temizlik, canlı `knowledge/`
-sınırlarının yeniden doğrulanması ve provider-neutral `model_runner.py` korunacak. Bu değişiklik
-özellik backlog'u kesinleştiğinde ayrı regresyon testiyle uygulanacak; bu inceleme turunda çalışma
-kodu değiştirilmedi.
+Uyarlama 2026-08-31'de ayrı regresyon testiyle provider-neutral biçimde uygulandı: staging sistem
+geçici dizinine taşındı; vault dışı sınır, `0700`, canlı `knowledge/` manifest/promote kontrolleri,
+provider-neutral `model_runner.py` ve koşulsuz temizlik korundu.

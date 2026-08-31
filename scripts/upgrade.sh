@@ -22,7 +22,7 @@
 set -euo pipefail
 
 BEYIN_TARGET_VERSION="2.0.0"
-BEYIN_MULTI_VERSION="1.1.0"
+BEYIN_MULTI_VERSION="1.2.0"
 BEYIN_SCRIPT_VERSION="2.0.0"
 BEYIN_MEMORY_DIR_NAME="🔮 850-Companion"
 BEYIN_HOOK_FILES="lib.sh session-start.sh prompt-counter.sh session-end.sh pre-compact.sh"

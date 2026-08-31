@@ -4,13 +4,17 @@
 from __future__ import annotations
 
 import datetime as dt
-import fcntl
+try:
+    import fcntl
+except ImportError:  # Native Windows exercises locking through runtime_platform tests.
+    fcntl = None
 import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -101,6 +105,7 @@ if log_path:
         log.write(json.dumps({
             "argv": arguments,
             "cwd": os.getcwd(),
+            "cwd_mode": oct(Path.cwd().stat().st_mode & 0o777),
             "guard": os.environ.get("BEYIN_INVOKED_BY"),
             "prompt": prompt,
         }, ensure_ascii=False) + "\\n")
@@ -772,6 +777,7 @@ print("loaded")
         self.assertEqual(observed_cursors, names)
         self.assertEqual(set(state["ingested"]), set(names))
 
+    @unittest.skipIf(fcntl is None, "POSIX flock only")
     def test_compile_flock_exclusion(self) -> None:
         (self.daily / "2026-08-20.md").write_text("log", encoding="utf-8")
         lock_path = self.state / "compile.lock"
@@ -860,8 +866,12 @@ print("loaded")
             ],
         )
         call_cwd = Path(str(call["cwd"]))
-        self.assertEqual(call_cwd.parent.resolve(), self.state.resolve())
+        self.assertEqual(call_cwd.parent.resolve(), Path(tempfile.gettempdir()).resolve())
+        self.assertFalse(call_cwd.is_relative_to(self.vault))
         self.assertTrue(call_cwd.name.startswith("compile-stage-"))
+        if os.name != "nt":
+            self.assertEqual(call["cwd_mode"], "0o700")
+        self.assertFalse(call_cwd.exists())
         self.assertEqual(call["guard"], "beyin-scripts")
 
     def test_compile_stops_batch_on_first_failure(self) -> None:

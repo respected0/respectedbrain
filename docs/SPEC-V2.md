@@ -36,6 +36,7 @@ respot-brain/
 │   ├── upgrade.sh                  v1/çekirdek-v2 → Respot güvenli transaction
 │   ├── enable_multiai.py           bağımsız v2 onarımı/adapter-runtime ekleme
 │   ├── render_integrations.py      tek kaynaktan agent dosyaları üretme
+│   ├── install_briefing_schedule.py 08:00 platform zamanlayıcısı preview/apply
 │   ├── install_global.py           dört agent için kullanıcı düzeyi bağlantı
 │   ├── install_antigravity_global.py özel Antigravity yardımcı kurucusu
 │   ├── set_summary_provider.py     vault içi kalıcı ilk tercih
@@ -45,6 +46,8 @@ respot-brain/
 │   │   ├── instructions.md         kanonik talimat
 │   │   ├── config.json             `summary_provider`, varsayılan `auto`
 │   │   ├── model_runner.py         provider seçimi ve fallback
+│   │   ├── map_builder.py          görünür Vault/Skills haritaları
+│   │   ├── morning_briefing.py     günde tek doğrulanmış brifing
 │   │   ├── hooks/bridge.py         native payload → ortak hook payload
 │   │   └── skills/*/SKILL.md       kanonik skill'ler
 │   ├── AGENTS.md                   üretilmiş Codex/Cursor uyumluluğu
@@ -110,9 +113,13 @@ compile.py → knowledge/concepts + connections + index + log
 sonraki agent başlangıcında ortak bağlam enjeksiyonu
 ```
 
-Başlangıç katmanı `Last-Session.md`, aktif `Threads.md`, `Kurallar.md` ilk 60 satır, son Journal
-girişi, bilgi indeksi ve bugün/yoksa dün yazılan daily kuyruğunu enjekte eder. Toplam bağlam üst
-sınırı 16.000 karakterdir; önce indeks, sonra günlük kırpılır, ilişkisel çekirdek korunur.
+Başlangıç katmanı önce görünür `Vault-Map.md` ve `Skills-Map.md` dosyalarını metadata'dan yeniler;
+not gövdelerini topluca okumaz. Ardından `Last-Session.md`, aktif `Threads.md`, `Kurallar.md` ilk
+60 satır, son Journal girişi, iki harita, bilgi indeksi ve bugün/yoksa dün yazılan daily kuyruğunu
+enjekte eder. Toplam bağlam üst sınırı 16.000 karakterdir; önce indeks, sonra günlük kırpılır,
+ilişkisel çekirdek korunur. `Core.md` yalnız insan tarafından yönetilen kimlik kaynağıdır.
+Harita dosyaları üretici işaretiyle sahiplenilir; aynı yolda kullanıcı yazımı dosya varsa veya yol
+symlink/reparse üzerinden vault dışına çıkıyorsa yenileme fail-closed durur ve dosyayı korur.
 
 Kapanış/pre-compact hook'u stdin'i state altında geçici dosyaya alır ve `flush.py` sürecini arka
 planda başlatıp hızlı döner. Transkript providera göre normalize edilir. Beş sabit Türkçe bölümden
@@ -125,12 +132,34 @@ olmazsa sonraki SessionStart, yalnız tarihi bitmiş daily girdileri için ayrı
 İçinde bulunulan gün `--before-date` sınırıyla dışarıda tutulur. Başarılı veya başarısız her compile
 tetik claim'ini bırakır; aynı günün sonraki geçerli tetikleri bloke edilmez.
 
-Derleme geçici staging ağacında yapılır. Yalnız `knowledge/index.md`, `knowledge/log.md`,
+Derleme vault ve `.claude/` dışında, işletim sisteminin rastgele `0700` geçici dizininde yapılır.
+Yalnız `knowledge/index.md`, `knowledge/log.md`,
 `knowledge/concepts/*.md` ve `knowledge/connections/*.md` doğrulanıp vault'a taşınabilir. Silme,
 symlink, izin verilmeyen yol veya beklenmeyen fark reddedilir. Başarılı doğrulamadan önce daily
-hash'i ingested sayılmaz.
+hash'i ingested sayılmaz; staging başarıda ve hatada temizlenir.
 
-## 6. Provider seçimi ve fallback
+## 6. Sabah brifingi ve bakım sözleşmesi
+
+`morning_briefing.py --if-due` yerel saat 08.00'den önce salt-okunur no-op'tur. Sonrasında yalnız
+tamamlanmış bounded kaynakları provider-neutral `model_runner.py` ile özetler; aynı tarih için kilit
+ve final-dosya kontrolü en çok bir başarılı çıktı üretir. Çıktı
+`🎯 100-Command-Center/Briefings/YYYY-MM-DD.md` yoluna gerçek `prepared_at` saatiyle atomik yazılır
+ve Dashboard yalnız işaretli yönetim bloğunda güncellenir. Hata final üretmez ve aynı gün yeniden
+denenebilir.
+
+`install_briefing_schedule.py` varsayılan olarak salt-okunur önizlemedir; `--apply` ancak açık
+kullanıcı onayıyla Windows Task Scheduler, WSL üzerinden Task Scheduler, Linux user systemd timer
+veya macOS LaunchAgent kurar. Windows `StartWhenAvailable`, Linux `Persistent=true`, macOS
+`RunAtLoad` ile kaçırılan çalışmayı yakalar. Önizleme tam tanım/komut/hedefleri gösterir; değişen
+yönetilen tanımlar kullanıcı home'unda yedeklenir ve aktivasyon hatasında geri alınır. Kurulum
+Python ve provider arama yolunu açıkça taşır ama provider/model sabitlemez.
+
+`beyin-doktor` bozuk bağlantı, tekrar, bayat bilgi, bekleyen not ve mekanik sorunlar için numaralı
+bir düzeltme planı çıkarır ama değiştirmez. `inbox-duzenle`, `📥 000-Inbox/Dump/` notları için hedef,
+başlık, etiket ve bağlantı önizlemesi ile kaynak hash'i gösterir; yalnız kullanıcının seçtiği plan
+kimliklerini hash'i yeniden doğruladıktan sonra uygular. Silme, üzerine yazma ve onaysız taşıma yoktur.
+
+## 7. Provider seçimi ve fallback
 
 Varsayılan `.beyin/config.json`:
 
@@ -148,7 +177,7 @@ geçici kapasite ve 502/503/504 sınıfı servis hataları. Kimlik doğrulama ve
 hatası görünür biçimde durur. `BEYIN_MODEL_PROVIDER` geçici ortam override'ıdır.
 `BEYIN_LLM_COMMAND` ise prompt'u stdin'den alan tam özel-komut override'ıdır.
 
-## 7. Kurulum sözleşmeleri
+## 8. Kurulum sözleşmeleri
 
 ### Taze kurulum
 
@@ -177,11 +206,11 @@ yönetim bloğu idempotent birleştirilir ve değişen dosyalar yedeklenir.
 
 `install-windows.ps1`, hedefe dokunmadan önce gerçek Python 3, Git ve kullanıcı tarafından seçilen
 provider CLI'larını çalıştırarak doğrular. Claude zorunlu değildir. Dolu hedef exit `3` ile aynen
-korunur; temiz hedef `windows-native` profiliyle `2.0.0` / `1.1.0` damgalanır. Mevcut damgalı
+korunur; temiz hedef `windows-native` profiliyle `2.0.0` / `1.2.0` damgalanır. Mevcut damgalı
 Respot vault `update_respot.py --platform windows-native` ile transactional güncellenir. Damgasız
 v1 native dönüşümü reddedilir ve WSL upgrade yolu kullanılır.
 
-## 8. Platform sözleşmesi
+## 9. Platform sözleşmesi
 
 - **Windows + WSL:** Windows IDE hook'u `wsl.exe --cd <vault>` ile WSL Python runtime'ını çağırır.
   Vault `/mnt/<drive>/...` altındadır; Obsidian aynı klasörü Windows yolundan açabilir.
@@ -190,7 +219,7 @@ v1 native dönüşümü reddedilir ve WSL upgrade yolu kullanılır.
 - **macOS:** orijinal Bash/Python motoru ve isteğe bağlı `.app` başlatıcı korunur.
 - **Linux:** runtime taşınabilirdir; XDG `.desktop` yolu vardır, masaüstü saha testi beklemektedir.
 
-## 9. Güvenlik ve veri sınırı
+## 10. Güvenlik ve veri sınırı
 
 - Transkript ve daily metni güvenilmeyen veri kabul edilir.
 - Model komutları shell stringiyle değil argv listesiyle çalıştırılır.
@@ -203,7 +232,7 @@ v1 native dönüşümü reddedilir ve WSL upgrade yolu kullanılır.
 Tarihsel bulgular `docs/GATE-REVIEW-SECURITY.md` içinde korunur; üst durum notu güncel çözümü ve
 regresyon testlerini belirtir.
 
-## 10. Test ve yayın kapısı
+## 11. Test ve yayın kapısı
 
 ```bash
 python3 scripts/render_integrations.py --check
@@ -221,20 +250,20 @@ Testler gerçek model/ağ çağrısı yapmaz. Provider stub'larıyla eşzamanlı
 allow-list, quota fallback, global kurucu idempotency'si, Windows yol köprüsü ve upgrade transaction
 kapıları temp vault'larda doğrulanır.
 
-## 11. Upstream politikası
+## 12. Upstream politikası
 
 Orijinal `avenoxai/avenoxbeyin` upstream kaynağıdır. `upstream_sync.sh check` farkları listeler;
 `merge` temiz worktree ve geri dönüş dalı ister, commit etmeden birleştirmeyi bırakır. Upstream
 değişikliği provider-neutral sözleşmeyi, staging güvenliğini veya kullanıcı hafızası kapılarını
 atlayamaz.
 
-## 12. İsim ve sürüm
+## 13. İsim ve sürüm
 
 - Proje/fork: **Respot Brain**
 - Vault adı: kullanıcı seçer; `respectedOS` zorunlu değildir.
 - Companion adı: kullanıcı seçer; `Respot` zorunlu değildir.
 - Çekirdek damgası: `.beyin-version = 2.0.0`
-- Multi-AI damgası: `.beyin-multi-version = 1.1.0`
+- Multi-AI damgası: `.beyin-multi-version = 1.2.0`
 - Sabit iç hafıza yolu: `🔮 850-Companion/`
 
 Orijinal proje ve Avenox atfı korunur; yetkili fork kurulum adresi

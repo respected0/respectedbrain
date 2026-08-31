@@ -169,7 +169,13 @@ def render(check: bool, profile: Profile) -> bool:
     config["platform"] = profile.name
     config["python_command"] = list(profile.python_command)
     changed |= write_json(SOURCE / "config.json", config, check)
-    for helper_name in ("render_integrations.py", "install_antigravity_global.py", "install_global.py", "set_summary_provider.py"):
+    for helper_name in (
+        "render_integrations.py",
+        "install_antigravity_global.py",
+        "install_global.py",
+        "install_briefing_schedule.py",
+        "set_summary_provider.py",
+    ):
         helper_source = REPO / "scripts" / helper_name
         helper_target = TEMPLATE / "scripts" / helper_name
         if helper_source.is_file() and helper_source.resolve() != helper_target.resolve():

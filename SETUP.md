@@ -116,7 +116,8 @@ Decide:
 | Aday var, `.beyin-version` yok | **MODE B, v1'den yükseltme** (PHASE U1'e git) |
 | Aday var, `.beyin-version` = `2.0.0`, `.beyin-multi-version` yok | **MODE B**, Respot katmanını tamamla |
 | Damgalar `2.0.0` / `1.0.0` | **MODE C, mevcut Respot güncellemesi**: `scripts/update_respot.py` kullan |
-| Damgalar `2.0.0` / `1.1.0` | Zaten güncel Respot Brain. Sadece `beyin-doktor` çalıştır |
+| Damgalar `2.0.0` / `1.1.0` | **MODE C, mevcut Respot güncellemesi**: `scripts/update_respot.py` kullan |
+| Damgalar `2.0.0` / `1.2.0` | Zaten güncel Respot Brain. Sadece `beyin-doktor` çalıştır |
 | Aday var, `.beyin-version` başka bir değer | Kullanıcıya göster, ne yapılacağını sor |
 
 Tell the user which mode you picked and why, in one Turkish sentence. Never guess silently.
@@ -310,6 +311,31 @@ when the vault itself is the active workspace. Leave `.beyin/config.json` at
 ```bash
 cd "{{VAULT_PATH}}" && python3 scripts/set_summary_provider.py <provider>
 ```
+
+## PHASE 3C: Optional 08:00 morning briefing schedule
+
+Explain that the worker is provider-neutral, produces at most one successful briefing per day and
+that schedule installation changes user-level operating-system configuration. Preview first and
+show the complete definition, command and target paths; run the same command with `--apply` only
+after explicit approval. Replaced managed definitions are backed up under
+`~/.respot/schedule-backups/` and restored if activation fails.
+
+```bash
+# Linux
+python3 "{{VAULT_PATH}}/scripts/install_briefing_schedule.py" "{{VAULT_PATH}}" \
+  --home "$HOME" --platform linux
+
+# macOS
+python3 "{{VAULT_PATH}}/scripts/install_briefing_schedule.py" "{{VAULT_PATH}}" \
+  --home "$HOME" --platform macos
+
+# Windows + WSL
+python3 "{{VAULT_PATH}}/scripts/install_briefing_schedule.py" "{{VAULT_PATH}}" \
+  --home "/mnt/c/Users/<windows-user>" --platform windows-wsl
+```
+
+Windows native uses the equivalent command from `SETUP-WINDOWS.md`. Declining this step leaves the
+worker available for manual use and does not install a task.
 
 ## PHASE 4: Git (new in v2)
 
@@ -578,7 +604,7 @@ Pass only the confirmation flags the check asked for. Read the numbered output b
 | Çıkış kodu | Anlamı | Ne yapacaksın |
 | --- | --- | --- |
 | `0` | Respot çekirdeği ve adapterları hazır, iki sürüm damgası da HENÜZ yazılmadı | PHASE U4'e geç |
-| `3` | vault zaten çekirdek `2.0.0` + Respot multi-AI `1.1.0` | yükseltme yok, sadece `beyin doktor` çalıştır |
+| `3` | vault zaten çekirdek `2.0.0` + Respot multi-AI `1.2.0` | yükseltme yok, sadece `beyin doktor` çalıştır |
 | `10` | yeniden adlandırma onayı eksik | PHASE U2'ye dön |
 | `11` | yerel kanca temizliği onayı eksik | PHASE U2'ye dön |
 | `1` | sert hata, ekranda `HATA:` satırı var | DUR. Kullanıcıya oku, düzelt, tekrar çalıştır |
@@ -639,7 +665,7 @@ bash scripts/upgrade.sh --vault "/kullanicinin/mutlak/vault/yolu" --stage finali
 
 Only if all twelve pass does it commit with an **explicit path allow-list** (never `git add -A`),
 abort if any staged path looks like local settings or a backup, verify that `HEAD` really moved,
-and only then write `.beyin-multi-version = 1.1.0` followed by the authoritative final
+and only then write `.beyin-multi-version = 1.2.0` followed by the authoritative final
 `.beyin-version = 2.0.0` write. If any gate fails it prints the failing rows, writes no stamp, and
 the vault stays honestly unfinished. A vault that already has only the old v2 core stamp is not
 treated as complete; the same upgrade finishes its Respot layer.
@@ -678,8 +704,8 @@ python3 scripts/update_respot.py "/absolute/path/to/vault" --apply
 The updater preserves `.beyin/instructions.md`, `summary_provider`, extra config keys and every
 non-managed note. It backs up existing managed files under `.beyin/backups/<timestamp>/`, writes
 runtime files atomically, renders the explicit platform profile, runs syntax/JSON/drift and
-placeholder gates, and writes `.beyin-multi-version = 1.1.0` last. If a gate fails it restores the
-managed files from that backup and leaves the old `1.0.0` stamp intact.
+placeholder gates, and writes `.beyin-multi-version = 1.2.0` last. If a gate fails it restores the
+managed files from that backup and leaves the old `1.0.0` or `1.1.0` stamp intact.
 
 `--platform auto` is the default and keeps an already explicit profile. An old config without a
 profile is inferred once as `portable`, `windows-wsl`, or `windows-native` and then persisted. An

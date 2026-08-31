@@ -213,12 +213,15 @@ def _gate(vault: Path, relatives: tuple[str, ...]) -> None:
             raise UpdateError(f"managed dosya gate eksik: {relative}")
     syntax_files = (
         ".beyin/runtime_platform.py",
+        ".beyin/map_builder.py",
+        ".beyin/morning_briefing.py",
         ".beyin/hooks/lifecycle.py",
         ".beyin/hooks/bridge.py",
         ".beyin/model_runner.py",
         ".claude/scripts/flush.py",
         ".claude/scripts/compile.py",
         "scripts/render_integrations.py",
+        "scripts/install_briefing_schedule.py",
     )
     for relative in syntax_files:
         source = (vault / relative).read_text(encoding="utf-8")

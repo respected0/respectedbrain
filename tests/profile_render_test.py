@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import shutil
 import subprocess
 import sys
@@ -59,7 +59,7 @@ class ProfileRenderTest(unittest.TestCase):
 
         argv = RENDER.bridge_argv(
             profile,
-            Path("/opt/Ada Brain"),
+            PurePosixPath("/opt/Ada Brain"),
             "codex",
             "start",
             global_hook=True,

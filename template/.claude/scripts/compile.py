@@ -320,10 +320,12 @@ def _prepare_stage(
     daily_path: Path,
 ) -> tuple[Path, dict[str, str | None]]:
     state_dir.mkdir(parents=True, exist_ok=True)
-    stage = Path(tempfile.mkdtemp(prefix="compile-stage-", dir=state_dir))
+    stage = Path(tempfile.mkdtemp(prefix="compile-stage-"))
     stage.chmod(0o700)
     live_baseline: dict[str, str | None] = {}
     try:
+        if _path_within(stage, vault_root):
+            raise PolicyError("staging-inside-vault")
         knowledge_source = vault_root / "knowledge"
         _check_source(knowledge_source, vault_root, directory=True)
         knowledge_stage = stage / "knowledge"

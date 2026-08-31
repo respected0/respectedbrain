@@ -111,6 +111,8 @@ with (state / "flush-records.jsonl").open("a", encoding="utf-8") as handle:
                 "[Hafıza: Aktif Konular]",
                 "[Hafıza: Kurallar]",
                 "[Hafıza: Son Journal]",
+                "[Beyin Haritası]",
+                "[Skills Haritası]",
                 "[Bilgi Tabanı: İndeks]",
                 "[Bugünün Logu]",
             ],
@@ -137,6 +139,8 @@ with (state / "flush-records.jsonl").open("a", encoding="utf-8") as handle:
         self.assertLessEqual(len(context), 16_000)
         self.assertIn("[Hafıza: Son Oturum]", context)
         self.assertIn("[Hafıza: Kurallar]", context)
+        self.assertIn("[Beyin Haritası]", context)
+        self.assertIn("[Skills Haritası]", context)
         self.assertIn("[not: son oturum 4.000 karakterde kırpıldı", context)
         self.assertIn("[not: kurallar 4.000 karakterde kırpıldı", context)
         self.assertEqual(self._records()[0]["argv"], ["--maybe-compile"])

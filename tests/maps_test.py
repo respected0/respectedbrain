@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""Behavior tests for the deterministic, visible vault and skills maps."""
+
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+import tempfile
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+MODULE_PATH = ROOT / "template" / ".beyin" / "map_builder.py"
+
+
+def load_builder():
+    spec = importlib.util.spec_from_file_location("respot_map_builder", MODULE_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("map builder cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class MapsTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="respot-maps-")
+        self.vault = Path(self.temporary.name) / "Ada Brain"
+        (self.vault / ".beyin/skills/doctor").mkdir(parents=True)
+        (self.vault / ".agents/skills/doctor").mkdir(parents=True)
+        (self.vault / ".claude/scripts/.state").mkdir(parents=True)
+        (self.vault / "🎯 100-Command-Center").mkdir()
+        (self.vault / "🏰 300-Projects/Respot").mkdir(parents=True)
+        (self.vault / "🧠 500-Knowledge").mkdir()
+        (self.vault / "🔮 850-Companion").mkdir()
+        (self.vault / "🔮 850-Companion/Core.md").write_text(
+            "human identity must remain byte-identical\n", encoding="utf-8"
+        )
+        (self.vault / "🏰 300-Projects/Respot/README.md").write_text(
+            "SECRET BODY THAT MUST NOT ENTER THE MAP\n", encoding="utf-8"
+        )
+        (self.vault / ".beyin/skills/doctor/SKILL.md").write_text(
+            "---\nname: doctor\ndescription: Read-only health checks.\n---\n\n# Body\n",
+            encoding="utf-8",
+        )
+        (self.vault / ".agents/skills/doctor/SKILL.md").write_text(
+            "---\nname: doctor\ndescription: GENERATED DRIFT MUST BE IGNORED.\n---\n",
+            encoding="utf-8",
+        )
+        (self.vault / ".claude/scripts/.state/private.md").write_text(
+            "STATE SECRET\n", encoding="utf-8"
+        )
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def test_refresh_writes_visible_deterministic_maps_without_reading_note_bodies(self):
+        builder = load_builder()
+        core_before = (self.vault / "🔮 850-Companion/Core.md").read_bytes()
+
+        first = builder.refresh_maps(self.vault)
+        first_bytes = tuple(path.read_bytes() for path in first)
+        second = builder.refresh_maps(self.vault)
+
+        self.assertEqual(first, second)
+        self.assertEqual(first_bytes, tuple(path.read_bytes() for path in second))
+        self.assertEqual(
+            core_before, (self.vault / "🔮 850-Companion/Core.md").read_bytes()
+        )
+        vault_map = first[0].read_text(encoding="utf-8")
+        self.assertIn("🏰 300-Projects/Respot", vault_map)
+        self.assertIn("🏰 300-Projects/Respot/README.md", vault_map)
+        self.assertNotIn("SECRET BODY", vault_map)
+        self.assertNotIn("private.md", vault_map)
+
+    def test_skills_map_uses_only_canonical_skill_frontmatter(self):
+        builder = load_builder()
+
+        _vault_map, skills_map_path = builder.refresh_maps(self.vault)
+
+        skills_map = skills_map_path.read_text(encoding="utf-8")
+        self.assertIn("doctor", skills_map)
+        self.assertIn("Read-only health checks.", skills_map)
+        self.assertNotIn("GENERATED DRIFT", skills_map)
+
+    def test_map_replacement_leaves_no_temporary_file(self):
+        builder = load_builder()
+
+        builder.refresh_maps(self.vault)
+
+        command_center = self.vault / "🎯 100-Command-Center"
+        self.assertEqual(list(command_center.glob(".*.tmp")), [])
+
+    def test_user_owned_map_collision_is_preserved(self):
+        builder = load_builder()
+        target = self.vault / "🎯 100-Command-Center/Vault-Map.md"
+        target.write_text("# Kullanıcının haritası\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(ValueError, "map-collision"):
+            builder.refresh_maps(self.vault)
+
+        self.assertEqual(target.read_text(encoding="utf-8"), "# Kullanıcının haritası\n")
+
+    def test_linked_command_center_cannot_redirect_map_writes(self):
+        builder = load_builder()
+        outside = Path(self.temporary.name) / "outside"
+        outside.mkdir()
+        command_center = self.vault / "🎯 100-Command-Center"
+        command_center.rmdir()
+        try:
+            command_center.symlink_to(outside, target_is_directory=True)
+        except OSError as error:
+            self.skipTest(f"symlink unavailable: {error}")
+
+        with self.assertRaisesRegex(ValueError, "unsafe-map-path"):
+            builder.refresh_maps(self.vault)
+
+        self.assertEqual(list(outside.iterdir()), [])
+
+
+if __name__ == "__main__":
+    unittest.main()

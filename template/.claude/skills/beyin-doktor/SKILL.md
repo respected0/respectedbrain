@@ -12,7 +12,9 @@ loglar tazeliğini koruyor mu, vault kirlenmiş mi. Amaç sessiz arızayı gör�
 
 1. Vault kökünde (`.beyin/`, `AGENTS.md` veya `CLAUDE.md` bulunan klasör) çalış. Tüm yollar
    göreceli, mutlak yol yazma.
-2. Aşağıdaki kontrolleri **Bash ile sırayla çalıştır**. Komutları olduğu gibi kullan, tahmin etme.
+2. Önce `.beyin/config.json` içindeki platformu belirle. POSIX/WSL profilinde aşağıdaki Bash
+   örneklerini, `windows-native` profilinde aynı salt-okunur ölçütleri PowerShell ve `py.exe -3`
+   ile uygula. Bash veya `python3` komut adını native Windows'ta zorunlu tutma.
 3. Her kontrolün çıktısını 🟢 / 🟡 / 🔴 olarak sınıfla.
 4. Sonucu tek bir tabloda ver, her 🔴 için bir düzeltme satırı yaz.
 5. En sonda tek cümlelik hüküm ver.
@@ -202,6 +204,35 @@ tarafından izleniyor demektir.
 Düzeltme: yedeği vault dışına taşı ve `chmod 600` ver; git izliyorsa
 `git rm --cached <dosya>` ile izlemeden çıkar, `.gitignore` kuralını doğrula, ve
 sızmış anahtarı sağlayıcıdan **iptal edip yenile**.
+
+### 16. Bağlantı, tekrar ve bayatlık adayları
+
+Salt okunur olarak Markdown wikilink/bağlantı hedeflerini doğrula; aynı SHA-256 içeriğe sahip
+notları kesin tekrar, benzer başlık veya örtüşen özet taşıyanları inceleme adayı olarak raporla.
+Frontmatter `modified` alanı veya dosya mtime değeri 180 günden eski olan notları yalnız “bayatlık
+adayı” say; otomatik olarak yanlış veya silinebilir kabul etme.
+
+### 17. Inbox ve otomatik haritalar
+
+`📥 000-Inbox/Dump/` altındaki normal dosya sayısını ve en eski bekleme yaşını raporla.
+`🎯 100-Command-Center/Vault-Map.md` ile `Skills-Map.md` yoksa veya vault yapısından eskiyse kırmızı
+göster. Bu kontrolde dosya oluşturma ya da yenileme yapma.
+
+### 18. Sabah brifingi ve zamanlayıcı
+
+Yerel saat 08.00'i geçtiyse bugünün `🎯 100-Command-Center/Briefings/YYYY-MM-DD.md` dosyasını,
+`.claude/scripts/.state/briefing-health.json` kaydını ve platformun Respot zamanlayıcı tanımını
+salt okunur denetle. Brifing yoksa bunun zamanlayıcı eksikliği mi model hatası mı olduğunu kanıtla.
+
+## Düzeltme planı sözleşmesi
+
+Teşhis tablosundan sonra her kırmızı ve anlamlı sarı bulgu için numaralı bir plan yaz:
+
+`ID | Kanıt | Etkilenecek dosyalar | Önerilen işlem | Risk`
+
+Bu skill planı **uygulamaz**. Kullanıcı bir veya daha fazla ID'yi açıkça seçmeden dosya yazma,
+taşıma, silme, harita yenileme veya zamanlayıcı değiştirme. Seçim geldiğinde yalnız seçilen
+maddeler yeni görev kapsamıdır; diğer bulgular salt okunur kalır.
 
 ## Rapor formatı
 

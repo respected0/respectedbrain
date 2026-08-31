@@ -25,7 +25,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.
 ```
 
 Çıktı temizse `-PreflightOnly` bölümünü kaldırıp aynı komutu yeniden çalıştır. Hedef klasör yok veya
-tamamen boş olmalıdır. Kurulum sonunda `.beyin-version` `2.0.0`, `.beyin-multi-version` `1.1.0`
+tamamen boş olmalıdır. Kurulum sonunda `.beyin-version` `2.0.0`, `.beyin-multi-version` `1.2.0`
 ve `.beyin/config.json` içindeki platform `windows-native` olur.
 
 `-Providers` ana agentı sabitlemez; yalnız ön koşulda hangi kurulu CLI'ların doğrulanacağını söyler.
@@ -47,9 +47,23 @@ py -3 scripts/install_global.py `
 İlk çalıştırma önizlemedir. Dosyaları kontrol edip aynı komuta `--apply` ekle. Vault adının
 `respectedOS` olması gerekmez.
 
+## Sabah brifingini etkinleştirmek
+
+Önce Task Scheduler planını salt okunur önizle:
+
+```powershell
+py -3 scripts/install_briefing_schedule.py "$HOME\Documents\AdaOS" `
+  --home "$HOME" --platform windows-native
+```
+
+Çıktı tam XML tanımını ve komutu gösterir. Onayladıktan sonra aynı komuta `--apply` ekle. Görev her
+gün 08.00'de çalışır ve bilgisayar kapalıysa `StartWhenAvailable` ile açılıştan sonra aynı gün
+yeniden denenir. Provider adı göreve gömülmez; değiştirilen mevcut görev tanımı
+`$HOME\.respot\schedule-backups\` altında korunur.
+
 ## Mevcut Respot Brain'i güncellemek
 
-Damgaları `2.0.0` / `1.0.0` olan mevcut Respot vault'u repo kökünden güncelle:
+Damgaları `2.0.0` / `1.0.0` veya `1.1.0` olan mevcut Respot vault'u repo kökünden güncelle:
 
 ```powershell
 py -3 scripts/update_respot.py "$HOME\Documents\AdaOS" --platform windows-native

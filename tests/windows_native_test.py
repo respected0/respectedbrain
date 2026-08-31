@@ -199,6 +199,62 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertFalse(any(self.state.glob("compile-trigger-*")))
 
+    def test_compile_staging_uses_windows_system_temp_and_is_cleaned(self):
+        daily = self.vault / "daily/2026-08-30.md"
+        daily.write_text("# Native staging\n", encoding="utf-8")
+        module_path = self.vault / ".claude/scripts/compile.py"
+        spec = importlib.util.spec_from_file_location("native_compile", module_path)
+        assert spec and spec.loader
+        compiler = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(compiler)
+        observed: dict[str, Path] = {}
+
+        def model_stub(_prompt: str, stage: Path) -> None:
+            observed["stage"] = stage
+            (stage / "knowledge/log.md").write_text(
+                "## native compile\n", encoding="utf-8"
+            )
+            return None
+
+        with mock.patch.object(compiler, "_run_model", side_effect=model_stub):
+            reason, detail = compiler._compile_one(
+                self.vault,
+                self.state,
+                daily,
+                compiler._sha256(daily),
+                "2026-08-31T08:00:00+03:00",
+            )
+
+        self.assertEqual((reason, detail), (None, ""))
+        stage = observed["stage"]
+        self.assertEqual(stage.parent.resolve(), Path(tempfile.gettempdir()).resolve())
+        self.assertFalse(stage.is_relative_to(self.vault))
+        self.assertFalse(stage.exists())
+
+    def test_map_builder_rejects_windows_directory_junction(self):
+        outside = Path(self.temporary.name) / "outside-command-center"
+        outside.mkdir()
+        command_center = self.vault / "🎯 100-Command-Center"
+        shutil.rmtree(command_center)
+        linked = subprocess.run(
+            ["cmd.exe", "/c", "mklink", "/J", str(command_center), str(outside)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if linked.returncode != 0:
+            self.skipTest(f"junction creation unavailable: {linked.stdout}{linked.stderr}")
+        module_path = self.vault / ".beyin/map_builder.py"
+        spec = importlib.util.spec_from_file_location("native_map_builder", module_path)
+        assert spec and spec.loader
+        builder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
+
+        with self.assertRaisesRegex(ValueError, "unsafe-map-path"):
+            builder.refresh_maps(self.vault)
+
+        self.assertEqual(list(outside.iterdir()), [])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

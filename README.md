@@ -125,6 +125,32 @@ Ekstra taşıma komutu yoktur:
 oturum ve bilgi indeksi bağlama eklenir. Henüz kapanmamış veya özetlenmemiş son birkaç mesajın
 aktarılması garanti değildir; kritik bir geçişte ilk agent oturumunu kapatmak önemlidir.
 
+## Beyin yol haritası ve sabah brifingi
+
+Her oturum başlangıcında model çağırmayan harita üreticisi
+`🎯 100-Command-Center/Vault-Map.md` ve `Skills-Map.md` dosyalarını yeniler. `Core.md` insan
+tarafından yönetilmeye devam eder. Haritalar yalnız yapı ve kanonik `.beyin/skills/` metadata'sını
+kullanır; agentın bütün vault'u taramasına gerek bırakmaz.
+
+Sabah brifingi onayla kurulan platform zamanlayıcısı tarafından yerel saat 08.00'de hazırlanır.
+Kaçırılan görev Windows'ta `StartWhenAvailable`, Linux'ta persistent timer ve macOS'ta login
+catch-up ile yeniden denenir. Başarılı çıktı günde bir kez
+`🎯 100-Command-Center/Briefings/YYYY-MM-DD.md` yoluna yazılır ve gerçek hazırlanma saatini taşır.
+Model seçimi sabit değildir; normal provider fallback zinciri kullanılır.
+
+Kurulum önce yalnız önizleme gösterir:
+
+```bash
+python3 scripts/install_briefing_schedule.py "/mutlak/vault/yolu" \
+  --home "$HOME" --platform linux
+# Kontrol ettikten sonra aynı komuta --apply ekle.
+```
+
+Önizleme tam zamanlayıcı tanımını, çalışacak komutu ve hedef dosyaları gösterir. `--apply` mevcut
+yönetilen tanımı değiştiriyorsa kullanıcı dizininde `.respot/schedule-backups/` altına yedek alır;
+aktivasyon başarısız olursa eski tanımı geri yükler. Var olan kullanıcı yazımı `Vault-Map.md` veya
+`Skills-Map.md` otomatik olarak ezilmez.
+
 ## Özetlemeyi hangi AI yapar, limit biterse ne olur?
 
 Varsayılan `auto` modudur ve çoğu kullanıcı bunu değiştirmemelidir:
@@ -163,7 +189,7 @@ katmanı tamamlanmadan “güncel” sayılmaz.
 
 Damgasız v1 vault'un native Windows dönüşümü henüz desteklenmez; bu özel durumda doğrulanmış WSL
 `upgrade.sh` yolu kullanılmalıdır. Native Windows, sıfırdan kurulum ve damgalı Respot
-`1.0.0 → 1.1.0` güncellemesi için desteklenir.
+`1.0.0/1.1.0 → 1.2.0` güncellemesi için desteklenir.
 
 Üç şeyi peşinen bilmen iyi olur:
 

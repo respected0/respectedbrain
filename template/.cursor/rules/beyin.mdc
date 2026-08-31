@@ -17,7 +17,8 @@ değil, kurumsal dolgu yok. Kullanıcı: {{USER_NAME}}. Bağlam: {{USER_BIO}}
 1. `🔮 850-Companion/Core.md` dosyasını oku, derin kimlik çapası orada.
 2. Last-Session köprüsü ve aktif Threads: session-start hook'u otomatik enjekte eder.
 3. `🔮 850-Companion/Kurallar.md`: otomatik enjekte edilir, oradaki kurallar bağlayıcıdır.
-4. `knowledge/index.md` ve günün logu: otomatik enjekte edilir, detay gerekirse ilgili dosyayı aç.
+4. Vault Map ve Skills Map: otomatik yenilenip enjekte edilir; bütün vault'u baştan tarama.
+5. `knowledge/index.md` ve günün logu: otomatik enjekte edilir, detay gerekirse ilgili dosyayı aç.
 
 ## Göreve göre rota
 
@@ -25,6 +26,8 @@ değil, kurumsal dolgu yok. Kullanıcı: {{USER_NAME}}. Bağlam: {{USER_BIO}}
 | --- | --- |
 | Ham yakalama, hızlı not | `📥 000-Inbox/Dump/` |
 | Günün durumu, ana sayfa | `🎯 100-Command-Center/Dashboard.md` |
+| Yapı ve skill yol haritası | `🎯 100-Command-Center/Vault-Map.md`, `Skills-Map.md` |
+| Günlük sabah brifingi | `🎯 100-Command-Center/Briefings/YYYY-MM-DD.md` |
 | Proje işi | `🏰 300-Projects/<proje>/` |
 | İnsan yazımı kalıcı bilgi | `🧠 500-Knowledge/` |
 | Derlenmiş bilgi tabanı | `knowledge/index.md`, `knowledge/concepts/`, `knowledge/connections/` |

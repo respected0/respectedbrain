@@ -179,7 +179,7 @@ class MultiAITest(unittest.TestCase):
             "windows-wsl",
             "windows-native",
             "py.exe -3",
-            "1.1.0",
+            "1.2.0",
             "Damgasız v1",
             "Claude zorunlu değildir",
             "Restic",
@@ -218,6 +218,16 @@ class MultiAITest(unittest.TestCase):
                 content,
                 (ROOT / "template/.claude/skills" / name / "SKILL.md").read_bytes(),
             )
+
+    def test_maintenance_skills_are_canonical_and_discoverable(self):
+        canonical = ROOT / "template/.beyin/skills"
+        inbox = canonical / "inbox-duzenle/SKILL.md"
+        self.assertTrue(inbox.is_file())
+        self.assertTrue((canonical / "beyin-doktor/SKILL.md").is_file())
+        builder = load("maintenance_skill_map", ROOT / "template/.beyin/map_builder.py")
+        rendered = builder.render_skills_map(ROOT / "template")
+        self.assertIn("`inbox-duzenle`", rendered)
+        self.assertIn("`beyin-doktor`", rendered)
 
     def test_global_antigravity_installer_preserves_config_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as temporary:

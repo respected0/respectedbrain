@@ -45,5 +45,6 @@ henüz uygulanmış sayılmaz.
 
 ## Durum
 
-Bu backlog araştırma girdileri tamamlanana kadar beklemede. Uygulama sırası ve teknik tasarım,
-diğer kaynaklar incelendikten sonra birlikte kesinleştirilecek.
+Üç dilimli mimari 2026-08-31'de onaylandı: güvenli compiler + haritalar, sabah brifingi + platform
+zamanlayıcıları, ardından salt-okunur doktor planı + onay kapılı inbox düzenleme. Gizlilik kontrolü,
+haftalık değerlendirme ve güvenli paylaşım kapsam dışı kalmaya devam ediyor.

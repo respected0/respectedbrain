@@ -4,8 +4,8 @@ from __future__ import annotations
 
 
 CORE_VERSION = "2.0.0"
-MULTI_VERSION = "1.1.0"
-UPDATABLE_MULTI_VERSIONS = ("1.0.0", MULTI_VERSION)
+MULTI_VERSION = "1.2.0"
+UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", MULTI_VERSION)
 
 GENERATED = (
     "AGENTS.md",
@@ -20,6 +20,8 @@ GENERATED = (
 
 RUNTIME = (
     ".beyin/runtime_platform.py",
+    ".beyin/map_builder.py",
+    ".beyin/morning_briefing.py",
     ".beyin/hooks/lifecycle.py",
     ".beyin/hooks/bridge.py",
     ".beyin/model_runner.py",
@@ -33,6 +35,7 @@ RUNTIME = (
     "scripts/render_integrations.py",
     "scripts/install_antigravity_global.py",
     "scripts/install_global.py",
+    "scripts/install_briefing_schedule.py",
     "scripts/set_summary_provider.py",
 )
 

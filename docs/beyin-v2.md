@@ -226,10 +226,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.
 ```
 
 Damgalı `2.0.0` / `1.0.0` Respot vault `update_respot.py --platform windows-native` ile
-`1.1.0` sürümüne çıkar. Damgasız v1'in native dönüşümü henüz yoktur; o işlem WSL'deki
-`upgrade.sh` ile yapılır. `1.1.0`; ortak Python lifecycle, üç profil, native-safe lock/process,
-transactional updater ve native installer kapsamıdır. Doctor/event log genişletmesi ile
-Restic/DPAPI yedeklemesi ayrı sonraki projelerdir.
+`1.2.0` sürümüne çıkar. Damgasız v1'in native dönüşümü henüz yoktur; o işlem WSL'deki
+`upgrade.sh` ile yapılır. `1.2.0`; ortak Python lifecycle, üç profil, sistem temp compile staging,
+Vault/Skills Map, sabah brifingi, onaylı scheduler kurulumu ve bakım skill'lerini kapsar.
+Restic/DPAPI yedeklemesi ayrı sonraki projedir.
+
+Sabah brifingi zamanlayıcısı varsayılan olarak yalnız tam tanım/komut/hedef önizlemesi verir.
+`--apply` mevcut yönetilen tanımı değiştirirse `~/.respot/schedule-backups/` altında saklar ve
+aktivasyon başarısızsa geri yükler. Otomatik haritalar da yalnız Respot üretici işaretli dosyaları
+yeniler; kullanıcıya ait aynı adlı dosyayı veya link üzerinden vault dışındaki hedefi ezmez.
 
 ## macOS ve Linux
 
@@ -246,10 +251,15 @@ Kullandığın agenta `beyin doktor` yaz. Skill şu alanları salt okunur denetl
 - Python ve kurulu AI CLI'ları
 - aktif summary provider ayarı
 - daily/compile tazeliği ve sağlık kayıtları
+- görünür Vault/Skills Map tazeliği ve sabah brifingi zamanlayıcısı
+- bozuk bağlantı, tekrar, bayat bilgi ve bekleyen Inbox notu adayları
 - bilgi indeksi boyutu
 - git durumu, çift hook ve secret yedekleri
 
-Doktor hiçbir şeyi kullanıcı onayı olmadan düzeltmez.
+Doktor hiçbir şeyi kullanıcı onayı olmadan düzeltmez; yalnız numaralı bir düzeltme planı hazırlar.
+`inbox düzenle` ise `📥 000-Inbox/Dump/` için hedef klasör, başlık, etiket ve bağlantı önizlemesi
+üretir. Kullanıcı plan kimliklerini açıkça onaylamadan dosya taşımaz veya değiştirmez; uygulama
+öncesinde kaynak hash'ini yeniden doğrular.
 
 ## Geçmiş içe aktarımı
 

@@ -115,7 +115,7 @@ try {
     )
     Assert-True ($install.Code -eq 0) "Native temiz kurulum geçmeli: $($install.Output)"
     Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-version")).Trim() -eq "2.0.0") "Çekirdek damgası 2.0.0 olmalı"
-    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-multi-version")).Trim() -eq "1.1.0") "Multi damgası 1.1.0 olmalı"
+    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-multi-version")).Trim() -eq "1.2.0") "Multi damgası 1.2.0 olmalı"
     $Managed = @(
         Join-Path $Vault ".claude\settings.json"
         Join-Path $Vault ".codex\hooks.json"
