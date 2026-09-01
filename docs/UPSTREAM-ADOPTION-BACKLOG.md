@@ -1,13 +1,15 @@
-# Respot Brain 1.3.0 upstream uyarlama backlog'u
+# Respected Brain 1.4.0 upstream uyarlama backlog'u
 
-Bu dosya 2026-09-01 tarihinde bütün dallarıyla incelenen `avenoxai/avenoxbeyin` ve forklarından
-Respot Brain'e uyarlanması onaylanan işleri kalıcı olarak kaydeder. Buradaki maddeler **henüz
-uygulanmış değildir**; kapsam onaylanmıştır, ayrıntılı tasarım ve test odaklı uygulama sıradadır.
+Bu dosya 2026-09-01 ve 2026-09-02 tarihlerinde bütün dallarıyla incelenen
+`avenoxai/avenoxbeyin` ve forklarından Respected Brain'e uyarlanması planlanan işleri kalıcı
+olarak kaydeder. Buradaki dokuz maddenin ürün kapsamı kullanıcı tarafından onaylanmıştır; maddeler
+**henüz uygulanmış değildir**. `1.3.0` Respected Brain tam yeniden adlandırma/migration sürümüdür;
+bu backlog onun ardından `1.4.0` olarak uygulanacaktır.
 
 Doğrudan cherry-pick yapılmayacak. Her davranış Claude, Codex, Cursor ve Antigravity ile çalışan
 ortak runtime'a; Windows native, WSL, Linux ve macOS hedeflerine uyarlanacaktır.
 
-## Kilitli kapsam: yedi madde
+## Planlanan kapsam: dokuz madde
 
 ### 1. Modern Codex transcript desteği
 
@@ -40,11 +42,15 @@ ortak runtime'a; Windows native, WSL, Linux ve macOS hedeflerine uyarlanacaktır
   kanıtlanacak.
 - `pyenv` shim'i kullanan sahte `PATH` upgrade fixture'ının gerçek Python yorumlayıcısına güvenli
   çözülmesi test edilecek.
+- WSL'den çağrılan `schtasks.exe` çıktısı Türkçe OEM code page (`cp857`) kullandığında scheduler
+  kurucusu UTF-8 varsayımıyla çökmeyecek; mevcut görev sorgusu, yedekleme ve apply yolu gerçek
+  Windows'ta regresyon testine bağlanacak.
 - WSL ile Windows yol eşleme ve native PowerShell davranışı gerçek platform kapılarında korunacak.
 
 ### 5. Transactional sürüm, kurulum ve belge geçişi
 
-- Hedef sürüm `1.3.0` olacak; `1.2.0` vault'lar transactionally yükseltilecek.
+- Hedef sürüm `1.4.0` olacak; yeniden adlandırılmış `1.3.0` vault'lar transactionally
+  yükseltilecek.
 - Tek kaynaklı rules/skills üretimi, symlink kullanmama ilkesi ve provider fallback zinciri
   korunacak.
 - README, setup, teknik belgeler, sürüm damgaları ve fresh/upgrade testleri aynı değişiklik setinde
@@ -76,14 +82,47 @@ ortak runtime'a; Windows native, WSL, Linux ve macOS hedeflerine uyarlanacaktır
 - Varsayılan akış otomatik prune/silme yapmayacak; güvensiz kök, symlink ve reparse-point hedefleri
   fail-closed reddedilecek.
 
+### 8. Opt-in private Git snapshot publisher
+
+- Fikir kaynağı: `Ahmet53535353/main` saatlik Git backup commit'i (`21df5e2`). Fork kodu doğrudan
+  alınmayacak.
+- Özellik varsayılan olarak kapalı olacak; remote, branch, dahil/haricî yollar ve çalışma aralığı
+  önizlenip açık kullanıcı onayıyla etkinleştirilecek.
+- SessionEnd içindeki sağlayıcıya özel shell kopyaları yerine ortak lifecycle yalnız kilitli,
+  detached ve provider-neutral bir `--if-due` worker tetikleyecek.
+- Worker otomatik `pull` veya merge yapmayacak. Önce `fetch` ile divergence kontrol edecek;
+  fast-forward olmayan veya detached HEAD durumunda hiçbir kullanıcı dosyasını değiştirmeden
+  duracak.
+- `git add -A` öncesi secret/forbidden-path kapısı ve tracked-secret kontrolü çalışacak. Commit ancak
+  güvenli staged manifest için üretilecek.
+- Başarı damgası yalnız commit uzak branch'te gerçekten görüldükten sonra atomik yazılacak; push
+  hatası sessizce yutulmayacak ve sonraki denemeyi bir saat engellemeyecek.
+- Restic'in yerini almayacak: Restic şifreli tam felaket kurtarma, Git publisher ise seçili metin
+  dosyaları için okunabilir sürüm geçmişi ve isteğe bağlı off-site kopyadır.
+
+### 9. Linux CI ve provider-neutral fresh-install E2E
+
+- Fikir kaynakları: `Ahmet53535353/main` Linux CI ve temiz kurulum commitleri (`ee61527`,
+  `bfb76b4`, `5213c69`). Fork testi doğrudan alınmayacak.
+- `ubuntu-latest` workflow en az `permissions: contents: read` ile shell parse, Python testleri,
+  upgrade transaction ve gerçek fresh-install lifecycle kapılarını çalıştıracak.
+- E2E, SETUP adımlarını bağımsız bir ikinci implementasyon olarak elle kopyalamayacak; repository'nin
+  canonical template/render/installer yollarını kullanacak.
+- Claude-only stub ve sabit provider yerine ortak model runner üzerinden seçilebilir CLI stub'ları
+  ile Claude, Codex, Cursor ve Antigravity girişlerinin aynı lifecycle'a ulaştığını kanıtlayacak.
+- Test izolasyonu `$HOME` gibi üst süreç ortamını değiştirmeyecek; her subprocess için ayrı geçici
+  home/git config kullanacak ve doğru `1.4.0` damgasını doğrulayacak.
+
 ## Uygulama sırası
 
 1. **Güvenilirlik katmanı:** 1–4 için önce başarısız testler, sonra en küçük runtime/updater
    değişiklikleri.
 2. **Hafıza sürekliliği:** event sözleşmesi, migration ve projection'lar için ayrı tasarım onayı;
    ardından 6. madde.
-3. **Veri koruma:** ayrı tehdit modeli ve platform tasarımından sonra opt-in 7. madde.
-4. **Yayın:** 5. madde bütün katmanların fresh install, upgrade ve belge kapısıdır.
+3. **Kalite kapısı:** 9. madde güvenilirlik katmanıyla birlikte kurularak sonraki değişikliklerin
+   Linux release kapısı olur.
+4. **Veri koruma:** ayrı tehdit modeli ve platform tasarımından sonra opt-in 7 ve 8. maddeler.
+5. **Yayın:** 5. madde bütün katmanların fresh install, upgrade ve belge kapısıdır.
 
 ## Kabul kapıları
 
@@ -100,4 +139,3 @@ ortak runtime'a; Windows native, WSL, Linux ve macOS hedeflerine uyarlanacaktır
 - Kişiye/Windows'a sabitlenmiş yedek hedefleri ve kimlik bilgileri.
 - Ham linked-note gövdelerinin otomatik prompt enjeksiyonu.
 - GSD test harness gürültüsü, billing/auth politikaları ve kişi-özel vault notları.
-

@@ -107,3 +107,38 @@ yedekleme ise opt-in, vault-dışı credential ve gerçek restore/hash doğrulam
 Toplam yedi kabul edilmiş uyarlama şunlardır: modern Codex transcript'i, güvenli normalize + tek
 şema retry'ı, tracked pycache temizliği, unsafe-temp ve pyenv regresyonları, transactional `1.3.0`
 geçişi, immutable handoff event log ve doğrulanmış Restic yedekleme.
+
+## 2026-09-02 bütün forklar ve dallar güncel kontrolü
+
+Yedi repository GitHub'dan yeniden mirror klonlandı; yalnız varsayılan dallar değil bütün
+`refs/heads/*` uçları ve ortak tabandan ayrılan commitler incelendi.
+
+| Kaynak | Güncel dallar/uçlar | 2026-09-01'e göre sonuç |
+| --- | --- | --- |
+| `avenoxai/avenoxbeyin` | `main` `6f4dcb9`, `v2` `4a62dcc` | Değişmedi. |
+| `Ahmet53535353/avenoxbeyin` | `main` `21df5e2`, Antigravity `406eff3`, `v2` `4a62dcc` | **Dört yeni main commit var; iki davranış fikri seçilerek alınmalı.** |
+| `mehmetturuncx/avenoxbeyin` | Antigravity `4d6e90d`, `main` `6f4dcb9` | Değişmedi; ortak lifecycle/model runner mevcut davranışı karşılıyor. |
+| `banadabi/avenoxbeyin` | transcript `857351e`, pycache `f922558`, `main`, `v2` | Değişmedi; backlog 1–3 geçerli. |
+| `morp1e/avenoxbeyin` | `main` `888591b`, Windows `ac207ee`, `v2` | Değişmedi; unsafe-temp testi backlog 4'te. |
+| `goktas-batuhan/avenoxbeyin` | compile `5fed9f6`, `main`, `v2` | Değişmedi; üretim düzeltmeleri daha önce uyarlandı. |
+| `enesadakli/avenoxbeyin` | Windows/event log `920b597`, `main`, `v2` | Değişmedi; event log ve Restic backlog 6–7'de. |
+
+### Ahmet `main` yeni commit analizi
+
+| Commit | Davranış | Karar |
+| --- | --- | --- |
+| `ee61527` | Linux GitHub Actions workflow | **Fikri al.** Respected test setine ve salt-okunur workflow izinlerine uyarla. |
+| `bfb76b4` | Linux temiz kurulum E2E testi | **Fikri al, kodu alma.** Test SETUP'ı elle tekrar ediyor, Claude stub'a ve hatalı `2.1.0` damgasına sabit. Canonical installer/render yollarıyla provider-neutral E2E yaz. |
+| `5213c69` | Testte global `HOME=/dev/null` export'unu kaldırma | **Doğrudan alma.** Bir child shell export'u sonraki CI step'e sızmaz; bizim testler zaten subprocess başına geçici home kullanmalı. İzolasyon ilkesi E2E tasarımına alındı. |
+| `21df5e2` | SessionEnd'den saatlik private Git push | **Fikri al, kodu alma.** Opt-in private Git snapshot publisher olarak yeniden tasarla. |
+
+`21df5e2` doğrudan alınamaz: kullanıcı onayı olmadan etkinleşiyor, `pull` ile vault'u
+değiştirebiliyor, bütün dosyaları `git add -A` ile stage ediyor, secret kapısı ve concurrency lock
+kullanmıyor, push sonucunu doğrulamadan başarı zamanını yazıyor, hataları sessizce yutuyor ve Bash/
+PowerShell lifecycle kodunu çoğaltıyor. Provider-neutral uyarlama ortak worker, preview/apply,
+divergence fail-closed, staged manifest/secret kontrolü, uzak commit doğrulaması ve yalnız başarıdan
+sonra atomik receipt gerektirir.
+
+Sonuç olarak önceki yedi madde korunmuş, iki yeni aday eklenmiştir: opt-in private Git snapshot
+publisher ve Linux CI + provider-neutral fresh-install E2E. Yeniden adlandırma `1.3.0` ayrı
+migration sürümü olduğundan dokuz maddelik upstream kapsamı `1.4.0` olarak planlanır.
