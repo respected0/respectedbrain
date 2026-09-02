@@ -49,9 +49,46 @@ function Resolve-TestableCommand([string]$Name, [bool]$ProviderOnly = $false) {
 function Invoke-ExternalProbe([string]$Command, [string[]]$Arguments) {
     $stdout = [IO.Path]::GetTempFileName()
     $stderr = [IO.Path]::GetTempFileName()
+    $TimeoutMs = 15000
+    if ($env:RESPECTED_PROBE_TIMEOUT_MS) {
+        $ParsedTimeout = 0
+        if ([int]::TryParse($env:RESPECTED_PROBE_TIMEOUT_MS, [ref]$ParsedTimeout) -and $ParsedTimeout -gt 0) {
+            $TimeoutMs = $ParsedTimeout
+        }
+    }
     try {
         $ArgumentList = @($Arguments | ForEach-Object { '"' + $_.Replace('"', '\"') + '"' })
-        $Process = Start-Process -FilePath $Command -ArgumentList $ArgumentList -Wait -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        $ProbeCommand = $Command
+        $ProbeArguments = $ArgumentList
+        $Extension = [IO.Path]::GetExtension($Command).ToLowerInvariant()
+        if ($Extension -eq ".cmd" -or $Extension -eq ".bat") {
+            $ProbeCommand = $env:ComSpec
+            $QuotedCommand = '"' + $Command.Replace('"', '\"') + '"'
+            $ProbeArguments = @(
+                "/d",
+                "/s",
+                "/c",
+                ("call " + $QuotedCommand + " " + ($ArgumentList -join " "))
+            )
+        }
+        $Process = Start-Process -FilePath $ProbeCommand -ArgumentList $ProbeArguments -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        # PowerShell 5.1 can lose ExitCode for a short-lived child unless its
+        # process handle is materialized before the child exits.
+        $null = $Process.Handle
+        $Completed = $Process.WaitForExit($TimeoutMs)
+        if (-not $Completed) {
+            try {
+                $Process.Kill()
+            }
+            catch {
+                # The process may have exited between the timeout and Kill().
+            }
+            $Process.WaitForExit()
+            return @{
+                Code = 124
+                Output = ([IO.File]::ReadAllText($stdout) + [IO.File]::ReadAllText($stderr) + "probe-timeout")
+            }
+        }
         return @{
             Code = $Process.ExitCode
             Output = ([IO.File]::ReadAllText($stdout) + [IO.File]::ReadAllText($stderr))

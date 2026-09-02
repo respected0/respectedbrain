@@ -110,6 +110,25 @@ try {
     Assert-True ($missing.Code -ne 0) "Seçili provider CLI yoksa preflight durmalı"
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $Root "missing-vault"))) "Eksik provider hedef oluşturmamalı"
 
+    $HangingCommands = Join-Path $Root "hanging-commands"
+    New-ProviderStub $HangingCommands "git"
+    [IO.File]::WriteAllText(
+        (Join-Path $HangingCommands "codex.cmd"),
+        "@echo off`r`n%SystemRoot%\System32\ping.exe 127.0.0.1 -n 30 >nul`r`nexit /b 0`r`n",
+        [Text.UTF8Encoding]::new($false)
+    )
+    $env:RESPECTED_TEST_COMMAND_ROOT = $HangingCommands
+    $env:RESPECTED_PROBE_TIMEOUT_MS = "200"
+    $Stopwatch = [Diagnostics.Stopwatch]::StartNew()
+    $timed = Invoke-Installer @(
+        "-VaultPath", (Join-Path $Root "timeout-vault"), "-UserName", "Ada", "-UserBio", "Geliştirici",
+        "-Companion", "Echo", "-OsName", "AdaOS", "-Providers", "codex", "-PreflightOnly"
+    )
+    $Stopwatch.Stop()
+    Assert-True ($timed.Code -ne 0) "Takılan provider probe başarısız olmalı: code=$($timed.Code) output=$($timed.Output)"
+    Assert-True ($Stopwatch.Elapsed.TotalSeconds -lt 5) "Probe timeout kurulumu bloklamamalı"
+    Remove-Item Env:RESPECTED_PROBE_TIMEOUT_MS
+
     $env:RESPECTED_TEST_COMMAND_ROOT = $Commands
     $Vault = Join-Path $Root "Ada Brain"
     $install = Invoke-Installer @(
@@ -172,6 +191,7 @@ try {
 finally {
     Remove-Item Env:RESPECTED_TEST_COMMAND_ROOT -ErrorAction SilentlyContinue
     Remove-Item Env:RESPECTED_TEST_PYTHON -ErrorAction SilentlyContinue
+    Remove-Item Env:RESPECTED_PROBE_TIMEOUT_MS -ErrorAction SilentlyContinue
     Remove-Item Env:RESPOT_TEST_COMMAND_ROOT -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $Root -Recurse -Force -ErrorAction SilentlyContinue
 }
