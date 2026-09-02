@@ -77,6 +77,7 @@ bağlantıyı kur:
 python3 scripts/install_global.py \
   "/mnt/c/Users/<ad>/Documents/<vault-adı>" \
   --home "/mnt/c/Users/<ad>" \
+  --antigravity-home "/home/<wsl-adı>" \
   --platform windows-wsl \
   --providers all
 ```
@@ -86,6 +87,9 @@ python3 scripts/install_global.py \
 korur; yönettiği Respected bloklarını birleştirir, yedek alır ve ortak skill'leri her aracın kullanıcı
 düzeyi konumuna kopyalar. Global hook, vault kendi workspace'i olarak açıksa proje hook'unu
 çift çalıştırmaz. Böylece aktif kod reposu başka yerde olsa da konuşma özeti seçilen vault'a yazılır.
+`--antigravity-home` yalnız Antigravity IDE'yi **Connect to WSL** modunda da kullananlar içindir.
+Linux profilindeki `.gemini` kökünü ayrıca kurar; seçenek tekrarlanabilir ve diğer provider'ları bu
+ek köklere taşımaz. Yalnız Windows profilini kullananlar seçeneği atlayabilir.
 
 Windows uygulamalarını WSL olmadan doğrudan kullanmak için aynı kurucuyu PowerShell'de native
 profille çalıştır:

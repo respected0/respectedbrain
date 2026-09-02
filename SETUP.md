@@ -305,6 +305,19 @@ python3 "{{VAULT_PATH}}/scripts/install_global.py" "{{VAULT_PATH}}" \
   --home "/mnt/c/Users/<windows-user>" --platform windows-wsl --providers "{{PROVIDERS}}"
 ```
 
+If Antigravity IDE will also use **Connect to WSL**, append the explicit Linux profile root:
+
+```bash
+python3 "{{VAULT_PATH}}/scripts/install_global.py" "{{VAULT_PATH}}" \
+  --home "/mnt/c/Users/<windows-user>" \
+  --antigravity-home "/home/<wsl-user>" \
+  --platform windows-wsl --providers "{{PROVIDERS}}"
+```
+
+The repeatable `--antigravity-home` option installs only Antigravity's `.gemini` integration in
+those additional roots. Do not infer or scan profiles; ask for each root explicitly. Omit the
+option when Connect to WSL is not used.
+
 Show the listed files. Only after approval, repeat the exact command with `--apply`. The installer
 merges existing user rules/hooks, takes a backup, installs global skills, and avoids double-running
 when the vault itself is the active workspace. Leave `.beyin/config.json` at

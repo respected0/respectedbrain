@@ -484,6 +484,134 @@ class MultiAITest(unittest.TestCase):
             repeated = {path.relative_to(home): path.read_bytes() for path in home.rglob("*") if path.is_file() and ".respected-backups" not in path.parts}
             self.assertEqual(managed_files, repeated)
 
+    def test_global_installer_manages_explicit_antigravity_homes_only(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            vault = root / "Ada Brain"
+            shutil.copytree(ROOT / "template", vault)
+            primary = root / "windows-user"
+            wsl = root / "wsl-user"
+            primary.mkdir()
+            wsl.mkdir()
+            command = [
+                sys.executable,
+                str(ROOT / "scripts/install_global.py"),
+                str(vault),
+                "--home",
+                str(primary),
+                "--antigravity-home",
+                str(wsl),
+                "--platform",
+                "windows-wsl",
+                "--providers",
+                "all",
+                "--apply",
+            ]
+
+            first = subprocess.run(command, capture_output=True, text=True, check=False)
+
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            self.assertTrue((primary / ".gemini/config/hooks.json").is_file())
+            self.assertTrue((wsl / ".gemini/config/hooks.json").is_file())
+            self.assertTrue((primary / ".codex/hooks.json").is_file())
+            self.assertFalse((wsl / ".codex").exists())
+            snapshot = {
+                (home.name, path.relative_to(home)): path.read_bytes()
+                for home in (primary, wsl)
+                for path in home.rglob("*")
+                if path.is_file() and ".respected-backups" not in path.parts
+            }
+            second = subprocess.run(command, capture_output=True, text=True, check=False)
+            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+            repeated = {
+                (home.name, path.relative_to(home)): path.read_bytes()
+                for home in (primary, wsl)
+                for path in home.rglob("*")
+                if path.is_file() and ".respected-backups" not in path.parts
+            }
+            self.assertEqual(snapshot, repeated)
+
+    def test_global_installer_multi_home_preview_is_deduplicated_and_read_only(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            vault = root / "Ada Brain"
+            shutil.copytree(ROOT / "template", vault)
+            home = root / "user"
+            home.mkdir()
+            command = [
+                sys.executable,
+                str(ROOT / "scripts/install_global.py"),
+                str(vault),
+                "--home",
+                str(home),
+                "--antigravity-home",
+                str(home),
+                "--providers",
+                "all",
+            ]
+
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout.count(f"kullanıcı kökü: {home.resolve()}"), 1)
+            self.assertFalse((home / ".gemini").exists())
+
+    def test_global_installer_rejects_missing_extra_home_before_writes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            vault = root / "Ada Brain"
+            shutil.copytree(ROOT / "template", vault)
+            home = root / "user"
+            home.mkdir()
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/install_global.py"),
+                    str(vault),
+                    "--home",
+                    str(home),
+                    "--antigravity-home",
+                    str(root / "missing"),
+                    "--providers",
+                    "all",
+                    "--apply",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse((home / ".gemini").exists())
+
+    def test_compatibility_antigravity_installer_accepts_multiple_homes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            windows_home = root / "windows-user"
+            wsl_home = root / "wsl-user"
+            windows_home.mkdir()
+            wsl_home.mkdir()
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/install_antigravity_global.py"),
+                    str(ROOT / "template"),
+                    "--antigravity-home",
+                    str(windows_home),
+                    "--antigravity-home",
+                    str(wsl_home),
+                    "--apply",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            for home in (windows_home, wsl_home):
+                self.assertTrue((home / ".gemini/config/hooks.json").is_file())
+                self.assertFalse((home / ".codex").exists())
+
     def test_native_windows_global_command_is_absolute_and_shell_free(self):
         installer = load("install_global_native_command", ROOT / "scripts/install_global.py")
         vault = PureWindowsPath(r"C:\Users\Ada\Ada Brain")

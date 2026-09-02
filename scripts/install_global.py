@@ -339,6 +339,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("vault", type=Path, help="adı serbest olan ikinci beyin vault yolu")
     parser.add_argument("--home", required=True, type=Path, help="AI araçlarının kullanıcı kökü")
+    parser.add_argument(
+        "--antigravity-home",
+        action="append",
+        default=[],
+        type=Path,
+        help="yalnız Antigravity kurulacak ek kullanıcı kökü; birden fazla verilebilir",
+    )
     parser.add_argument("--providers", default="all", help="all veya virgülle: antigravity,codex,cursor,claude")
     parser.add_argument("--platform", choices=tuple(DEFAULT_PYTHON_COMMANDS), default="portable")
     parser.add_argument("--apply", action="store_true")
@@ -349,46 +356,74 @@ def main() -> int:
     unknown = set(providers) - set(SUPPORTED)
     if unknown:
         parser.error(f"bilinmeyen provider: {', '.join(sorted(unknown))}")
+    if args.antigravity_home and "antigravity" not in providers:
+        parser.error("--antigravity-home kullanmak için antigravity provider seçilmeli")
     if not (vault / ".beyin/instructions.md").is_file() or not (vault / ".beyin/skills").is_dir():
         parser.error("geçerli vault içinde .beyin/instructions.md ve .beyin/skills bulunmalı")
-    if not home.is_dir():
-        parser.error(f"kullanıcı kökü bulunamadı: {home}")
+    homes: list[tuple[Path, tuple[str, ...]]] = [(home, providers)]
+    seen_homes = {home}
+    for candidate in args.antigravity_home:
+        resolved = candidate.expanduser().resolve()
+        if resolved not in seen_homes:
+            homes.append((resolved, ("antigravity",)))
+            seen_homes.add(resolved)
+    for target_home, _target_providers in homes:
+        if not target_home.is_dir():
+            parser.error(f"kullanıcı kökü bulunamadı: {target_home}")
+
+    plans: list[tuple[Path, list[tuple[Path, str | None]], bool]] = []
     try:
-        writes, touched = build(vault, home, providers, args.platform)
+        for target_home, target_providers in homes:
+            writes, _touched = build(vault, target_home, target_providers, args.platform)
+            legacy_backup_root = target_home / LEGACY_GLOBAL_BACKUP_ROOT
+            current_backup_root = target_home / ".respected-backups"
+            plans.append(
+                (
+                    target_home,
+                    writes,
+                    legacy_backup_root.exists() and current_backup_root.exists(),
+                )
+            )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"hata: {exc}", file=sys.stderr)
         return 2
     print(f"vault: {vault} (adı: {vault.name})")
     print(f"provider'lar: {', '.join(providers)}")
-    legacy_backup_root = home / LEGACY_GLOBAL_BACKUP_ROOT
-    current_backup_root = home / ".respected-backups"
-    backup_conflict = legacy_backup_root.exists() and current_backup_root.exists()
-    if backup_conflict:
-        print(
-            "UYARI: eski ve yeni yedek kökleri çakışıyor; ikisi de aynen korunacak: "
-            f"{legacy_backup_root} | {current_backup_root}"
-        )
-    for path, _ in writes:
-        print(f"yönetilecek: {path}")
+    for target_home, writes, backup_conflict in plans:
+        print(f"kullanıcı kökü: {target_home}")
+        if backup_conflict:
+            print(
+                "UYARI: eski ve yeni yedek kökleri çakışıyor; ikisi de aynen korunacak: "
+                f"{target_home / LEGACY_GLOBAL_BACKUP_ROOT} | "
+                f"{target_home / '.respected-backups'}"
+            )
+        for path, _ in writes:
+            print(f"yönetilecek: {path}")
     if not args.apply:
         print("ÖNİZLEME: hiçbir dosya değişmedi. Uygulamak için --apply ekle.")
         return 0
-    if backup_conflict:
+    if any(backup_conflict for _home, _writes, backup_conflict in plans):
         print(
             "hata: yedek kökleri için ayrı migration kararı gerekli; hiçbir dosya değişmedi",
             file=sys.stderr,
         )
         return 2
-    backup = home / ".respected-backups" / dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    try:
-        changed = apply_plan(writes, home, backup)
-    except (OSError, ValueError) as exc:
-        print(f"yazma başarısız: {exc}; yedek: {backup}", file=sys.stderr)
-        return 3
-    if changed:
-        print(f"Global bağlantı kuruldu; yedek: {backup}")
-    else:
-        print("Global bağlantı zaten güncel; dosya ve yedek değişmedi.")
+    for target_home, writes, _backup_conflict in plans:
+        backup = target_home / ".respected-backups" / dt.datetime.now().strftime(
+            "%Y%m%d-%H%M%S-%f"
+        )
+        try:
+            changed = apply_plan(writes, target_home, backup)
+        except (OSError, ValueError) as exc:
+            print(
+                f"yazma başarısız ({target_home}): {exc}; yedek: {backup}",
+                file=sys.stderr,
+            )
+            return 3
+        if changed:
+            print(f"Global bağlantı kuruldu ({target_home}); yedek: {backup}")
+        else:
+            print(f"Global bağlantı zaten güncel ({target_home}); dosya ve yedek değişmedi.")
     return 0
 
 

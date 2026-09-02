@@ -85,11 +85,15 @@ Windows + WSL örneği:
 
 ```bash
 python3 scripts/install_global.py "/mnt/c/Users/KULLANICI/Documents/BenimBeynim" \
-  --home "/mnt/c/Users/KULLANICI" --platform windows-wsl --providers all
+  --home "/mnt/c/Users/KULLANICI" \
+  --antigravity-home "/home/WSL_KULLANICISI" \
+  --platform windows-wsl --providers all
 
 # Önizleme doğruysa:
 python3 scripts/install_global.py "/mnt/c/Users/KULLANICI/Documents/BenimBeynim" \
-  --home "/mnt/c/Users/KULLANICI" --platform windows-wsl --providers all --apply
+  --home "/mnt/c/Users/KULLANICI" \
+  --antigravity-home "/home/WSL_KULLANICISI" \
+  --platform windows-wsl --providers all --apply
 ```
 
 Native Windows PowerShell örneği:
@@ -112,6 +116,11 @@ python3 scripts/install_global.py "/mutlak/yol/BenimBeynim" \
 `--providers all` yerine yalnız kullandığın araçları virgülle yazabilirsin. Kurucu mevcut global
 kurallarını silmez; yönetilen Respected bölümünü birleştirir ve değişecek dosyaları yedekler. Vault'un
 adı serbesttir.
+
+Antigravity IDE'yi hem Windows'ta hem **Connect to WSL** ile kullanıyorsan ek Linux profilini
+`--antigravity-home` ile açıkça ver. Seçenek tekrarlanabilir; ek köklere yalnız `.gemini`
+entegrasyonu kurulur, Codex/Cursor/Claude ana `--home` altında kalır. Connect to WSL kullanmıyorsan
+bu seçeneği yazma.
 
 ## Agent değiştirmek
 
