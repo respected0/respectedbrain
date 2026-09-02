@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize provider-native hook payloads into the shared Respot Brain runtime."""
+"""Normalize provider-native hook payloads into the shared Respected Brain runtime."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small host-specific primitives shared by the Respot memory runtime."""
+"""Small host-specific primitives shared by the Respected memory runtime."""
 
 from __future__ import annotations
 

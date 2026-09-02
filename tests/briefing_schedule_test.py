@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import tempfile
 import unittest
@@ -33,6 +34,7 @@ class BriefingScheduleTest(unittest.TestCase):
         )
 
         self.assertEqual(plan.kind, "windows-task")
+        self.assertTrue(plan.name.startswith("respected-morning-briefing-"))
         self.assertIn("<StartWhenAvailable>true</StartWhenAvailable>", plan.content)
         self.assertIn("T08:00:00", plan.content)
         self.assertIn("py.exe", plan.content)
@@ -54,6 +56,7 @@ class BriefingScheduleTest(unittest.TestCase):
                 self.assertIn(second, plan.content)
                 self.assertIn("morning_briefing.py", plan.content)
                 self.assertIn("--if-due", plan.content)
+                self.assertTrue(plan.name.startswith("respected-morning-briefing-"))
 
     def test_plan_can_pin_python_and_provider_search_path_without_pinning_provider(self):
         installer = load_installer()
@@ -62,12 +65,12 @@ class BriefingScheduleTest(unittest.TestCase):
             "linux",
             PurePosixPath("/home/ada"),
             python_executable="/usr/bin/python3",
-            provider_path="/opt/respot-cli/bin:/usr/bin",
+            provider_path="/opt/respected-cli/bin:/usr/bin",
         )
 
         self.assertIn("/usr/bin/python3", plan.content)
         self.assertIn("--provider-path", plan.content)
-        self.assertIn("/opt/respot-cli/bin:/usr/bin", plan.content)
+        self.assertIn("/opt/respected-cli/bin:/usr/bin", plan.content)
 
     def test_preview_does_not_create_schedule_files(self):
         installer = load_installer()
@@ -118,7 +121,7 @@ class BriefingScheduleTest(unittest.TestCase):
             self.assertEqual(result, 2)
             self.assertEqual(service.read_text(encoding="utf-8"), "old-service\n")
             self.assertEqual(timer.read_text(encoding="utf-8"), "old-timer\n")
-            backups = list((home / ".respot/schedule-backups").rglob("*.service"))
+            backups = list((home / ".respected/schedule-backups").rglob("*.service"))
             self.assertEqual(len(backups), 1)
             self.assertEqual(backups[0].read_text(encoding="utf-8"), "old-service\n")
             self.assertGreaterEqual(
@@ -159,6 +162,144 @@ class BriefingScheduleTest(unittest.TestCase):
             self.assertEqual(result, 2)
             self.assertEqual(service.read_text(encoding="utf-8"), "old-service\n")
             self.assertEqual(timer.read_text(encoding="utf-8"), "old-timer\n")
+
+    def test_linux_migration_enables_current_timer_before_removing_legacy_units(self):
+        installer = load_installer()
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary) / "home"
+            vault = Path(temporary) / "Ada Brain"
+            (vault / ".beyin").mkdir(parents=True)
+            plan = installer.build_plan(vault, "linux", home)
+            legacy_name = installer._legacy_identifier(vault)
+            units = home / ".config/systemd/user"
+            units.mkdir(parents=True)
+            legacy_service = units / f"{legacy_name}.service"
+            legacy_timer = units / f"{legacy_name}.timer"
+            legacy_service.write_text("legacy-service\n", encoding="utf-8")
+            legacy_timer.write_text("legacy-timer\n", encoding="utf-8")
+            calls = []
+
+            def command_stub(argv, **_kwargs):
+                calls.append(tuple(argv))
+                if "is-enabled" in argv or "is-active" in argv:
+                    return mock.Mock(returncode=0, stdout="", stderr="")
+                return mock.Mock(returncode=0, stdout="", stderr="")
+
+            with mock.patch.object(installer.subprocess, "run", side_effect=command_stub):
+                result = installer.install(vault, "linux", home, apply=True)
+
+            self.assertEqual(result, 0)
+            self.assertTrue(all(Path(path).is_file() for path in plan.paths))
+            self.assertFalse(legacy_service.exists())
+            self.assertFalse(legacy_timer.exists())
+            enable_index = next(
+                index
+                for index, call in enumerate(calls)
+                if "enable" in call and f"{plan.name}.timer" in call
+            )
+            disable_index = next(
+                index
+                for index, call in enumerate(calls)
+                if "disable" in call and f"{legacy_name}.timer" in call
+            )
+            self.assertLess(enable_index, disable_index)
+
+    def test_macos_migration_bootstraps_current_agent_before_removing_legacy_plist(self):
+        installer = load_installer()
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary) / "home"
+            vault = Path(temporary) / "Ada Brain"
+            (vault / ".beyin").mkdir(parents=True)
+            plan = installer.build_plan(vault, "macos", home)
+            legacy_name = installer._legacy_identifier(vault)
+            agents = home / "Library/LaunchAgents"
+            agents.mkdir(parents=True)
+            legacy = agents / f"{legacy_name}.plist"
+            legacy.write_text("legacy-plist\n", encoding="utf-8")
+            calls = []
+
+            def command_stub(argv, **_kwargs):
+                calls.append(tuple(str(part) for part in argv))
+                return mock.Mock(returncode=0, stdout="", stderr="")
+
+            with mock.patch.object(installer.subprocess, "run", side_effect=command_stub):
+                result = installer.install(vault, "macos", home, apply=True)
+
+            self.assertEqual(result, 0)
+            self.assertTrue(Path(plan.paths[0]).is_file())
+            self.assertFalse(legacy.exists())
+            bootstrap_index = next(
+                index
+                for index, call in enumerate(calls)
+                if "bootstrap" in call and str(plan.paths[0]) in call
+            )
+            legacy_bootout_index = next(
+                index
+                for index, call in enumerate(calls)
+                if "bootout" in call and str(legacy) in call
+            )
+            self.assertLess(bootstrap_index, legacy_bootout_index)
+
+    def test_windows_oem_output_decoder_preserves_turkish_diagnostics(self):
+        installer = load_installer()
+        encoded = "Görev başarıyla oluşturuldu".encode("cp857")
+
+        decoded = installer.decode_windows_output(encoded)
+
+        self.assertIn("Görev", decoded)
+        self.assertIn("başarıyla", decoded)
+
+    def test_windows_migration_verifies_current_task_before_deleting_legacy(self):
+        installer = load_installer()
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary) / "home"
+            home.mkdir()
+            vault = Path(temporary) / "Ada Brain"
+            (vault / ".beyin").mkdir(parents=True)
+            plan = installer.build_plan(
+                vault,
+                "windows-native",
+                home,
+                provider_path=os.environ.get("PATH"),
+            )
+            legacy_name = installer._legacy_identifier(vault)
+            calls = []
+            new_queries = 0
+
+            def command_stub(argv, **_kwargs):
+                nonlocal new_queries
+                calls.append(tuple(argv))
+                if "/Query" in argv and argv[argv.index("/TN") + 1] == plan.name:
+                    new_queries += 1
+                    if new_queries == 1:
+                        return mock.Mock(returncode=1, stdout=b"", stderr="Görev yok".encode("cp857"))
+                    return mock.Mock(returncode=0, stdout=plan.content.encode("utf-16"), stderr=b"")
+                if "/Query" in argv and argv[argv.index("/TN") + 1] == legacy_name:
+                    return mock.Mock(returncode=0, stdout=b"\xff\xfe<\x00?\x00x\x00m\x00l\x00/\x00>\x00", stderr=b"")
+                return mock.Mock(returncode=0, stdout="Başarılı".encode("cp857"), stderr=b"")
+
+            with mock.patch.object(installer.subprocess, "run", side_effect=command_stub):
+                result = installer.install(vault, "windows-native", home, apply=True)
+
+        self.assertEqual(result, 0)
+        actions = [
+            (
+                "/Query" if "/Query" in call else "/Create" if "/Create" in call else "/Delete",
+                call[call.index("/TN") + 1],
+            )
+            for call in calls
+            if "/TN" in call
+        ]
+        self.assertEqual(
+            actions,
+            [
+                ("/Query", plan.name),
+                ("/Query", legacy_name),
+                ("/Create", plan.name),
+                ("/Query", plan.name),
+                ("/Delete", legacy_name),
+            ],
+        )
 
 
 if __name__ == "__main__":

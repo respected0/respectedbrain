@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Provider-neutral Respot session lifecycle and relational-memory context."""
+"""Provider-neutral Respected session lifecycle and relational-memory context."""
 
 from __future__ import annotations
 
@@ -272,7 +272,7 @@ def _launch_flush(
         if hook_input is not None:
             hook_input.unlink(missing_ok=True)
         return False
-    threading.Thread(target=process.wait, name="respot-flush-reaper", daemon=True).start()
+    threading.Thread(target=process.wait, name="respected-flush-reaper", daemon=True).start()
     return True
 
 

@@ -2,11 +2,11 @@
 
 **Status:** Implemented — local and GitHub Windows CI verified; real two-provider smoke pending
 **Date:** 2026-08-28
-**Scope:** Respot Brain native Windows foundation only
+**Scope:** Respected Brain native Windows foundation only
 
 ## Goal
 
-Make a Respot Brain vault work on native Windows without WSL while preserving the same
+Make a Respected Brain vault work on native Windows without WSL while preserving the same
 Claude, Codex, Cursor and Antigravity memory behavior already supported on portable POSIX and
 Windows+WSL profiles. Native Windows must be a third profile, not a replacement for either
 existing path.
@@ -28,7 +28,7 @@ The design adapts behavior rather than merging a fork wholesale:
 - `morp1e/windows-support@ac207ee`: PowerShell hooks, Windows preflight, portable lock lessons;
 - `enesadakli/windows-native@920b597`: native Python lifecycle, reparse-point checks and Windows
   installer tests;
-- current Respot `main`: provider bridge, model fallback, WSL path conversion and generated
+- current Respected `main`: provider bridge, model fallback, WSL path conversion and generated
   four-agent adapters.
 
 Source decisions and deferred features remain recorded in `docs/UPSTREAM-SYNC.md`.
@@ -55,7 +55,7 @@ against every current hook behavior before the Bash implementation can be reduce
 
 This is close to the Enes fork and would be quicker initially, but it creates two complete state
 machines. Every future fix would have to land twice and parity could only be inferred from tests.
-Respot's purpose is one memory system across agents, so duplicate lifecycle engines are the wrong
+Respected's purpose is one memory system across agents, so duplicate lifecycle engines are the wrong
 long-term boundary.
 
 ### Rejected: translate every hook to PowerShell
@@ -188,9 +188,9 @@ PowerShell 7 is preferred but not a runtime dependency: hooks call Python direct
 and bootstrap remain compatible with Windows PowerShell 5.1 so a missing `pwsh` cannot hide the
 actual dependency report.
 
-### Existing Respot vault
+### Existing Respected vault
 
-`scripts/update_respot.py` becomes the supported update transaction for an already stamped Respot
+`scripts/update_respected.py` becomes the supported update transaction for an already stamped Respected
 vault on all profiles. It:
 
 1. previews managed files without mutation;
@@ -202,7 +202,7 @@ vault on all profiles. It:
 7. writes `.beyin-multi-version` last.
 
 Native Windows foundation advances the multi-AI stamp from `1.0.0` to `1.1.0`. A failed update
-leaves the old stamp and backup intact. `enable_multiai.py` remains the v2-to-Respot bootstrap and
+leaves the old stamp and backup intact. `enable_multiai.py` remains the v2-to-Respected bootstrap and
 repair tool; it is not the routine updater.
 
 ### Existing v1 vault on native Windows
@@ -210,7 +210,7 @@ repair tool; it is not the routine updater.
 Native conversion of an unstamped v1 vault is not part of this first foundation. The documented
 safe route remains the verified WSL transaction. The Windows updater must refuse a v1 target rather
 than partially stamping it. A native v1 migration can be designed after fresh install and existing
-Respot update are proven on Windows CI and a real Windows machine.
+Respected update are proven on Windows CI and a real Windows machine.
 
 ### Global connections
 
@@ -238,7 +238,7 @@ daily/ and knowledge/
 ```
 
 No GUI is opened. Background summaries use whichever authenticated local provider the existing
-Respot selection/fallback policy chooses.
+Respected selection/fallback policy chooses.
 
 ## Security and failure behavior
 
@@ -300,7 +300,7 @@ The project is complete only when:
 
 README, SETUP, MULTI_AI and SPEC gain a three-profile matrix. `SETUP-WINDOWS.md` becomes the native
 runbook and names all four providers. WSL instructions remain available and are not relabeled as
-legacy. `docs/UPSTREAM-SYNC.md` records the exact imported Windows behaviors and the Respot-specific
+legacy. `docs/UPSTREAM-SYNC.md` records the exact imported Windows behaviors and the Respected-specific
 changes made to preserve provider neutrality.
 
 ## Explicit non-goals

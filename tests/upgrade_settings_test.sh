@@ -64,7 +64,7 @@ new_case() {
 run_stage() {
   local output="$1" stage="$2"
   shift 2
-  if HOME="$CASE_ROOT/sahte-home" BEYIN_BACKUP_ROOT="$CASE_BACKUP" \
+  if HOME="$CASE_ROOT/sahte-home" RESPECTED_BACKUP_ROOT="$CASE_BACKUP" \
       bash "$UPGRADE" --vault "$CASE_VAULT" --stage "$stage" "$@" \
       >"$output" 2>&1; then
     RUN_RC=0

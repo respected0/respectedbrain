@@ -48,6 +48,23 @@ class MultiAITest(unittest.TestCase):
         self.assertIn(".beyin/hooks/bridge.py", json.dumps(cursor))
         self.assertIn(".beyin/hooks/bridge.py", json.dumps(antigravity))
 
+    def test_fresh_generated_adapters_expose_only_the_current_product_identity(self):
+        codex = json.loads((ROOT / "template/.codex/hooks.json").read_text(encoding="utf-8"))
+        antigravity = json.loads(
+            (ROOT / "template/.agents/hooks.json").read_text(encoding="utf-8")
+        )
+        cursor_rule = (ROOT / "template/.cursor/rules/beyin.mdc").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertEqual(set(antigravity), {"respected-brain"})
+        self.assertIn("Respected Brain", codex["description"])
+        self.assertIn("description: Respected Brain", cursor_rule)
+        combined = json.dumps((codex, antigravity), ensure_ascii=False) + cursor_rule
+        self.assertNotIn("Respot", combined)
+        self.assertNotIn("RESPOT", combined)
+        self.assertNotIn("respot", combined)
+
     def test_bridge_normalizes_provider_inputs_and_outputs(self):
         bridge = load("bridge", ROOT / "template/.beyin/hooks/bridge.py")
         normalized = bridge.normalize("antigravity", {
@@ -132,7 +149,7 @@ class MultiAITest(unittest.TestCase):
         self.assertIn("Claude is not mandatory", setup)
         self.assertIn("PHASE 3B: Optional global multi-agent connection", setup)
         self.assertIn("PHASE U7: Optional global access", setup)
-        self.assertIn("directly to Respot Brain", setup)
+        self.assertIn("directly to Respected Brain", setup)
         self.assertIn("Do **not**\nrun a second `enable_multiai.py` migration", setup)
         self.assertNotIn("Claude aboneliğinin", setup)
         self.assertNotIn("claude CLI YOK", setup)
@@ -155,7 +172,7 @@ class MultiAITest(unittest.TestCase):
         ):
             self.assertNotIn(stale, text)
         for required in (
-            "github.com/respected0/respot-brain",
+            "github.com/respected0/respectedbrain",
             "summary_provider",
             "cursor-agent",
             "Windows + WSL",
@@ -254,24 +271,24 @@ class MultiAITest(unittest.TestCase):
             self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
             hooks = json.loads((config / "hooks.json").read_text(encoding="utf-8"))
             self.assertIn("my-existing-hook", hooks)
-            self.assertIn("respot-brain", hooks)
+            self.assertIn("respected-brain", hooks)
             rule = (home / ".gemini/GEMINI.md").read_text(encoding="utf-8")
             self.assertIn("# Kendi global kuralım", rule)
-            self.assertEqual(rule.count("<!-- RESPOT-GLOBAL:BEGIN -->"), 1)
+            self.assertEqual(rule.count("<!-- RESPECTED-GLOBAL:BEGIN -->"), 1)
             for source in sorted((ROOT / "template/.beyin/skills").glob("*/SKILL.md")):
                 installed = config / "skills" / source.parent.name / "SKILL.md"
                 self.assertEqual(source.read_bytes(), installed.read_bytes())
             snapshot = {
                 path.relative_to(home): path.read_bytes()
                 for path in home.rglob("*")
-                if path.is_file() and "respot-backups" not in path.parts
+                if path.is_file() and ".respected-backups" not in path.parts
             }
             second = subprocess.run(command, capture_output=True, text=True, check=False)
             self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
             repeated = {
                 path.relative_to(home): path.read_bytes()
                 for path in home.rglob("*")
-                if path.is_file() and "respot-backups" not in path.parts
+                if path.is_file() and ".respected-backups" not in path.parts
             }
             self.assertEqual(snapshot, repeated)
 
@@ -296,10 +313,10 @@ class MultiAITest(unittest.TestCase):
             self.assertTrue((home / ".claude/settings.json").is_file())
             self.assertTrue((home / ".agents/skills/beyin-doktor/SKILL.md").is_file())
             self.assertTrue((home / ".cursor/skills/gecmis-import/SKILL.md").is_file())
-            managed_files = {path.relative_to(home): path.read_bytes() for path in home.rglob("*") if path.is_file() and ".respot-backups" not in path.parts}
+            managed_files = {path.relative_to(home): path.read_bytes() for path in home.rglob("*") if path.is_file() and ".respected-backups" not in path.parts}
             second = subprocess.run(command, capture_output=True, text=True, check=False)
             self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
-            repeated = {path.relative_to(home): path.read_bytes() for path in home.rglob("*") if path.is_file() and ".respot-backups" not in path.parts}
+            repeated = {path.relative_to(home): path.read_bytes() for path in home.rglob("*") if path.is_file() and ".respected-backups" not in path.parts}
             self.assertEqual(managed_files, repeated)
 
     def test_native_windows_global_command_is_absolute_and_shell_free(self):
@@ -364,14 +381,14 @@ class MultiAITest(unittest.TestCase):
             snapshot = {
                 path.relative_to(home): path.read_bytes()
                 for path in home.rglob("*")
-                if path.is_file() and ".respot-backups" not in path.parts
+                if path.is_file() and ".respected-backups" not in path.parts
             }
 
             second = subprocess.run(command, capture_output=True, text=True, check=False)
             repeated = {
                 path.relative_to(home): path.read_bytes()
                 for path in home.rglob("*")
-                if path.is_file() and ".respot-backups" not in path.parts
+                if path.is_file() and ".respected-backups" not in path.parts
             }
 
             self.assertEqual(second.returncode, 0, second.stdout + second.stderr)

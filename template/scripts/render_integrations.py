@@ -171,6 +171,9 @@ def render(check: bool, profile: Profile) -> bool:
     changed |= write_json(SOURCE / "config.json", config, check)
     for helper_name in (
         "render_integrations.py",
+        "legacy_names.py",
+        "update_respected.py",
+        "respected_manifest.py",
         "install_antigravity_global.py",
         "install_global.py",
         "install_briefing_schedule.py",
@@ -193,7 +196,7 @@ def render(check: bool, profile: Profile) -> bool:
     )
     changed |= write_text(
         TEMPLATE / ".cursor" / "rules" / "beyin.mdc",
-        "---\ndescription: Respot Brain ortak hafıza ve çalışma kuralları\nalwaysApply: true\n---\n\n"
+        "---\ndescription: Respected Brain ortak hafıza ve çalışma kuralları\nalwaysApply: true\n---\n\n"
         + generated,
         check,
     )
@@ -218,7 +221,7 @@ def render(check: bool, profile: Profile) -> bool:
     codex_precompact, codex_precompact_windows = codex_commands("precompact")
 
     codex_hooks = {
-        "description": "Respot Brain çoklu-AI hafıza kancaları (üretilmiştir).",
+        "description": "Respected Brain çoklu-AI hafıza kancaları (üretilmiştir).",
         "hooks": {
             "SessionStart": [{"hooks": [{"type": "command", "command": codex_start, "commandWindows": codex_start_windows, "timeout": 15, "additionalContextLimit": 16000}]}],
             "UserPromptSubmit": [{"hooks": [{"type": "command", "command": codex_prompt, "commandWindows": codex_prompt_windows, "timeout": 5}]}],
@@ -240,7 +243,7 @@ def render(check: bool, profile: Profile) -> bool:
     changed |= write_json(TEMPLATE / ".cursor" / "hooks.json", cursor_hooks, check)
 
     antigravity_hooks = {
-        "respot-brain": {
+        "respected-brain": {
             "PreInvocation": [{"type": "command", "command": command_text(profile, TEMPLATE, "antigravity", "start"), "timeout": 15}],
             "Stop": [{"type": "command", "command": command_text(profile, TEMPLATE, "antigravity", "end"), "timeout": 10}],
         }

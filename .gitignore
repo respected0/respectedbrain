@@ -2,7 +2,7 @@
 __pycache__/
 *.pyc
 .beyin/backups/
-.respot-install-*/
+.respected-install-*/
 
 # Yerel ajan logları, repoya girmez
 tmp-brief/

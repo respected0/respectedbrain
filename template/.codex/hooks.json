@@ -1,5 +1,5 @@
 {
-  "description": "Respot Brain çoklu-AI hafıza kancaları (üretilmiştir).",
+  "description": "Respected Brain çoklu-AI hafıza kancaları (üretilmiştir).",
   "hooks": {
     "SessionStart": [
       {

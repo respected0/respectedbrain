@@ -221,7 +221,7 @@ göster. Bu kontrolde dosya oluşturma ya da yenileme yapma.
 ### 18. Sabah brifingi ve zamanlayıcı
 
 Yerel saat 08.00'i geçtiyse bugünün `🎯 100-Command-Center/Briefings/YYYY-MM-DD.md` dosyasını,
-`.claude/scripts/.state/briefing-health.json` kaydını ve platformun Respot zamanlayıcı tanımını
+`.claude/scripts/.state/briefing-health.json` kaydını ve platformun Respected zamanlayıcı tanımını
 salt okunur denetle. Brifing yoksa bunun zamanlayıcı eksikliği mi model hatası mı olduğunu kanıtla.
 
 ## Düzeltme planı sözleşmesi

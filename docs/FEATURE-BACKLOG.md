@@ -1,7 +1,8 @@
-# Respot Brain Feature Backlog
+# Respected Brain Feature Backlog
 
 Bu dosya alınan ürün kararlarını ve yayın durumunu kaydeder. Aşağıdaki dört özellik `1.2.0`
-sürümünde uygulanmıştır. Sonraki onaylı çalışmalar
+sürümünde uygulanmıştır. Respected Brain tam yeniden adlandırma ve kayıpsız migration sınırı
+`1.3.0` sürümüdür. Sonraki onaylı çalışmalar
 [`UPSTREAM-ADOPTION-BACKLOG.md`](UPSTREAM-ADOPTION-BACKLOG.md) dosyasında tutulur.
 
 ## Seçilen geliştirmeler
@@ -9,15 +10,15 @@ sürümünde uygulanmıştır. Sonraki onaylı çalışmalar
 ### 1. Beyin yol haritası
 
 - İnsan tarafından yönetilen `Core.md`, kullanıcının kimliği ve çalışma biçimi için ana kaynak
-  olarak kalacak.
-- Vault yapısını ve önemli giriş noktalarını anlatan bir Vault Map eklenecek.
-- Ortak kaynaktaki skill'leri ve ne zaman kullanılacaklarını anlatan bir Skills Map eklenecek.
+  olarak kalır.
+- Vault yapısını ve önemli giriş noktalarını anlatan bir Vault Map eklendi.
+- Ortak kaynaktaki skill'leri ve ne zaman kullanılacaklarını anlatan bir Skills Map eklendi.
 - Amaç, Claude, Codex, Antigravity ve Cursor arasında geçişte yeni agentın sistemi bütün vault'u
   taramadan anlayabilmesi.
 
 ### 2. Sabah brifingi
 
-- Her gün saat 08.00 için planlanacak.
+- Her gün saat 08.00 için planlanır.
 - Bilgisayar 08.00'de kapalıysa Windows'un kaçırılan görevi ilk fırsatta çalıştırma davranışıyla
   bilgisayar açıldığında hazırlanacak.
 - Aynı gün içinde yalnızca bir kez üretilecek ve gerçek hazırlanma saati notta görünecek.
@@ -50,5 +51,7 @@ sürümünde uygulanmıştır. Sonraki onaylı çalışmalar
 zamanlayıcıları, ardından salt-okunur doktor planı + onay kapılı inbox düzenleme. Gizlilik kontrolü,
 haftalık değerlendirme ve güvenli paylaşım kapsam dışı kalmaya devam ediyor.
 
-Bu mimari `3ec18e6` commit'iyle `1.2.0` olarak tamamlandı. 2026-09-01 fork incelemesinden çıkan
-yedi maddelik `1.3.0` kapsamı ayrı backlog'a kaydedildi; henüz uygulanmış sayılmaz.
+Bu üç parçalı mimari `3ec18e6` commit'iyle `1.2.0` olarak tamamlandı. `1.3.0`, ürün ve teknik
+namespace'i Respected Brain'e taşıyan uyumluluklu migration sürümüdür. 2026-09-01 ve 2026-09-02
+fork incelemelerinden çıkan dokuz maddelik `1.4.0` kapsamı ayrı backlog'a kaydedildi; henüz
+uygulanmış sayılmaz.

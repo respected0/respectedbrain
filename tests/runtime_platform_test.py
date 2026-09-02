@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Behavior tests for Respot's host-specific runtime primitives."""
+"""Behavior tests for Respected's host-specific runtime primitives."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ RUNTIME_PATH = ROOT / "template" / ".beyin" / "runtime_platform.py"
 
 
 def load_runtime():
-    spec = importlib.util.spec_from_file_location("respot_runtime_platform", RUNTIME_PATH)
+    spec = importlib.util.spec_from_file_location("respected_runtime_platform", RUNTIME_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load runtime module: {RUNTIME_PATH}")
     module = importlib.util.module_from_spec(spec)

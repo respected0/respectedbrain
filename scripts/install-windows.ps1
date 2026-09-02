@@ -27,7 +27,7 @@ function Stop-Install([string]$Message, [int]$Code = 2) {
 }
 
 function Resolve-TestableCommand([string]$Name, [bool]$ProviderOnly = $false) {
-    $TestRoot = $env:RESPOT_TEST_COMMAND_ROOT
+    $TestRoot = $env:RESPECTED_TEST_COMMAND_ROOT
     if ($TestRoot) {
         foreach ($Extension in @(".exe", ".cmd", ".bat", "")) {
             $Candidate = Join-Path $TestRoot ($Name + $Extension)
@@ -64,8 +64,8 @@ function Invoke-ExternalProbe([string]$Command, [string[]]$Arguments) {
 
 function Find-Python {
     $Candidates = @()
-    if ($env:RESPOT_TEST_PYTHON) {
-        $Candidates += ,@($env:RESPOT_TEST_PYTHON, @())
+    if ($env:RESPECTED_TEST_PYTHON) {
+        $Candidates += ,@($env:RESPECTED_TEST_PYTHON, @())
     }
     else {
         $Candidates += ,@((Resolve-TestableCommand "py"), @("-3"))
@@ -83,7 +83,7 @@ function Find-Python {
         }
         $ProbeArguments = @($Prefix) + @(
             "-c",
-            "import sys; print('RESPOT_PYTHON_OK'); print(sys.executable); print(str(sys.version_info.major)+'.'+str(sys.version_info.minor))"
+            "import sys; print('RESPECTED_PYTHON_OK'); print(sys.executable); print(str(sys.version_info.major)+'.'+str(sys.version_info.minor))"
         )
         $Probe = Invoke-ExternalProbe $Command $ProbeArguments
         $ProbeOutput = $Probe.Output
@@ -91,7 +91,7 @@ function Find-Python {
             continue
         }
         $Lower = $ProbeOutput.ToLowerInvariant()
-        if (-not $ProbeOutput.Contains("RESPOT_PYTHON_OK") -or $Lower.Contains("microsoft store") -or $Lower.Contains("python was not found")) {
+        if (-not $ProbeOutput.Contains("RESPECTED_PYTHON_OK") -or $Lower.Contains("microsoft store") -or $Lower.Contains("python was not found")) {
             continue
         }
         return @{ Command = $Command; Prefix = $Prefix; Probe = $ProbeOutput.Trim() }
@@ -236,7 +236,7 @@ try {
     )
 
     $Remaining = Get-ChildItem -LiteralPath $ResolvedVault -File -Recurse -Force | Where-Object {
-        [IO.File]::ReadAllText($_.FullName).Contains("{{")
+        [regex]::IsMatch([IO.File]::ReadAllText($_.FullName), '\{\{[A-Z][A-Z0-9_]*\}\}')
     }
     if (@($Remaining).Count -gt 0) {
         throw "çözülmemiş placeholder: $($Remaining[0].FullName)"
@@ -244,7 +244,7 @@ try {
     if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-version"))).Trim() -ne "2.0.0") {
         throw ".beyin-version gate başarısız"
     }
-    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-multi-version"))).Trim() -ne "1.2.0") {
+    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-multi-version"))).Trim() -ne "1.3.0") {
         throw ".beyin-multi-version gate başarısız"
     }
     $AdapterPaths = @(
@@ -269,7 +269,7 @@ catch {
     Stop-Install ("kurulum geri alındı: " + $_.Exception.Message)
 }
 
-Write-Host "Respot Brain kuruldu: $ResolvedVault"
-Write-Host "Sürüm: core 2.0.0 / multi-AI 1.2.0"
+Write-Host "Respected Brain kuruldu: $ResolvedVault"
+Write-Host "Sürüm: core 2.0.0 / multi-AI 1.3.0"
 Write-Host "Global bağlantı ayrı ve seçicidir; SETUP-WINDOWS.md içindeki install_global.py adımını kullan."
 exit 0

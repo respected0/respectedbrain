@@ -18,7 +18,7 @@ RENDER_PATH = ROOT / "scripts" / "render_integrations.py"
 
 
 def load_renderer():
-    spec = importlib.util.spec_from_file_location("respot_profile_renderer", RENDER_PATH)
+    spec = importlib.util.spec_from_file_location("respected_profile_renderer", RENDER_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load renderer: {RENDER_PATH}")
     module = importlib.util.module_from_spec(spec)

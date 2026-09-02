@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a native Windows profile that runs the same Respot lifecycle and provider fallback for Claude, Codex, Cursor and Antigravity without requiring WSL.
+**Goal:** Add a native Windows profile that runs the same Respected lifecycle and provider fallback for Claude, Codex, Cursor and Antigravity without requiring WSL.
 
-**Architecture:** Move lifecycle behavior from four Bash hooks into one Python module called by the existing provider bridge; retain Bash only as thin POSIX compatibility launchers. Add portable lock/process primitives, deterministic three-profile rendering, a stamped Respot updater, native global/fresh installers and Windows CI while preserving the current portable and Windows+WSL contracts.
+**Architecture:** Move lifecycle behavior from four Bash hooks into one Python module called by the existing provider bridge; retain Bash only as thin POSIX compatibility launchers. Add portable lock/process primitives, deterministic three-profile rendering, a stamped Respected updater, native global/fresh installers and Windows CI while preserving the current portable and Windows+WSL contracts.
 
 **Tech Stack:** Python 3.13 standard library, Bash compatibility wrappers, PowerShell 5.1-compatible bootstrap, JSON hook manifests, `unittest`, shell integration tests and GitHub Actions Windows runners.
 
@@ -122,7 +122,7 @@ Expected: all host-relevant tests pass; Windows-only tests are decorated with
 
 ```bash
 git add template/.beyin/runtime_platform.py tests/runtime_platform_test.py .gitignore
-git commit -m "Add portable Respot runtime primitives"
+git commit -m "Add portable Respected runtime primitives"
 ```
 
 ---
@@ -426,19 +426,19 @@ git commit -m "Render native Windows adapters from one profile model"
 
 ---
 
-### Task 6: Transactional Respot Updater and Version 1.1
+### Task 6: Transactional Respected Updater and Version 1.1
 
 **Files:**
-- Create: `scripts/update_respot.py`
-- Create: `tests/update_respot_test.py`
+- Create: `scripts/update_respected.py`
+- Create: `tests/update_respected_test.py`
 - Modify: `scripts/enable_multiai.py`
 - Modify: `scripts/upgrade.sh`
 - Modify: `tests/upgrade_transaction_test.sh`
 - Modify: `SETUP.md`
 
 **Interfaces:**
-- Produces CLI: `python scripts/update_respot.py <vault> [--platform auto|portable|windows-wsl|windows-native] [--apply]`
-- Consumes stamped Respot core `2.0.0` and multi-AI `1.0.0` or `1.1.0`.
+- Produces CLI: `python scripts/update_respected.py <vault> [--platform auto|portable|windows-wsl|windows-native] [--apply]`
+- Consumes stamped Respected core `2.0.0` and multi-AI `1.0.0` or `1.1.0`.
 - Produces multi-AI stamp `1.1.0` only after all gates pass.
 
 - [ ] **Step 1: Write updater transaction RED tests**
@@ -451,7 +451,7 @@ preview = run_update(vault)
 self.assertEqual(preview.returncode, 0)
 self.assertEqual(tree_digest(vault), before)
 
-failed = run_update(vault, "--apply", env={"RESPOT_TEST_FAIL_GATE": "render"})
+failed = run_update(vault, "--apply", env={"RESPECTED_TEST_FAIL_GATE": "render"})
 self.assertNotEqual(failed.returncode, 0)
 self.assertEqual((vault / ".beyin-multi-version").read_text().strip(), "1.0.0")
 
@@ -465,7 +465,7 @@ byte-identical; managed prior files exist in the timestamped backup.
 
 - [ ] **Step 2: Verify RED**
 
-Run: `python3 -m unittest -v tests.update_respot_test`
+Run: `python3 -m unittest -v tests.update_respected_test`
 
 Expected: updater script does not exist.
 
@@ -480,14 +480,14 @@ Infer `windows-wsl` only from WSL environment plus `/mnt/<drive>`; infer `window
 
 Set `MULTI_VERSION`/`BEYIN_MULTI_VERSION` to `1.1.0`, include lifecycle/runtime-platform files in
 copy and verification allow-lists, and change transaction expectations from `1.0.0` to `1.1.0`.
-Do not treat an existing `1.0.0` stamp as an error in `update_respot.py`.
+Do not treat an existing `1.0.0` stamp as an error in `update_respected.py`.
 
 - [ ] **Step 5: Verify updater and v1 upgrade GREEN**
 
 Run:
 
 ```bash
-python3 -m unittest -v tests.update_respot_test
+python3 -m unittest -v tests.update_respected_test
 bash tests/upgrade_transaction_test.sh
 python3 -m unittest -v tests.multiai_test
 ```
@@ -497,8 +497,8 @@ Expected: rollback leaves `1.0.0`; successful update and fresh v1 upgrade produc
 - [ ] **Step 6: Commit**
 
 ```bash
-git add scripts/update_respot.py scripts/enable_multiai.py scripts/upgrade.sh tests/update_respot_test.py tests/upgrade_transaction_test.sh SETUP.md
-git commit -m "Add transactional Respot 1.1 updater"
+git add scripts/update_respected.py scripts/enable_multiai.py scripts/upgrade.sh tests/update_respected_test.py tests/upgrade_transaction_test.sh SETUP.md
+git commit -m "Add transactional Respected 1.1 updater"
 ```
 
 ---
@@ -659,13 +659,13 @@ Linux simulation is not accepted as Windows evidence.
 
 **Interfaces:**
 - Documents exactly three profiles and the native-v1 limitation.
-- Records adopted upstream behavior and Respot-specific changes.
+- Records adopted upstream behavior and Respected-specific changes.
 
 - [ ] **Step 1: Update public platform and install contracts**
 
 Document:
 
-- native Windows fresh install and existing Respot update commands;
+- native Windows fresh install and existing Respected update commands;
 - provider selection without Claude requirement;
 - WSL remains verified and supported;
 - native v1 conversion is refused and must use WSL;
@@ -694,7 +694,7 @@ installed provider and confirm SessionStart contains the first session context. 
 smoke installer at `respectedOS`; keep the verified WSL production vault unchanged until the native
 test passes.
 
-- [ ] **Step 4: Mark spec implemented and update Respot memory**
+- [ ] **Step 4: Mark spec implemented and update Respected memory**
 
 Change spec status from `Proposed` to `Implemented`, record the final commit/workflow evidence in
 `docs/UPSTREAM-SYNC.md`, and update respectedOS Last-Session/Threads with the result and remaining

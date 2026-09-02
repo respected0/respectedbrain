@@ -20,7 +20,7 @@ FIXED_NOW = datetime(2026, 8, 28, 20, 15)
 
 
 def load_lifecycle():
-    spec = importlib.util.spec_from_file_location("respot_lifecycle", LIFECYCLE_PATH)
+    spec = importlib.util.spec_from_file_location("respected_lifecycle", LIFECYCLE_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load lifecycle module: {LIFECYCLE_PATH}")
     module = importlib.util.module_from_spec(spec)
@@ -63,7 +63,7 @@ class LifecycleTest(unittest.TestCase):
             encoding="utf-8",
         )
         (self.vault / "knowledge" / "index.md").write_text(
-            "# Knowledge\n- Respot\n", encoding="utf-8"
+            "# Knowledge\n- Respected\n", encoding="utf-8"
         )
         (self.vault / "daily" / "2026-08-28.md").write_text(
             "# Daily\nBugünün girdisi.\n", encoding="utf-8"

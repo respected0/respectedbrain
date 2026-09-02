@@ -1,4 +1,4 @@
-# Respot Brain Roadmap, Briefing and Maintenance Implementation Plan
+# Respected Brain Roadmap, Briefing and Maintenance Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -33,7 +33,7 @@
 
 ### Task 2: Add deterministic visible maps
 
-**Files:** create `template/.beyin/map_builder.py` and `tests/maps_test.py`; modify `template/.beyin/hooks/lifecycle.py`, `tests/lifecycle_test.py`, `scripts/respot_manifest.py`, renderer/updater tests and template Command Center files.
+**Files:** create `template/.beyin/map_builder.py` and `tests/maps_test.py`; modify `template/.beyin/hooks/lifecycle.py`, `tests/lifecycle_test.py`, `scripts/respected_manifest.py`, renderer/updater tests and template Command Center files.
 
 **Interfaces:** `refresh_maps(vault_root: Path) -> tuple[Path, Path]`; `render_vault_map(vault_root: Path) -> str`; `render_skills_map(vault_root: Path) -> str`.
 
@@ -45,7 +45,7 @@
 
 ### Task 3: Add the briefing worker
 
-**Files:** create `template/.beyin/morning_briefing.py` and `tests/morning_briefing_test.py`; modify `scripts/respot_manifest.py` and updater gates.
+**Files:** create `template/.beyin/morning_briefing.py` and `tests/morning_briefing_test.py`; modify `scripts/respected_manifest.py` and updater gates.
 
 **Interfaces:** `run_if_due(vault_root: Path, now: datetime | None = None) -> bool`; final output is `Briefings/YYYY-MM-DD.md` with five required headings.
 

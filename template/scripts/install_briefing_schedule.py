@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preview or install the platform adapter for Respot's 08:00 briefing."""
+"""Preview or install the platform adapter for Respected's 08:00 briefing."""
 
 from __future__ import annotations
 
@@ -14,6 +14,18 @@ import subprocess
 import sys
 import tempfile
 from typing import Sequence
+import xml.etree.ElementTree as ET
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from legacy_names import LEGACY_TASK_PREFIX  # noqa: E402
+
+
+TASK_PREFIX = "respected-morning-briefing-"
+TIMER_SEPARATOR = "\n---RESPECTED-TIMER---\n"
 
 
 class SchedulePlan:
@@ -26,7 +38,43 @@ class SchedulePlan:
 
 def _identifier(vault: PurePath) -> str:
     digest = hashlib.sha256(str(vault).encode("utf-8")).hexdigest()[:12]
-    return f"respot-morning-briefing-{digest}"
+    return f"{TASK_PREFIX}{digest}"
+
+
+def _legacy_identifier(vault: PurePath) -> str:
+    digest = hashlib.sha256(str(vault).encode("utf-8")).hexdigest()[:12]
+    return f"{LEGACY_TASK_PREFIX}{digest}"
+
+
+def decode_windows_output(value: bytes) -> str:
+    if value.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return value.decode("utf-16")
+    for encoding in ("utf-8", "cp857"):
+        try:
+            return value.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return value.decode("utf-8", errors="replace")
+
+
+def _decode_windows_xml(value: bytes) -> str:
+    if value.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return value.decode("utf-16")
+    return value.decode("utf-8-sig")
+
+
+def _task_signature(content: str) -> tuple[str, str, str]:
+    root = ET.fromstring(content)
+    values: dict[str, str] = {}
+    for element in root.iter():
+        name = element.tag.rsplit("}", 1)[-1]
+        if name in {"Command", "Arguments", "StartWhenAvailable"}:
+            values[name] = (element.text or "").strip()
+    return (
+        values.get("Command", ""),
+        values.get("Arguments", ""),
+        values.get("StartWhenAvailable", ""),
+    )
 
 
 def _windows_xml(command: str, arguments: str) -> str:
@@ -77,14 +125,14 @@ def build_plan(
             [executable, str(vault / ".beyin/morning_briefing.py"), *worker_arguments]
         )
         service = f"""[Unit]
-Description=Respot morning briefing
+Description=Respected morning briefing
 
 [Service]
 Type=oneshot
 ExecStart={command}
 """
         timer = """[Unit]
-Description=Run Respot morning briefing at 08:00
+Description=Run Respected morning briefing at 08:00
 
 [Timer]
 OnCalendar=*-*-* 08:00:00
@@ -97,7 +145,7 @@ WantedBy=timers.target
         return SchedulePlan(
             "systemd-user",
             name,
-            service + "\n---RESPOT-TIMER---\n" + timer,
+            service + TIMER_SEPARATOR + timer,
             (root / f"{name}.service", root / f"{name}.timer"),
         )
     if platform == "macos":
@@ -159,7 +207,7 @@ def _restore(snapshot: dict[Path, tuple[bytes, int] | None]) -> None:
 
 def _backup_directory(home: Path, name: str) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    return home / ".respot" / "schedule-backups" / name / timestamp
+    return home / ".respected" / "schedule-backups" / name / timestamp
 
 
 def _persist_file_backups(
@@ -182,6 +230,70 @@ def _persist_file_backups(
     return backup
 
 
+def _persist_legacy_backups(
+    home: Path,
+    name: str,
+    snapshot: dict[Path, tuple[bytes, int] | None],
+) -> Path | None:
+    existing = {path: previous[0] for path, previous in snapshot.items() if previous is not None}
+    if not existing:
+        return None
+    backup = _backup_directory(home, name)
+    for path, content in existing.items():
+        _write(backup / path.name, content.decode("utf-8"))
+    print(f"backup: {backup}")
+    return backup
+
+
+def _query_windows_task(name: str) -> tuple[subprocess.CompletedProcess[bytes], str | None]:
+    result = subprocess.run(
+        ["schtasks.exe", "/Query", "/TN", name, "/XML"],
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return result, None
+    try:
+        return result, _decode_windows_xml(result.stdout)
+    except UnicodeError:
+        return result, None
+
+
+def _create_windows_task(name: str, content: str) -> subprocess.CompletedProcess[bytes]:
+    with tempfile.NamedTemporaryFile("w", suffix=".xml", encoding="utf-16", delete=False) as handle:
+        handle.write(content)
+        xml_path = Path(handle.name)
+    try:
+        return subprocess.run(
+            ["schtasks.exe", "/Create", "/TN", name, "/XML", str(xml_path), "/F"],
+            capture_output=True,
+            check=False,
+        )
+    finally:
+        xml_path.unlink(missing_ok=True)
+
+
+def _delete_windows_task(name: str) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(
+        ["schtasks.exe", "/Delete", "/TN", name, "/F"],
+        capture_output=True,
+        check=False,
+    )
+
+
+def _restore_windows_tasks(
+    current_name: str,
+    current_previous: str | None,
+    legacy_name: str,
+    legacy_previous: str | None,
+) -> None:
+    _delete_windows_task(current_name)
+    if current_previous is not None:
+        _create_windows_task(current_name, current_previous)
+    if legacy_previous is not None:
+        _create_windows_task(legacy_name, legacy_previous)
+
+
 def install(
     vault: Path,
     platform: str,
@@ -193,7 +305,7 @@ def install(
         vault,
         platform,
         home,
-        python_executable or sys.executable,
+        python_executable,
         os.environ.get("PATH"),
     )
     print(f"platform: {platform}")
@@ -206,62 +318,77 @@ def install(
         print("ÖNİZLEME: zamanlayıcı değiştirilmedi. Uygulamak için --apply ekle.")
         return 0
     if plan.kind == "windows-task":
-        previous = subprocess.run(
-            ["schtasks.exe", "/Query", "/TN", plan.name, "/XML"],
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if previous.returncode == 0 and previous.stdout.strip() and previous.stdout != plan.content:
+        legacy_name = _legacy_identifier(vault)
+        _previous_result, previous_xml = _query_windows_task(plan.name)
+        _legacy_result, legacy_xml = _query_windows_task(legacy_name)
+        if previous_xml is not None and previous_xml != plan.content:
             backup = _backup_directory(home, plan.name)
-            _write(backup / f"{plan.name}.xml", previous.stdout)
+            _write(backup / f"{plan.name}.xml", previous_xml)
             print(f"backup: {backup}")
-        with tempfile.NamedTemporaryFile("w", suffix=".xml", encoding="utf-16", delete=False) as handle:
-            handle.write(plan.content)
-            xml_path = Path(handle.name)
-        try:
-            result = subprocess.run(
-                ["schtasks.exe", "/Create", "/TN", plan.name, "/XML", str(xml_path), "/F"],
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-        finally:
-            xml_path.unlink(missing_ok=True)
+        if legacy_xml is not None:
+            backup = _backup_directory(home, legacy_name)
+            _write(backup / f"{legacy_name}.xml", legacy_xml)
+            print(f"backup: {backup}")
+        result = _create_windows_task(plan.name, plan.content)
         if result.returncode != 0:
-            if previous.returncode == 0 and previous.stdout.strip():
-                with tempfile.NamedTemporaryFile("w", suffix=".xml", encoding="utf-16", delete=False) as handle:
-                    handle.write(previous.stdout)
-                    restore_xml = Path(handle.name)
-                try:
-                    subprocess.run(
-                        ["schtasks.exe", "/Create", "/TN", plan.name, "/XML", str(restore_xml), "/F"],
-                        check=False,
-                    )
-                finally:
-                    restore_xml.unlink(missing_ok=True)
-            print((result.stdout + result.stderr).strip(), file=sys.stderr)
+            _restore_windows_tasks(plan.name, previous_xml, legacy_name, legacy_xml)
+            print(decode_windows_output(result.stdout + result.stderr).strip(), file=sys.stderr)
             return 2
+        verified_result, verified_xml = _query_windows_task(plan.name)
+        try:
+            verified = verified_xml is not None and _task_signature(verified_xml) == _task_signature(plan.content)
+        except (ET.ParseError, UnicodeError):
+            verified = False
+        if verified_result.returncode != 0 or not verified:
+            _restore_windows_tasks(plan.name, previous_xml, legacy_name, legacy_xml)
+            detail = decode_windows_output(verified_result.stdout + verified_result.stderr).strip()
+            print(detail or "yeni Windows görevi doğrulanamadı", file=sys.stderr)
+            return 2
+        if legacy_xml is not None:
+            deleted = _delete_windows_task(legacy_name)
+            if deleted.returncode != 0:
+                _restore_windows_tasks(plan.name, previous_xml, legacy_name, legacy_xml)
+                print(
+                    decode_windows_output(deleted.stdout + deleted.stderr).strip(),
+                    file=sys.stderr,
+                )
+                return 2
     elif plan.kind == "systemd-user":
-        snapshot = _snapshot(plan.paths)
-        service, timer = plan.content.split("\n---RESPOT-TIMER---\n", 1)
+        legacy_name = _legacy_identifier(vault)
+        root = Path(plan.paths[0]).parent
+        legacy_paths = (
+            root / f"{legacy_name}.service",
+            root / f"{legacy_name}.timer",
+        )
+        current_snapshot = _snapshot(plan.paths)
+        legacy_snapshot = _snapshot(legacy_paths)
+        snapshot = {**current_snapshot, **legacy_snapshot}
+        service, timer = plan.content.split(TIMER_SEPARATOR, 1)
         unit = f"{plan.name}.timer"
+        legacy_unit = f"{legacy_name}.timer"
         was_enabled = subprocess.run(
             ["systemctl", "--user", "is-enabled", unit], check=False
         ).returncode == 0
         was_active = subprocess.run(
             ["systemctl", "--user", "is-active", unit], check=False
         ).returncode == 0
+        legacy_was_enabled = subprocess.run(
+            ["systemctl", "--user", "is-enabled", legacy_unit], check=False
+        ).returncode == 0
+        legacy_was_active = subprocess.run(
+            ["systemctl", "--user", "is-active", legacy_unit], check=False
+        ).returncode == 0
         try:
             _persist_file_backups(
                 home,
                 plan,
-                snapshot,
+                current_snapshot,
                 {
                     Path(plan.paths[0]): service.encode("utf-8"),
                     Path(plan.paths[1]): timer.encode("utf-8"),
                 },
             )
+            _persist_legacy_backups(home, legacy_name, legacy_snapshot)
             _write(Path(plan.paths[0]), service)
             _write(Path(plan.paths[1]), timer)
             reload_result = subprocess.run(
@@ -274,6 +401,23 @@ def install(
             )
             if result.returncode != 0:
                 raise OSError("systemd-enable-failed")
+            if subprocess.run(
+                ["systemctl", "--user", "is-enabled", unit], check=False
+            ).returncode != 0:
+                raise OSError("systemd-current-verification-failed")
+            if any(previous is not None for previous in legacy_snapshot.values()):
+                disabled = subprocess.run(
+                    ["systemctl", "--user", "disable", "--now", legacy_unit],
+                    check=False,
+                )
+                if disabled.returncode != 0:
+                    raise OSError("systemd-legacy-disable-failed")
+                for path in legacy_paths:
+                    path.unlink(missing_ok=True)
+                if subprocess.run(
+                    ["systemctl", "--user", "daemon-reload"], check=False
+                ).returncode != 0:
+                    raise OSError("systemd-legacy-reload-failed")
         except (OSError, UnicodeError):
             _restore(snapshot)
             subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
@@ -285,29 +429,61 @@ def install(
                 ["systemctl", "--user", "start" if was_active else "stop", unit],
                 check=False,
             )
+            subprocess.run(
+                [
+                    "systemctl",
+                    "--user",
+                    "enable" if legacy_was_enabled else "disable",
+                    legacy_unit,
+                ],
+                check=False,
+            )
+            subprocess.run(
+                [
+                    "systemctl",
+                    "--user",
+                    "start" if legacy_was_active else "stop",
+                    legacy_unit,
+                ],
+                check=False,
+            )
             return 2
     else:
         target = Path(plan.paths[0])
-        snapshot = _snapshot(plan.paths)
+        legacy_name = _legacy_identifier(vault)
+        legacy_target = target.with_name(f"{legacy_name}.plist")
+        current_snapshot = _snapshot(plan.paths)
+        legacy_snapshot = _snapshot((legacy_target,))
+        snapshot = {**current_snapshot, **legacy_snapshot}
         _persist_file_backups(
             home,
             plan,
-            snapshot,
+            current_snapshot,
             {target: plan.content.encode("utf-8")},
         )
+        _persist_legacy_backups(home, legacy_name, legacy_snapshot)
         _write(target, plan.content)
         subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}", str(target)], check=False)
         result = subprocess.run(
             ["launchctl", "bootstrap", f"gui/{os.getuid()}", str(target)], check=False
         )
-        if result.returncode != 0:
+        verified = subprocess.run(
+            ["launchctl", "print", f"gui/{os.getuid()}/{plan.name}"], check=False
+        )
+        if result.returncode != 0 or verified.returncode != 0:
             _restore(snapshot)
-            if snapshot[target] is not None:
+            if current_snapshot[target] is not None:
                 subprocess.run(
                     ["launchctl", "bootstrap", f"gui/{os.getuid()}", str(target)],
                     check=False,
                 )
             return 2
+        if legacy_snapshot[legacy_target] is not None:
+            subprocess.run(
+                ["launchctl", "bootout", f"gui/{os.getuid()}", str(legacy_target)],
+                check=False,
+            )
+            legacy_target.unlink(missing_ok=True)
     print("Sabah brifingi zamanlayıcısı kuruldu.")
     return 0
 

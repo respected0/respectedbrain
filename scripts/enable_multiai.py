@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add or update the Respot Brain multi-AI layer in an existing brain vault safely."""
+"""Add or update the Respected Brain multi-AI layer in an existing brain vault safely."""
 
 from __future__ import annotations
 
@@ -11,11 +11,12 @@ import subprocess
 import sys
 import os
 
-from respot_manifest import GENERATED, MULTI_VERSION, RUNTIME
+from respected_manifest import GENERATED, MULTI_VERSION, RUNTIME
 
 
 REPO = Path(__file__).resolve().parents[1]
 TEMPLATE = REPO / "template"
+CURRENT_TOOL_FILES = ("scripts/update_respected.py", "scripts/respected_manifest.py")
 
 
 def copy_file(source: Path, destination: Path) -> None:
@@ -51,7 +52,14 @@ def main() -> int:
         parser.error("CLAUDE.md veya .beyin/instructions.md bulunamadı")
     print(f"kanonik talimat kaynağı: {source_instructions}")
     print("yönetilen adaptörler:")
-    for relative in (*GENERATED, *RUNTIME, ".beyin/config.json", ".agents/skills", ".claude/skills"):
+    for relative in (
+        *GENERATED,
+        *RUNTIME,
+        *CURRENT_TOOL_FILES,
+        ".beyin/config.json",
+        ".agents/skills",
+        ".claude/skills",
+    ):
         print(f"  {relative}")
     if not args.apply:
         print("ÖNİZLEME: hiçbir dosya değişmedi. Uygulamak için --apply ekle.")
@@ -76,6 +84,8 @@ def main() -> int:
         copy_file(TEMPLATE / ".beyin/config.json", config)
 
     for relative in RUNTIME:
+        copy_file(TEMPLATE / relative, vault / relative)
+    for relative in CURRENT_TOOL_FILES:
         copy_file(TEMPLATE / relative, vault / relative)
     shutil.copytree(TEMPLATE / ".beyin" / "skills", vault / ".beyin" / "skills", dirs_exist_ok=True)
 

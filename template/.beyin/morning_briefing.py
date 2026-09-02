@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate at most one validated Respot morning briefing per local day."""
+"""Generate at most one validated Respected morning briefing per local day."""
 
 from __future__ import annotations
 
@@ -18,8 +18,12 @@ from typing import Callable, Sequence
 BEYIN_DIR = Path(__file__).resolve().parent
 if str(BEYIN_DIR) not in sys.path:
     sys.path.insert(0, str(BEYIN_DIR))
+SCRIPTS_DIR = BEYIN_DIR.parent / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 
 import runtime_platform
+from legacy_names import LEGACY_BRIEFING_BEGIN, LEGACY_BRIEFING_END
 
 
 ModelCall = Callable[[str, Path], tuple[str | None, str | None, str | None]]
@@ -31,8 +35,8 @@ HEADINGS = (
     "Unutulmaması gerekenler",
 )
 HEADING_PATTERN = re.compile(r"^## (.+?)\s*$", re.MULTILINE)
-BEGIN = "<!-- RESPOT-BRIEFING:BEGIN -->"
-END = "<!-- RESPOT-BRIEFING:END -->"
+BEGIN = "<!-- RESPECTED-BRIEFING:BEGIN -->"
+END = "<!-- RESPECTED-BRIEFING:END -->"
 
 
 def _atomic_write(path: Path, content: str) -> None:
@@ -155,11 +159,23 @@ def _update_dashboard(path: Path, day: str) -> None:
     block = f"{BEGIN}\n## Bugünün Brifingi\n\n[[Briefings/{day}|Bugünün Brifingi]]\n{END}"
     begin_count = existing.count(BEGIN)
     end_count = existing.count(END)
-    if begin_count != end_count or begin_count > 1:
+    legacy_begin_count = existing.count(LEGACY_BRIEFING_BEGIN)
+    legacy_end_count = existing.count(LEGACY_BRIEFING_END)
+    if (
+        begin_count != end_count
+        or begin_count > 1
+        or legacy_begin_count != legacy_end_count
+        or legacy_begin_count > 1
+        or (begin_count and legacy_begin_count)
+    ):
         raise ValueError("dashboard-briefing-marker-incomplete")
     if begin_count == 1:
         start = existing.index(BEGIN)
         finish = existing.index(END, start) + len(END)
+        updated = existing[:start] + block + existing[finish:]
+    elif legacy_begin_count == 1:
+        start = existing.index(LEGACY_BRIEFING_BEGIN)
+        finish = existing.index(LEGACY_BRIEFING_END, start) + len(LEGACY_BRIEFING_END)
         updated = existing[:start] + block + existing[finish:]
     else:
         separator = "\n\n" if existing.strip() else ""
@@ -198,7 +214,7 @@ def run_if_due(
                 return False
             runner = model_call or _default_model
             try:
-                with tempfile.TemporaryDirectory(prefix="respot-briefing-") as temporary:
+                with tempfile.TemporaryDirectory(prefix="respected-briefing-") as temporary:
                     temporary_path = Path(temporary).resolve()
                     if runtime_platform.path_within_vault(temporary_path, root):
                         raise ValueError("briefing-temp-inside-vault")

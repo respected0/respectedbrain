@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real-process checks for the Windows-native Respot profile."""
+"""Real-process checks for the Windows-native Respected profile."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 @unittest.skipUnless(os.name == "nt", "native Windows only")
 class WindowsNativeTest(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="respot-native-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="respected-native-")
         self.vault = Path(self.temporary.name) / "Ada Brain"
         shutil.copytree(ROOT / "template", self.vault)
         subprocess.run(
@@ -154,11 +154,11 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
         bin_dir.mkdir()
         log = Path(self.temporary.name) / "provider-order.txt"
         (bin_dir / "codex.cmd").write_text(
-            '@echo off\r\necho codex>>"%RESPOT_STUB_LOG%"\r\necho 429 quota exceeded 1>&2\r\nexit /b 1\r\n',
+            '@echo off\r\necho codex>>"%RESPECTED_STUB_LOG%"\r\necho 429 quota exceeded 1>&2\r\nexit /b 1\r\n',
             encoding="utf-8",
         )
         (bin_dir / "cursor-agent.cmd").write_text(
-            '@echo off\r\necho cursor>>"%RESPOT_STUB_LOG%"\r\necho fallback-summary\r\nexit /b 0\r\n',
+            '@echo off\r\necho cursor>>"%RESPECTED_STUB_LOG%"\r\necho fallback-summary\r\nexit /b 0\r\n',
             encoding="utf-8",
         )
         module_path = self.vault / ".beyin/model_runner.py"
@@ -168,7 +168,7 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
         spec.loader.exec_module(runner)
         environment = {
             "PATH": str(bin_dir),
-            "RESPOT_STUB_LOG": str(log),
+            "RESPECTED_STUB_LOG": str(log),
         }
 
         with mock.patch.dict(os.environ, environment):
@@ -254,6 +254,55 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
             builder.refresh_maps(self.vault)
 
         self.assertEqual(list(outside.iterdir()), [])
+
+    def test_transactional_updater_runs_with_native_paths_and_external_backup(self):
+        vault = Path(self.temporary.name) / "Update Brain"
+        profile = Path(self.temporary.name) / "profile"
+        shutil.copytree(ROOT / "template", vault)
+        profile.mkdir()
+        (vault / ".beyin-multi-version").write_text("1.2.0\n", encoding="utf-8")
+        instructions = vault / ".beyin/instructions.md"
+        personalized = instructions.read_text(encoding="utf-8")
+        for placeholder, value in {
+            "{{COMPANION}}": "Echo",
+            "{{OS_NAME}}": "AdaOS",
+            "{{USER_BIO}}": "Native Windows kullanıcısı",
+            "{{USER_NAME}}": "Ada",
+        }.items():
+            personalized = personalized.replace(placeholder, value)
+        instructions.write_text(personalized, encoding="utf-8")
+        personal = vault / "🔮 850-Companion/Core.md"
+        personal.write_bytes(b"native personal identity\n")
+        before = personal.read_bytes()
+        environment = os.environ.copy()
+        environment["USERPROFILE"] = str(profile)
+        environment["HOME"] = str(profile)
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts/update_respected.py"),
+                str(vault),
+                "--platform",
+                "windows-native",
+                "--apply",
+            ],
+            cwd=ROOT,
+            env=environment,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((vault / ".beyin-multi-version").read_text().strip(), "1.3.0")
+        self.assertEqual(personal.read_bytes(), before)
+        self.assertTrue((vault / "scripts/update_respected.py").is_file())
+        backups = tuple((profile / ".respected/update-backups").glob("*/*"))
+        self.assertEqual(len(backups), 1)
+        self.assertFalse(backups[0].is_relative_to(vault))
 
 
 if __name__ == "__main__":

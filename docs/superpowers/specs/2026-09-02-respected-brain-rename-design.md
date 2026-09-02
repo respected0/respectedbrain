@@ -121,15 +121,29 @@ Dashboard içindeki legacy briefing marker'ı okunabilir kalır; ilk başarılı
 Yeniden adlandırma ayrı `1.3.0` migration sürümüdür. Önceden `1.3.0` diye kaydedilen yedi upstream
 uyarlaması `1.4.0` backlog'una taşınır; böylece kurulu vault damgası gerçeği temsil eder.
 
+Repository fork ağından kalıcı olarak ayrılacak ve bağımsız Respected Brain projesi olacaktır.
+Orijinal MIT lisans bildirimi ve Git commit geçmişi korunur; README kökeni kısa ve açık biçimde
+belirtir. Avenox deposu GitHub fork bağı olarak değil, push'u devre dışı bırakılmış
+`avenox-reference` fetch remote'u olarak yalnız karşılaştırma/upstream audit amacıyla tutulur.
+
 Sıra:
 
 1. Test-first kod ve belge değişikliklerini mevcut `secondbrain` geliştirme checkout'unda tamamla.
 2. Bütün platform/test kapılarını eski GitHub adıyla geçir.
-3. Commit için kullanıcıdan açık onay al.
-4. GitHub repository adını `respectedbrain` yapmadan önce kullanıcıdan ayrıca açık onay al.
-5. Rename sonrası yerel `origin` adresini `git@github.com:respected0/respectedbrain.git` yap.
-6. Yeni URL'den boş geçici dizine gerçek clone yap ve fresh-install testini çalıştır.
-7. Son doğrulama sonrası push için açık kullanıcı onayı al.
+3. Commit ve mevcut fork'a push için ayrı ayrı kullanıcı onayı al; uzak kopyanın doğrulanmış son
+   commit'i taşıdığını kanıtla.
+4. Bütün branch, tag ve referansları içeren yerel `git bundle` oluşturup `git bundle verify` ile
+   doğrula; bundle yolu repository dışında olsun.
+5. GitHub'ın `Leave fork network` önkoşullarını ve metadata kaybını önizle. Ayrılma için ayrıca
+   açık kullanıcı onayı al; child fork veya başka engel varsa sil-yeniden-yarat yoluna otomatik
+   geçme.
+6. Fork ağından ayrıldıktan sonra repository'nin bağımsız olduğunu, branch/tag'leri ve Actions
+   ayarlarını doğrula.
+7. GitHub repository adını `respectedbrain` yapmadan önce ayrıca açık kullanıcı onayı al.
+8. Rename sonrası yerel `origin` adresini `git@github.com:respected0/respectedbrain.git` yap.
+   `upstream` remote'unu `avenox-reference` olarak yeniden adlandır ve push URL'sini geçersiz kıl.
+9. Yeni URL'den boş geçici dizine gerçek clone yap ve fresh-install testini çalıştır.
+10. Son doğrulama sonrası push için açık kullanıcı onayı al.
 
 GitHub'ın eski URL redirect davranışı başarı ölçütü değildir; bütün güncel belgeler ve CI yeni URL'yi
 kullanacaktır.
@@ -154,8 +168,9 @@ Her davranış RED → GREEN sırasıyla geliştirilecek.
    yoktur.
 7. **Platform kapıları:** WSL test paketi, gerçek Windows Python/PowerShell kurulumu, Windows task
    sorgusu; Linux/macOS CI adapter testleri.
-8. **Fresh clone kapısı:** GitHub rename sonrasında yeni URL'den clone, README kurulum önizlemesi ve
-   temiz `git status`.
+8. **Bağımsız repository kapısı:** doğrulanmış bundle, ayrılma sonrası bağımsızlık/branch/tag
+   kontrolü, GitHub rename sonrasında yeni URL'den clone, README kurulum önizlemesi ve temiz
+   `git status`.
 
 ## Hata ve güvenlik davranışı
 
@@ -166,7 +181,12 @@ Her davranış RED → GREEN sırasıyla geliştirilecek.
   `0700`/`0600` izin sözleşmeleri korunur.
 - Provider seçimi `auto` kalır; Claude, Codex, Cursor ve Antigravity'den hiçbiri zorunlu veya sabit
   provider yapılmaz.
-- Repo rename, commit ve push birbirinden ayrı kullanıcı onay kapılarıdır.
+- Commit, mevcut fork'a push, fork ağından ayrılma, repo rename, remote değişimi ve son push
+  birbirinden ayrı kullanıcı onay kapılarıdır.
+- Fork ağından ayrılma kalıcıdır. GitHub metadata kaybı kabul edilmeden ve doğrulanmış vault-dışı
+  bundle oluşmadan işlem yapılmaz; uygunsuzlukta manuel sil-yeniden-yarat otomatik denenmez.
+- Mevcut MIT lisansındaki Avenox bildirimi ve commit geçmişi korunur; bağımsızlaşma kaynak geçmişini
+  yeniden yazmak için kullanılmaz.
 
 ## Kabul ölçütleri
 
@@ -176,4 +196,6 @@ Her davranış RED → GREEN sırasıyla geliştirilecek.
 - Dört provider ve üç runtime profili tek-kaynak adapter üretimini korur.
 - Windows native ve WSL gerçek testleri ile Linux/macOS adapter testleri geçer.
 - Yeni GitHub URL'sinden fresh clone ve kurulum önizlemesi doğrulanır.
+- GitHub repository'si fork ağından ayrılmış bağımsız bir repository olarak doğrulanır; bütün
+  branch/tag geçmişi doğrulanmış bundle ve uzak repository ile korunur.
 - Çalışma ağacında yalnız bilinçli legacy allowlist dışında eski marka kalmaz.

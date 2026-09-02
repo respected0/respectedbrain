@@ -1,4 +1,4 @@
-# Respot Brain — çoklu AI kullanımı
+# Respected Brain — çoklu AI kullanımı
 
 Bu dalda vault tek bir AI aracına ait değildir. Claude Code, Codex, Cursor ve Antigravity aynı
 Markdown hafızasını, kuralları, skill'leri ve günlük/knowledge hattını paylaşır.
@@ -6,7 +6,8 @@ Markdown hafızasını, kuralları, skill'leri ve günlük/knowledge hattını p
 Kurulu platform profili tam olarak üç değerden biridir: macOS/Linux için `portable`, Windows
 uygulamaları ile WSL motoru için `windows-wsl`, WSL/Bash olmadan Windows Python için
 `windows-native`. Native sıfırdan kurulum [SETUP-WINDOWS.md](SETUP-WINDOWS.md) ile yapılır.
-Damgalı `2.0.0` / `1.0.0` Respot vault native güncellenebilir; damgasız v1'in native dönüşümü
+Damgalı `2.0.0` / `1.0.0`, `1.1.0` veya `1.2.0` Respected Brain vault'u native güncellenebilir;
+damgasız v1'in native dönüşümü
 henüz desteklenmez ve doğrulanmış WSL upgrade akışını kullanır.
 
 ## Tek kaynak ilkesi
@@ -34,7 +35,7 @@ python3 scripts/render_integrations.py --check
 ## Mevcut v2 vault'u taşımak
 
 Bu bölüm yalnız daha önce çekirdek v2'ye yükseltilmiş harici/eski bir vault'u elle tamamlamak veya
-onarım yapmak içindir. v1'den güncel Respot Brain'e geçiyorsan bunu ayrıca çalıştırma;
+onarım yapmak içindir. v1'den güncel Respected Brain'e geçiyorsan bunu ayrıca çalıştırma;
 `scripts/upgrade.sh` çekirdek ve multi-AI katmanını tek doğrulanmış işlemde birlikte kurar.
 
 Komut önce yalnızca nelerin yönetileceğini gösterir:
@@ -82,7 +83,7 @@ python3 scripts/install_global.py \
 
 Önizlemeyi kontrol ettikten sonra `--apply` ekle. `all` yerine virgülle `antigravity,codex`,
 `codex,cursor` gibi seçim yapılabilir. Kurucu mevcut kullanıcı kurallarını, hook'larını ve ayarlarını
-korur; yönettiği Respot bloklarını birleştirir, yedek alır ve ortak skill'leri her aracın kullanıcı
+korur; yönettiği Respected bloklarını birleştirir, yedek alır ve ortak skill'leri her aracın kullanıcı
 düzeyi konumuna kopyalar. Global hook, vault kendi workspace'i olarak açıksa proje hook'unu
 çift çalıştırmaz. Böylece aktif kod reposu başka yerde olsa da konuşma özeti seçilen vault'a yazılır.
 
@@ -142,27 +143,13 @@ kapanışında önce konuşma `daily/YYYY-MM-DD.md` dosyasına özetlenir. Bu ka
 başlangıcı tamamlanmış önceki günleri catch-up olarak derler; içinde bulunulan günün hâlâ değişen
 daily dosyasını erken derlemez.
 
-## Upstream yeniliklerini almak
+## Tarihsel kaynaklardan yenilik incelemek
 
-Bu fork'ta orijinal depo `upstream` adıyla tutulur. Önce yalnızca kontrol et:
-
-```bash
-./scripts/upstream_sync.sh check
-```
-
-Yeni commit'leri kontrollü birleştirmek için çalışma ağacını temizle ve:
-
-```bash
-./scripts/upstream_sync.sh merge
-```
-
-Script bir geri dönüş dalı oluşturur ve birleştirmeyi commit etmeden çalışma ağacına bırakır.
-Testleri çalıştırıp farkı incelemeden commit atma. Tek bir upstream düzeltmesi gerekiyorsa
-`git cherry-pick <commit>` daha az çakışma üretir.
-
-Respot için tercih edilen yöntem tam merge değil, davranışı provider-neutral katmana uyarlamaktır.
-Son incelenen SHA'lar, alınan düzeltmeler ve ertelenen dallar `docs/UPSTREAM-SYNC.md` dosyasında
-kayıtlıdır.
+Respected Brain bağımsız geliştirilir; Avenox Beyin ve topluluk dalları otomatik olarak merge
+edilmez. Dışarıdaki bir düzeltme önce davranış ve lisans açısından incelenir, ardından gerekliyse
+tek kaynaklı ve provider-neutral mimariye yeniden uyarlanır. Son incelenen SHA'lar, alınan
+düzeltmeler ve ertelenen fikirler `docs/UPSTREAM-SYNC.md` ile
+`docs/UPSTREAM-ADOPTION-BACKLOG.md` dosyalarında tarihsel kanıt olarak tutulur.
 
 ## Bilinen sınırlar
 
@@ -175,7 +162,7 @@ kayıtlıdır.
   Antigravity kotasını kullanması için `agy` CLI kurulu ve oturum açmış olmalıdır; yalnız IDE
   kuruluysa sistem kullanılabilir başka CLI'a geçer.
 - Cursor kotasını kullanmak için `cursor-agent` CLI kurulu ve oturum açmış olmalıdır.
-- Multi-AI `1.2.0`, ortak Python lifecycle, görünür otomatik haritalar, provider-neutral sabah
+- Multi-AI `1.3.0`, ortak Python lifecycle, görünür otomatik haritalar, provider-neutral sabah
   brifingi, portable lock/process katmanı, üç deterministik profil,
   transactional updater ve native Windows installer anlamına gelir. Genişletilmiş doctor/event log,
   Restic/DPAPI yedekleme ve damgasız v1'in native migrasyonu sonraki ayrı projelerdir.

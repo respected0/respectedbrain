@@ -1,4 +1,4 @@
-# Respot Brain — Güncel Mimari ve Davranış Sözleşmesi
+# Respected Brain — Güncel Mimari ve Davranış Sözleşmesi
 
 Durum: **uygulamayla eşleşen yaşayan sözleşme**. Bu belge eski geliştirme lane'lerini değil,
 `main` dalındaki güncel sistemi tarif eder. Kullanıcı kurulumu için `README.md`, agent tarafından
@@ -6,8 +6,8 @@ uygulanacak runbook için `SETUP.md`, operasyon notları için `MULTI_AI.md` yet
 
 ## 1. Amaç ve ilkeler
 
-Respot Brain, avenoxbeyin v2'nin otomatik hafıza hattını koruyan ve onu Claude Code'a bağlı
-olmaktan çıkaran çoklu-agent forkudur. Antigravity, Codex, Cursor ve Claude Code aynı Obsidian
+Respected Brain, avenoxbeyin v2'nin MIT lisanslı otomatik hafıza geçmişinden doğmuş ve onu Claude
+Code'a bağlı olmaktan çıkaran bağımsız çoklu-agent projesidir. Antigravity, Codex, Cursor ve Claude Code aynı Obsidian
 vault'unu kalıcı bağlam olarak kullanır. Sağlayıcıların ham sohbet ekranları taşınmaz;
 `Last-Session.md`, `Threads.md`, `Kurallar.md`, `daily/` ve `knowledge/` taşınabilir sözleşmedir.
 
@@ -24,7 +24,7 @@ vault'unu kalıcı bağlam olarak kullanır. Sağlayıcıların ham sohbet ekran
 ## 2. Repo düzeni
 
 ```text
-respot-brain/
+respectedbrain/
 ├── README.md                       kullanıcı kılavuzu
 ├── SETUP.md                        taze kurulum ve v1 yükseltme runbook'u
 ├── MULTI_AI.md                     provider/global/upstream operasyonları
@@ -33,7 +33,7 @@ respot-brain/
 │   ├── beyin-v2.md                 bağımsız kurulum kılavuzu
 │   └── *FINDINGS*.md               tarihsel güvenlik/yükseltme kayıtları
 ├── scripts/
-│   ├── upgrade.sh                  v1/çekirdek-v2 → Respot güvenli transaction
+│   ├── upgrade.sh                  v1/çekirdek-v2 → Respected güvenli transaction
 │   ├── enable_multiai.py           bağımsız v2 onarımı/adapter-runtime ekleme
 │   ├── render_integrations.py      tek kaynaktan agent dosyaları üretme
 │   ├── install_briefing_schedule.py 08:00 platform zamanlayıcısı preview/apply
@@ -193,21 +193,21 @@ yazılmaz. Snapshot doğrulanmadan mutasyon başlamaz. `apply`, çekirdek dosyal
 `enable_multiai.py --defer-version-stamp` üzerinden tek-kaynak talimatları ve dört provider
 adapterını kurar. `finalize` adapter drift'ini ve bütün kapıları yeniden doğrular; önce
 `.beyin-multi-version`, sonra işlemin yetkili son yazısı olarak `.beyin-version` damgasını koyar.
-Yalnız çekirdek `2.0.0` damgası bulunan vault tamamlanmış sayılmaz; aynı işlem Respot katmanını
+Yalnız çekirdek `2.0.0` damgası bulunan vault tamamlanmış sayılmaz; aynı işlem Respected katmanını
 ekleyerek yükseltmeyi bitirir.
 
 ### Global bağlantı
 
 `install_global.py` adı serbest vault'u seçilen providerlara kullanıcı düzeyinde bağlar. Varsayılan
-preview'dür; `--apply` açık onaydan sonra verilir. Mevcut global kurallar/hook'lar korunur, Respot
+preview'dür; `--apply` açık onaydan sonra verilir. Mevcut global kurallar/hook'lar korunur, Respected
 yönetim bloğu idempotent birleştirilir ve değişen dosyalar yedeklenir.
 
 ### Native Windows taze kurulum ve update
 
 `install-windows.ps1`, hedefe dokunmadan önce gerçek Python 3, Git ve kullanıcı tarafından seçilen
 provider CLI'larını çalıştırarak doğrular. Claude zorunlu değildir. Dolu hedef exit `3` ile aynen
-korunur; temiz hedef `windows-native` profiliyle `2.0.0` / `1.2.0` damgalanır. Mevcut damgalı
-Respot vault `update_respot.py --platform windows-native` ile transactional güncellenir. Damgasız
+korunur; temiz hedef `windows-native` profiliyle `2.0.0` / `1.3.0` damgalanır. Mevcut damgalı
+Respected vault `update_respected.py --platform windows-native` ile transactional güncellenir. Damgasız
 v1 native dönüşümü reddedilir ve WSL upgrade yolu kullanılır.
 
 ## 9. Platform sözleşmesi
@@ -259,12 +259,12 @@ atlayamaz.
 
 ## 13. İsim ve sürüm
 
-- Proje/fork: **Respot Brain**
+- Proje: **Respected Brain**
 - Vault adı: kullanıcı seçer; `respectedOS` zorunlu değildir.
-- Companion adı: kullanıcı seçer; `Respot` zorunlu değildir.
+- Companion adı: kullanıcı seçer; `Respected` zorunlu değildir.
 - Çekirdek damgası: `.beyin-version = 2.0.0`
-- Multi-AI damgası: `.beyin-multi-version = 1.2.0`
+- Multi-AI damgası: `.beyin-multi-version = 1.3.0`
 - Sabit iç hafıza yolu: `🔮 850-Companion/`
 
-Orijinal proje ve Avenox atfı korunur; yetkili fork kurulum adresi
-`https://github.com/respected0/respot-brain` olur.
+Orijinal proje ve Avenox atfı korunur; bağımsız projenin kurulum adresi
+`https://github.com/respected0/respectedbrain` olur.

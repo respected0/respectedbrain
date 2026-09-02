@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Connect supported AI tools globally to an arbitrary Respot Brain vault."""
+"""Connect supported AI tools globally to an arbitrary Respected Brain vault."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ import datetime as dt
 import json
 import os
 from pathlib import Path, PurePath
-import shutil
 import sys
 
 
@@ -21,10 +20,19 @@ from render_integrations import (  # noqa: E402
     Profile,
     command_text,
 )
+from legacy_names import (  # noqa: E402
+    LEGACY_CURSOR_RULE,
+    LEGACY_GLOBAL_BEGIN,
+    LEGACY_GLOBAL_BACKUP_ROOT,
+    LEGACY_GLOBAL_END,
+    LEGACY_HOOK_NAME,
+)
 
 
-BEGIN = "<!-- RESPOT-GLOBAL:BEGIN -->"
-END = "<!-- RESPOT-GLOBAL:END -->"
+BEGIN = "<!-- RESPECTED-GLOBAL:BEGIN -->"
+END = "<!-- RESPECTED-GLOBAL:END -->"
+HOOK_NAME = "respected-brain"
+CURSOR_RULE = HOOK_NAME + ".mdc"
 SUPPORTED = ("antigravity", "codex", "cursor", "claude")
 
 
@@ -48,14 +56,31 @@ def load_object(path: Path) -> dict:
     return value
 
 
+def classify_managed_block(existing: str) -> str:
+    current = (existing.count(BEGIN), existing.count(END))
+    legacy = (existing.count(LEGACY_GLOBAL_BEGIN), existing.count(LEGACY_GLOBAL_END))
+    if current[0] != current[1] or legacy[0] != legacy[1] or max((*current, *legacy)) > 1:
+        return "partial"
+    if current[0] and legacy[0]:
+        return "collision"
+    if current[0]:
+        return "current"
+    if legacy[0]:
+        return "legacy"
+    return "none"
+
+
 def merge_managed(existing: str, managed: str) -> str:
-    has_begin = BEGIN in existing
-    has_end = END in existing
-    if has_begin != has_end:
-        raise ValueError("global talimat dosyasında yarım Respot yönetim bloğu var")
-    if has_begin:
-        start = existing.index(BEGIN)
-        finish = existing.index(END, start) + len(END)
+    state = classify_managed_block(existing)
+    if state == "partial":
+        raise ValueError("global talimat dosyasında yarım veya tekrarlı yönetim bloğu var")
+    if state == "collision":
+        raise ValueError("legacy ve current global yönetim blokları çakışıyor")
+    if state in {"current", "legacy"}:
+        begin = BEGIN if state == "current" else LEGACY_GLOBAL_BEGIN
+        end = END if state == "current" else LEGACY_GLOBAL_END
+        start = existing.index(begin)
+        finish = existing.index(end, start) + len(end)
         return existing[:start] + managed + existing[finish:]
     separator = "\n\n" if existing.strip() else ""
     return existing.rstrip() + separator + managed + "\n"
@@ -137,8 +162,8 @@ def copy_skills(vault: Path, roots: list[Path]) -> list[tuple[Path, str]]:
     return writes
 
 
-def build(vault: Path, home: Path, providers: tuple[str, ...], platform: str) -> tuple[list[tuple[Path, str]], list[Path]]:
-    writes: list[tuple[Path, str]] = []
+def build(vault: Path, home: Path, providers: tuple[str, ...], platform: str) -> tuple[list[tuple[Path, str | None]], list[Path]]:
+    writes: list[tuple[Path, str | None]] = []
     touched: list[Path] = []
     rule = managed_rule(vault)
 
@@ -146,7 +171,10 @@ def build(vault: Path, home: Path, providers: tuple[str, ...], platform: str) ->
         config = home / ".gemini/config"
         hooks_path = config / "hooks.json"
         hooks = load_object(hooks_path)
-        hooks["respot-brain"] = {
+        if LEGACY_HOOK_NAME in hooks and HOOK_NAME in hooks:
+            raise ValueError("legacy ve current Antigravity hook anahtarları çakışıyor")
+        hooks.pop(LEGACY_HOOK_NAME, None)
+        hooks[HOOK_NAME] = {
             "PreInvocation": [{"type": "command", "command": bridge_command(vault, "antigravity", "start", platform), "timeout": 15}],
             "Stop": [{"type": "command", "command": bridge_command(vault, "antigravity", "end", platform), "timeout": 10}],
         }
@@ -184,7 +212,16 @@ def build(vault: Path, home: Path, providers: tuple[str, ...], platform: str) ->
             "preCompact": [{"command": bridge_command(vault, "cursor", "precompact", platform), "timeout": 10}],
         }
         merge_simple_hooks(hooks, "cursor", additions)
-        rule_path = config / "rules/respot-brain.mdc"
+        rule_path = config / "rules" / CURSOR_RULE
+        legacy_rule_path = config / "rules" / LEGACY_CURSOR_RULE
+        if legacy_rule_path.exists():
+            if rule_path.exists():
+                raise ValueError("legacy ve current Cursor rule dosyaları çakışıyor")
+            legacy_content = legacy_rule_path.read_text(encoding="utf-8")
+            if classify_managed_block(legacy_content) != "legacy":
+                raise ValueError("legacy Cursor rule yönetilen dosya olarak doğrulanamadı")
+            writes.append((legacy_rule_path, None))
+            touched.append(legacy_rule_path)
         cursor_rule = "---\ndescription: Global second-brain memory\nalwaysApply: true\n---\n\n" + rule + "\n"
         writes += [(hooks_path, json.dumps(hooks, ensure_ascii=False, indent=2) + "\n"), (rule_path, cursor_rule)]
         writes += copy_skills(vault, [config / "skills"])
@@ -207,6 +244,95 @@ def build(vault: Path, home: Path, providers: tuple[str, ...], platform: str) ->
         touched += [settings_path, rule_path]
 
     return writes, touched
+
+
+def _validate_target(path: Path, home: Path) -> None:
+    resolved_home = home.resolve()
+    try:
+        relative = path.relative_to(home)
+    except ValueError as error:
+        raise ValueError(f"global hedef kullanıcı kökü dışında: {path}") from error
+    current = home
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"global hedef symlink üzerinden yönlendiriliyor: {current}")
+    try:
+        path.parent.resolve().relative_to(resolved_home)
+    except ValueError as error:
+        raise ValueError(f"global hedef kullanıcı kökü dışında çözülüyor: {path}") from error
+
+
+def _write_bytes(path: Path, content: bytes, mode: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.restore.tmp")
+    try:
+        temporary.write_bytes(content)
+        os.chmod(temporary, mode)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def apply_plan(
+    writes: list[tuple[Path, str | None]],
+    home: Path,
+    backup: Path,
+) -> bool:
+    effective: list[tuple[Path, str | None]] = []
+    for path, content in writes:
+        _validate_target(path, home)
+        if content is None:
+            if path.exists() or path.is_symlink():
+                effective.append((path, content))
+        elif not path.is_file() or path.read_bytes() != content.encode("utf-8"):
+            effective.append((path, content))
+    if not effective:
+        return False
+
+    snapshots: dict[Path, tuple[bytes, int] | None] = {}
+    created_directories: set[Path] = set()
+    for path, _content in effective:
+        parent = path.parent
+        while parent != home and not parent.exists():
+            created_directories.add(parent)
+            parent = parent.parent
+        if path in snapshots:
+            continue
+        if path.exists():
+            if not path.is_file():
+                raise ValueError(f"global hedef normal dosya değil: {path}")
+            metadata = path.stat()
+            snapshots[path] = (path.read_bytes(), metadata.st_mode & 0o777)
+        else:
+            snapshots[path] = None
+
+    for path, snapshot in snapshots.items():
+        if snapshot is None:
+            continue
+        destination = backup / path.relative_to(home)
+        _write_bytes(destination, snapshot[0], 0o600)
+
+    try:
+        for path, content in effective:
+            if content is None:
+                path.unlink(missing_ok=True)
+            else:
+                write_text(path, content)
+    except OSError:
+        for path, snapshot in reversed(tuple(snapshots.items())):
+            if snapshot is None:
+                if path.is_file() or path.is_symlink():
+                    path.unlink(missing_ok=True)
+            else:
+                _write_bytes(path, snapshot[0], snapshot[1])
+        for directory in sorted(created_directories, key=lambda item: len(item.parts), reverse=True):
+            try:
+                directory.rmdir()
+            except OSError:
+                pass
+        raise
+    return True
 
 
 def main() -> int:
@@ -234,25 +360,35 @@ def main() -> int:
         return 2
     print(f"vault: {vault} (adı: {vault.name})")
     print(f"provider'lar: {', '.join(providers)}")
+    legacy_backup_root = home / LEGACY_GLOBAL_BACKUP_ROOT
+    current_backup_root = home / ".respected-backups"
+    backup_conflict = legacy_backup_root.exists() and current_backup_root.exists()
+    if backup_conflict:
+        print(
+            "UYARI: eski ve yeni yedek kökleri çakışıyor; ikisi de aynen korunacak: "
+            f"{legacy_backup_root} | {current_backup_root}"
+        )
     for path, _ in writes:
         print(f"yönetilecek: {path}")
     if not args.apply:
         print("ÖNİZLEME: hiçbir dosya değişmedi. Uygulamak için --apply ekle.")
         return 0
-    backup = home / ".respot-backups" / dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    if backup_conflict:
+        print(
+            "hata: yedek kökleri için ayrı migration kararı gerekli; hiçbir dosya değişmedi",
+            file=sys.stderr,
+        )
+        return 2
+    backup = home / ".respected-backups" / dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     try:
-        for path in touched:
-            if path.is_file():
-                destination = backup / path.relative_to(home)
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(path, destination)
-                os.chmod(destination, 0o600)
-        for path, content in writes:
-            write_text(path, content)
-    except OSError as exc:
+        changed = apply_plan(writes, home, backup)
+    except (OSError, ValueError) as exc:
         print(f"yazma başarısız: {exc}; yedek: {backup}", file=sys.stderr)
         return 3
-    print(f"Global bağlantı kuruldu; yedek: {backup}")
+    if changed:
+        print(f"Global bağlantı kuruldu; yedek: {backup}")
+    else:
+        print("Global bağlantı zaten güncel; dosya ve yedek değişmedi.")
     return 0
 
 

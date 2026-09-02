@@ -1,9 +1,9 @@
-# Respot Brain Roadmap, Briefing and Maintenance Design
+# Respected Brain Roadmap, Briefing and Maintenance Design
 
 ## Goal
 
 Make a newly opened provider understand the vault without scanning it, generate one reliable
-morning briefing per day, and add approval-gated maintenance workflows without weakening Respot's
+morning briefing per day, and add approval-gated maintenance workflows without weakening Respected's
 provider-neutral or single-source architecture.
 
 ## Global constraints

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# v1/core-v2 -> Respot Brain yükseltmesinin işlem sınırları ve damga regresyon testleri.
+# v1/core-v2 -> Respected Brain yükseltmesinin işlem sınırları ve damga regresyon testleri.
 set -euo pipefail
 
 TEST_ROOT=$(CDPATH= cd "$(dirname "$0")/.." 2>/dev/null && pwd)
@@ -173,7 +173,7 @@ run_upgrade() {
   set +e
   env HOME="$case_dir/home" \
       TMPDIR="$case_dir/tmp" \
-      BEYIN_BACKUP_ROOT="$case_dir/backup" \
+      RESPECTED_BACKUP_ROOT="$case_dir/backup" \
       "$BASH_BIN" "$UPGRADE" "$@" >"$output" 2>&1
   RUN_STATUS=$?
   set -e
@@ -189,7 +189,7 @@ run_upgrade_fresh() {
   env -i PATH="$PATH" \
       HOME="$case_dir/home" \
       TMPDIR="$case_dir/tmp" \
-      BEYIN_BACKUP_ROOT="$case_dir/backup" \
+      RESPECTED_BACKUP_ROOT="$case_dir/backup" \
       "$BASH_BIN" "$UPGRADE" "$@" >"$output" 2>&1
   RUN_STATUS=$?
   set -e
@@ -285,8 +285,8 @@ test_stamp_only_finalize() {
   assert_file "$vault/.beyin-version" || return 1
   stamp=$(sed -n '1p' "$vault/.beyin-version")
   assert_eq 2.0.0 "$stamp" "sürüm damgası yanlış" || return 1
-  assert_eq 1.2.0 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
-    "Respot multi-AI damgası yanlış" || return 1
+  assert_eq 1.3.0 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
+    "Respected multi-AI damgası yanlış" || return 1
 }
 
 test_fresh_shell_chain() {
@@ -316,8 +316,8 @@ test_fresh_shell_chain() {
       || { diag "v2 scripti kaynakla aynı değil: $script"; return 1; }
   done
   assert_eq 2.0.0 "$(sed -n '1p' "$vault/.beyin-version")" "taze shell zinciri damgası" || return 1
-  assert_eq 1.2.0 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
-    "taze shell Respot multi-AI damgası" || return 1
+  assert_eq 1.3.0 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
+    "taze shell Respected multi-AI damgası" || return 1
   for file in AGENTS.md .beyin/instructions.md .beyin/model_runner.py .beyin/config.json \
               .agents/hooks.json .codex/hooks.json .cursor/hooks.json; do
     assert_file "$vault/$file" || return 1
@@ -357,7 +357,7 @@ test_already_v2() {
   vault="$case_dir/vault"
   make_v1_vault "$vault" --clean-local
   printf '2.0.0\n' > "$vault/.beyin-version"
-  printf '1.2.0\n' > "$vault/.beyin-multi-version"
+  printf '1.3.0\n' > "$vault/.beyin-multi-version"
   before=$(tree_digest "$vault")
   run_upgrade "$case_dir" "$case_dir/apply.out" --vault "$vault" --stage apply
   assert_eq 3 "$RUN_STATUS" "zaten v2 vault apply çıkışı" || return 1
@@ -365,7 +365,7 @@ test_already_v2() {
   assert_eq "$before" "$after" "zaten v2 vault apply ile değişti" || return 1
 }
 
-test_core_only_v2_completes_respot_upgrade() {
+test_core_only_v2_completes_respected_upgrade() {
   local case_dir vault
   case_dir=$(new_case)
   vault="$case_dir/vault"
@@ -374,12 +374,12 @@ test_core_only_v2_completes_respot_upgrade() {
   prepare_finalizable_vault "$vault"
 
   run_upgrade "$case_dir" "$case_dir/apply.out" --vault "$vault" --stage apply
-  assert_eq 0 "$RUN_STATUS" "yalnız v2 çekirdekten Respot apply başarısız" || return 1
+  assert_eq 0 "$RUN_STATUS" "yalnız v2 çekirdekten Respected apply başarısız" || return 1
   assert_no_file "$vault/.beyin-multi-version" || return 1
   run_upgrade "$case_dir" "$case_dir/finalize.out" --vault "$vault" --stage finalize
-  assert_eq 0 "$RUN_STATUS" "yalnız v2 çekirdekten Respot finalize başarısız" || return 1
-  assert_eq 1.2.0 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
-    "çekirdek-only vault Respot damgası almadı" || return 1
+  assert_eq 0 "$RUN_STATUS" "yalnız v2 çekirdekten Respected finalize başarısız" || return 1
+  assert_eq 1.3.0 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
+    "çekirdek-only vault Respected damgası almadı" || return 1
   assert_file "$vault/AGENTS.md" || return 1
   assert_file "$vault/.agents/hooks.json" || return 1
   assert_file "$vault/.codex/hooks.json" || return 1
@@ -389,7 +389,7 @@ test_core_only_v2_completes_respot_upgrade() {
 test_no_git_verified_snapshot() {
   # Sözleşme: git deposu olmayan bir vault'ta apply, ÜSTÜNE YAZMADAN ÖNCE doğrulanmış bir
   # anlık görüntü bırakmak zorunda. Kabul edilen iki yol var: (a) vault'ta git deposu kurup
-  # snapshot commit'i atmak, (b) BEYIN_BACKUP_ROOT altına doğrulanmış harici kopya almak.
+  # snapshot commit'i atmak, (b) RESPECTED_BACKUP_ROOT altına doğrulanmış harici kopya almak.
   # Hangi dalın seçildiği scriptin kararı; olmaması gereken şey İKİSİNİN DE olmaması.
   local case_dir vault snapshot_ok backup_dirs
   case_dir=$(new_case)
@@ -440,7 +440,7 @@ test_no_git_binary_uses_external_backup() {
   env -i PATH="$fake_path" \
       HOME="$case_dir/home" \
       TMPDIR="$case_dir/tmp" \
-      BEYIN_BACKUP_ROOT="$case_dir/backup" \
+      RESPECTED_BACKUP_ROOT="$case_dir/backup" \
       "$BASH_BIN" "$UPGRADE" --vault "$vault" --stage apply >"$case_dir/apply.out" 2>&1
   RUN_STATUS=$?
   set -e
@@ -517,8 +517,8 @@ run_case "sürüm damgasını apply değil yalnız finalize yazar" test_stamp_on
 run_case "check apply finalize ayrı taze shell süreçlerinde tamamlanır" test_fresh_shell_chain
 run_case "apply kopyalama hatasında başarısız olur ve damga yazmaz" test_apply_failure_no_stamp
 run_case "finalize kapısı bozulunca başarısız olur ve damga yazmaz" test_finalize_failure_no_stamp
-run_case "zaten Respot Brain damgalı vault apply için 3 döndürür" test_already_v2
-run_case "yalnız v2 çekirdeği olan vault Respot Brain'e tamamlanır" test_core_only_v2_completes_respot_upgrade
+run_case "zaten Respected Brain damgalı vault apply için 3 döndürür" test_already_v2
+run_case "yalnız v2 çekirdeği olan vault Respected Brain'e tamamlanır" test_core_only_v2_completes_respected_upgrade
 run_case "git olmayan vault doğrulanmış anlık görüntü bırakmadan ilerlemiyor" test_no_git_verified_snapshot
 run_case "git ikilisi yokken harici doğrulanmış yedek dalı gerçekten çalışıyor" test_no_git_binary_uses_external_backup
 run_case "yeniden adlandırma onayı yoksa apply atomik olarak 10 döndürür" test_rename_confirmation_is_atomic

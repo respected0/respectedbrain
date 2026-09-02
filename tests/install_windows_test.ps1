@@ -45,17 +45,20 @@ if (-not (Test-Path -LiteralPath $Installer)) {
     Write-Error "Windows installer bulunamadı: $Installer"
 }
 
-$Root = Join-Path ([IO.Path]::GetTempPath()) ("respot-win-test-" + [guid]::NewGuid().ToString("N"))
+$Root = Join-Path ([IO.Path]::GetTempPath()) ("respected-win-test-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $Root | Out-Null
 try {
     $Commands = Join-Path $Root "commands"
     New-ProviderStub $Commands "codex"
     New-ProviderStub $Commands "git"
-    $env:RESPOT_TEST_COMMAND_ROOT = $Commands
+    $env:RESPECTED_TEST_COMMAND_ROOT = $Commands
+    $LegacyCommands = Join-Path $Root "ignored-legacy-commands"
+    New-Item -ItemType Directory -Path $LegacyCommands | Out-Null
+    $env:RESPOT_TEST_COMMAND_ROOT = $LegacyCommands
     $env:USERPROFILE = Join-Path $Root "profile"
     New-Item -ItemType Directory -Path $env:USERPROFILE | Out-Null
     if ($WorkingPythonOverride) {
-        $env:RESPOT_TEST_PYTHON = $WorkingPythonOverride
+        $env:RESPECTED_TEST_PYTHON = $WorkingPythonOverride
     }
     $null = Start-Process -FilePath $PowerShellHost -ArgumentList @("-NoProfile", "-Command", "exit 0") -Wait -PassThru
 
@@ -73,7 +76,7 @@ try {
 
     $StoreStub = Join-Path $Root "store-python.cmd"
     [IO.File]::WriteAllText($StoreStub, "@echo off`r`necho Python was not found; run without arguments to install from the Microsoft Store.`r`nexit /b 0`r`n", [Text.UTF8Encoding]::new($false))
-    $env:RESPOT_TEST_PYTHON = $StoreStub
+    $env:RESPECTED_TEST_PYTHON = $StoreStub
     $store = Invoke-Installer @(
         "-VaultPath", (Join-Path $Root "store-vault"), "-UserName", "Ada", "-UserBio", "Geliştirici",
         "-Companion", "Echo", "-OsName", "AdaOS", "-Providers", "codex", "-PreflightOnly"
@@ -81,13 +84,13 @@ try {
     Assert-True ($store.Code -ne 0) "Microsoft Store Python alias reddedilmeli"
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $Root "store-vault"))) "Başarısız preflight hedef oluşturmamalı"
     if ($WorkingPythonOverride) {
-        $env:RESPOT_TEST_PYTHON = $WorkingPythonOverride
+        $env:RESPECTED_TEST_PYTHON = $WorkingPythonOverride
     }
     else {
-        Remove-Item Env:RESPOT_TEST_PYTHON
+        Remove-Item Env:RESPECTED_TEST_PYTHON
     }
 
-    $env:RESPOT_TEST_COMMAND_ROOT = $Commands
+    $env:RESPECTED_TEST_COMMAND_ROOT = $Commands
     $env:LOCALAPPDATA = Join-Path $Root "local-app-data"
     New-ProviderStub (Join-Path $env:LOCALAPPDATA "agy\bin") "agy"
     $localAgy = Invoke-Installer @(
@@ -99,7 +102,7 @@ try {
 
     $EmptyCommands = Join-Path $Root "empty-commands"
     New-Item -ItemType Directory -Path $EmptyCommands | Out-Null
-    $env:RESPOT_TEST_COMMAND_ROOT = $EmptyCommands
+    $env:RESPECTED_TEST_COMMAND_ROOT = $EmptyCommands
     $missing = Invoke-Installer @(
         "-VaultPath", (Join-Path $Root "missing-vault"), "-UserName", "Ada", "-UserBio", "Geliştirici",
         "-Companion", "Echo", "-OsName", "AdaOS", "-Providers", "cursor", "-PreflightOnly"
@@ -107,7 +110,7 @@ try {
     Assert-True ($missing.Code -ne 0) "Seçili provider CLI yoksa preflight durmalı"
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $Root "missing-vault"))) "Eksik provider hedef oluşturmamalı"
 
-    $env:RESPOT_TEST_COMMAND_ROOT = $Commands
+    $env:RESPECTED_TEST_COMMAND_ROOT = $Commands
     $Vault = Join-Path $Root "Ada Brain"
     $install = Invoke-Installer @(
         "-VaultPath", $Vault, "-UserName", "Ada", "-UserBio", "Geliştirici ve tasarımcı",
@@ -115,7 +118,10 @@ try {
     )
     Assert-True ($install.Code -eq 0) "Native temiz kurulum geçmeli: $($install.Output)"
     Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-version")).Trim() -eq "2.0.0") "Çekirdek damgası 2.0.0 olmalı"
-    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-multi-version")).Trim() -eq "1.2.0") "Multi damgası 1.2.0 olmalı"
+    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-multi-version")).Trim() -eq "1.3.0") "Multi damgası 1.3.0 olmalı"
+    Assert-True ((Test-Path -LiteralPath (Join-Path $Vault "scripts\update_respected.py") -PathType Leaf)) "Güncel updater kurulmalı"
+    Assert-True ((Test-Path -LiteralPath (Join-Path $Vault "scripts\respected_manifest.py") -PathType Leaf)) "Güncel manifest kurulmalı"
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $Vault "scripts\update_respot.py"))) "Eski updater temiz kurulumda olmamalı"
     $Managed = @(
         Join-Path $Vault ".claude\settings.json"
         Join-Path $Vault ".codex\hooks.json"
@@ -164,8 +170,9 @@ try {
     Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $SentinelVault "keep.txt")) -eq "keep") "Dolu hedef değişmemeli"
 }
 finally {
+    Remove-Item Env:RESPECTED_TEST_COMMAND_ROOT -ErrorAction SilentlyContinue
+    Remove-Item Env:RESPECTED_TEST_PYTHON -ErrorAction SilentlyContinue
     Remove-Item Env:RESPOT_TEST_COMMAND_ROOT -ErrorAction SilentlyContinue
-    Remove-Item Env:RESPOT_TEST_PYTHON -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $Root -Recurse -Force -ErrorAction SilentlyContinue
 }
 

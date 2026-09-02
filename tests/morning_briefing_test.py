@@ -19,7 +19,7 @@ VALID = """## Dün tamamlananlar
 ## Açık işler
 - Haritaları bitir.
 ## Devam eden projeler
-- Respot Brain.
+- Respected Brain.
 ## Bugünün öncelikleri
 1. Testleri çalıştır.
 ## Unutulmaması gerekenler
@@ -28,7 +28,7 @@ VALID = """## Dün tamamlananlar
 
 
 def load_worker():
-    spec = importlib.util.spec_from_file_location("respot_morning_briefing", MODULE_PATH)
+    spec = importlib.util.spec_from_file_location("respected_morning_briefing", MODULE_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError("morning briefing worker cannot be loaded")
     module = importlib.util.module_from_spec(spec)
@@ -38,7 +38,7 @@ def load_worker():
 
 class MorningBriefingTest(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="respot-briefing-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="respected-briefing-")
         self.vault = Path(self.temporary.name) / "Ada Brain"
         for relative in (
             ".beyin",
@@ -50,15 +50,15 @@ class MorningBriefingTest(unittest.TestCase):
         ):
             (self.vault / relative).mkdir(parents=True, exist_ok=True)
         (self.vault / "daily/2026-08-30.md").write_text("# Dün\nTamamlandı.\n", encoding="utf-8")
-        (self.vault / "knowledge/index.md").write_text("# Index\nRespot\n", encoding="utf-8")
+        (self.vault / "knowledge/index.md").write_text("# Index\nRespected\n", encoding="utf-8")
         (self.vault / "🎯 100-Command-Center/Dashboard.md").write_text(
             "# Dashboard\n\nKullanıcı içeriği.\n", encoding="utf-8"
         )
         (self.vault / "🎯 100-Command-Center/Vault-Map.md").write_text(
-            "# Vault Map\n- Respot\n", encoding="utf-8"
+            "# Vault Map\n- Respected\n", encoding="utf-8"
         )
         (self.vault / "🔮 850-Companion/Threads.md").write_text(
-            "## Active\n### Respot\n", encoding="utf-8"
+            "## Active\n### Respected\n", encoding="utf-8"
         )
         (self.vault / "🔮 850-Companion/Last-Session.md").write_text(
             "## Session: Current\nPlan onaylandı.\n", encoding="utf-8"
@@ -108,6 +108,35 @@ class MorningBriefingTest(unittest.TestCase):
         dashboard = (self.vault / "🎯 100-Command-Center/Dashboard.md").read_text(encoding="utf-8")
         self.assertIn("Kullanıcı içeriği.", dashboard)
         self.assertIn("[[Briefings/2026-08-31|Bugünün Brifingi]]", dashboard)
+
+    def test_success_replaces_one_legacy_dashboard_block_with_current_markers(self):
+        worker = load_worker()
+        old_upper = "RES" + "POT"
+        old_begin = "<!-- " + old_upper + "-BRIEFING:BEGIN -->"
+        old_end = "<!-- " + old_upper + "-BRIEFING:END -->"
+        dashboard_path = self.vault / "🎯 100-Command-Center/Dashboard.md"
+        dashboard_path.write_text(
+            "# Dashboard\n\nKullanıcı içeriği.\n\n"
+            + old_begin
+            + "\n## Bugünün Brifingi\n\n[[Briefings/2026-08-30|Dün]]\n"
+            + old_end
+            + "\n",
+            encoding="utf-8",
+        )
+
+        created = worker.run_if_due(
+            self.vault,
+            datetime.fromisoformat("2026-08-31T09:17:00+03:00"),
+            lambda _prompt, _cwd: (VALID, None, "codex"),
+        )
+
+        self.assertTrue(created)
+        dashboard = dashboard_path.read_text(encoding="utf-8")
+        self.assertIn("Kullanıcı içeriği.", dashboard)
+        self.assertEqual(dashboard.count("<!-- RESPECTED-BRIEFING:BEGIN -->"), 1)
+        self.assertEqual(dashboard.count("<!-- RESPECTED-BRIEFING:END -->"), 1)
+        self.assertNotIn(old_begin, dashboard)
+        self.assertNotIn(old_end, dashboard)
 
     def test_failure_leaves_no_final_and_can_retry_same_day(self):
         worker = load_worker()

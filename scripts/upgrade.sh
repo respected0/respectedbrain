@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Respot Brain: avenoxbeyin v1/core-v2 -> complete Respot Brain. Transactional, fail loud.
+# Respected Brain: avenoxbeyin v1/core-v2 -> complete Respected Brain. Transactional, fail loud.
 #
 # Why this file exists: the upgrade used to live as a chain of fenced Bash blocks in SETUP.md that
 # assigned shell variables in one block and used them in the next. Every Claude Bash call is a
@@ -22,13 +22,13 @@
 set -euo pipefail
 
 BEYIN_TARGET_VERSION="2.0.0"
-BEYIN_MULTI_VERSION="1.2.0"
+BEYIN_MULTI_VERSION="1.3.0"
 BEYIN_SCRIPT_VERSION="2.0.0"
 BEYIN_MEMORY_DIR_NAME="🔮 850-Companion"
 BEYIN_HOOK_FILES="lib.sh session-start.sh prompt-counter.sh session-end.sh pre-compact.sh"
 BEYIN_SCRIPT_FILES="flush.py compile.py"
 BEYIN_SKILL_DIRS="beyin-doktor gecmis-import"
-BEYIN_BACKUP_ROOT="${BEYIN_BACKUP_ROOT:-$HOME/.respot-brain-yedek}"
+RESPECTED_BACKUP_ROOT="${RESPECTED_BACKUP_ROOT:-$HOME/.respected-brain-yedek}"
 
 say()  { printf '%s\n' "$*"; }
 step() { printf '\n== %s\n' "$*"; }
@@ -116,7 +116,7 @@ git_id() {
   # "nothing to commit". Uses the user's own identity when it exists.
   GIT_N=$(git -C "$V" config user.name  2>/dev/null || printf '')
   GIT_E=$(git -C "$V" config user.email 2>/dev/null || printf '')
-  [ -n "$GIT_N" ] || GIT_N="respot-brain"
+  [ -n "$GIT_N" ] || GIT_N="respected-brain"
   [ -n "$GIT_E" ] || GIT_E="beyin@localhost"
 }
 
@@ -249,12 +249,12 @@ PY
 if [ "$CUR_VERSION" = "$BEYIN_TARGET_VERSION" ] \
    && [ "$CUR_MULTI_VERSION" = "$BEYIN_MULTI_VERSION" ] \
    && [ "$STAGE" != "finalize" ]; then
-  say "Bu vault zaten Respot Brain: çekirdek $BEYIN_TARGET_VERSION, multi-AI $BEYIN_MULTI_VERSION"
+  say "Bu vault zaten Respected Brain: çekirdek $BEYIN_TARGET_VERSION, multi-AI $BEYIN_MULTI_VERSION"
   say "Yapılacak bir şey yok. Eksik varsa 'beyin doktor' çalıştır."
   exit 3
 fi
 if [ "$CUR_VERSION" = "$BEYIN_TARGET_VERSION" ] && [ -z "$CUR_MULTI_VERSION" ]; then
-  say "v2 çekirdeği var ama Respot multi-AI damgası yok; upgrade Respot Brain kurulumunu tamamlayacak."
+  say "v2 çekirdeği var ama Respected multi-AI damgası yok; upgrade Respected Brain kurulumunu tamamlayacak."
 fi
 if [ -n "$CUR_VERSION" ] && [ "$CUR_VERSION" != "$BEYIN_TARGET_VERSION" ]; then
   say "UYARI: beklenmeyen sürüm damgası bulundu: '$CUR_VERSION'. Devam etmeden kullanıcıya sor."
@@ -289,7 +289,7 @@ if [ "$STAGE" = "check" ]; then
   say "repo            : $REPO"
   say "hafıza klasörü  : $MEM_NAME"
   say "mevcut sürüm    : ${CUR_VERSION:-v1 (.beyin-version yok)}"
-  say "multi-AI sürümü : ${CUR_MULTI_VERSION:-yok (Respot katmanı tamamlanacak)}"
+  say "multi-AI sürümü : ${CUR_MULTI_VERSION:-yok (Respected katmanı tamamlanacak)}"
   say "git deposu      : $([ -d "$V/.git" ] && printf 'var' || printf 'yok, kurulacak')"
   say "settings.local  : $LOCAL_MINE adet v1 beyin kancası, $LOCAL_OTHER adet ilgisiz kanca girdisi"
   step "ONAY GEREKLİ"
@@ -367,8 +367,8 @@ if [ "$STAGE" = "apply" ]; then
   fi
   if [ "$SNAP_OK" != "1" ]; then
     say "git yok, vault DIŞINA doğrulanmış kopya alınıyor"
-    mkdir -p "$BEYIN_BACKUP_ROOT"; chmod 700 "$BEYIN_BACKUP_ROOT" 2>/dev/null || :
-    COPY_DST="$BEYIN_BACKUP_ROOT/$(basename "$V")-v1-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$RESPECTED_BACKUP_ROOT"; chmod 700 "$RESPECTED_BACKUP_ROOT" 2>/dev/null || :
+    COPY_DST="$RESPECTED_BACKUP_ROOT/$(basename "$V")-v1-$(date +%Y%m%d-%H%M%S)"
     cp -R "$V" "$COPY_DST" || die "yedek kopya alınamadı: $COPY_DST"
     SRC_N=$(find "$V" -mindepth 1 | wc -l | tr -d ' ')
     DST_N=$(find "$COPY_DST" -mindepth 1 | wc -l | tr -d ' ')
@@ -487,8 +487,8 @@ PY
   if [ "$LOCAL_MINE" = "0" ]; then
     say "settings.local.json içinde v1 beyin kancası yok, dokunulmadı"
   else
-    mkdir -p "$BEYIN_BACKUP_ROOT"; chmod 700 "$BEYIN_BACKUP_ROOT" 2>/dev/null || :
-    BK="$BEYIN_BACKUP_ROOT/$(basename "$V")-settings.local.json-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$RESPECTED_BACKUP_ROOT"; chmod 700 "$RESPECTED_BACKUP_ROOT" 2>/dev/null || :
+    BK="$RESPECTED_BACKUP_ROOT/$(basename "$V")-settings.local.json-$(date +%Y%m%d-%H%M%S)"
     ( umask 077; cp "$V/.claude/settings.local.json" "$BK" ) || die "yedek alınamadı: $BK"
     chmod 600 "$BK" || die "yedek izinleri ayarlanamadı: $BK"
     [ -s "$BK" ] || die "yedek boş: $BK"
@@ -541,10 +541,10 @@ print("kalan anahtarlar :", sorted(d))
 PY
   fi
 
-  step "10/10 Respot Brain multi-AI katmanı"
+  step "10/10 Respected Brain multi-AI katmanı"
   python3 "$REPO/scripts/enable_multiai.py" "$V" \
     --platform "$MULTI_PLATFORM" --apply --defer-version-stamp \
-    || die "Respot Brain multi-AI katmanı kurulamadı"
+    || die "Respected Brain multi-AI katmanı kurulamadı"
   [ -s "$V/.beyin/instructions.md" ] || die "kanonik talimat kaynağı kurulamadı"
   [ -s "$V/.beyin/model_runner.py" ] || die "provider-neutral model runner kurulamadı"
   [ ! -e "$V/.beyin-multi-version" ] \
@@ -554,7 +554,7 @@ PY
   printf 'apply %s\n' "$(date +%Y-%m-%dT%H:%M:%S)" > "$STAGE_MARK"
 
   step "APPLY TAMAM"
-  say "Çekirdek ve Respot multi-AI sürüm damgaları HENÜZ yazılmadı. Bu bilinçli."
+  say "Çekirdek ve Respected multi-AI sürüm damgaları HENÜZ yazılmadı. Bu bilinçli."
   LEFT=$(grep -rl "{{" "$V/knowledge" "$V/.claude/skills" "$V/.beyin" \
                     "$V/.agents" "$V/.cursor" "$V/AGENTS.md" "$V/CLAUDE.md" \
                     "$V/$BEYIN_MEMORY_DIR_NAME" 2>/dev/null || printf '')
@@ -609,9 +609,10 @@ for F in ".beyin/instructions.md" ".beyin/config.json" ".beyin/model_runner.py" 
          ".agents/hooks.json" ".agents/rules/beyin.md" ".codex/hooks.json" \
          ".cursor/hooks.json" ".cursor/rules/beyin.mdc" \
          "scripts/render_integrations.py" "scripts/install_global.py" \
+         "scripts/update_respected.py" "scripts/respected_manifest.py" \
          "scripts/set_summary_provider.py"; do
   R="ok"; [ -s "$V/$F" ] || R="dosya yok veya boş"
-  gate "Respot dosyası $F" "$R"
+  gate "Respected dosyası $F" "$R"
 done
 
 R=$(python3 - "$V" <<'PY'
@@ -642,14 +643,14 @@ else:
     print("ok")
 PY
 ) || R="provider ayarı kontrol edilemedi"
-gate "Respot provider ayarı" "$R"
+gate "Respected provider ayarı" "$R"
 
 R="ok"
 if ! python3 "$V/scripts/render_integrations.py" --root "$V" \
      --platform "$MULTI_PLATFORM" --check >/dev/null 2>&1; then
   R="üretilmiş agent adapterlarında drift var"
 fi
-gate "Respot tek-kaynak adapter drift'i" "$R"
+gate "Respected tek-kaynak adapter drift'i" "$R"
 
 R="ok"; [ ! -e "$V/.beyin-multi-version" ] || R="finalize öncesi multi sürüm damgası var"
 gate "multi sürüm damgası henüz yok" "$R"
@@ -737,7 +738,8 @@ if command -v git >/dev/null 2>&1 && [ -d "$V/.git" ]; then
                 ".beyin/hooks" ".beyin/skills" ".agents" ".codex" ".cursor" \
                 "AGENTS.md" "CLAUDE.md" "scripts/render_integrations.py" \
                 "scripts/install_antigravity_global.py" "scripts/install_global.py" \
-                "scripts/set_summary_provider.py" > "$ALLOW_TMP"
+                "scripts/set_summary_provider.py" "scripts/update_respected.py" \
+                "scripts/respected_manifest.py" > "$ALLOW_TMP"
   while IFS= read -r P; do
     [ -n "$P" ] || continue
     [ -e "$V/$P" ] || continue
@@ -763,7 +765,7 @@ else
   say "git yok, commit atlandı (anlık görüntü apply aşamasında kopya olarak alınmıştı)"
 fi
 
-step "Respot Brain sürüm damgaları (son işlem)"
+step "Respected Brain sürüm damgaları (son işlem)"
 MULTI_STAMP_TMP="$V/.beyin-multi-version.tmp.$$"
 STAMP_TMP="$V/.beyin-version.tmp.$$"
 printf '%s\n' "$BEYIN_MULTI_VERSION" > "$MULTI_STAMP_TMP" \
@@ -784,7 +786,7 @@ if command -v git >/dev/null 2>&1 && [ -d "$V/.git" ]; then
   git_id
   git -C "$V" add -- ".beyin-version" ".beyin-multi-version" >/dev/null 2>&1 || :
   git -C "$V" -c user.name="$GIT_N" -c user.email="$GIT_E" \
-    commit -q -m "Respot Brain sürüm damgaları" >/dev/null 2>&1 \
+    commit -q -m "Respected Brain sürüm damgaları" >/dev/null 2>&1 \
     || say "UYARI: damga commit edilemedi, dosya diskte doğru. Vault'ta 'git status' ile bak."
 fi
 
@@ -792,5 +794,5 @@ rm -f "$STAGE_MARK"
 step "YÜKSELTME TAMAM"
 say "vault: $V"
 say "çekirdek sürüm: $BEYIN_TARGET_VERSION"
-say "Respot multi-AI sürüm: $BEYIN_MULTI_VERSION"
+say "Respected multi-AI sürüm: $BEYIN_MULTI_VERSION"
 exit 0

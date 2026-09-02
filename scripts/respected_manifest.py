@@ -1,11 +1,11 @@
-"""Version and managed-file ownership shared by Respot migration tools."""
+"""Version and managed-file ownership shared by Respected migration tools."""
 
 from __future__ import annotations
 
 
 CORE_VERSION = "2.0.0"
-MULTI_VERSION = "1.2.0"
-UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", MULTI_VERSION)
+MULTI_VERSION = "1.3.0"
+UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", MULTI_VERSION)
 
 GENERATED = (
     "AGENTS.md",
@@ -33,6 +33,7 @@ RUNTIME = (
     ".claude/scripts/flush.py",
     ".claude/scripts/compile.py",
     "scripts/render_integrations.py",
+    "scripts/legacy_names.py",
     "scripts/install_antigravity_global.py",
     "scripts/install_global.py",
     "scripts/install_briefing_schedule.py",

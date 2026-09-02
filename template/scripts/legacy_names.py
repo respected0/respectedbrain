@@ -1,0 +1,20 @@
+"""Legacy identifiers accepted only while migrating older installations."""
+
+from __future__ import annotations
+
+
+LEGACY_NAMESPACE = "res" + "pot"
+_LEGACY_UPPER_NAMESPACE = "RES" + "POT"
+
+LEGACY_PRODUCT_NAME = "Res" + "pot Brain"
+LEGACY_GLOBAL_BEGIN = "<!-- " + _LEGACY_UPPER_NAMESPACE + "-GLOBAL:BEGIN -->"
+LEGACY_GLOBAL_END = "<!-- " + _LEGACY_UPPER_NAMESPACE + "-GLOBAL:END -->"
+LEGACY_BRIEFING_BEGIN = "<!-- " + _LEGACY_UPPER_NAMESPACE + "-BRIEFING:BEGIN -->"
+LEGACY_BRIEFING_END = "<!-- " + _LEGACY_UPPER_NAMESPACE + "-BRIEFING:END -->"
+LEGACY_HOOK_NAME = LEGACY_NAMESPACE + "-brain"
+LEGACY_CURSOR_RULE = LEGACY_HOOK_NAME + ".mdc"
+LEGACY_UPDATE_SCRIPT = "scripts/update_" + LEGACY_NAMESPACE + ".py"
+LEGACY_MANIFEST_SCRIPT = "scripts/" + LEGACY_NAMESPACE + "_manifest.py"
+LEGACY_TASK_PREFIX = LEGACY_NAMESPACE + "-morning-briefing-"
+LEGACY_GLOBAL_BACKUP_ROOT = "." + LEGACY_NAMESPACE + "-backups"
+LEGACY_SCHEDULE_BACKUP_ROOT = "." + LEGACY_NAMESPACE + "/schedule-backups"

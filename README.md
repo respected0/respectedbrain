@@ -1,4 +1,4 @@
-# 🧠 Respot Brain: araç bağımsız, hatırlamayı unutmayan ikinci beyin
+# 🧠 Respected Brain: araç bağımsız, hatırlamayı unutmayan ikinci beyin
 
 [Obsidian](https://obsidian.md) ile Claude Code, Codex, Cursor ve Antigravity üstünde çalışan,
 açık kaynak bir **ikinci beyin**. Yerel bir Markdown vault, kalıcı hafıza, sıfır bağımlılık,
@@ -15,7 +15,7 @@ bağlayarak başka kod repolarında da aynı merkezi hafızayı kullanır.
 
 ## Kısaca nasıl çalışır?
 
-Respot bir sohbet uygulaması veya yeni bir model değildir. Agentların arasında duran ortak,
+Respected bir sohbet uygulaması veya yeni bir model değildir. Agentların arasında duran ortak,
 dosya tabanlı hafıza katmanıdır:
 
 ```text
@@ -50,11 +50,11 @@ Native Windows'ta WSL kullanmadan sıfırdan kurulum yapacaksan doğrudan
 [SETUP-WINDOWS.md](SETUP-WINDOWS.md) içindeki PowerShell akışını kullan. macOS, Linux ve
 Windows+WSL için aşağıdaki agent destekli `SETUP.md` akışı geçerlidir.
 
-### 1. Forku klonla
+### 1. Repoyu klonla
 
 ```bash
-git clone https://github.com/respected0/respot-brain.git
-cd respot-brain
+git clone https://github.com/respected0/respectedbrain.git
+cd respectedbrain
 ```
 
 ### 2. Bu klasörü tercih ettiğin coding agentta aç
@@ -110,7 +110,7 @@ python3 scripts/install_global.py "/mutlak/yol/BenimBeynim" \
 ```
 
 `--providers all` yerine yalnız kullandığın araçları virgülle yazabilirsin. Kurucu mevcut global
-kurallarını silmez; yönetilen Respot bölümünü birleştirir ve değişecek dosyaları yedekler. Vault'un
+kurallarını silmez; yönetilen Respected bölümünü birleştirir ve değişecek dosyaları yedekler. Vault'un
 adı serbesttir.
 
 ## Agent değiştirmek
@@ -147,7 +147,7 @@ python3 scripts/install_briefing_schedule.py "/mutlak/vault/yolu" \
 ```
 
 Önizleme tam zamanlayıcı tanımını, çalışacak komutu ve hedef dosyaları gösterir. `--apply` mevcut
-yönetilen tanımı değiştiriyorsa kullanıcı dizininde `.respot/schedule-backups/` altına yedek alır;
+yönetilen tanımı değiştiriyorsa kullanıcı dizininde `.respected/schedule-backups/` altına yedek alır;
 aktivasyon başarısız olursa eski tanımı geri yükler. Var olan kullanıcı yazımı `Vault-Map.md` veya
 `Skills-Map.md` otomatik olarak ezilmez.
 
@@ -182,21 +182,34 @@ yerel CLI'ın çağrılacağını belirler. Seçilen sağlayıcı geçici olarak
 Aynı komut yeter. `SETUP.md` önce mevcut bir beyin arar, bulursa yükseltme moduna geçer ve işi
 tek bir script'e devreder: `scripts/upgrade.sh`. Bu işlem ara bir “avenoxbeyin v2” kurulumu
 bırakmaz; çekirdek v2 dosyalarını, tek-kaynak agent talimatlarını ve Claude/Codex/Cursor/
-Antigravity adapterlarını aynı doğrulanmış işlem içinde kurarak doğrudan **Respot Brain**'e
+Antigravity adapterlarını aynı doğrulanmış işlem içinde kurarak doğrudan **Respected Brain**'e
 yükseltir. Yükseltme **sadece ekler**: mevcut hafıza dosyalarına, Dashboard'a ve notlarına
-dokunulmaz. Yalnız eski çekirdek `2.0.0` damgası bulunan yarım bir kurulum da eksik Respot
+dokunulmaz. Yalnız eski çekirdek `2.0.0` damgası bulunan yarım bir kurulum da eksik Respected
 katmanı tamamlanmadan “güncel” sayılmaz.
 
 Damgasız v1 vault'un native Windows dönüşümü henüz desteklenmez; bu özel durumda doğrulanmış WSL
-`upgrade.sh` yolu kullanılmalıdır. Native Windows, sıfırdan kurulum ve damgalı Respot
-`1.0.0/1.1.0 → 1.2.0` güncellemesi için desteklenir.
+`upgrade.sh` yolu kullanılmalıdır. Native Windows, sıfırdan kurulum ve damgalı Respected
+`1.0.0/1.1.0/1.2.0 → 1.3.0` güncellemesi için desteklenir.
+
+Damgalı bir kurulumda önce salt okunur önizleme, sonra açık uygulama adımı kullanılır:
+
+```bash
+python3 scripts/update_respected.py "/mutlak/vault/yolu"
+python3 scripts/update_respected.py "/mutlak/vault/yolu" --apply
+```
+
+Updater staging alanını sistemin geçici dizininde ve vault dışında açar; kişisel notları işlem
+listesine almaz. Yönetilen dosyaların transaction yedeği `~/.respected/update-backups/` altında
+kalır. Damgasız v1 shell yükseltmesinin doğrulanmış harici yedek kökü ise
+`~/.respected-brain-yedek` olur. Eski global ayar ve zamanlayıcı adları kendi kurucularının
+önizlemesinde görülür; yalnız `--apply` sonrasında, yeni karşılık doğrulandıktan sonra taşınır.
 
 Üç şeyi peşinen bilmen iyi olur:
 
 - **Hafıza klasörünün adı `🔮 850-Companion` olmak zorunda.** Kancalar ve scriptler bu sabit yolu
   okuyor. Klasörün adı ortağının adıysa (`🔮 850-Echo` gibi) script bunu `git mv` ile değiştirmeyi
   teklif eder. İçerik hiç değişmez, sadece klasör adı değişir. Hayır dersen yükseltme hiç
-  başlamaz ve vault'a Respot damgaları vurulmaz; yarım kurulmuş bir sistemden dürüst bir v1 iyidir.
+  başlamaz ve vault'a Respected damgaları vurulmaz; yarım kurulmuş bir sistemden dürüst bir v1 iyidir.
 - **İlk iş git anlık görüntüsü.** Alınamazsa yükseltme durur, devam etmez. Geri dönüş her zaman
   açık.
 - **İki sürüm damgası en sona yazılır.** Kancalar, scriptler, adapter drift'i, placeholder'lar,
@@ -205,9 +218,9 @@ Damgasız v1 vault'un native Windows dönüşümü henüz desteklenmez; bu özel
 
 ---
 
-## v1 → Respot Brain
+## v1 → Respected Brain
 
-| | v1 | Respot Brain |
+| | v1 | Respected Brain |
 | --- | --- | --- |
 | Günlük hafıza | model hatırlarsa yazar | oturum kapanışında **otomatik** yazılır |
 | Kanca sayısı | 3 | 4 (`PreCompact` eklendi) |
@@ -313,7 +326,7 @@ Windows komutu `py.exe -3` olur. Python opsiyonel değil: günlük log da bilgi 
 | macOS | **orijinal akış test edildi** | ortak runtime, `daily/`, `knowledge/`, 🧠 masaüstü kısayolu; multi-AI adaptörleri otomatik testlidir. |
 | Linux | **test edilmedi** | kurulum `uname` ile dallanır: Homebrew, Obsidian cask ve macOS `.app` adımları atlanır, yerine XDG `.desktop` kısayolu yazılır. Vault, kancalar ve scriptler taşınabilir yazıldı ama gerçek bir Linux masaüstünde doğrulanmadı. Denersen sorun aç. |
 | Windows + WSL | **doğrulandı** | Windows Antigravity/Cursor hook'ları `wsl.exe` ile WSL'deki Python motoruna bağlanır; Obsidian aynı vault'u Windows yolundan açar. |
-| Windows native | **Windows CI doğrulandı; gerçek iki-provider smoke bekliyor** | `py.exe -3` ile ortak Python lifecycle doğrudan çalışır; WSL/Bash gerekmez. Taze kurulum ve damgalı Respot güncellemesi desteklenir, damgasız v1 dönüşümü henüz WSL ister. |
+| Windows native | **Windows CI doğrulandı; gerçek iki-provider smoke bekliyor** | `py.exe -3` ile ortak Python lifecycle doğrudan çalışır; WSL/Bash gerekmez. Taze kurulum ve damgalı Respected güncellemesi desteklenir, damgasız v1 dönüşümü henüz WSL ister. |
 
 Masaüstü kısayolu macOS'ta `osacompile` ve AppKit kullanır, ikisi de Linux'ta yoktur. Vault'un
 kendisi düz Markdown, yani her yerde açılır. Windows + WSL global multi-agent köprüsü doğrulandı;
@@ -356,8 +369,8 @@ her kırmızı satırın altında düzeltme komutu yazar.
 Bilgi derleme mimarisi Andrej Karpathy'nin LLM bilgi tabanı desenine dayanır:
 https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
 
-Geri kalanı [Avenox](https://avenox.lol) günlük kullandığı sistemden, kişisel veriden arındırılıp
-herkes için genelleştirilerek çıkarıldı.
+Respected Brain, [Avenox Beyin](https://github.com/avenoxai/avenoxbeyin) projesinin MIT lisanslı
+geçmişinden doğdu; commit geçmişini ve lisans atfını koruyarak artık bağımsız geliştiriliyor.
 
 ## Lisans
 
@@ -367,16 +380,16 @@ MIT, [LICENSE](LICENSE) dosyasına bak. PR'lar açık.
 
 ## In English (short version)
 
-**Respot Brain** is a multi-AI fork of avenoxbeyin: an open-source Obsidian second brain for Claude Code, Codex, Cursor,
+**Respected Brain** is an independently developed, provider-neutral Obsidian second brain for Claude Code, Codex, Cursor,
 and Antigravity. It keeps one canonical instruction and skill source, then generates each agent's
 native rules and hooks. Session-end and pre-compaction events feed conversations into `daily/`;
 the selected local CLI (`claude`, `codex`, `agy`, or `cursor-agent`) compiles those logs into linked articles under
 `knowledge/`. The next session starts with that knowledge index already in context.
 
-Install: `git clone https://github.com/respected0/respot-brain.git && cd respot-brain`, then ask
+Install: `git clone https://github.com/respected0/respectedbrain.git && cd respectedbrain`, then ask
 your coding agent to read and follow `SETUP.md`. Already running v1?
 The same command detects it and hands the work to one committed script, `scripts/upgrade.sh`.
-That transaction upgrades directly to Respot Brain: core v2 plus the shared instruction source and
+That transaction upgrades directly to Respected Brain: core v2 plus the shared instruction source and
 Claude/Codex/Cursor/Antigravity adapters. It does not leave an intermediate avenoxbeyin-v2 install.
 It is additive only, your memory files are never touched, the settings merge is idempotent, and it takes
 a **verified** git snapshot before it changes anything. A core-only `2.0.0` vault is completed rather
@@ -388,7 +401,7 @@ stamp is written first and the authoritative `.beyin-version` stamp is the final
 
 Platform honesty: the original macOS path remains supported. Linux desktop remains unverified.
 Windows + WSL remains verified with Windows-side hooks invoking the Python memory engine through
-`wsl.exe`. Native Windows fresh install and stamped Respot updates use `py.exe -3` without WSL or
+`wsl.exe`. Native Windows fresh install and stamped Respected updates use `py.exe -3` without WSL or
 Bash; unstamped v1 migration still uses WSL. A provider-neutral global installer can connect any
 named vault to Claude, Codex, Cursor and Antigravity across unrelated code repositories.
 
@@ -400,4 +413,5 @@ No extra API key is required: background work uses an authenticated local AI CLI
 the Python standard library; POSIX keeps thin Bash compatibility launchers. Knowledge-compilation
 architecture credit:
 Andrej Karpathy's LLM knowledge base pattern,
-https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f. MIT licensed.
+https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f. The project began from the
+MIT-licensed history of Avenox Beyin and preserves that attribution and commit history.

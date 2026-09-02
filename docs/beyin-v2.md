@@ -1,9 +1,9 @@
-# Respot Brain: Kendi Kendine Hatırlayan Çoklu-AI İkinci Beyin
+# Respected Brain: Kendi Kendine Hatırlayan Çoklu-AI İkinci Beyin
 
 Bu belge bağımsız kurulum kılavuzudur. Güncel kaynak:
-`https://github.com/respected0/respot-brain`.
+`https://github.com/respected0/respectedbrain`.
 
-Respot Brain bir model veya sohbet uygulaması değildir. Obsidian Markdown vault'unu Antigravity,
+Respected Brain bir model veya sohbet uygulaması değildir. Obsidian Markdown vault'unu Antigravity,
 Codex, Cursor ve Claude Code arasında ortak hafıza yapan yerel bir katmandır. Bir agentla alınan
 kararlar kapanışta günlük özete dönüşür; sonraki agent aynı vault'tan iş bağlamını alır.
 
@@ -26,8 +26,8 @@ Taşınmaz:
 ## En hızlı kurulum
 
 ```bash
-git clone https://github.com/respected0/respot-brain.git
-cd respot-brain
+git clone https://github.com/respected0/respectedbrain.git
+cd respectedbrain
 ```
 
 Klasörü tercih ettiğin coding agentta aç ve şunu yaz:
@@ -57,7 +57,7 @@ Agent şu kararları kullanıcıdan alır:
 7. Her kod reposundan merkezi vault'a global bağlantı isteği
 
 Vault adı serbesttir. `respectedOS` yalnız kişisel bir örnektir. Companion adı da serbesttir;
-`Respot` zorunlu değildir. İçteki `🔮 850-Companion/` klasörü runtime sözleşmesi nedeniyle sabittir.
+`Respected` zorunlu değildir. İçteki `🔮 850-Companion/` klasörü runtime sözleşmesi nedeniyle sabittir.
 
 ## Taze kurulum mu, yükseltme mi?
 
@@ -66,7 +66,7 @@ Vault adı serbesttir. `respectedOS` yalnız kişisel bir örnektir. Companion a
 - Beyin yoksa template'ten taze vault oluşturur.
 - `CLAUDE.md` ve `🔮 850-Companion/` bulunan, `.beyin-version` bulunmayan vault'u v1 sayar.
 - v1 bulunduğunda `scripts/upgrade.sh` ile doğrulanmış snapshot → apply → finalize zincirini uygular
-  ve ara bir çekirdek-v2 kurulumu bırakmadan doğrudan Respot Brain'e yükseltir.
+  ve ara bir çekirdek-v2 kurulumu bırakmadan doğrudan Respected Brain'e yükseltir.
 - Yalnız çekirdek `2.0.0` damgası olan vault'u güncel saymaz; aynı yükseltme eksik tek-kaynak
   talimatlarını ve Claude/Codex/Cursor/Antigravity adapterlarını tamamlar.
 - `enable_multiai.py` bağımsız kullanımı, zaten v2 olan harici/eski vault'ları elle onarmak içindir.
@@ -107,7 +107,7 @@ python3 scripts/install_global.py "/mutlak/yol/BenimBeynim" \
 ```
 
 `all` yerine `antigravity,codex` gibi bir alt küme verilebilir. Kurucu mevcut kullanıcı kurallarını
-ve hook'larını silmez; yalnız işaretli Respot bloğunu birleştirir, skill'leri kurar ve yedek alır.
+ve hook'larını silmez; yalnız işaretli Respected bloğunu birleştirir, skill'leri kurar ve yedek alır.
 
 ## Günlük kullanım
 
@@ -225,15 +225,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.
   -Providers antigravity,codex
 ```
 
-Damgalı `2.0.0` / `1.0.0` Respot vault `update_respot.py --platform windows-native` ile
-`1.2.0` sürümüne çıkar. Damgasız v1'in native dönüşümü henüz yoktur; o işlem WSL'deki
-`upgrade.sh` ile yapılır. `1.2.0`; ortak Python lifecycle, üç profil, sistem temp compile staging,
+Damgalı `2.0.0` / `1.0.0`, `1.1.0` veya `1.2.0` Respected Brain vault'u
+`update_respected.py --platform windows-native` ile `1.3.0` sürümüne çıkar. Damgasız v1'in native
+dönüşümü henüz yoktur; o işlem WSL'deki
+`upgrade.sh` ile yapılır. `1.3.0`; ortak Python lifecycle, üç profil, sistem temp compile staging,
 Vault/Skills Map, sabah brifingi, onaylı scheduler kurulumu ve bakım skill'lerini kapsar.
 Restic/DPAPI yedeklemesi ayrı sonraki projedir.
 
 Sabah brifingi zamanlayıcısı varsayılan olarak yalnız tam tanım/komut/hedef önizlemesi verir.
-`--apply` mevcut yönetilen tanımı değiştirirse `~/.respot/schedule-backups/` altında saklar ve
-aktivasyon başarısızsa geri yükler. Otomatik haritalar da yalnız Respot üretici işaretli dosyaları
+`--apply` mevcut yönetilen tanımı değiştirirse `~/.respected/schedule-backups/` altında saklar ve
+aktivasyon başarısızsa geri yükler. Otomatik haritalar da yalnız Respected üretici işaretli dosyaları
 yeniler; kullanıcıya ait aynı adlı dosyayı veya link üzerinden vault dışındaki hedefi ezmez.
 
 ## macOS ve Linux
@@ -307,7 +308,7 @@ Bu testler gerçek modele veya ağa çağrı yapmaz.
 
 ## Maliyet ve veri
 
-Respot Brain ayrıca API anahtarı veya abonelik satmaz. Hangi yerel CLI özeti/derlemeyi yaparsa
+Respected Brain ayrıca API anahtarı veya abonelik satmaz. Hangi yerel CLI özeti/derlemeyi yaparsa
 kullanım o sağlayıcının hesabına ve kotasına yazılır. Vault, günlükler ve derlenmiş bilgi yerel
 dosyalardır; özetlenecek metin seçilen model sağlayıcısına CLI üzerinden gider.
 
