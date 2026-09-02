@@ -28,6 +28,7 @@ import lifecycle as LIFECYCLE
 
 
 EVENTS = ("start", "prompt", "end", "precompact")
+SESSION_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
 
 
 def load_input() -> dict[str, Any]:
@@ -64,6 +65,36 @@ def wsl_path(value: str) -> str:
     return translated if result.returncode == 0 and translated else value
 
 
+def resolve_antigravity_transcript(
+    session_id: str,
+    home: Path | None = None,
+) -> str:
+    """Resolve a known Antigravity transcript without scanning user data."""
+
+    if (
+        SESSION_COMPONENT.fullmatch(session_id) is None
+        or session_id in {".", ".."}
+    ):
+        return ""
+    profile = home or Path.home()
+    for product in ("antigravity-ide", "antigravity-cli"):
+        brain = profile / ".gemini" / product / "brain"
+        candidate = (
+            brain
+            / session_id
+            / ".system_generated"
+            / "logs"
+            / "transcript.jsonl"
+        )
+        try:
+            candidate.resolve(strict=True).relative_to(brain.resolve(strict=True))
+        except (OSError, RuntimeError, ValueError):
+            continue
+        if candidate.is_file():
+            return str(candidate)
+    return ""
+
+
 def normalize(provider: str, payload: dict[str, Any]) -> dict[str, Any]:
     workspace_paths = payload.get("workspacePaths") or payload.get("workspace_roots") or []
     cwd = first_string(payload, "cwd")
@@ -72,10 +103,15 @@ def normalize(provider: str, payload: dict[str, Any]) -> dict[str, Any]:
     session_id = first_string(payload, "session_id", "conversation_id", "conversationId")
     if not session_id:
         session_id = f"{provider}-unknown"
+    transcript_path = wsl_path(
+        first_string(payload, "transcript_path", "transcriptPath")
+    )
+    if not transcript_path and provider == "antigravity":
+        transcript_path = resolve_antigravity_transcript(session_id)
     return {
         **payload,
         "session_id": session_id,
-        "transcript_path": wsl_path(first_string(payload, "transcript_path", "transcriptPath")),
+        "transcript_path": transcript_path,
         "cwd": wsl_path(cwd) or str(ROOT),
         "model": first_string(payload, "model", "modelName"),
         "beyin_provider": provider,

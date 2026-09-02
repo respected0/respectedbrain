@@ -85,6 +85,73 @@ class MultiAITest(unittest.TestCase):
             bridge.output("antigravity", "end", "")
         self.assertEqual(json.loads(captured.getvalue()), {"decision": "stop"})
 
+    def test_antigravity_normalize_resolves_ide_then_cli_transcript(self):
+        bridge = load(
+            "bridge_transcript",
+            ROOT / "template/.beyin/hooks/bridge.py",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            ide = (
+                home
+                / ".gemini/antigravity-ide/brain/session-1/.system_generated/logs/transcript.jsonl"
+            )
+            ide.parent.mkdir(parents=True)
+            ide.write_text("{}\n", encoding="utf-8")
+
+            with mock.patch.object(bridge.Path, "home", return_value=home):
+                normalized = bridge.normalize(
+                    "antigravity",
+                    {"conversationId": "session-1"},
+                )
+
+            self.assertEqual(normalized["transcript_path"], str(ide))
+
+            cli = (
+                home
+                / ".gemini/antigravity-cli/brain/session-2/.system_generated/logs/transcript.jsonl"
+            )
+            cli.parent.mkdir(parents=True)
+            cli.write_text("{}\n", encoding="utf-8")
+            with mock.patch.object(bridge.Path, "home", return_value=home):
+                normalized_cli = bridge.normalize(
+                    "antigravity",
+                    {"conversationId": "session-2"},
+                )
+            self.assertEqual(normalized_cli["transcript_path"], str(cli))
+
+    def test_antigravity_transcript_discovery_is_safe_and_explicit_wins(self):
+        bridge = load(
+            "bridge_transcript_safety",
+            ROOT / "template/.beyin/hooks/bridge.py",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            candidate = (
+                home
+                / ".gemini/antigravity-ide/brain/session-1/.system_generated/logs/transcript.jsonl"
+            )
+            candidate.parent.mkdir(parents=True)
+            candidate.write_text("{}\n", encoding="utf-8")
+            with mock.patch.object(bridge.Path, "home", return_value=home):
+                traversal = bridge.normalize(
+                    "antigravity",
+                    {"conversationId": "../escape"},
+                )
+                explicit = bridge.normalize(
+                    "antigravity",
+                    {
+                        "conversationId": "session-1",
+                        "transcriptPath": "/explicit/transcript.jsonl",
+                    },
+                )
+
+            self.assertEqual(traversal["transcript_path"], "")
+            self.assertEqual(
+                explicit["transcript_path"],
+                "/explicit/transcript.jsonl",
+            )
+
     def test_bridge_dispatches_to_shared_lifecycle_without_shell_hooks(self):
         bridge = load("bridge_shared_lifecycle", ROOT / "template/.beyin/hooks/bridge.py")
         with tempfile.TemporaryDirectory() as temporary:

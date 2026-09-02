@@ -414,6 +414,37 @@ print("loaded")
         self.assertEqual(last_flush["session_id"], "bos-session")
         self.assertEqual(last_flush["status"], "ok")
 
+    def test_summary_normalization_drops_conversational_preamble(self) -> None:
+        raw = "Selam! İşte özet:\n```markdown\n" + VALID_SUMMARY + "\n```"
+
+        self.assertEqual(FLUSH.normalize_summary(raw), VALID_SUMMARY)
+
+    def test_summary_normalization_rejects_malformed_heading_contracts(self) -> None:
+        self.assertIsNone(
+            FLUSH.normalize_summary(VALID_SUMMARY + "\n## Fazla\nHayır")
+        )
+        self.assertIsNone(
+            FLUSH.normalize_summary(
+                VALID_SUMMARY.replace("## Öğrenilenler", "### Öğrenilenler")
+            )
+        )
+        self.assertIsNone(
+            FLUSH.normalize_summary("## Açıklama\nSohbet\n" + VALID_SUMMARY)
+        )
+
+    def test_flush_appends_normalized_summary_without_model_chatter(self) -> None:
+        transcript = self._write_transcript([("user", "kalıcı karar")])
+        hook = self._write_hook("normalized-session", transcript)
+        raw = "Selam! İşte özet:\n```markdown\n" + VALID_SUMMARY + "\n```"
+
+        result = self._run_flush(hook, BEYIN_TEST_OUTPUT=raw)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        daily_body = next(self.daily.glob("*.md")).read_text(encoding="utf-8")
+        self.assertIn(VALID_SUMMARY, daily_body)
+        self.assertNotIn("Selam!", daily_body)
+        self.assertNotIn("```", daily_body)
+
     def test_daily_skeleton_schema_and_restrictive_claude_flags(self) -> None:
         transcript = self._write_transcript(
             [("user", "karar aldık"), ("assistant", "uygulandı")]

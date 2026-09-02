@@ -44,7 +44,11 @@ DIRECTIVE_SHAPED = re.compile(
     r")\s*[:：]"
 )
 
-COMPILE_PROMPT = """BELLEK ŞEMASI KURALLARI
+COMPILE_PROMPT = """OTOMATİK DERLEYİCİ ROLÜ
+Bu başsız bir workspace görevidir. Başarı için aşağıdaki izinli stage dosyalarını
+araçlarla düzenle; sohbet açıklaması tek başına başarı değildir.
+
+BELLEK ŞEMASI KURALLARI
 - Kavram dosyası knowledge/concepts/<ascii-kebab-slug>.md yolunda olmalı.
 - YAML frontmatter alanları title, aliases, tags, sources, created, updated olmalı;
   sources günlük dosya adlarının listesi olmalı.
