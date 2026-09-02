@@ -92,6 +92,43 @@ def detached_process_options() -> dict[str, int | bool]:
     return {"creationflags": flags}
 
 
+def hidden_process_options() -> dict[str, int]:
+    """Hide a synchronous child console on native Windows."""
+
+    if os.name != "nt":
+        return {}
+    return {
+        "creationflags": int(
+            getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+        )
+    }
+
+
+def windows_user_root(path: Path) -> Path | None:
+    """Return /mnt/<drive>/Users/<user> for a WSL-visible user path."""
+
+    parts = Path(path).absolute().parts
+    if (
+        len(parts) < 5
+        or parts[1] != "mnt"
+        or len(parts[2]) != 1
+        or parts[3].casefold() != "users"
+    ):
+        return None
+    return Path(*parts[:5])
+
+
+def external_temp_parent(vault_root: Path) -> Path | None:
+    """Choose a temp parent usable by both WSL Python and Windows CLIs."""
+
+    if os.name == "nt":
+        return None
+    user_root = windows_user_root(vault_root)
+    if user_root is None:
+        return None
+    return user_root / "AppData" / "Local" / "Temp"
+
+
 def create_exclusive_claim(path: Path, mode: int = 0o600) -> bool:
     """Create a claim file once without overwriting an existing claimant."""
 

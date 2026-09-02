@@ -9,6 +9,7 @@ from pathlib import Path
 import stat
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,6 +56,39 @@ class RuntimePlatformTest(unittest.TestCase):
             self.assertNotIn("start_new_session", options)
         else:
             self.assertEqual(options, {"start_new_session": True})
+
+    def test_hidden_process_options_are_empty_off_windows(self):
+        with mock.patch.object(RUNTIME.os, "name", "posix"):
+            self.assertEqual(RUNTIME.hidden_process_options(), {})
+
+    def test_hidden_process_options_use_create_no_window_on_windows(self):
+        with mock.patch.object(RUNTIME.os, "name", "nt"), mock.patch.object(
+            RUNTIME.subprocess,
+            "CREATE_NO_WINDOW",
+            0x08000000,
+            create=True,
+        ):
+            self.assertEqual(
+                RUNTIME.hidden_process_options(),
+                {"creationflags": 0x08000000},
+            )
+
+    def test_wsl_user_vault_selects_windows_accessible_temp_parent(self):
+        vault = Path("/mnt/c/Users/Ada/Documents/Ada Brain")
+
+        self.assertEqual(
+            RUNTIME.external_temp_parent(vault),
+            Path("/mnt/c/Users/Ada/AppData/Local/Temp"),
+        )
+
+    def test_non_user_mount_and_native_windows_keep_system_temp(self):
+        self.assertIsNone(
+            RUNTIME.external_temp_parent(Path("/mnt/d/projects/brain"))
+        )
+        with mock.patch.object(RUNTIME.os, "name", "nt"):
+            self.assertIsNone(
+                RUNTIME.external_temp_parent(Path(r"C:\Users\Ada\Ada Brain"))
+            )
 
     def test_path_containment_rejects_parent_escape(self):
         with tempfile.TemporaryDirectory() as temporary:
