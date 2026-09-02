@@ -322,6 +322,14 @@ def _session_state_path(state_dir: Path, session_id: str) -> Path:
     return state_dir / f"flush-{key}.json"
 
 
+def _temporary_directory_kwargs(vault_root: Path) -> dict[str, Path]:
+    parent = runtime_platform.external_temp_parent(vault_root)
+    if parent is None:
+        return {}
+    parent.mkdir(parents=True, exist_ok=True)
+    return {"dir": parent}
+
+
 def _run_model(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
     """Compatibility name; dispatches to the selected/available local AI CLI."""
     runner_dir = vault_root / ".beyin"
@@ -330,7 +338,10 @@ def _run_model(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
     try:
         from model_runner import run_model
 
-        with tempfile.TemporaryDirectory(prefix="beyin-flush-") as temporary:
+        with tempfile.TemporaryDirectory(
+            prefix="beyin-flush-",
+            **_temporary_directory_kwargs(vault_root),
+        ) as temporary:
             temporary_path = Path(temporary).resolve()
             inside_vault = runtime_platform.path_within_vault(
                 temporary_path, vault_root
@@ -352,7 +363,10 @@ def _run_model(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
         environment = os.environ.copy()
         environment["BEYIN_INVOKED_BY"] = "beyin-scripts"
         try:
-            with tempfile.TemporaryDirectory(prefix="beyin-flush-") as temporary:
+            with tempfile.TemporaryDirectory(
+                prefix="beyin-flush-",
+                **_temporary_directory_kwargs(vault_root),
+            ) as temporary:
                 result = subprocess.run(
                     [legacy_claude, "-p", "--model", "haiku", "--output-format", "text", "--safe-mode", "--tools", ""],
                     input=prompt,

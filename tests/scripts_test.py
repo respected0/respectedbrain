@@ -20,6 +20,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 import uuid
 
 
@@ -301,6 +302,46 @@ print("loaded")
             except ValueError:
                 snapshot[path.relative_to(self.vault).as_posix()] = path.read_bytes()
         return snapshot
+
+    def test_flush_temp_directory_uses_cross_host_parent(self) -> None:
+        expected = self.root / "windows-temp"
+        expected.mkdir()
+
+        with mock.patch.object(
+            FLUSH.runtime_platform,
+            "external_temp_parent",
+            return_value=expected,
+        ):
+            kwargs = FLUSH._temporary_directory_kwargs(self.vault)
+
+        self.assertEqual(kwargs, {"dir": expected})
+
+    def test_compile_stage_uses_cross_host_parent_and_remains_external(self) -> None:
+        compiler = load_module(
+            "compile_temp_parent",
+            SOURCE_SCRIPTS / "compile.py",
+        )
+        expected = self.root / "windows-temp"
+        expected.mkdir()
+        daily_path = self.daily / "2026-08-20.md"
+        daily_path.write_text("kalıcı günlük", encoding="utf-8")
+
+        with mock.patch.object(
+            compiler.runtime_platform,
+            "external_temp_parent",
+            return_value=expected,
+        ):
+            stage, _baseline = compiler._prepare_stage(
+                self.vault,
+                self.state,
+                daily_path,
+            )
+
+        try:
+            self.assertEqual(stage.parent, expected)
+            self.assertFalse(stage.is_relative_to(self.vault))
+        finally:
+            shutil.rmtree(stage, ignore_errors=True)
 
     def test_transcript_extraction_turn_and_character_caps(self) -> None:
         turns = []

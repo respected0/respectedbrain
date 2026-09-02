@@ -314,13 +314,26 @@ def _copy_source_tree(
             )
 
 
+def _temporary_directory_kwargs(vault_root: Path) -> dict[str, Path]:
+    parent = runtime_platform.external_temp_parent(vault_root)
+    if parent is None:
+        return {}
+    parent.mkdir(parents=True, exist_ok=True)
+    return {"dir": parent}
+
+
 def _prepare_stage(
     vault_root: Path,
     state_dir: Path,
     daily_path: Path,
 ) -> tuple[Path, dict[str, str | None]]:
     state_dir.mkdir(parents=True, exist_ok=True)
-    stage = Path(tempfile.mkdtemp(prefix="compile-stage-"))
+    stage = Path(
+        tempfile.mkdtemp(
+            prefix="compile-stage-",
+            **_temporary_directory_kwargs(vault_root),
+        )
+    )
     stage.chmod(0o700)
     live_baseline: dict[str, str | None] = {}
     try:
