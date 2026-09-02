@@ -76,10 +76,13 @@ class RuntimePlatformTest(unittest.TestCase):
     def test_wsl_user_vault_selects_windows_accessible_temp_parent(self):
         vault = Path("/mnt/c/Users/Ada/Documents/Ada Brain")
 
-        self.assertEqual(
-            RUNTIME.external_temp_parent(vault),
-            Path("/mnt/c/Users/Ada/AppData/Local/Temp"),
-        )
+        simulated_os = mock.Mock(wraps=os)
+        simulated_os.name = "posix"
+        with mock.patch.object(RUNTIME, "os", simulated_os):
+            self.assertEqual(
+                RUNTIME.external_temp_parent(vault),
+                Path("/mnt/c/Users/Ada/AppData/Local/Temp"),
+            )
 
     def test_non_user_mount_and_native_windows_keep_system_temp(self):
         self.assertIsNone(

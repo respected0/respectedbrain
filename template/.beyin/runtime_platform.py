@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import stat
 import subprocess
 import time
@@ -107,9 +107,10 @@ def hidden_process_options() -> dict[str, int]:
 def windows_user_root(path: Path) -> Path | None:
     """Return /mnt/<drive>/Users/<user> for a WSL-visible user path."""
 
-    parts = Path(path).absolute().parts
+    parts = PurePosixPath(os.fspath(path).replace("\\", "/")).parts
     if (
         len(parts) < 5
+        or parts[0] != "/"
         or parts[1] != "mnt"
         or len(parts[2]) != 1
         or parts[3].casefold() != "users"
