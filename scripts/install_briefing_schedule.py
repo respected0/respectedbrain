@@ -259,13 +259,50 @@ def _query_windows_task(name: str) -> tuple[subprocess.CompletedProcess[bytes], 
         return result, None
 
 
-def _create_windows_task(name: str, content: str) -> subprocess.CompletedProcess[bytes]:
-    with tempfile.NamedTemporaryFile("w", suffix=".xml", encoding="utf-16", delete=False) as handle:
+def _windows_argument_path(path: Path) -> str:
+    if os.name == "nt" or not os.environ.get("WSL_INTEROP"):
+        return str(path)
+    try:
+        result = subprocess.run(
+            ["wslpath", "-w", str(path)],
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return str(path)
+    converted = result.stdout.strip()
+    return converted if result.returncode == 0 and converted else str(path)
+
+
+def _create_windows_task(
+    name: str,
+    content: str,
+    home: Path,
+) -> subprocess.CompletedProcess[bytes]:
+    with tempfile.NamedTemporaryFile(
+        "w",
+        suffix=".xml",
+        encoding="utf-16",
+        delete=False,
+        dir=home,
+    ) as handle:
         handle.write(content)
         xml_path = Path(handle.name)
     try:
         return subprocess.run(
-            ["schtasks.exe", "/Create", "/TN", name, "/XML", str(xml_path), "/F"],
+            [
+                "schtasks.exe",
+                "/Create",
+                "/TN",
+                name,
+                "/XML",
+                _windows_argument_path(xml_path),
+                "/F",
+            ],
             capture_output=True,
             check=False,
         )
@@ -286,12 +323,13 @@ def _restore_windows_tasks(
     current_previous: str | None,
     legacy_name: str,
     legacy_previous: str | None,
+    home: Path,
 ) -> None:
     _delete_windows_task(current_name)
     if current_previous is not None:
-        _create_windows_task(current_name, current_previous)
+        _create_windows_task(current_name, current_previous, home)
     if legacy_previous is not None:
-        _create_windows_task(legacy_name, legacy_previous)
+        _create_windows_task(legacy_name, legacy_previous, home)
 
 
 def install(
@@ -329,9 +367,15 @@ def install(
             backup = _backup_directory(home, legacy_name)
             _write(backup / f"{legacy_name}.xml", legacy_xml)
             print(f"backup: {backup}")
-        result = _create_windows_task(plan.name, plan.content)
+        result = _create_windows_task(plan.name, plan.content, home)
         if result.returncode != 0:
-            _restore_windows_tasks(plan.name, previous_xml, legacy_name, legacy_xml)
+            _restore_windows_tasks(
+                plan.name,
+                previous_xml,
+                legacy_name,
+                legacy_xml,
+                home,
+            )
             print(decode_windows_output(result.stdout + result.stderr).strip(), file=sys.stderr)
             return 2
         verified_result, verified_xml = _query_windows_task(plan.name)
@@ -340,14 +384,26 @@ def install(
         except (ET.ParseError, UnicodeError):
             verified = False
         if verified_result.returncode != 0 or not verified:
-            _restore_windows_tasks(plan.name, previous_xml, legacy_name, legacy_xml)
+            _restore_windows_tasks(
+                plan.name,
+                previous_xml,
+                legacy_name,
+                legacy_xml,
+                home,
+            )
             detail = decode_windows_output(verified_result.stdout + verified_result.stderr).strip()
             print(detail or "yeni Windows görevi doğrulanamadı", file=sys.stderr)
             return 2
         if legacy_xml is not None:
             deleted = _delete_windows_task(legacy_name)
             if deleted.returncode != 0:
-                _restore_windows_tasks(plan.name, previous_xml, legacy_name, legacy_xml)
+                _restore_windows_tasks(
+                    plan.name,
+                    previous_xml,
+                    legacy_name,
+                    legacy_xml,
+                    home,
+                )
                 print(
                     decode_windows_output(deleted.stdout + deleted.stderr).strip(),
                     file=sys.stderr,

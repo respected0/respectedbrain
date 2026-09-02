@@ -249,6 +249,58 @@ class BriefingScheduleTest(unittest.TestCase):
         self.assertIn("Görev", decoded)
         self.assertIn("başarıyla", decoded)
 
+    def test_wsl_task_xml_is_created_under_home_and_passed_as_windows_path(self):
+        installer = load_installer()
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary) / "mounted-home"
+            home.mkdir()
+            completed = mock.Mock(returncode=0, stdout=b"", stderr=b"")
+
+            def command(argv, **_kwargs):
+                if argv[0] == "wslpath":
+                    source = argv[-1]
+                    self.assertTrue(str(home) in source)
+                    return mock.Mock(
+                        returncode=0,
+                        stdout="C:\\Users\\Ada\\task.xml\n",
+                        stderr="",
+                    )
+                self.assertEqual(argv[0], "schtasks.exe")
+                self.assertEqual(
+                    argv[argv.index("/XML") + 1],
+                    r"C:\Users\Ada\task.xml",
+                )
+                return completed
+
+            with mock.patch.dict(
+                installer.os.environ,
+                {"WSL_INTEROP": "/run/WSL/1_interop"},
+                clear=True,
+            ), mock.patch.object(
+                installer.subprocess,
+                "run",
+                side_effect=command,
+            ):
+                result = installer._create_windows_task(
+                    "task",
+                    "<Task />",
+                    home,
+                )
+
+        self.assertIs(result, completed)
+
+    def test_non_wsl_windows_task_path_does_not_invoke_wslpath(self):
+        installer = load_installer()
+        path = Path("task.xml")
+        with mock.patch.dict(installer.os.environ, {}, clear=True), mock.patch.object(
+            installer.subprocess,
+            "run",
+        ) as called:
+            converted = installer._windows_argument_path(path)
+
+        self.assertEqual(converted, str(path))
+        called.assert_not_called()
+
     def test_windows_migration_verifies_current_task_before_deleting_legacy(self):
         installer = load_installer()
         with tempfile.TemporaryDirectory() as temporary:
