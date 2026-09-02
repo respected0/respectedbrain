@@ -25,7 +25,12 @@ def load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(name, None)
+        raise
     return module
 
 
@@ -123,9 +128,99 @@ class MultiAITest(unittest.TestCase):
     def test_runner_supports_cursor_headless(self):
         runner = load("model_runner_cursor", ROOT / "template/.beyin/model_runner.py")
         with mock.patch.object(runner.shutil, "which", side_effect=lambda name: "/bin/cursor-agent" if name == "cursor-agent" else None):
-            command, stdin = runner._command("cursor", "özetle", "text")
-        self.assertEqual(command, ["/bin/cursor-agent", "-p", "--output-format", "text", "özetle"])
-        self.assertIsNone(stdin)
+            invocation = runner._command("cursor", "özetle", "text")
+        self.assertEqual(
+            invocation.argv,
+            ["/bin/cursor-agent", "-p", "--output-format", "text", "özetle"],
+        )
+        self.assertIsNone(invocation.stdin)
+
+    def test_runner_keeps_codex_and_antigravity_prompts_on_stdin(self):
+        runner = load("model_runner_stdin", ROOT / "template/.beyin/model_runner.py")
+        prompt = "ö" * 100_000
+
+        def which(name):
+            return {
+                "codex": "/bin/codex",
+                "agy": "/mnt/c/Users/Ada/AppData/Local/agy/bin/agy.exe",
+            }.get(name)
+
+        with mock.patch.object(runner.shutil, "which", side_effect=which):
+            codex = runner._command("codex", prompt, "text")
+            agy_text = runner._command("antigravity", prompt, "text")
+            agy_workspace = runner._command("antigravity", prompt, "workspace")
+
+        self.assertNotIn(prompt, codex.argv)
+        self.assertEqual(codex.stdin, prompt)
+        self.assertEqual(codex.argv[-1], "-")
+        self.assertNotIn(prompt, agy_text.argv)
+        self.assertEqual(agy_text.stdin, prompt)
+        self.assertIn("--print", agy_text.argv)
+        self.assertIn("--input-format", agy_text.argv)
+        self.assertIn("--sandbox", agy_text.argv)
+        self.assertNotIn("--mode", agy_text.argv)
+        self.assertIn("--mode", agy_workspace.argv)
+        self.assertIn("accept-edits", agy_workspace.argv)
+        self.assertIn("--dangerously-skip-permissions", agy_workspace.argv)
+        self.assertTrue(agy_workspace.windows_executable)
+
+    def test_runner_candidate_order_contract_is_unchanged(self):
+        runner = load("model_runner_order", ROOT / "template/.beyin/model_runner.py")
+        with mock.patch.object(runner, "_configured_provider", return_value="auto"):
+            self.assertEqual(
+                runner._available("antigravity"),
+                ["antigravity", "claude", "codex", "cursor"],
+            )
+        with mock.patch.object(runner, "_configured_provider", return_value="cursor"):
+            self.assertEqual(
+                runner._available("antigravity"),
+                ["cursor", "antigravity", "claude", "codex"],
+            )
+
+    def test_wsl_windows_cli_receives_translatable_profile_environment(self):
+        runner = load("model_runner_wsl_env", ROOT / "template/.beyin/model_runner.py")
+        invocation = runner.Invocation(
+            ["/mnt/c/bin/agy.exe", "--print"],
+            "prompt",
+            True,
+        )
+        completed = SimpleNamespace(returncode=0, stdout="özet", stderr="")
+        base = {
+            "WSL_INTEROP": "/run/WSL/1_interop",
+            "WSLENV": "PATH/l:KEEP:USERPROFILE",
+        }
+        cwd = Path("/mnt/c/Users/Ada/AppData/Local/Temp/stage")
+        with mock.patch.dict(runner.os.environ, base, clear=True), mock.patch.object(
+            runner,
+            "_command",
+            return_value=invocation,
+        ), mock.patch.object(
+            runner,
+            "_available",
+            return_value=["antigravity"],
+        ), mock.patch.object(
+            runner.subprocess,
+            "run",
+            return_value=completed,
+        ) as called:
+            result = runner.run_model("prompt", cwd, "text", 10)
+
+        self.assertEqual(result, ("özet", None, "antigravity"))
+        environment = called.call_args.kwargs["env"]
+        self.assertEqual(environment["USERPROFILE"], "/mnt/c/Users/Ada")
+        self.assertEqual(
+            environment["LOCALAPPDATA"],
+            "/mnt/c/Users/Ada/AppData/Local",
+        )
+        self.assertEqual(
+            environment["APPDATA"],
+            "/mnt/c/Users/Ada/AppData/Roaming",
+        )
+        entries = environment["WSLENV"].split(":")
+        self.assertEqual(entries.count("USERPROFILE/p"), 1)
+        self.assertIn("LOCALAPPDATA/p", entries)
+        self.assertIn("APPDATA/p", entries)
+        self.assertIn("KEEP", entries)
 
     def test_summary_provider_can_be_persisted_and_overrides_current_agent(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -205,7 +300,10 @@ class MultiAITest(unittest.TestCase):
 
     def test_runner_falls_back_only_for_retryable_provider_errors(self):
         runner = load("model_runner_fallback", ROOT / "template/.beyin/model_runner.py")
-        commands = {"antigravity": (["agy"], None), "claude": (["claude"], "prompt")}
+        commands = {
+            "antigravity": runner.Invocation(["agy"], None),
+            "claude": runner.Invocation(["claude"], "prompt"),
+        }
         with mock.patch.object(runner, "_available", return_value=["antigravity", "claude"]), \
              mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode: commands[provider]), \
              mock.patch.object(runner.subprocess, "run", side_effect=[

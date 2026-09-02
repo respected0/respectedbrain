@@ -3,17 +3,33 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
 import shlex
 import shutil
 import subprocess
+import sys
 from typing import Literal
+
+
+MODULE_DIR = Path(__file__).resolve().parent
+if str(MODULE_DIR) not in sys.path:
+    sys.path.insert(0, str(MODULE_DIR))
+
+import runtime_platform
 
 
 Mode = Literal["text", "workspace"]
 PROVIDERS = ("claude", "codex", "antigravity", "cursor")
+
+
+@dataclass(frozen=True)
+class Invocation:
+    argv: list[str]
+    stdin: str | None
+    windows_executable: bool = False
 
 
 def _configured_provider() -> str:
@@ -54,25 +70,60 @@ def _available(preferred: str | None) -> list[str]:
     return list(dict.fromkeys(names))
 
 
-def _command(provider: str, prompt: str, mode: Mode) -> tuple[list[str], str | None] | None:
+def _windows_executable(executable: str) -> bool:
+    return os.name == "nt" or executable.casefold().endswith(".exe")
+
+
+def _command(provider: str, prompt: str, mode: Mode) -> Invocation | None:
     sandbox = "workspace-write" if mode == "workspace" else "read-only"
     if provider == "claude":
         executable = shutil.which("claude") or shutil.which("claude.exe")
         if executable is None:
             return None
         if mode == "workspace":
-            return ([executable, "-p", "--model", "sonnet", "--output-format", "text", "--safe-mode", "--tools", "Read,Write,Edit,Glob,Grep", "--permission-mode", "acceptEdits", "--allowedTools", "Read,Write,Edit,Glob,Grep"], prompt)
-        return ([executable, "-p", "--model", "haiku", "--output-format", "text", "--safe-mode", "--tools", ""], prompt)
+            return Invocation(
+                [executable, "-p", "--model", "sonnet", "--output-format", "text", "--safe-mode", "--tools", "Read,Write,Edit,Glob,Grep", "--permission-mode", "acceptEdits", "--allowedTools", "Read,Write,Edit,Glob,Grep"],
+                prompt,
+                _windows_executable(executable),
+            )
+        return Invocation(
+            [executable, "-p", "--model", "haiku", "--output-format", "text", "--safe-mode", "--tools", ""],
+            prompt,
+            _windows_executable(executable),
+        )
     if provider == "codex":
         executable = shutil.which("codex") or shutil.which("codex.exe")
         if executable is None:
             return None
-        return ([executable, "exec", "--ephemeral", "--sandbox", sandbox, prompt], None)
+        return Invocation(
+            [executable, "exec", "--ephemeral", "--sandbox", sandbox, "-"],
+            prompt,
+            _windows_executable(executable),
+        )
     if provider in {"antigravity", "agy"}:
         executable = shutil.which("agy") or shutil.which("agy.exe") or _windows_vault_binary("agy")
         if executable is None:
             return None
-        return ([executable, "-p", prompt, "--output-format", "text", "--sandbox"], None)
+        argv = [
+            executable,
+            "--new-project",
+            "--disable-slash-commands",
+            "--print",
+            "--input-format",
+            "text",
+            "--output-format",
+            "text",
+            "--sandbox",
+        ]
+        if mode == "workspace":
+            argv[2:2] = [
+                "--add-dir",
+                ".",
+                "--mode",
+                "accept-edits",
+                "--dangerously-skip-permissions",
+            ]
+        return Invocation(argv, prompt, _windows_executable(executable))
     if provider == "cursor":
         executable = shutil.which("cursor-agent") or shutil.which("cursor-agent.exe")
         if executable is None:
@@ -81,8 +132,39 @@ def _command(provider: str, prompt: str, mode: Mode) -> tuple[list[str], str | N
         if mode == "workspace":
             argv.append("--force")
         argv.append(prompt)
-        return (argv, None)
+        return Invocation(argv, None, _windows_executable(executable))
     return None
+
+
+def _merge_wslenv(value: str, path_names: tuple[str, ...]) -> str:
+    targeted = {name.casefold() for name in path_names}
+    kept = []
+    for entry in value.split(":"):
+        if not entry:
+            continue
+        base = entry.split("/", 1)[0].casefold()
+        if base not in targeted:
+            kept.append(entry)
+    kept.extend(f"{name}/p" for name in path_names)
+    return ":".join(kept)
+
+
+def _windows_user_environment(environment: dict[str, str], cwd: Path) -> None:
+    if os.name == "nt" or not environment.get("WSL_INTEROP"):
+        return
+    user_root = runtime_platform.windows_user_root(cwd)
+    if user_root is None:
+        user_root = runtime_platform.windows_user_root(Path(__file__).resolve())
+    if user_root is None:
+        return
+    environment["USERPROFILE"] = str(user_root)
+    environment["LOCALAPPDATA"] = str(user_root / "AppData" / "Local")
+    environment["APPDATA"] = str(user_root / "AppData" / "Roaming")
+    names = ("USERPROFILE", "LOCALAPPDATA", "APPDATA")
+    environment["WSLENV"] = _merge_wslenv(
+        environment.get("WSLENV", ""),
+        names,
+    )
 
 
 def _retryable_failure(stdout: str, stderr: str) -> bool:
@@ -118,22 +200,29 @@ def run_model(
                 return None, "custom-command-invalid", provider
             if not argv:
                 return None, "custom-command-empty", provider
-            stdin = prompt
+            invocation = Invocation(
+                argv,
+                prompt,
+                _windows_executable(argv[0]),
+            )
         else:
-            command = _command(provider, prompt, mode)
-            if command is None:
+            invocation = _command(provider, prompt, mode)
+            if invocation is None:
                 continue
-            argv, stdin = command
+        process_environment = environment.copy()
+        if invocation.windows_executable:
+            _windows_user_environment(process_environment, cwd)
         try:
             result = subprocess.run(
-                argv,
-                input=stdin,
+                invocation.argv,
+                input=invocation.stdin,
                 text=True,
                 capture_output=True,
                 cwd=cwd,
-                env=environment,
+                env=process_environment,
                 timeout=timeout,
                 check=False,
+                **runtime_platform.hidden_process_options(),
             )
         except subprocess.TimeoutExpired:
             last_error = (f"{provider}-timeout", provider)
