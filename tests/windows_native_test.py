@@ -165,6 +165,8 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
         spec = importlib.util.spec_from_file_location("native_model_runner", module_path)
         assert spec and spec.loader
         runner = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = runner
+        self.addCleanup(sys.modules.pop, spec.name, None)
         spec.loader.exec_module(runner)
         environment = {
             "PATH": str(bin_dir),
