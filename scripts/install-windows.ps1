@@ -77,13 +77,21 @@ function Invoke-ExternalProbe([string]$Command, [string[]]$Arguments) {
         $null = $Process.Handle
         $Completed = $Process.WaitForExit($TimeoutMs)
         if (-not $Completed) {
-            try {
-                $Process.Kill()
+            $TaskKill = Join-Path $env:SystemRoot "System32\taskkill.exe"
+            if (Test-Path -LiteralPath $TaskKill -PathType Leaf) {
+                # Killing only cmd.exe leaves its CLI child alive with the
+                # redirected handles open. Terminate the complete probe tree.
+                & $TaskKill /PID $Process.Id /T /F *> $null
             }
-            catch {
-                # The process may have exited between the timeout and Kill().
+            else {
+                try {
+                    $Process.Kill()
+                }
+                catch {
+                    # The process may have exited between the timeout and Kill().
+                }
             }
-            $Process.WaitForExit()
+            $null = $Process.WaitForExit(2000)
             return @{
                 Code = 124
                 Output = ([IO.File]::ReadAllText($stdout) + [IO.File]::ReadAllText($stderr) + "probe-timeout")

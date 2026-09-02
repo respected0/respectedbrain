@@ -3,8 +3,19 @@ param([string]$PythonExecutable = $env:RESPECTED_TEST_PYTHON)
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($PythonExecutable)) {
-    $PythonExecutable = "py.exe"
-    $PythonPrefix = @("-3")
+    $PythonCommand = Get-Command py.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($PythonCommand) {
+        $PythonExecutable = $PythonCommand.Source
+        $PythonPrefix = @("-3")
+    }
+    else {
+        $BundledPython = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+        if (-not (Test-Path -LiteralPath $BundledPython -PathType Leaf)) {
+            throw "Python executable not found; pass -PythonExecutable explicitly"
+        }
+        $PythonExecutable = $BundledPython
+        $PythonPrefix = @()
+    }
 }
 else {
     $PythonPrefix = @()
