@@ -13,8 +13,16 @@ import tempfile
 BEYIN_DIR = Path(__file__).resolve().parent
 if str(BEYIN_DIR) not in sys.path:
     sys.path.insert(0, str(BEYIN_DIR))
+SCRIPTS_DIR = BEYIN_DIR.parent / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 
 import runtime_platform
+
+try:
+    from legacy_names import LEGACY_MAP_HEADER
+except ImportError:
+    LEGACY_MAP_HEADER = None
 
 
 COMMAND_CENTER = "🎯 100-Command-Center"
@@ -147,7 +155,10 @@ def _validate_map_target(vault_root: Path, path: Path) -> None:
                 first_line = handle.readline()
         except (OSError, UnicodeError) as error:
             raise ValueError(f"map-collision:{path.name}") from error
-        if first_line != HEADER:
+        generated_headers = {HEADER}
+        if LEGACY_MAP_HEADER is not None:
+            generated_headers.add(LEGACY_MAP_HEADER)
+        if first_line not in generated_headers:
             raise ValueError(f"map-collision:{path.name}")
 
 
