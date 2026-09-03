@@ -12,6 +12,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +47,24 @@ class LifecycleTest(unittest.TestCase):
 
     def tearDown(self):
         self.temporary.cleanup()
+
+    def test_atomic_write_retries_a_transient_replace_denial(self):
+        target = self.state / "counter"
+        real_replace = LIFECYCLE.os.replace
+        calls = 0
+
+        def transient_replace(source, destination):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise PermissionError("transient Windows sharing violation")
+            return real_replace(source, destination)
+
+        with mock.patch.object(LIFECYCLE.os, "replace", side_effect=transient_replace):
+            LIFECYCLE._atomic_write(target, "30\n")
+
+        self.assertEqual(calls, 2)
+        self.assertEqual(target.read_text(encoding="utf-8"), "30\n")
 
     def _write_fixture_memory(self):
         (self.memory / "Last-Session.md").write_text(

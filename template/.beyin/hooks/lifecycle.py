@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from typing import Any, Sequence
 import uuid
 
@@ -59,7 +60,14 @@ def _atomic_write(path: Path, value: str, mode: int = 0o600) -> None:
             handle.write(value)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        for attempt in range(5):
+            try:
+                os.replace(temporary, path)
+                break
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.02 * (attempt + 1))
     except BaseException:
         try:
             os.close(descriptor)
