@@ -95,7 +95,7 @@ class NamingContractTest(unittest.TestCase):
         self.assertIn("https://github.com/respected0/respectedbrain.git", guides["README.md"])
         self.assertIn("cd respectedbrain", guides["README.md"])
         self.assertIn("scripts/update_respected.py", combined)
-        self.assertIn("1.3.0", combined)
+        self.assertIn("1.3.1", combined)
         self.assertIn(".respected/schedule-backups", combined)
         self.assertIn(".respected-brain-yedek", combined)
         self.assertIn("önizleme", combined.casefold())
@@ -171,14 +171,14 @@ class NamingContractTest(unittest.TestCase):
             "." + old_namespace + "/schedule-backups",
         )
 
-    def test_current_manifest_targets_1_3_and_accepts_every_stamped_predecessor(self):
+    def test_current_manifest_targets_1_3_1_and_accepts_every_stamped_predecessor(self):
         manifest = load_manifest()
 
         self.assertIsNotNone(manifest, "scripts/respected_manifest.py is missing")
-        self.assertEqual(manifest.MULTI_VERSION, "1.3.0")
+        self.assertEqual(manifest.MULTI_VERSION, "1.3.1")
         self.assertEqual(
             manifest.UPDATABLE_MULTI_VERSIONS,
-            ("1.0.0", "1.1.0", "1.2.0", "1.3.0"),
+            ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1"),
         )
         self.assertNotIn("scripts/update_respot.py", manifest.RUNTIME)
         self.assertNotIn("scripts/respot_manifest.py", manifest.RUNTIME)

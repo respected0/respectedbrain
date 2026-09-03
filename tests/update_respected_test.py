@@ -161,7 +161,7 @@ class UpdateRespectedTest(unittest.TestCase):
         result = self.run_update("--apply")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.3.0")
+        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.3.1")
         self.assertEqual((self.vault / ".beyin-version").read_text().strip(), "2.0.0")
         self.assertEqual((self.vault / ".beyin/instructions.md").read_bytes(), instruction_before)
         self.assertEqual(self.note.read_bytes(), note_before)
@@ -186,6 +186,11 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(len(backups), 1)
         self.assertEqual((backups[0] / ".beyin/hooks/bridge.py").read_bytes(), self.old_bridge)
         self.assertEqual(self.transaction_directories(), [])
+        self.assertIn("Güncelleme sonrası dış bağlantılar", result.stdout)
+        self.assertIn("install_global.py", result.stdout)
+        self.assertIn("install_briefing_schedule.py", result.stdout)
+        self.assertIn("Ayarlar > Hooks", result.stdout)
+        self.assertIn("/hooks", result.stdout)
 
     def test_unknown_exact_legacy_file_fails_closed_without_mutation(self):
         self.legacy_update.write_bytes(b"user-owned file at an old managed path\n")
@@ -253,7 +258,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertIn("geçersiz vault yolu", result.stdout + result.stderr)
 
     def test_already_current_vault_returns_three_without_mutation(self):
-        (self.vault / ".beyin-multi-version").write_text("1.3.0\n", encoding="utf-8")
+        (self.vault / ".beyin-multi-version").write_text("1.3.1\n", encoding="utf-8")
         before = tree_digest(self.vault)
 
         result = self.run_update("--apply")
@@ -262,6 +267,20 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(tree_digest(self.vault), before)
         self.assertEqual(self.backup_directories(), [])
         self.assertEqual(self.transaction_directories(), [])
+        self.assertIn("Güncelleme sonrası dış bağlantılar", result.stdout)
+        self.assertIn("install_global.py", result.stdout)
+        self.assertIn("install_briefing_schedule.py", result.stdout)
+
+    def test_1_3_0_vault_receives_the_patch_release(self):
+        (self.vault / ".beyin-multi-version").write_text("1.3.0\n", encoding="utf-8")
+
+        result = self.run_update("--apply")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            (self.vault / ".beyin-multi-version").read_text().strip(),
+            "1.3.1",
+        )
 
     def test_unstamped_v1_and_unknown_versions_are_rejected_without_mutation(self):
         cases = (

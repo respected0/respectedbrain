@@ -2,21 +2,21 @@
 
 Bu dosya 2026-09-01 ve 2026-09-02 tarihlerinde bütün dallarıyla incelenen
 `avenoxai/avenoxbeyin` ve forklarından Respected Brain'e uyarlanması planlanan işleri kalıcı
-olarak kaydeder. Buradaki dokuz maddenin ürün kapsamı kullanıcı tarafından onaylanmıştır; maddeler
-**henüz uygulanmış değildir**. `1.3.0` Respected Brain tam yeniden adlandırma/migration sürümüdür;
-bu backlog onun ardından `1.4.0` olarak uygulanacaktır.
+olarak kaydeder. Ürün kapsamı kullanıcı tarafından onaylanmıştır. Modern Codex transcript desteği
+`1.3.1` bugfix sürümünde tamamlandı; kalan maddeler `1.4.0` kapsamında uygulanacaktır.
 
 Doğrudan cherry-pick yapılmayacak. Her davranış Claude, Codex, Cursor ve Antigravity ile çalışan
 ortak runtime'a; Windows native, WSL, Linux ve macOS hedeflerine uyarlanacaktır.
 
 ## Planlanan kapsam: dokuz madde
 
-### 1. Modern Codex transcript desteği
+### 1. Modern Codex transcript desteği — `1.3.1` ile tamamlandı
 
 - Kaynak: `banadabi/fix/flush-summary-normalization-codex-items-20260831` (`857351e`).
 - `event_msg/item_completed` olaylarındaki `UserMessage` ve `AgentMessage` öğeleri ile büyük/küçük
   harf farkı taşıyan `Text` alanları normalize edilecek.
 - Mevcut eski Codex, Claude, Cursor ve Antigravity transcript davranışları gerilemeyecek.
+- Gerçek `event_msg/item_completed` sözleşmesi regresyon testine bağlandı.
 
 ### 2. Güvenli model çıktısı normalizasyonu ve tek şema retry'ı
 
@@ -115,7 +115,7 @@ ortak runtime'a; Windows native, WSL, Linux ve macOS hedeflerine uyarlanacaktır
 
 ## Uygulama sırası
 
-1. **Güvenilirlik katmanı:** 1–4 için önce başarısız testler, sonra en küçük runtime/updater
+1. **Güvenilirlik katmanı:** kalan 2–4 için önce başarısız testler, sonra en küçük runtime/updater
    değişiklikleri.
 2. **Hafıza sürekliliği:** event sözleşmesi, migration ve projection'lar için ayrı tasarım onayı;
    ardından 6. madde.

@@ -222,7 +222,7 @@ class MultiAITest(unittest.TestCase):
         self.assertEqual(codex.argv[-1], "-")
         self.assertNotIn(prompt, agy_text.argv)
         self.assertEqual(agy_text.stdin, prompt)
-        self.assertIn("--print", agy_text.argv)
+        self.assertNotIn("--print", agy_text.argv)
         self.assertIn("--input-format", agy_text.argv)
         self.assertIn("--sandbox", agy_text.argv)
         self.assertNotIn("--mode", agy_text.argv)
@@ -471,6 +471,8 @@ class MultiAITest(unittest.TestCase):
             command = [sys.executable, str(ROOT / "scripts/install_global.py"), str(vault), "--home", str(home), "--providers", "all", "--apply"]
             first = subprocess.run(command, capture_output=True, text=True, check=False)
             self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            self.assertIn("Ayarlar > Hooks", first.stdout)
+            self.assertIn("/hooks", first.stdout)
             self.assertIn("Ada Brain", (home / ".codex/AGENTS.md").read_text(encoding="utf-8"))
             self.assertIn("# Kendi Codex kuralım", (home / ".codex/AGENTS.md").read_text(encoding="utf-8"))
             self.assertIn("existing", (home / ".cursor/hooks.json").read_text(encoding="utf-8"))
@@ -508,20 +510,35 @@ class MultiAITest(unittest.TestCase):
                 "--apply",
             ]
 
-            first = subprocess.run(command, capture_output=True, text=True, check=False)
+            environment = os.environ.copy()
+            environment["HOME"] = str(wsl)
+            first = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                env=environment,
+            )
 
             self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
             self.assertTrue((primary / ".gemini/config/hooks.json").is_file())
             self.assertTrue((wsl / ".gemini/config/hooks.json").is_file())
             self.assertTrue((primary / ".codex/hooks.json").is_file())
             self.assertFalse((wsl / ".codex").exists())
+            self.assertTrue((wsl / ".agents/skills/beyin-doktor/SKILL.md").is_file())
             snapshot = {
                 (home.name, path.relative_to(home)): path.read_bytes()
                 for home in (primary, wsl)
                 for path in home.rglob("*")
                 if path.is_file() and ".respected-backups" not in path.parts
             }
-            second = subprocess.run(command, capture_output=True, text=True, check=False)
+            second = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                env=environment,
+            )
             self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
             repeated = {
                 (home.name, path.relative_to(home)): path.read_bytes()
@@ -530,6 +547,42 @@ class MultiAITest(unittest.TestCase):
                 if path.is_file() and ".respected-backups" not in path.parts
             }
             self.assertEqual(snapshot, repeated)
+
+    def test_windows_wsl_codex_only_syncs_shared_skills_to_runtime_home(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            vault = root / "Ada Brain"
+            shutil.copytree(ROOT / "template", vault)
+            windows_home = root / "windows-user"
+            wsl_home = root / "wsl-user"
+            windows_home.mkdir()
+            wsl_home.mkdir()
+            environment = os.environ.copy()
+            environment["HOME"] = str(wsl_home)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/install_global.py"),
+                    str(vault),
+                    "--home",
+                    str(windows_home),
+                    "--platform",
+                    "windows-wsl",
+                    "--providers",
+                    "codex",
+                    "--apply",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=environment,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue((windows_home / ".codex/hooks.json").is_file())
+            self.assertTrue((wsl_home / ".agents/skills/gecmis-import/SKILL.md").is_file())
+            self.assertFalse((wsl_home / ".codex").exists())
 
     def test_global_installer_multi_home_preview_is_deduplicated_and_read_only(self):
         with tempfile.TemporaryDirectory() as temporary:

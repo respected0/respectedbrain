@@ -419,6 +419,22 @@ def _gate(vault: Path, relatives: tuple[str, ...], *, allow_test_failure: bool =
             raise UpdateError(f"placeholder gate başarısız: {relative}")
 
 
+def _print_external_refresh_guidance() -> None:
+    print("Güncelleme sonrası dış bağlantılar:")
+    print(
+        "  Global bağlantı kullandıysan scripts/install_global.py komutunu önceki "
+        "--home/--providers seçimlerinle önce önizle, sonra --apply ile yenile."
+    )
+    print(
+        "  Sabah brifingi kullanıyorsan scripts/install_briefing_schedule.py komutunu "
+        "önce önizle, sonra --apply ile yenile."
+    )
+    print(
+        "  Codex hook'ları değiştiyse Desktop'ta Ayarlar > Hooks üzerinden veya CLI'da "
+        "/hooks ile yeniden güven."
+    )
+
+
 def update(vault: Path, requested_profile: str, apply: bool) -> int:
     _validate_source()
     _core, current_multi = _validate_target(vault)
@@ -440,6 +456,7 @@ def update(vault: Path, requested_profile: str, apply: bool) -> int:
         return 0
     if current_multi == MULTI_VERSION:
         print("Bu vault zaten güncel.")
+        _print_external_refresh_guidance()
         return 3
 
     stage_container, stage = _create_stage(vault, profile, requested_profile)
@@ -469,6 +486,7 @@ def update(vault: Path, requested_profile: str, apply: bool) -> int:
         shutil.rmtree(stage_container, ignore_errors=True)
 
     print(f"Respected Brain güncellendi: multi-AI {MULTI_VERSION}; yedek: {backup}")
+    _print_external_refresh_guidance()
     return 0
 
 

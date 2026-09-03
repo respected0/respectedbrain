@@ -130,6 +130,20 @@ def _message_parts(record: dict[str, Any]) -> tuple[str | None, Any]:
     return record.get("role") or record.get("type"), record.get("content")
 
 
+def _codex_completed_parts(record: dict[str, Any]) -> tuple[str | None, Any]:
+    if record.get("type") != "event_msg":
+        return None, None
+    payload = record.get("payload")
+    if not isinstance(payload, dict) or payload.get("type") != "item_completed":
+        return None, None
+    item = payload.get("item")
+    if not isinstance(item, dict):
+        return None, None
+    item_type = str(item.get("type", "")).casefold()
+    role = {"usermessage": "user", "agentmessage": "assistant"}.get(item_type)
+    return role, item.get("content")
+
+
 def _text_from_content(content: Any) -> str:
     if isinstance(content, str):
         return content
@@ -142,9 +156,13 @@ def _text_from_content(content: Any) -> str:
 
     text_parts = []
     for block in content:
-        if not isinstance(block, dict) or block.get("type") != "text":
+        if not isinstance(block, dict) or str(block.get("type", "")).casefold() not in {
+            "text",
+            "input_text",
+            "output_text",
+        }:
             continue
-        text = block.get("text")
+        text = block.get("text", block.get("Text"))
         if isinstance(text, str):
             text_parts.append(text)
     return "\n".join(text_parts)
@@ -161,6 +179,7 @@ def _clean_turn_text(role: str, text: str) -> str:
 def read_transcript(path: Path) -> list[tuple[str, str]]:
     """Return only user and assistant text turns from transcript JSONL."""
     turns: list[tuple[str, str]] = []
+    codex_turns: list[tuple[str, str]] = []
     with path.open("r", encoding="utf-8") as transcript:
         for line_number, raw_line in enumerate(transcript, start=1):
             if not raw_line.strip():
@@ -173,6 +192,15 @@ def read_transcript(path: Path) -> list[tuple[str, str]]:
                 ) from exc
             if not isinstance(record, dict):
                 continue
+            codex_role, codex_content = _codex_completed_parts(record)
+            if codex_role in {"user", "assistant"}:
+                codex_text = _text_from_content(codex_content)
+                codex_flattened = re.sub(
+                    r"\s+", " ", _clean_turn_text(codex_role, codex_text)
+                ).strip()
+                if codex_flattened:
+                    codex_turns.append((codex_role, codex_flattened))
+                continue
             role, content = _message_parts(record)
             if role not in {"user", "assistant"}:
                 continue
@@ -180,7 +208,7 @@ def read_transcript(path: Path) -> list[tuple[str, str]]:
             flattened = re.sub(r"\s+", " ", _clean_turn_text(role, text)).strip()
             if flattened:
                 turns.append((role, flattened))
-    return turns
+    return codex_turns or turns
 
 
 def format_turns(

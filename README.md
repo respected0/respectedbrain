@@ -96,6 +96,11 @@ python3 scripts/install_global.py "/mnt/c/Users/KULLANICI/Documents/BenimBeynim"
   --platform windows-wsl --providers all --apply
 ```
 
+`windows-wsl` profilinde Codex'in aktif ortak skill kopyaları çalışan WSL kullanıcısının
+`~/.agents/skills/` dizinine de senkronlanır. Kurulumdan sonra Codex Desktop'ta
+**Ayarlar > Hooks** bölümünden yeni veya değişmiş hook'lara güven; CLI kullanıyorsan aynı işlem
+`/hooks` ekranındadır.
+
 Native Windows PowerShell örneği:
 
 ```powershell
@@ -198,7 +203,7 @@ katmanı tamamlanmadan “güncel” sayılmaz.
 
 Damgasız v1 vault'un native Windows dönüşümü henüz desteklenmez; bu özel durumda doğrulanmış WSL
 `upgrade.sh` yolu kullanılmalıdır. Native Windows, sıfırdan kurulum ve damgalı Respected
-`1.0.0/1.1.0/1.2.0 → 1.3.0` güncellemesi için desteklenir.
+`1.0.0/1.1.0/1.2.0/1.3.0 → 1.3.1` güncellemesi için desteklenir.
 
 Damgalı bir kurulumda önce salt okunur önizleme, sonra açık uygulama adımı kullanılır:
 
@@ -206,6 +211,12 @@ Damgalı bir kurulumda önce salt okunur önizleme, sonra açık uygulama adım�
 python3 scripts/update_respected.py "/mutlak/vault/yolu"
 python3 scripts/update_respected.py "/mutlak/vault/yolu" --apply
 ```
+
+Updater yalnız vault içindeki transaction'ı yönetir. Daha önce global bağlantı veya sabah
+zamanlayıcısı kurduysan güncellemeden sonra bunların kurucularını da önce önizleme, ardından
+`--apply` ile yeniden çalıştır. Böylece global rules/skills güncellenir, eski zamanlayıcı adı
+yeni ada taşınır. Codex hook tanımı değiştiyse Desktop'ta **Ayarlar > Hooks** veya CLI'da
+`/hooks` üzerinden yeniden güven.
 
 Updater staging alanını sistemin geçici dizininde ve vault dışında açar; kişisel notları işlem
 listesine almaz. Yönetilen dosyaların transaction yedeği `~/.respected/update-backups/` altında

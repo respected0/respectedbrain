@@ -142,3 +142,9 @@ sonra atomik receipt gerektirir.
 Sonuç olarak önceki yedi madde korunmuş, iki yeni aday eklenmiştir: opt-in private Git snapshot
 publisher ve Linux CI + provider-neutral fresh-install E2E. Yeniden adlandırma `1.3.0` ayrı
 migration sürümü olduğundan dokuz maddelik upstream kapsamı `1.4.0` olarak planlanır.
+
+## 2026-09-03 bugfix durumu
+
+Modern Codex `event_msg/item_completed` transcript ayrıştırması, Antigravity stdin çağrısı,
+Windows-WSL ortak skill senkronu ve updater sonrası dış entegrasyon yönlendirmesi `1.3.1` yama
+sürümünde tamamlandı. Kalan `1.4.0` özellik kapsamı değişmedi.

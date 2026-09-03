@@ -108,7 +108,6 @@ def _command(provider: str, prompt: str, mode: Mode) -> Invocation | None:
             executable,
             "--new-project",
             "--disable-slash-commands",
-            "--print",
             "--input-format",
             "text",
             "--output-format",

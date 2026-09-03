@@ -225,10 +225,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.
   -Providers antigravity,codex
 ```
 
-Damgalı `2.0.0` / `1.0.0`, `1.1.0` veya `1.2.0` Respected Brain vault'u
-`update_respected.py --platform windows-native` ile `1.3.0` sürümüne çıkar. Damgasız v1'in native
+Damgalı `2.0.0` / `1.0.0`, `1.1.0`, `1.2.0` veya `1.3.0` Respected Brain vault'u
+`update_respected.py --platform windows-native` ile `1.3.1` sürümüne çıkar. Damgasız v1'in native
 dönüşümü henüz yoktur; o işlem WSL'deki
-`upgrade.sh` ile yapılır. `1.3.0`; ortak Python lifecycle, üç profil, sistem temp compile staging,
+`upgrade.sh` ile yapılır. `1.3.1`; ortak Python lifecycle, üç profil, sistem temp compile staging,
 Vault/Skills Map, sabah brifingi, onaylı scheduler kurulumu ve bakım skill'lerini kapsar.
 Restic/DPAPI yedeklemesi ayrı sonraki projedir.
 

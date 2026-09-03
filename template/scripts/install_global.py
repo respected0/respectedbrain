@@ -344,7 +344,10 @@ def main() -> int:
         action="append",
         default=[],
         type=Path,
-        help="yalnız Antigravity kurulacak ek kullanıcı kökü; birden fazla verilebilir",
+        help=(
+            "Antigravity kurulacak ek kullanıcı kökü; windows-wsl profilinde Codex'in "
+            "ortak .agents/skills kopyası da buraya yazılır; birden fazla verilebilir"
+        ),
     )
     parser.add_argument("--providers", default="all", help="all veya virgülle: antigravity,codex,cursor,claude")
     parser.add_argument("--platform", choices=tuple(DEFAULT_PYTHON_COMMANDS), default="portable")
@@ -367,6 +370,15 @@ def main() -> int:
         if resolved not in seen_homes:
             homes.append((resolved, ("antigravity",)))
             seen_homes.add(resolved)
+    shared_skill_homes: set[Path] = set()
+    if args.platform == "windows-wsl" and "codex" in providers:
+        candidates = [Path.home(), *args.antigravity_home]
+        for candidate in candidates:
+            resolved = candidate.expanduser().resolve()
+            shared_skill_homes.add(resolved)
+            if resolved not in seen_homes:
+                homes.append((resolved, ()))
+                seen_homes.add(resolved)
     for target_home, _target_providers in homes:
         if not target_home.is_dir():
             parser.error(f"kullanıcı kökü bulunamadı: {target_home}")
@@ -375,6 +387,8 @@ def main() -> int:
     try:
         for target_home, target_providers in homes:
             writes, _touched = build(vault, target_home, target_providers, args.platform)
+            if target_home in shared_skill_homes and target_home != home:
+                writes += copy_skills(vault, [target_home / ".agents/skills"])
             legacy_backup_root = target_home / LEGACY_GLOBAL_BACKUP_ROOT
             current_backup_root = target_home / ".respected-backups"
             plans.append(
@@ -424,6 +438,11 @@ def main() -> int:
             print(f"Global bağlantı kuruldu ({target_home}); yedek: {backup}")
         else:
             print(f"Global bağlantı zaten güncel ({target_home}); dosya ve yedek değişmedi.")
+    if "codex" in providers:
+        print(
+            "Codex hook'larını Desktop'ta Ayarlar > Hooks üzerinden veya CLI'da "
+            "/hooks ile inceleyip güven."
+        )
     return 0
 
 

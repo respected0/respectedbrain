@@ -206,7 +206,7 @@ yönetim bloğu idempotent birleştirilir ve değişen dosyalar yedeklenir.
 
 `install-windows.ps1`, hedefe dokunmadan önce gerçek Python 3, Git ve kullanıcı tarafından seçilen
 provider CLI'larını çalıştırarak doğrular. Claude zorunlu değildir. Dolu hedef exit `3` ile aynen
-korunur; temiz hedef `windows-native` profiliyle `2.0.0` / `1.3.0` damgalanır. Mevcut damgalı
+korunur; temiz hedef `windows-native` profiliyle `2.0.0` / `1.3.1` damgalanır. Mevcut damgalı
 Respected vault `update_respected.py --platform windows-native` ile transactional güncellenir. Damgasız
 v1 native dönüşümü reddedilir ve WSL upgrade yolu kullanılır.
 
@@ -263,7 +263,7 @@ atlayamaz.
 - Vault adı: kullanıcı seçer; `respectedOS` zorunlu değildir.
 - Companion adı: kullanıcı seçer; `Respected` zorunlu değildir.
 - Çekirdek damgası: `.beyin-version = 2.0.0`
-- Multi-AI damgası: `.beyin-multi-version = 1.3.0`
+- Multi-AI damgası: `.beyin-multi-version = 1.3.1`
 - Sabit iç hafıza yolu: `🔮 850-Companion/`
 
 Orijinal proje ve Avenox atfı korunur; bağımsız projenin kurulum adresi

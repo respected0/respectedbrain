@@ -166,7 +166,7 @@ düzeltmeler ve ertelenen fikirler `docs/UPSTREAM-SYNC.md` ile
   Antigravity kotasını kullanması için `agy` CLI kurulu ve oturum açmış olmalıdır; yalnız IDE
   kuruluysa sistem kullanılabilir başka CLI'a geçer.
 - Cursor kotasını kullanmak için `cursor-agent` CLI kurulu ve oturum açmış olmalıdır.
-- Multi-AI `1.3.0`, ortak Python lifecycle, görünür otomatik haritalar, provider-neutral sabah
+- Multi-AI `1.3.1`, ortak Python lifecycle, görünür otomatik haritalar, provider-neutral sabah
   brifingi, portable lock/process katmanı, üç deterministik profil,
   transactional updater ve native Windows installer anlamına gelir. Genişletilmiş doctor/event log,
   Restic/DPAPI yedekleme ve damgasız v1'in native migrasyonu sonraki ayrı projelerdir.

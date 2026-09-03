@@ -402,6 +402,60 @@ print("loaded")
             [("user", "Gerçek kullanıcı isteği"), ("assistant", "Gerçek model yanıtı")],
         )
 
+    def test_modern_codex_item_completed_transcript_is_extracted_without_hidden_context(self) -> None:
+        transcript = self.root / "codex-modern.jsonl"
+        records = [
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": "<recommended_plugins>gizli bağlam"}
+                    ],
+                },
+            },
+            {
+                "type": "event_msg",
+                "payload": {
+                    "type": "item_completed",
+                    "item": {
+                        "type": "UserMessage",
+                        "content": [{"type": "text", "text": "Gerçek Codex isteği"}],
+                    },
+                },
+            },
+            {
+                "type": "event_msg",
+                "payload": {
+                    "type": "item_completed",
+                    "item": {
+                        "type": "CommandExecution",
+                        "content": [{"type": "Text", "text": "araç çıktısı"}],
+                    },
+                },
+            },
+            {
+                "type": "event_msg",
+                "payload": {
+                    "type": "item_completed",
+                    "item": {
+                        "type": "AgentMessage",
+                        "content": [{"type": "Text", "text": "Gerçek Codex yanıtı"}],
+                    },
+                },
+            },
+        ]
+        transcript.write_text(
+            "\n".join(json.dumps(record) for record in records) + "\n",
+            encoding="utf-8",
+        )
+
+        self.assertEqual(
+            FLUSH.read_transcript(transcript),
+            [("user", "Gerçek Codex isteği"), ("assistant", "Gerçek Codex yanıtı")],
+        )
+
     def test_flush_bos_appends_nothing_and_records_success(self) -> None:
         transcript = self._write_transcript([("user", "yalnızca selam")])
         hook = self._write_hook("bos-session", transcript)

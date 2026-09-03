@@ -4,6 +4,8 @@ Bu dosya alınan ürün kararlarını ve yayın durumunu kaydeder. Aşağıdaki 
 sürümünde uygulanmıştır. Respected Brain tam yeniden adlandırma ve kayıpsız migration sınırı
 `1.3.0` sürümüdür. Sonraki onaylı çalışmalar
 [`UPSTREAM-ADOPTION-BACKLOG.md`](UPSTREAM-ADOPTION-BACKLOG.md) dosyasında tutulur.
+Modern Codex transcript uyumluluğu ve Windows/WSL güvenilirlik düzeltmeleri `1.3.1` yama
+sürümünde yayınlanmıştır; `1.4.0` özellik kapsamı ayrı kalır.
 
 ## Seçilen geliştirmeler
 
