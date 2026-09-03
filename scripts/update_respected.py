@@ -36,6 +36,17 @@ DEFAULT_COMMANDS = {
     "windows-wsl": ["python3"],
     "windows-native": ["py.exe", "-3"],
 }
+
+
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting an otherwise successful update."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
 SUMMARY_PROVIDERS = {"auto", "claude", "codex", "cursor", "antigravity"}
 CURRENT_TOOL_FILES = ("scripts/update_respected.py", "scripts/respected_manifest.py")
 LEGACY_TOOL_FILES = (LEGACY_UPDATE_SCRIPT, LEGACY_MANIFEST_SCRIPT)

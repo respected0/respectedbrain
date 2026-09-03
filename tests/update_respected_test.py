@@ -271,6 +271,31 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertIn("install_global.py", result.stdout)
         self.assertIn("install_briefing_schedule.py", result.stdout)
 
+    def test_post_update_guidance_survives_a_cp1252_windows_console(self):
+        (self.vault / ".beyin-multi-version").write_text("1.3.1\n", encoding="utf-8")
+        environment = os.environ.copy()
+        environment["HOME"] = str(self.home)
+        environment["USERPROFILE"] = str(self.home)
+        environment["PYTHONIOENCODING"] = "cp1252"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(UPDATER),
+                str(self.vault),
+                "--platform",
+                "portable",
+                "--apply",
+            ],
+            cwd=ROOT,
+            env=environment,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertIn(b"install_global.py", result.stdout)
+
     def test_1_3_0_vault_receives_the_patch_release(self):
         (self.vault / ".beyin-multi-version").write_text("1.3.0\n", encoding="utf-8")
 
