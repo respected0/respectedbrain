@@ -345,6 +345,12 @@ def _write_flush_state(
         _atomic_write_json(state_dir / "last-flush.json", payload)
     except OSError:
         write_health(state_dir, "last-flush-compat-write-failed")
+    if status == "ok":
+        try:
+            (state_dir / "health.json").unlink(missing_ok=True)
+            (state_dir / "health.warning.json").unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _record_flush_failure(
