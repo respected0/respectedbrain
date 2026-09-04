@@ -106,23 +106,27 @@ def _command(provider: str, prompt: str, mode: Mode) -> Invocation | None:
             return None
         argv = [
             executable,
-            "--new-project",
             "--disable-slash-commands",
-            "--input-format",
-            "text",
-            "--output-format",
-            "text",
-            "--sandbox",
         ]
         if mode == "workspace":
-            argv[2:2] = [
+            argv.extend([
                 "--add-dir",
                 ".",
                 "--mode",
                 "accept-edits",
-                "--dangerously-skip-permissions",
-            ]
-        return Invocation(argv, prompt, _windows_executable(executable))
+            ])
+        else:
+            argv.append("--sandbox")
+        argv.extend([
+            "--input-format",
+            "text",
+            "--output-format",
+            "text",
+            "--dangerously-skip-permissions",
+            "--print",
+            prompt,
+        ])
+        return Invocation(argv, None, _windows_executable(executable))
     if provider == "cursor":
         executable = shutil.which("cursor-agent") or shutil.which("cursor-agent.exe")
         if executable is None:
@@ -135,8 +139,12 @@ def _command(provider: str, prompt: str, mode: Mode) -> Invocation | None:
     return None
 
 
-def _merge_wslenv(value: str, path_names: tuple[str, ...]) -> str:
-    targeted = {name.casefold() for name in path_names}
+def _merge_wslenv(
+    value: str,
+    path_names: tuple[str, ...],
+    scalar_names: tuple[str, ...] = (),
+) -> str:
+    targeted = {name.casefold() for name in path_names + scalar_names}
     kept = []
     for entry in value.split(":"):
         if not entry:
@@ -145,6 +153,7 @@ def _merge_wslenv(value: str, path_names: tuple[str, ...]) -> str:
         if base not in targeted:
             kept.append(entry)
     kept.extend(f"{name}/p" for name in path_names)
+    kept.extend(scalar_names)
     return ":".join(kept)
 
 
@@ -159,10 +168,14 @@ def _windows_user_environment(environment: dict[str, str], cwd: Path) -> None:
     environment["USERPROFILE"] = str(user_root)
     environment["LOCALAPPDATA"] = str(user_root / "AppData" / "Local")
     environment["APPDATA"] = str(user_root / "AppData" / "Roaming")
-    names = ("USERPROFILE", "LOCALAPPDATA", "APPDATA")
+    environment["BEYIN_INVOKED_BY"] = environment.get("BEYIN_INVOKED_BY", "beyin-scripts")
+    environment["BEYIN_RECURSION_DEPTH"] = environment.get("BEYIN_RECURSION_DEPTH", "1")
+    path_names = ("USERPROFILE", "LOCALAPPDATA", "APPDATA")
+    scalar_names = ("BEYIN_INVOKED_BY", "BEYIN_RECURSION_DEPTH")
     environment["WSLENV"] = _merge_wslenv(
         environment.get("WSLENV", ""),
-        names,
+        path_names,
+        scalar_names,
     )
 
 
@@ -185,10 +198,17 @@ def run_model(
     preferred: str | None = None,
 ) -> tuple[str | None, str | None, str | None]:
     """Return (stdout, error, provider); never invoke through a shell."""
+    try:
+        depth = int(os.environ.get("BEYIN_RECURSION_DEPTH", "0"))
+    except ValueError:
+        depth = 0
+    if depth >= 2:
+        return None, "recursion-depth-exceeded", None
     custom = os.environ.get("BEYIN_LLM_COMMAND")
     candidates = ["custom"] if custom else _available(preferred)
     environment = os.environ.copy()
     environment["BEYIN_INVOKED_BY"] = "beyin-scripts"
+    environment["BEYIN_RECURSION_DEPTH"] = str(depth + 1)
 
     last_error: tuple[str, str] | None = None
     for provider in candidates:
@@ -209,15 +229,20 @@ def run_model(
             if invocation is None:
                 continue
         process_environment = environment.copy()
+        run_cwd = cwd
         if invocation.windows_executable:
             _windows_user_environment(process_environment, cwd)
+            if runtime_platform.windows_user_root(cwd) is None:
+                fallback_parent = runtime_platform.external_temp_parent(Path(__file__).resolve())
+                if fallback_parent is not None and fallback_parent.is_dir():
+                    run_cwd = fallback_parent
         try:
             result = subprocess.run(
                 invocation.argv,
                 input=invocation.stdin,
                 text=True,
                 capture_output=True,
-                cwd=cwd,
+                cwd=run_cwd,
                 env=process_environment,
                 timeout=timeout,
                 check=False,

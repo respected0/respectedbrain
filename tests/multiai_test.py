@@ -202,7 +202,7 @@ class MultiAITest(unittest.TestCase):
         )
         self.assertIsNone(invocation.stdin)
 
-    def test_runner_keeps_codex_and_antigravity_prompts_on_stdin(self):
+    def test_runner_keeps_codex_prompts_on_stdin_and_passes_antigravity_on_argv(self):
         runner = load("model_runner_stdin", ROOT / "template/.beyin/model_runner.py")
         prompt = "ö" * 100_000
 
@@ -220,14 +220,15 @@ class MultiAITest(unittest.TestCase):
         self.assertNotIn(prompt, codex.argv)
         self.assertEqual(codex.stdin, prompt)
         self.assertEqual(codex.argv[-1], "-")
-        self.assertNotIn(prompt, agy_text.argv)
-        self.assertEqual(agy_text.stdin, prompt)
-        self.assertNotIn("--print", agy_text.argv)
+        self.assertIsNone(agy_text.stdin)
+        self.assertEqual(agy_text.argv[-2:], ["--print", prompt])
+        self.assertEqual(agy_workspace.argv[-2:], ["--print", prompt])
         self.assertIn("--input-format", agy_text.argv)
         self.assertIn("--sandbox", agy_text.argv)
         self.assertNotIn("--mode", agy_text.argv)
         self.assertIn("--mode", agy_workspace.argv)
         self.assertIn("accept-edits", agy_workspace.argv)
+        self.assertIn("--dangerously-skip-permissions", agy_text.argv)
         self.assertIn("--dangerously-skip-permissions", agy_workspace.argv)
         self.assertTrue(agy_workspace.windows_executable)
 

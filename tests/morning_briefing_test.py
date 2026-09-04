@@ -10,6 +10,7 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,6 +109,16 @@ class MorningBriefingTest(unittest.TestCase):
         dashboard = (self.vault / "🎯 100-Command-Center/Dashboard.md").read_text(encoding="utf-8")
         self.assertIn("Kullanıcı içeriği.", dashboard)
         self.assertIn("[[Briefings/2026-08-31|Bugünün Brifingi]]", dashboard)
+
+    def test_temporary_directory_uses_external_temp_parent_when_present(self):
+        worker = load_worker()
+        target = self.vault / "external-temp"
+        with patch.object(
+            worker.runtime_platform, "external_temp_parent", return_value=target
+        ):
+            kwargs = worker._temporary_directory_kwargs(self.vault)
+        self.assertEqual(kwargs, {"dir": target})
+        self.assertTrue(target.is_dir())
 
     def test_success_replaces_one_legacy_dashboard_block_with_current_markers(self):
         worker = load_worker()

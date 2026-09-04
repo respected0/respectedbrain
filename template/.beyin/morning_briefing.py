@@ -183,10 +183,36 @@ def _update_dashboard(path: Path, day: str) -> None:
     _atomic_write(path, updated)
 
 
+def _run_morning_compile(vault_root: Path) -> None:
+    compile_script = vault_root / ".claude" / "scripts" / "compile.py"
+    if not compile_script.is_file():
+        return
+    try:
+        subprocess.run(
+            [sys.executable, str(compile_script)],
+            cwd=vault_root,
+            capture_output=True,
+            timeout=300,
+            check=False,
+            **runtime_platform.detached_process_options() if os.name == "nt" else {},
+        )
+    except Exception:
+        pass
+
+
+def _temporary_directory_kwargs(vault_root: Path) -> dict[str, Path]:
+    parent = runtime_platform.external_temp_parent(vault_root)
+    if parent is None:
+        return {}
+    parent.mkdir(parents=True, exist_ok=True)
+    return {"dir": parent}
+
+
 def run_if_due(
     vault_root: Path,
     now: datetime | None = None,
     model_call: ModelCall | None = None,
+    compile_call: Callable[[Path], None] | None = None,
 ) -> bool:
     current = now or datetime.now().astimezone()
     if current.hour < 8:
@@ -212,9 +238,17 @@ def run_if_due(
         with runtime_platform.exclusive_lock(lock_handle, blocking=False) as held:
             if not held or final.is_file():
                 return False
+            compiler = compile_call or _run_morning_compile
+            try:
+                compiler(root)
+            except Exception:
+                pass
             runner = model_call or _default_model
             try:
-                with tempfile.TemporaryDirectory(prefix="respected-briefing-") as temporary:
+                with tempfile.TemporaryDirectory(
+                    prefix="respected-briefing-",
+                    **_temporary_directory_kwargs(root),
+                ) as temporary:
                     temporary_path = Path(temporary).resolve()
                     if runtime_platform.path_within_vault(temporary_path, root):
                         raise ValueError("briefing-temp-inside-vault")
@@ -244,6 +278,12 @@ def run_if_due(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    try:
+        depth = int(os.environ.get("BEYIN_RECURSION_DEPTH", "0"))
+    except ValueError:
+        depth = 0
+    if os.environ.get("BEYIN_INVOKED_BY") or depth >= 1:
+        return 0
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--if-due", action="store_true", required=True)
     parser.add_argument("--vault-root", type=Path, default=Path(__file__).resolve().parent.parent)

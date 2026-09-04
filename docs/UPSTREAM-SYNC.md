@@ -25,12 +25,10 @@ katmanına uyarlamak ve sonraki incelemede aynı analizi tekrarlamamaktır.
 
 ### Bu turda alınan davranış
 
-- SessionEnd sonrası başarılı compile, `compile-trigger-YYYY-MM-DD` claim'ini mutlaka bırakır.
 - SessionStart bağlam çıktısından sonra ayrık `--maybe-compile` catch-up çağrısı yapar.
-- Catch-up yalnız tamamlanmış önceki günleri seçer; bugünün daily dosyası `--before-date` ile dışarıda
-  kalır. Bu sınır SessionStart saat 18:00'den sonra açılsa bile korunur; upstream patchindeki saat
-  koşulu Respected'ta bu köşe durumuna göre sıkılaştırıldı.
-- Saat 18:00 sonrası normal SessionEnd davranışı değişmez.
+- Catch-up yalnız tamamlanmış önceki günleri seçer; bugünün daily dosyası `--before-date` ile dışarıda kalır.
+- Akşam 18:00 derlemesi tamamen kaldırıldı; derleme sabah 08:00 morning_briefing pipeline'ına bağlandı.
+- SessionEnd oturum kapanışında doğrudan compile tetiklemez.
 - Model çalıştırma hâlâ provider-neutral `model_runner.py` üzerinden yapılır.
 
 ### Provider-neutral native Windows temeli

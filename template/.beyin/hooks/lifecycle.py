@@ -402,6 +402,18 @@ def _finish_session(
     return ""
 
 
+def _is_reentrant() -> bool:
+    if os.environ.get("BEYIN_INVOKED_BY"):
+        return True
+    try:
+        depth = int(os.environ.get("BEYIN_RECURSION_DEPTH", "0"))
+        if depth >= 1:
+            return True
+    except ValueError:
+        return True
+    return False
+
+
 def handle(
     event: str,
     payload: dict[str, Any],
@@ -413,6 +425,9 @@ def handle(
     vault = Path(vault_root)
     state_dir = _state_dir(vault)
     state_dir.mkdir(parents=True, exist_ok=True)
+    if _is_reentrant():
+        _record_health(state_dir, event, "warn:reentrant-hook-ignored", current)
+        return ""
     session_id = payload.get("session_id") if isinstance(payload, dict) else None
     if not isinstance(session_id, str) or not session_id:
         _record_health(state_dir, event, "missing-session-id", current)
@@ -431,6 +446,30 @@ def handle(
     except (OSError, UnicodeError, ValueError) as error:
         _record_health(state_dir, event, f"{type(error).__name__}: {error}", current)
     return ""
+
+
+EVENT_NAME_MAP = {
+    "sessionstart": "start",
+    "userpromptsubmit": "prompt",
+    "sessionend": "end",
+    "precompact": "precompact",
+    "beforesubmitprompt": "prompt",
+    "preinvocation": "start",
+    "stop": "end",
+}
+
+
+def handle_event(
+    vault_root: Path,
+    provider: str,
+    event_name: str,
+    payload: dict[str, Any],
+    now: datetime | None = None,
+) -> tuple[int, str]:
+    """Provider-agnostic entrypoint mapping native event names to core lifecycle."""
+    event = EVENT_NAME_MAP.get(event_name.casefold(), event_name.lower())
+    context = handle(event, payload, vault_root, provider, now)
+    return 0, context
 
 
 def main(argv: Sequence[str] | None = None) -> int:

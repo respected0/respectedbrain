@@ -285,7 +285,7 @@ test_stamp_only_finalize() {
   assert_file "$vault/.beyin-version" || return 1
   stamp=$(sed -n '1p' "$vault/.beyin-version")
   assert_eq 2.0.0 "$stamp" "sürüm damgası yanlış" || return 1
-  assert_eq 1.3.1 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
+  assert_eq 1.3.2 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
     "Respected multi-AI damgası yanlış" || return 1
 }
 
@@ -316,7 +316,7 @@ test_fresh_shell_chain() {
       || { diag "v2 scripti kaynakla aynı değil: $script"; return 1; }
   done
   assert_eq 2.0.0 "$(sed -n '1p' "$vault/.beyin-version")" "taze shell zinciri damgası" || return 1
-  assert_eq 1.3.1 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
+  assert_eq 1.3.2 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
     "taze shell Respected multi-AI damgası" || return 1
   for file in AGENTS.md .beyin/instructions.md .beyin/model_runner.py .beyin/config.json \
               .agents/hooks.json .codex/hooks.json .cursor/hooks.json; do
@@ -357,7 +357,7 @@ test_already_v2() {
   vault="$case_dir/vault"
   make_v1_vault "$vault" --clean-local
   printf '2.0.0\n' > "$vault/.beyin-version"
-  printf '1.3.1\n' > "$vault/.beyin-multi-version"
+  printf '1.3.2\n' > "$vault/.beyin-multi-version"
   before=$(tree_digest "$vault")
   run_upgrade "$case_dir" "$case_dir/apply.out" --vault "$vault" --stage apply
   assert_eq 3 "$RUN_STATUS" "zaten v2 vault apply çıkışı" || return 1
@@ -378,7 +378,7 @@ test_core_only_v2_completes_respected_upgrade() {
   assert_no_file "$vault/.beyin-multi-version" || return 1
   run_upgrade "$case_dir" "$case_dir/finalize.out" --vault "$vault" --stage finalize
   assert_eq 0 "$RUN_STATUS" "yalnız v2 çekirdekten Respected finalize başarısız" || return 1
-  assert_eq 1.3.1 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
+  assert_eq 1.3.2 "$(sed -n '1p' "$vault/.beyin-multi-version")" \
     "çekirdek-only vault Respected damgası almadı" || return 1
   assert_file "$vault/AGENTS.md" || return 1
   assert_file "$vault/.agents/hooks.json" || return 1

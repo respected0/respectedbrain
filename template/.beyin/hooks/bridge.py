@@ -181,12 +181,14 @@ def inside_vault(active: str) -> bool:
     return True
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
+    if LIFECYCLE._is_reentrant():
+        return 0
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--provider", choices=("claude", "codex", "cursor", "antigravity"), required=True)
     parser.add_argument("--event", choices=EVENTS, required=True)
     parser.add_argument("--global-hook", action="store_true", help="vault dışındaki repolar için kullanıcı düzeyi hook")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     payload = normalize(args.provider, load_input())
 
     if args.global_hook:

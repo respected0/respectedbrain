@@ -90,7 +90,7 @@ f=".claude/scripts/.state/compile-state.json"; if [ -f "$f" ]; then m=$(stat -f 
 ```
 
 🟢 `last_run` 48 saatten yeni ve `last_status` `ok`. 🟡 state yok ama vault yeni kurulmuş veya
-henüz akşam 18:00 olmamış. 🔴 `last_status` `fail:` ile başlıyor veya 48 saatten eski.
+henüz sabah 08:00 olmamış. 🔴 `last_status` `fail:` ile başlıyor veya 48 saatten eski.
 Düzeltme: elle bir tur çalıştır ve hatayı gör: `python3 .claude/scripts/compile.py --dry-run`,
 sonra `python3 .claude/scripts/compile.py`.
 

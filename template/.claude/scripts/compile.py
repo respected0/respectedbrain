@@ -808,7 +808,11 @@ def _run_locked(args: argparse.Namespace, trigger_claim: Path | None) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    if os.environ.get("BEYIN_INVOKED_BY"):
+    try:
+        depth = int(os.environ.get("BEYIN_RECURSION_DEPTH", "0"))
+    except ValueError:
+        depth = 0
+    if os.environ.get("BEYIN_INVOKED_BY") or depth >= 1:
         return 0
 
     try:

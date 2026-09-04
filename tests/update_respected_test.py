@@ -161,7 +161,7 @@ class UpdateRespectedTest(unittest.TestCase):
         result = self.run_update("--apply")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.3.1")
+        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.3.2")
         self.assertEqual((self.vault / ".beyin-version").read_text().strip(), "2.0.0")
         self.assertEqual((self.vault / ".beyin/instructions.md").read_bytes(), instruction_before)
         self.assertEqual(self.note.read_bytes(), note_before)
@@ -176,6 +176,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertTrue((self.vault / "scripts/install_briefing_schedule.py").is_file())
         self.assertTrue((self.vault / "scripts/update_respected.py").is_file())
         self.assertTrue((self.vault / "scripts/respected_manifest.py").is_file())
+        self.assertTrue((self.vault / "scripts/repair_daily.py").is_file())
         self.assertFalse(self.legacy_update.exists())
         self.assertFalse(self.legacy_manifest.exists())
         self.assertEqual(self.similarly_named_user_file.read_bytes(), b"user-owned helper\n")
@@ -258,7 +259,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertIn("geçersiz vault yolu", result.stdout + result.stderr)
 
     def test_already_current_vault_returns_three_without_mutation(self):
-        (self.vault / ".beyin-multi-version").write_text("1.3.1\n", encoding="utf-8")
+        (self.vault / ".beyin-multi-version").write_text("1.3.2\n", encoding="utf-8")
         before = tree_digest(self.vault)
 
         result = self.run_update("--apply")
@@ -272,7 +273,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertIn("install_briefing_schedule.py", result.stdout)
 
     def test_post_update_guidance_survives_a_cp1252_windows_console(self):
-        (self.vault / ".beyin-multi-version").write_text("1.3.1\n", encoding="utf-8")
+        (self.vault / ".beyin-multi-version").write_text("1.3.2\n", encoding="utf-8")
         environment = os.environ.copy()
         environment["HOME"] = str(self.home)
         environment["USERPROFILE"] = str(self.home)
@@ -304,7 +305,18 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.3.1",
+            "1.3.2",
+        )
+
+    def test_1_3_1_vault_receives_the_patch_release(self):
+        (self.vault / ".beyin-multi-version").write_text("1.3.1\n", encoding="utf-8")
+
+        result = self.run_update("--apply")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            (self.vault / ".beyin-multi-version").read_text().strip(),
+            "1.3.2",
         )
 
     def test_unstamped_v1_and_unknown_versions_are_rejected_without_mutation(self):

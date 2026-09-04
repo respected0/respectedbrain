@@ -138,12 +138,11 @@ export BEYIN_LLM_COMMAND="yerel-model-komutum --text"
 Dosyalar yerelde kalır; özetlenecek konuşma seçilen CLI'ın modeline gider. Derleme yine izole
 staging klasöründe yapılır ve yalnızca izin verilen `knowledge/` dosyaları vault'a taşınır.
 
-### “Gece derleme” gerçekte ne demek?
+### “Bilgi derleme” gerçekte ne zaman çalışır?
 
-Sistem saat 18:00 için alarm veya görev kurmaz ve ChatGPT/Antigravity penceresi açmaz. Her oturum
-kapanışında önce konuşma `daily/YYYY-MM-DD.md` dosyasına özetlenir. Bu kapanış yerel saate göre
-18:00'den sonraysa ve derlenmemiş günlük varsa aynı arka plan süreci headless CLI ile
-`knowledge/` derlemesini başlatır. O akşam 18:00'den sonra hiç oturum kapatmazsan sonraki agent
+Sistem pencere veya alarm açmaz. Her oturum kapanışında konuşma `daily/YYYY-MM-DD.md` dosyasına
+sessizce özetlenir. Bilgi derlemesi (`compile.py`) sabah 08:00 zamanlayıcısında sabah brifingi
+öncesinde dünün ve önceki günlerin loglarını işler. Kaçırılan günler varsa sonraki agent
 başlangıcı tamamlanmış önceki günleri catch-up olarak derler; içinde bulunulan günün hâlâ değişen
 daily dosyasını erken derlemez.
 
@@ -166,7 +165,7 @@ düzeltmeler ve ertelenen fikirler `docs/UPSTREAM-SYNC.md` ile
   Antigravity kotasını kullanması için `agy` CLI kurulu ve oturum açmış olmalıdır; yalnız IDE
   kuruluysa sistem kullanılabilir başka CLI'a geçer.
 - Cursor kotasını kullanmak için `cursor-agent` CLI kurulu ve oturum açmış olmalıdır.
-- Multi-AI `1.3.1`, ortak Python lifecycle, görünür otomatik haritalar, provider-neutral sabah
+- Multi-AI `1.3.2`, ortak Python lifecycle, görünür otomatik haritalar, provider-neutral sabah
   brifingi, portable lock/process katmanı, üç deterministik profil,
   transactional updater ve native Windows installer anlamına gelir. Genişletilmiş doctor/event log,
   Restic/DPAPI yedekleme ve damgasız v1'in native migrasyonu sonraki ayrı projelerdir.

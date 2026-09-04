@@ -619,51 +619,59 @@ print("loaded")
             launches.append((args, kwargs))
             return object()
 
-        os.environ["BEYIN_FAKE_HOUR"] = "19"
-        try:
-            unchanged = FLUSH.maybe_trigger_compile(
+        # Scheduled compile is completely abolished from flush (morning_briefing owns 08:00 compile)
+        self.assertFalse(
+            FLUSH.maybe_trigger_compile(
                 self.vault,
-                dt.datetime(2026, 8, 22, 19, 0),
+                dt.datetime(2026, 8, 23, 19, 0),
                 fake_popen,
+                catch_up=False,
             )
-            self.assertFalse(unchanged)
-            daily_path.write_text("değişti", encoding="utf-8")
-            claimed = FLUSH.maybe_trigger_compile(
-                self.vault,
-                dt.datetime(2026, 8, 22, 19, 0),
-                fake_popen,
-            )
-            claimed_twice = FLUSH.maybe_trigger_compile(
-                self.vault,
-                dt.datetime(2026, 8, 22, 19, 1),
-                fake_popen,
-            )
-        finally:
-            os.environ.pop("BEYIN_FAKE_HOUR", None)
+        )
+
+        current = dt.datetime(2026, 8, 23, 10, 0)
+        unchanged = FLUSH.maybe_trigger_compile(
+            self.vault,
+            current,
+            fake_popen,
+            catch_up=True,
+        )
+        self.assertFalse(unchanged)
+        daily_path.write_text("değişti", encoding="utf-8")
+        claimed = FLUSH.maybe_trigger_compile(
+            self.vault,
+            current,
+            fake_popen,
+            catch_up=True,
+        )
+        claimed_twice = FLUSH.maybe_trigger_compile(
+            self.vault,
+            current,
+            fake_popen,
+            catch_up=True,
+        )
 
         self.assertTrue(claimed)
         self.assertFalse(claimed_twice)
         self.assertEqual(len(launches), 1)
         launch_argv = launches[0][0][0]
         self.assertIn("--trigger-claim", launch_argv)
+        self.assertIn("--before-date", launch_argv)
         self.assertNotIn("BEYIN_INVOKED_BY", launches[0][1]["env"])
 
-        first_claim = self.state / "compile-trigger-2026-08-22"
+        first_claim = self.state / "compile-trigger-2026-08-23"
         first_claim.unlink()
 
         def failed_popen(*_args, **_kwargs):
             raise OSError("spawn failed")
 
-        os.environ["BEYIN_FAKE_HOUR"] = "19"
-        try:
-            with self.assertRaises(OSError):
-                FLUSH.maybe_trigger_compile(
-                    self.vault,
-                    dt.datetime(2026, 8, 23, 19, 0),
-                    failed_popen,
-                )
-        finally:
-            os.environ.pop("BEYIN_FAKE_HOUR", None)
+        with self.assertRaises(OSError):
+            FLUSH.maybe_trigger_compile(
+                self.vault,
+                current,
+                failed_popen,
+                catch_up=True,
+            )
         self.assertFalse(
             (self.state / "compile-trigger-2026-08-23").exists()
         )

@@ -39,7 +39,10 @@ function Resolve-TestableCommand([string]$Name, [bool]$ProviderOnly = $false) {
             return $null
         }
     }
-    $Resolved = Get-Command $Name -ErrorAction SilentlyContinue | Select-Object -First 1
+    $Resolved = Get-Command $Name -All -ErrorAction SilentlyContinue | Where-Object {
+        $Source = $_.Source
+        $null -ne $Source -and -not $Source.ToLowerInvariant().Contains("\windowsapps\")
+    } | Select-Object -First 1
     if ($null -eq $Resolved) {
         return $null
     }
@@ -116,6 +119,13 @@ function Find-Python {
         $Candidates += ,@((Resolve-TestableCommand "py"), @("-3"))
         $Candidates += ,@((Resolve-TestableCommand "python"), @())
         $Candidates += ,@((Resolve-TestableCommand "python3"), @())
+        if ($env:LOCALAPPDATA) {
+            $Candidates += ,@((Join-Path $env:LOCALAPPDATA "Python\bin\python.exe"), @())
+            $PythonCore = Get-ChildItem (Join-Path $env:LOCALAPPDATA "Python") -Filter "python.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($PythonCore) {
+                $Candidates += ,@($PythonCore.FullName, @())
+            }
+        }
     }
     foreach ($Candidate in $Candidates) {
         $Command = $Candidate[0]
@@ -289,7 +299,7 @@ try {
     if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-version"))).Trim() -ne "2.0.0") {
         throw ".beyin-version gate başarısız"
     }
-    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-multi-version"))).Trim() -ne "1.3.1") {
+    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-multi-version"))).Trim() -ne "1.3.2") {
         throw ".beyin-multi-version gate başarısız"
     }
     $AdapterPaths = @(
@@ -315,6 +325,6 @@ catch {
 }
 
 Write-Host "Respected Brain kuruldu: $ResolvedVault"
-Write-Host "Sürüm: core 2.0.0 / multi-AI 1.3.1"
+Write-Host "Sürüm: core 2.0.0 / multi-AI 1.3.2"
 Write-Host "Global bağlantı ayrı ve seçicidir; SETUP-WINDOWS.md içindeki install_global.py adımını kullan."
 exit 0

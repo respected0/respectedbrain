@@ -203,7 +203,7 @@ katmanı tamamlanmadan “güncel” sayılmaz.
 
 Damgasız v1 vault'un native Windows dönüşümü henüz desteklenmez; bu özel durumda doğrulanmış WSL
 `upgrade.sh` yolu kullanılmalıdır. Native Windows, sıfırdan kurulum ve damgalı Respected
-`1.0.0/1.1.0/1.2.0/1.3.0 → 1.3.1` güncellemesi için desteklenir.
+`1.0.0/1.1.0/1.2.0/1.3.0/1.3.1 → 1.3.2` güncellemesi için desteklenir.
 
 Damgalı bir kurulumda önce salt okunur önizleme, sonra açık uygulama adımı kullanılır:
 
@@ -370,11 +370,11 @@ yeterlidir; otomatik fallback için birden fazlasının kurulu ve giriş yapılm
 Evet. Günlük yazımı kilit ve tekrar kontrolüyle korunur. Yine de aynı dosyayı iki agentın aynı anda
 düzenlemesi normal git/uygulama çakışması yaratabilir; bu hafıza sisteminden bağımsızdır.
 
-### Saat 18.00'de bilgisayar kendi kendine agent açar mı?
+### Bilgisayar kendi kendine agent veya komut penceresi açar mı?
 
-Hayır. Zamanlanmış görev yoktur. 18.00'den sonraki ilk uygun oturum kapanışı derlemeyi tetikler.
-Bu pencere kaçırılırsa sonraki agent başlangıcı yalnız tamamlanmış önceki günleri catch-up olarak
-derler; bugünün henüz tamamlanmamış loguna dokunmaz.
+Hayır. Arka plan işlemleri tamamen konsolsuz ve sessiz çalışır. Günlük özet oturum bitiminde
+sessizce yazılır; bilgi derlemesi ise sabah 08.00 zamanlayıcısında brifing öncesinde ve
+oturum başlangıçlarında kaçırılan günler için tamamlanmış-gün catch-up olarak çalışır.
 
 ## Bir şey ters giderse
 

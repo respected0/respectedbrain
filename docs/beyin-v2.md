@@ -156,13 +156,14 @@ Bu komut coding agentı sabitlemez. Belirli provider seçilmiş olsa bile geçic
 fallback devam eder. Kimlik doğrulama veya kalıcı yapılandırma hatası gizlenmez; düzeltilmesi için
 raporlanır.
 
-## “Gece derleme” ne yapar?
+## “Sabah derleme ve brifing” ne yapar?
 
-Saat 18:00'de bir program ChatGPT veya IDE açmaz. Her başarılı kapanıştan sonra günlük özet oluşur.
-Yerel saat 18:00'den sonraysa, değişmiş ve derlenmemiş daily girdileri bulunduğunda aynı headless
-CLI hattı bilgi derlemesini başlatır. O gün 18:00'den sonra hiç oturum kapanmazsa sonraki agent
-başlangıcı tamamlanmış önceki günleri catch-up olarak işler. Bugünün yazılmaya devam eden daily
-dosyası bu catch-up çalışmasına girmez.
+Zamanlanmış derleme her sabah 08:00'de sistem zamanlayıcısı (systemd / LaunchAgent / Task Scheduler)
+tarafından `morning_briefing.py` üzerinden başlatılır. Pipeline önce `compile.py` derleme motorunu
+çağırarak tamamlanmış daily loglarını bilgi tabanına işler; ardından sabah brifingini üretip
+`Dashboard.md`'ye bağlar. Oturum kapanışları (`flush.py`) gün içinde doğrudan derleme tetiklemez.
+Bir gün 08:00 pipeline'ı kaçırılırsa sonraki agent başlangıcı tamamlanmış önceki günleri catch-up
+olarak işler. Bugünün yazılmaya devam eden daily dosyası bu catch-up çalışmasına girmez.
 
 Derlenmiş içerik:
 
@@ -288,7 +289,7 @@ orijinal projedeki yenilikler multi-AI ve güvenlik farkları incelenerek alın�
 - Yeni agent bağlamı almadıysa: global kurulum, IDE restart ve agent hook dosyasını kontrol et.
 - Aynı özet iki kez yazılıyorsa: proje+global dedup ve eski `settings.local.json` hook'larını doktorla
   kontrol et.
-- Compile çalışmadıysa: 18:00 sonrası uygun kapanış olup olmadığını ve `compile-state.json` durumunu
+- Compile çalışmadıysa: Sabah 08:00 zamanlayıcısını, morning-briefing ve `compile-state.json` durumunu
   incele.
 
 ## Doğrulama komutları

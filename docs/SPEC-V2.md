@@ -107,7 +107,7 @@ native agent olayı
 .claude/hooks/*.sh
        ↓
 flush.py → daily/YYYY-MM-DD.md
-       ↓  18:00 sonrası kapanış veya sonraki başlangıçta tamamlanmış-gün catch-up
+       ↓  Sabah 08:00 zamanlanmış pipeline veya sonraki başlangıçta tamamlanmış-gün catch-up
 compile.py → knowledge/concepts + connections + index + log
        ↓
 sonraki agent başlangıcında ortak bağlam enjeksiyonu
@@ -126,11 +126,12 @@ planda başlatıp hızlı döner. Transkript providera göre normalize edilir. B
 oluşmayan, boş veya şüpheli özet reddedilir. Aynı session için eşzamanlı çağrılar kilit/dedup ile
 tek kayda indirilir.
 
-Saat 18:00 bir zamanlayıcı değildir. 18:00'den sonraki ilk uygun oturum kapanışında değişmiş daily
-girdisi varsa compile tetiklenir; sistem kendi kendine IDE veya ChatGPT açmaz. Bu kapanış hiç
-olmazsa sonraki SessionStart, yalnız tarihi bitmiş daily girdileri için ayrık catch-up başlatır.
-İçinde bulunulan gün `--before-date` sınırıyla dışarıda tutulur. Başarılı veya başarısız her compile
-tetik claim'ini bırakır; aynı günün sonraki geçerli tetikleri bloke edilmez.
+Zamanlanmış derleme tek merkezden sabah 08:00 pipeline'ı (`morning_briefing.py`) tarafından
+yürütülür; sabah brifingi üretilmeden önce `compile.py` çağrılarak bilgi tabanı derlenir.
+Oturum kapanışında (`flush.py`) asla doğrudan derleme tetiklenmez. Kaçırılmış önceki günler varsa
+sonraki SessionStart (`flush.py --maybe-compile`), yalnız tarihi bitmiş daily girdileri için ayrık
+catch-up başlatır. İçinde bulunulan gün `--before-date` sınırıyla dışarıda tutulur. Başarılı veya
+başarısız her compile tetik claim'ini bırakır; sonraki geçerli tetikler bloke edilmez.
 
 Derleme vault ve `.claude/` dışında, işletim sisteminin rastgele `0700` geçici dizininde yapılır.
 Yalnız `knowledge/index.md`, `knowledge/log.md`,

@@ -6,10 +6,22 @@ $Failures = 0
 $PowerShellHost = (Get-Process -Id $PID).Path
 $OriginalUserProfile = $env:USERPROFILE
 $WorkingPythonOverride = $null
-if (-not (Get-Command py, python, python3 -ErrorAction SilentlyContinue | Select-Object -First 1)) {
-    $BundledPython = Join-Path $OriginalUserProfile ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
-    if (Test-Path -LiteralPath $BundledPython -PathType Leaf) {
-        $WorkingPythonOverride = $BundledPython
+$DiscoveredPython = Get-Command python, py, python3 -All -ErrorAction SilentlyContinue | Where-Object {
+    $_.Source -and -not $_.Source.ToLowerInvariant().Contains("\windowsapps\")
+} | Select-Object -First 1
+if ($DiscoveredPython) {
+    $WorkingPythonOverride = $DiscoveredPython.Source
+}
+else {
+    $CandidatePythons = @(
+        (Join-Path $OriginalUserProfile "AppData\Local\Python\bin\python.exe"),
+        (Join-Path $OriginalUserProfile ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe")
+    )
+    foreach ($Candidate in $CandidatePythons) {
+        if (Test-Path -LiteralPath $Candidate -PathType Leaf) {
+            $WorkingPythonOverride = $Candidate
+            break
+        }
     }
 }
 
@@ -137,7 +149,7 @@ try {
     )
     Assert-True ($install.Code -eq 0) "Native temiz kurulum geçmeli: $($install.Output)"
     Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-version")).Trim() -eq "2.0.0") "Çekirdek damgası 2.0.0 olmalı"
-    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-multi-version")).Trim() -eq "1.3.1") "Multi damgası 1.3.1 olmalı"
+    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-multi-version")).Trim() -eq "1.3.2") "Multi damgası 1.3.2 olmalı"
     Assert-True ((Test-Path -LiteralPath (Join-Path $Vault "scripts\update_respected.py") -PathType Leaf)) "Güncel updater kurulmalı"
     Assert-True ((Test-Path -LiteralPath (Join-Path $Vault "scripts\respected_manifest.py") -PathType Leaf)) "Güncel manifest kurulmalı"
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $Vault "scripts\update_respot.py"))) "Eski updater temiz kurulumda olmamalı"

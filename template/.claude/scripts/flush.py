@@ -476,16 +476,6 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _effective_hour(now: dt.datetime) -> int:
-    fake_hour = os.environ.get("BEYIN_FAKE_HOUR")
-    if fake_hour is None:
-        return now.hour
-    hour = int(fake_hour)
-    if not 0 <= hour <= 23:
-        raise ValueError("fake-hour-out-of-range")
-    return hour
-
-
 def _event_now() -> dt.datetime:
     fake_now = os.environ.get("BEYIN_FAKE_NOW")
     if not fake_now:
@@ -502,13 +492,16 @@ def maybe_trigger_compile(
     popen_factory: Callable[..., Any] | None = None,
     catch_up: bool = False,
 ) -> bool:
-    """Start a scheduled or completed-day catch-up compile when due."""
-    current = now or _event_now()
-    # SessionEnd owns the after-18:00 pass and may include today. SessionStart
-    # catch-up is completed-days-only at every hour, including after 18:00.
-    on_schedule = _effective_hour(current) >= 18 and not catch_up
-    if not (on_schedule or catch_up):
+    """Start a completed-day catch-up compile when due.
+
+    Scheduled daily compilation is owned by morning_briefing at 08:00.
+    flush.py never runs scheduled compile; it only performs catch-up
+    compilation for past completed days (via session start / --maybe-compile).
+    """
+    if not catch_up:
         return False
+
+    current = now or _event_now()
 
     state_dir = vault_root / ".claude" / "scripts" / ".state"
     compile_state = _load_json_object(
@@ -532,7 +525,6 @@ def maybe_trigger_compile(
     else:
         daily_paths = []
     today_name = f"{current.strftime('%Y-%m-%d')}.md"
-    changed_today = False
     changed_earlier = False
     for path in daily_paths:
         path_stat = path.lstat()
@@ -542,15 +534,10 @@ def maybe_trigger_compile(
             or not runtime_platform.path_within_vault(path, vault_root)
         ):
             raise ValueError(f"unsafe-daily-source:{path.name}")
-        if ingested.get(path.name) != _sha256(path):
-            if path.name == today_name:
-                changed_today = True
-            else:
-                changed_earlier = True
-                break
-    if not (changed_today or changed_earlier):
-        return False
-    if catch_up and not changed_earlier:
+        if path.name != today_name and ingested.get(path.name) != _sha256(path):
+            changed_earlier = True
+            break
+    if not changed_earlier:
         return False
 
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -566,9 +553,9 @@ def maybe_trigger_compile(
         str(vault_root / ".claude" / "scripts" / "compile.py"),
         "--trigger-claim",
         str(trigger),
+        "--before-date",
+        current.date().isoformat(),
     ]
-    if catch_up:
-        compile_argv.extend(["--before-date", current.date().isoformat()])
     try:
         launcher(
             compile_argv,
@@ -615,6 +602,13 @@ def _sweep_stale_hook_inputs(
                 candidate.unlink()
         except FileNotFoundError:
             continue
+    for lock_candidate in state_dir.glob("*.lock"):
+        try:
+            age = now_epoch - lock_candidate.lstat().st_mtime
+            if age >= STALE_HOOK_INPUT_SECONDS:
+                lock_candidate.unlink()
+        except (FileNotFoundError, OSError):
+            continue
 
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
@@ -648,8 +642,15 @@ def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
     with lock_path.open("a+", encoding="utf-8") as lock_file:
         with runtime_platform.exclusive_lock(lock_file, blocking=True) as held:
             if not held:
-                write_health(STATE_DIR, "session-lock-timeout")
+                _record_flush_failure(
+                    STATE_DIR,
+                    session_id,
+                    now_epoch,
+                    "session-lock-busy",
+                )
                 return 0
+
+            _sweep_stale_hook_inputs(STATE_DIR, args.hook_input, now_epoch)
             if _is_recent_duplicate(STATE_DIR, session_id, now_epoch):
                 return 0
 
@@ -665,14 +666,6 @@ def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
                     "below-minimum-turns",
                 )
                 return 0
-
-            _write_flush_state(STATE_DIR, session_id, now_epoch, "inflight")
-            if DIRECTIVE_SHAPED.search(transcript):
-                write_health(
-                    STATE_DIR,
-                    "warn:directive-shaped-transcript",
-                    warning=True,
-                )
 
             summary, error = _run_model(build_flush_prompt(transcript), VAULT_ROOT)
             if error is not None:
@@ -691,6 +684,7 @@ def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
                     "summary-empty",
                 )
                 return 0
+
             normalized_summary = normalize_summary(summary)
             if normalized_summary is None:
                 _record_flush_failure(
@@ -700,6 +694,7 @@ def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
                     "summary-schema-invalid",
                 )
                 return 0
+
             if normalized_summary == "FLUSH_BOS":
                 _write_flush_state(
                     STATE_DIR,
@@ -709,6 +704,7 @@ def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
                     "flush-bos",
                 )
                 return 0
+
             try:
                 _append_daily(
                     VAULT_ROOT,
@@ -730,17 +726,15 @@ def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
                     now_epoch,
                     "daily-append-failed",
                 )
-                return 0
-
-            try:
-                maybe_trigger_compile(VAULT_ROOT, event_time)
-            except (OSError, ValueError, json.JSONDecodeError):
-                write_health(STATE_DIR, "compile-trigger-failed")
     return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    if os.environ.get("BEYIN_INVOKED_BY"):
+    try:
+        depth = int(os.environ.get("BEYIN_RECURSION_DEPTH", "0"))
+    except ValueError:
+        depth = 0
+    if os.environ.get("BEYIN_INVOKED_BY") or depth >= 1:
         return 0
 
     try:
