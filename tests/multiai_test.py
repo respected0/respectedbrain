@@ -202,7 +202,7 @@ class MultiAITest(unittest.TestCase):
         )
         self.assertIsNone(invocation.stdin)
 
-    def test_runner_keeps_codex_prompts_on_stdin_and_passes_antigravity_on_argv(self):
+    def test_runner_keeps_codex_and_antigravity_prompts_on_stdin(self):
         runner = load("model_runner_stdin", ROOT / "template/.beyin/model_runner.py")
         prompt = "ö" * 100_000
 
@@ -220,10 +220,25 @@ class MultiAITest(unittest.TestCase):
         self.assertNotIn(prompt, codex.argv)
         self.assertEqual(codex.stdin, prompt)
         self.assertEqual(codex.argv[-1], "-")
-        self.assertIsNone(agy_text.stdin)
-        self.assertEqual(agy_text.argv[-2:], ["--print", prompt])
-        self.assertEqual(agy_workspace.argv[-2:], ["--print", prompt])
+
+        # Antigravity MUST keep prompt on stdin to prevent Windows 32K command-line limit (lpCommandLine)
+        self.assertNotIn(prompt, agy_text.argv)
+        self.assertNotIn(prompt, agy_workspace.argv)
+        self.assertNotIn("--print", agy_text.argv)
+        self.assertNotIn("--print", agy_workspace.argv)
+
+        parsed_text_stdin = json.loads(agy_text.stdin)
+        self.assertEqual(parsed_text_stdin["event"], "user")
+        self.assertEqual(parsed_text_stdin["message"]["content"], prompt)
+
+        parsed_ws_stdin = json.loads(agy_workspace.stdin)
+        self.assertEqual(parsed_ws_stdin["event"], "user")
+        self.assertEqual(parsed_ws_stdin["message"]["content"], prompt)
+
         self.assertIn("--input-format", agy_text.argv)
+        self.assertIn("stream-json", agy_text.argv)
+        self.assertIn("--output-format", agy_text.argv)
+        self.assertIn("stream-json", agy_text.argv)
         self.assertIn("--sandbox", agy_text.argv)
         self.assertNotIn("--mode", agy_text.argv)
         self.assertIn("--mode", agy_workspace.argv)
@@ -231,6 +246,35 @@ class MultiAITest(unittest.TestCase):
         self.assertIn("--dangerously-skip-permissions", agy_text.argv)
         self.assertIn("--dangerously-skip-permissions", agy_workspace.argv)
         self.assertTrue(agy_workspace.windows_executable)
+
+    def test_runner_extracts_stream_json_response_and_errors(self):
+        runner = load("model_runner_extract", ROOT / "template/.beyin/model_runner.py")
+        stream_success = (
+            '{"event":"init","init":{}}\n'
+            '{"event":"step_update","step_update":{}}\n'
+            '{"event":"result","result":{"status":"SUCCESS","response":"özet başarıyla tamamlandı"}}\n'
+        )
+        stream_error = (
+            '{"event":"init","init":{}}\n'
+            '{"event":"result","result":{"status":"ERROR","error":"model-overloaded"}}\n'
+        )
+        plain_text = "düz metin çıktısı"
+
+        resp, err = runner._extract_response(stream_success, "antigravity")
+        self.assertEqual(resp, "özet başarıyla tamamlandı")
+        self.assertIsNone(err)
+
+        resp, err = runner._extract_response(stream_error, "antigravity")
+        self.assertEqual(resp, "")
+        self.assertEqual(err, "model-overloaded")
+
+        resp, err = runner._extract_response(plain_text, "claude")
+        self.assertEqual(resp, "düz metin çıktısı")
+        self.assertIsNone(err)
+
+        resp, err = runner._extract_response(plain_text, "antigravity")
+        self.assertEqual(resp, "düz metin çıktısı")
+        self.assertIsNone(err)
 
     def test_runner_candidate_order_contract_is_unchanged(self):
         runner = load("model_runner_order", ROOT / "template/.beyin/model_runner.py")
@@ -289,6 +333,68 @@ class MultiAITest(unittest.TestCase):
         self.assertIn("LOCALAPPDATA/p", entries)
         self.assertIn("APPDATA/p", entries)
         self.assertIn("KEEP", entries)
+
+    def test_wsl_windows_cli_falls_back_to_windows_temp_when_cwd_is_linux_path(self):
+        runner = load("model_runner_fallback_cwd", ROOT / "template/.beyin/model_runner.py")
+        invocation = runner.Invocation(
+            ["/mnt/c/bin/agy.exe", "--print"],
+            "prompt",
+            True,
+        )
+        completed = SimpleNamespace(returncode=0, stdout="özet", stderr="")
+        linux_cwd = Path("/tmp/wsl_only_scratch")
+        mock_fallback = mock.MagicMock()
+        mock_fallback.is_dir.return_value = True
+
+        with mock.patch.dict(runner.os.environ, {"WSL_INTEROP": "/run/WSL/1_interop"}, clear=True), mock.patch.object(
+            runner,
+            "_command",
+            return_value=invocation,
+        ), mock.patch.object(
+            runner,
+            "_available",
+            return_value=["antigravity"],
+        ), mock.patch.object(
+            runner.runtime_platform,
+            "external_temp_parent",
+            return_value=mock_fallback,
+        ), mock.patch.object(
+            runner.subprocess,
+            "run",
+            return_value=completed,
+        ) as called:
+            result = runner.run_model("prompt", linux_cwd, "text", 10)
+
+        self.assertEqual(result, ("özet", None, "antigravity"))
+        self.assertIs(called.call_args.kwargs["cwd"], mock_fallback)
+
+    def test_wsl_windows_cli_retains_windows_cwd_when_already_under_windows_root(self):
+        runner = load("model_runner_keep_cwd", ROOT / "template/.beyin/model_runner.py")
+        invocation = runner.Invocation(
+            ["/mnt/c/bin/agy.exe", "--print"],
+            "prompt",
+            True,
+        )
+        completed = SimpleNamespace(returncode=0, stdout="özet", stderr="")
+        win_cwd = Path("/mnt/c/Users/Ada/Documents/RespectedOS")
+
+        with mock.patch.dict(runner.os.environ, {"WSL_INTEROP": "/run/WSL/1_interop"}, clear=True), mock.patch.object(
+            runner,
+            "_command",
+            return_value=invocation,
+        ), mock.patch.object(
+            runner,
+            "_available",
+            return_value=["antigravity"],
+        ), mock.patch.object(
+            runner.subprocess,
+            "run",
+            return_value=completed,
+        ) as called:
+            result = runner.run_model("prompt", win_cwd, "text", 10)
+
+        self.assertEqual(result, ("özet", None, "antigravity"))
+        self.assertEqual(called.call_args.kwargs["cwd"], win_cwd)
 
     def test_summary_provider_can_be_persisted_and_overrides_current_agent(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -118,15 +118,16 @@ def _command(provider: str, prompt: str, mode: Mode) -> Invocation | None:
         else:
             argv.append("--sandbox")
         argv.extend([
-            "--input-format",
-            "text",
-            "--output-format",
-            "text",
             "--dangerously-skip-permissions",
-            "--print",
-            prompt,
+            "--print-timeout",
+            "20m",
+            "--input-format",
+            "stream-json",
+            "--output-format",
+            "stream-json",
         ])
-        return Invocation(argv, None, _windows_executable(executable))
+        stdin_payload = json.dumps({"event": "user", "message": {"content": prompt}}) + "\n"
+        return Invocation(argv, stdin_payload, _windows_executable(executable))
     if provider == "cursor":
         executable = shutil.which("cursor-agent") or shutil.which("cursor-agent.exe")
         if executable is None:
@@ -188,6 +189,22 @@ def _retryable_failure(stdout: str, stderr: str) -> bool:
         "bad gateway", "gateway timeout", "502", "503", "504",
     )
     return any(signal in message for signal in signals)
+
+
+def _extract_response(stdout: str, provider: str) -> tuple[str, str | None]:
+    """Extract response text and potential provider-level error from stdout."""
+    if provider in {"antigravity", "agy"}:
+        for line in reversed(stdout.splitlines()):
+            try:
+                data = json.loads(line)
+                if data.get("event") == "result":
+                    result_obj = data.get("result", {})
+                    if result_obj.get("status") == "ERROR":
+                        return "", result_obj.get("error", "antigravity-stream-error")
+                    return result_obj.get("response", "").strip(), None
+            except (json.JSONDecodeError, AttributeError):
+                continue
+    return stdout.strip(), None
 
 
 def run_model(
@@ -260,7 +277,10 @@ def run_model(
                 last_error = (error, provider)
                 continue
             return None, error, provider
-        return result.stdout.strip(), None, provider
+        output_text, stream_error = _extract_response(result.stdout, provider)
+        if stream_error is not None:
+            return None, stream_error, provider
+        return output_text, None, provider
     if last_error is not None:
         error, provider = last_error
         return None, error, provider
