@@ -54,6 +54,7 @@ zamanlayıcıları, ardından salt-okunur doktor planı + onay kapılı inbox d�
 haftalık değerlendirme ve güvenli paylaşım kapsam dışı kalmaya devam ediyor.
 
 Bu üç parçalı mimari `3ec18e6` commit'iyle `1.2.0` olarak tamamlandı. `1.3.0`, ürün ve teknik
-namespace'i Respected Brain'e taşıyan uyumluluklu migration sürümüdür. 2026-09-01 ve 2026-09-02
-fork incelemelerinden çıkan dokuz maddelik `1.4.0` kapsamı ayrı backlog'a kaydedildi; henüz
-uygulanmış sayılmaz.
+namespace'i Respected Brain'e taşıyan uyumluluklu migration sürümüdür. `1.3.1` modern Codex
+transcript uyumluluğu, `1.3.2` ise UAC, conhost headless ve cross-platform stabilizasyon yamasıdır.
+Dokuz maddelik `1.4.0` kapsamı (model normalizasyonu, 1-shot retry, pycache temizliği,
+immutable event log, Linux CI ve Restic/Git yedekleme) `1.4.0` sürümünde eksiksiz tamamlanmıştır.

@@ -1,0 +1,34 @@
+name: linux-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Verify render drift
+        run: python3 scripts/render_integrations.py --check
+
+      - name: Run Python unit and integration tests
+        run: python3 -m unittest discover -s tests -p "*test*.py"
+
+      - name: Run Shell hook and upgrade tests
+        run: |
+          bash tests/hooks_test.sh
+          bash tests/upgrade_settings_test.sh
+          bash tests/upgrade_transaction_test.sh
+
+      - name: Git diff check
+        run: git diff --check

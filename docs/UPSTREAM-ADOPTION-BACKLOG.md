@@ -2,13 +2,13 @@
 
 Bu dosya 2026-09-01 ve 2026-09-02 tarihlerinde bütün dallarıyla incelenen
 `avenoxai/avenoxbeyin` ve forklarından Respected Brain'e uyarlanması planlanan işleri kalıcı
-olarak kaydeder. Ürün kapsamı kullanıcı tarafından onaylanmıştır. Modern Codex transcript desteği
-`1.3.1` bugfix sürümünde tamamlandı; kalan maddeler `1.4.0` kapsamında uygulanacaktır.
+olarak kaydeder. Ürün kapsamı kullanıcı tarafından onaylanmıştır. Dokuz maddenin tamamı
+`1.4.0` sürümünde testleri ve dokümantasyonuyla birlikte başarıyla tamamlanmıştır.
 
-Doğrudan cherry-pick yapılmayacak. Her davranış Claude, Codex, Cursor ve Antigravity ile çalışan
-ortak runtime'a; Windows native, WSL, Linux ve macOS hedeflerine uyarlanacaktır.
+Doğrudan cherry-pick yapılmamış; her davranış Claude, Codex, Cursor ve Antigravity ile çalışan
+ortak runtime'a; Windows native, WSL, Linux ve macOS hedeflerine uyarlanmıştır.
 
-## Planlanan kapsam: dokuz madde
+## Planlanan kapsam: dokuz madde (Tamamı Tamamlandı)
 
 ### 1. Modern Codex transcript desteği — `1.3.1` ile tamamlandı
 

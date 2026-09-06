@@ -552,7 +552,8 @@ print("loaded")
 
         second = self._run_flush(hook, BEYIN_TEST_OUTPUT=VALID_SUMMARY)
         self.assertEqual(second.returncode, 0)
-        self.assertEqual(len(self._stub_calls("haiku")), 2)
+        # 1.4.0: first flush attempts initial call + 1-shot repair (2 calls); second flush makes 1 call.
+        self.assertEqual(len(self._stub_calls("haiku")), 3)
         daily_body = next(self.daily.glob("*.md")).read_text(encoding="utf-8")
         self.assertEqual(daily_body.count("### Oturum ("), 1)
 

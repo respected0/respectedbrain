@@ -22,7 +22,7 @@
 set -euo pipefail
 
 BEYIN_TARGET_VERSION="2.0.0"
-BEYIN_MULTI_VERSION="1.3.2"
+BEYIN_MULTI_VERSION="1.4.0"
 BEYIN_SCRIPT_VERSION="2.0.0"
 BEYIN_MEMORY_DIR_NAME="🔮 850-Companion"
 BEYIN_HOOK_FILES="lib.sh session-start.sh prompt-counter.sh session-end.sh pre-compact.sh"
@@ -172,6 +172,8 @@ ensure_gitignore() {
 .obsidian/workspace*
 .obsidian/cache
 .beyin/backups/
+__pycache__/
+*.pyc
 IGN
   say "gitignore: $GI_ADDED satır eklendi"
 }
@@ -199,6 +201,16 @@ untrack_ignored_secrets() {
       [ -n "$B" ] || continue
       git -C "$V" rm --cached -q -- "$B" >/dev/null 2>&1 || :
       say "izlemeden çıkarıldı (yedek artığı): $B"
+    done
+    UNTRACKED_ANY=1
+  fi
+  # Tracked bytecode artefacts.
+  TRACKED_PYC=$(git -C "$V" ls-files -- '*.pyc' '*__pycache__*' 2>/dev/null || printf '')
+  if [ -n "$TRACKED_PYC" ]; then
+    printf '%s\n' "$TRACKED_PYC" | while IFS= read -r P; do
+      [ -n "$P" ] || continue
+      git -C "$V" rm --cached -q -- "$P" >/dev/null 2>&1 || :
+      say "izlemeden çıkarıldı (bytecode artığı): $P"
     done
     UNTRACKED_ANY=1
   fi

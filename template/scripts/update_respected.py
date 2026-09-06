@@ -430,6 +430,48 @@ def _gate(vault: Path, relatives: tuple[str, ...], *, allow_test_failure: bool =
             raise UpdateError(f"placeholder gate başarısız: {relative}")
 
 
+def ensure_bytecode_cleanup(vault: Path) -> None:
+    """Ensure .gitignore excludes Python bytecode and untrack any committed pycache."""
+    gitignore_path = vault / ".gitignore"
+    rules_to_add = ["__pycache__/", "*.pyc"]
+    existing_lines: list[str] = []
+    if gitignore_path.is_file():
+        try:
+            existing_lines = gitignore_path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            pass
+
+    needed = [rule for rule in rules_to_add if rule not in existing_lines]
+    if needed or not gitignore_path.is_file():
+        new_lines = list(existing_lines)
+        new_lines.extend(needed)
+        try:
+            _atomic_write(gitignore_path, "\n".join(new_lines).strip() + "\n")
+        except OSError:
+            pass
+
+    if (vault / ".git").is_dir() and shutil.which("git") is not None:
+        try:
+            result = subprocess.run(
+                ["git", "ls-files", "--", "*.pyc", "*__pycache__*"],
+                cwd=vault,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                tracked_files = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+                if tracked_files:
+                    subprocess.run(
+                        ["git", "rm", "--cached", "-q", "--", *tracked_files],
+                        cwd=vault,
+                        capture_output=True,
+                        check=False,
+                    )
+        except OSError:
+            pass
+
+
 def _print_external_refresh_guidance() -> None:
     print("Güncelleme sonrası dış bağlantılar:")
     print(
@@ -482,6 +524,7 @@ def update(vault: Path, requested_profile: str, apply: bool) -> int:
         for relative in legacy_removals:
             _safe_target(vault, relative).unlink()
         _gate(vault, relatives)
+        ensure_bytecode_cleanup(vault)
         _atomic_write(vault / ".beyin-multi-version", f"{MULTI_VERSION}\n")
     except (OSError, UnicodeError, ValueError, UpdateError) as error:
         if backup is None:

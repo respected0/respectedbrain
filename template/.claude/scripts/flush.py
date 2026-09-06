@@ -295,6 +295,35 @@ def normalize_summary(summary: str) -> str | None:
     return candidate if validate_summary(candidate) else None
 
 
+def build_schema_repair_prompt(invalid_summary: str) -> str:
+    """Prompt for a single-shot schema repair without re-sending the raw transcript."""
+    return f"""Aşağıdaki metin beklenen 5 bölümlü günlük özet şemasına uymadı.
+Metindeki bilgileri koruyarak, selamlama, giriş veya kod çiti olmadan doğrudan
+aşağıdaki TAM 5 bölümden oluşan geçerli şemaya dönüştür:
+
+## Bağlam
+## Önemli Konuşmalar
+## Alınan Kararlar
+## Öğrenilenler
+## Yapılacaklar
+
+Eğer kalıcı değere sahip hiçbir bilgi yoksa yalnızca FLUSH_BOS yaz.
+
+--- GİRİLEN METİN ---
+{invalid_summary.strip()}
+--- GİRİLEN METİN SONU ---
+"""
+
+
+def repair_summary_schema(invalid_summary: str, vault_root: Path) -> str | None:
+    """Attempt a single schema repair call without re-sending the raw transcript."""
+    prompt = build_schema_repair_prompt(invalid_summary)
+    repaired_raw, error = _run_model(prompt, vault_root)
+    if error is not None or not repaired_raw:
+        return None
+    return normalize_summary(repaired_raw)
+
+
 def _load_json_object(path: Path, default: dict[str, Any]) -> dict[str, Any]:
     if not path.exists():
         return default
@@ -447,6 +476,57 @@ def _run_model(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
     except OSError:
         return None, "model-runner-error"
     return summary, error
+
+
+def _parse_summary_sections(summary: str) -> dict[str, str]:
+    sections: dict[str, str] = {}
+    current_key = None
+    current_lines: list[str] = []
+    for line in summary.splitlines():
+        if line.startswith("## "):
+            if current_key:
+                sections[current_key] = "\n".join(current_lines).strip()
+            current_key = line[3:].strip()
+            current_lines = []
+        elif current_key:
+            current_lines.append(line)
+    if current_key:
+        sections[current_key] = "\n".join(current_lines).strip()
+    return sections
+
+
+def _record_session_event(
+    vault_root: Path,
+    summary: str,
+    reason: str,
+    event_time: dt.datetime,
+    session_id: str,
+) -> None:
+    """Record an immutable event and update companion projection (1.4.0)."""
+    if summary == "FLUSH_BOS":
+        return
+    try:
+        events_mod_path = vault_root / ".beyin"
+        if str(events_mod_path) not in sys.path:
+            sys.path.insert(0, str(events_mod_path))
+        import events
+
+        sections = _parse_summary_sections(summary)
+        events.record_event(
+            vault_root=vault_root,
+            provider=os.environ.get("BEYIN_PROVIDER", "auto"),
+            event_type="session_end",
+            session_id=session_id,
+            context=sections.get("Bağlam", ""),
+            decisions=[d.lstrip("- *").strip() for d in sections.get("Alınan Kararlar", "").splitlines() if d.strip()],
+            learnings=[l.lstrip("- *").strip() for l in sections.get("Öğrenilenler", "").splitlines() if l.strip()],
+            todos=[t.lstrip("- *").strip() for t in sections.get("Yapılacaklar", "").splitlines() if t.strip()],
+            now=event_time,
+        )
+        events.project_companion(vault_root)
+    except Exception:
+        pass
+
 
 
 def _append_daily(
@@ -693,6 +773,9 @@ def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
 
             normalized_summary = normalize_summary(summary)
             if normalized_summary is None:
+                normalized_summary = repair_summary_schema(summary, VAULT_ROOT)
+
+            if normalized_summary is None:
                 _record_flush_failure(
                     STATE_DIR,
                     session_id,
@@ -717,6 +800,13 @@ def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
                     normalized_summary,
                     args.reason,
                     event_time,
+                )
+                _record_session_event(
+                    VAULT_ROOT,
+                    normalized_summary,
+                    args.reason,
+                    event_time,
+                    session_id,
                 )
                 _write_flush_state(
                     STATE_DIR,
