@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
 import tempfile
 from typing import Callable, Sequence
@@ -22,8 +23,8 @@ SCRIPTS_DIR = BEYIN_DIR.parent / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-import runtime_platform  # type: ignore[import-not-found]
-from legacy_names import LEGACY_BRIEFING_BEGIN, LEGACY_BRIEFING_END  # type: ignore[import-not-found]
+import runtime_platform  # type: ignore
+from legacy_names import LEGACY_BRIEFING_BEGIN, LEGACY_BRIEFING_END  # type: ignore
 
 
 ModelCall = Callable[[str, Path], tuple[str | None, str | None, str | None]]
@@ -164,7 +165,7 @@ def _valid(body: str) -> bool:
 
 
 def _default_model(prompt: str, cwd: Path) -> tuple[str | None, str | None, str | None]:
-    from model_runner import run_model
+    from model_runner import run_model  # type: ignore
 
     return run_model(prompt, cwd, "text", 300, os.environ.get("BEYIN_PROVIDER"))
 
