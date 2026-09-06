@@ -1,0 +1,71 @@
+/* --------------------------------------------------------------------------
+   RespectedOS / SecondBrain Modern Obsidian Görsel Düzenleme Snippet'ı
+   Dosya ağacı, sekme başlıkları, callout'lar, özellikler ve graf görünümü
+   -------------------------------------------------------------------------- */
+
+/* 1. Dosya Gezgini (File Explorer) Satır Düzeni ve İkonlar */
+.nav-file-title, .nav-folder-title {
+  border-radius: 6px;
+  padding: 3px 8px;
+  margin: 1px 0;
+  transition: background-color 0.15s ease;
+  font-size: 0.9rem;
+}
+
+.nav-file-title:hover, .nav-folder-title:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.nav-file-title.is-active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent) !important;
+  font-weight: 500;
+}
+
+/* 2. Sekmeler (Tabs) */
+.workspace-tab-header {
+  border-radius: 6px 6px 0 0;
+  margin-right: 2px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.workspace-tab-header.is-active {
+  background-color: var(--background-primary);
+  border-bottom: 2px solid var(--interactive-accent);
+}
+
+/* 3. Not Başlık Alanı & Frontmatter (Metadata Container) */
+.metadata-container {
+  background: var(--background-secondary-alt);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+}
+
+.metadata-property-key {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.82rem;
+}
+
+/* 4. Çağrı Kutuları (Callouts / AI Preambles) */
+.callout[data-callout="note"] {
+  border-left: 4px solid var(--interactive-accent);
+  background-color: var(--background-secondary);
+  border-radius: 6px;
+}
+
+/* 5. Wikilink Vurgusu */
+a.internal-link {
+  color: var(--link-color);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--link-color);
+  transition: all 0.15s ease;
+}
+
+a.internal-link:hover {
+  border-bottom-style: solid;
+  color: var(--link-external-filter);
+}

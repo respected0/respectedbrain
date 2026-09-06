@@ -171,19 +171,25 @@ class TestVaultLinterAndTiling(unittest.TestCase):
 class TestManifestAndTemplates(unittest.TestCase):
     """1.4.1 Sürüm Manifesti, Şablonlar ve Kurallar."""
 
-    def test_manifest_version_is_1_4_2(self):
-        self.assertEqual(manifest.MULTI_VERSION, "1.4.2")
+    def test_manifest_version_is_1_4_3(self):
+        self.assertEqual(manifest.MULTI_VERSION, "1.4.3")
         self.assertIn("1.4.1", manifest.UPDATABLE_MULTI_VERSIONS)
         self.assertIn("1.4.2", manifest.UPDATABLE_MULTI_VERSIONS)
+        self.assertIn("1.4.3", manifest.UPDATABLE_MULTI_VERSIONS)
         self.assertIn("scripts/url_safety.py", manifest.RUNTIME)
         self.assertIn("scripts/defuddle.py", manifest.RUNTIME)
         self.assertIn("scripts/vault_linter.py", manifest.RUNTIME)
         self.assertIn("scripts/tiling_check.py", manifest.RUNTIME)
+        self.assertIn(".beyin/graph_analysis.py", manifest.RUNTIME)
+        self.assertIn(".beyin/graphrag.py", manifest.RUNTIME)
+        self.assertIn(".beyin/session_brain.py", manifest.RUNTIME)
+        self.assertIn(".beyin/session_viz.py", manifest.RUNTIME)
         self.assertIn(".agents/rules/software-quality-1.md", manifest.RUNTIME)
         self.assertIn(".agents/rules/software-quality-2.md", manifest.RUNTIME)
         self.assertIn(".cursor/rules/software-quality-1.mdc", manifest.RUNTIME)
         self.assertIn(".cursor/rules/software-quality-2.mdc", manifest.RUNTIME)
         self.assertIn("📋 Templates/Base.base", manifest.RUNTIME)
+        self.assertIn("📋 Templates/Canvas.canvas", manifest.RUNTIME)
 
     def test_new_skills_and_templates_exist(self):
         # Otonom araştırma skill'i
@@ -212,7 +218,7 @@ class TestManifestAndTemplates(unittest.TestCase):
         self.assertTrue((ROOT / "template" / "📋 Templates" / "Base.base").is_file())
 
         # Sürüm dosyası
-        self.assertEqual((ROOT / "template" / ".beyin-multi-version").read_text().strip(), "1.4.2")
+        self.assertEqual((ROOT / "template" / ".beyin-multi-version").read_text().strip(), "1.4.3")
 
 
 if __name__ == "__main__":

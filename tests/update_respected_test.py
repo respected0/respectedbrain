@@ -164,7 +164,7 @@ class UpdateRespectedTest(unittest.TestCase):
         result = self.run_update("--apply")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.4.2")
+        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.4.3")
         self.assertEqual((self.vault / ".beyin-version").read_text().strip(), "2.0.0")
         self.assertEqual((self.vault / ".beyin/instructions.md").read_bytes(), instruction_before)
         self.assertEqual(self.note.read_bytes(), note_before)
@@ -275,7 +275,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertIn("geçersiz vault yolu", result.stdout + result.stderr)
 
     def test_already_current_vault_returns_three_without_mutation(self):
-        (self.vault / ".beyin-multi-version").write_text("1.4.2\n", encoding="utf-8")
+        (self.vault / ".beyin-multi-version").write_text("1.4.3\n", encoding="utf-8")
         before = tree_digest(self.vault)
 
         result = self.run_update("--apply")
@@ -289,7 +289,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertIn("install_briefing_schedule.py", result.stdout)
 
     def test_post_update_guidance_survives_a_cp1252_windows_console(self):
-        (self.vault / ".beyin-multi-version").write_text("1.4.2\n", encoding="utf-8")
+        (self.vault / ".beyin-multi-version").write_text("1.4.3\n", encoding="utf-8")
         environment = os.environ.copy()
         environment["HOME"] = str(self.home)
         environment["USERPROFILE"] = str(self.home)
@@ -321,7 +321,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.2",
+            "1.4.3",
         )
 
     def test_1_3_1_vault_receives_the_patch_release(self):
@@ -332,7 +332,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.2",
+            "1.4.3",
         )
 
     def test_1_3_2_vault_receives_the_minor_release(self):
@@ -343,7 +343,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.2",
+            "1.4.3",
         )
 
     def test_1_4_0_vault_receives_the_patch_release(self):
@@ -354,7 +354,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.2",
+            "1.4.3",
         )
         self.assertTrue((self.vault / ".cursor/rules/software-quality-1.mdc").is_file())
         self.assertTrue((self.vault / ".cursor/rules/software-quality-2.mdc").is_file())
@@ -370,13 +370,24 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.2",
+            "1.4.3",
         )
         self.assertTrue((self.vault / ".cursor/rules/software-quality-1.mdc").is_file())
         self.assertTrue((self.vault / ".cursor/rules/software-quality-2.mdc").is_file())
         self.assertTrue((self.vault / ".agents/rules/software-quality-1.md").is_file())
         self.assertTrue((self.vault / ".agents/rules/software-quality-2.md").is_file())
         self.assertTrue((self.vault / "📋 Templates/Base.base").is_file())
+
+    def test_1_4_2_vault_receives_the_patch_release(self):
+        (self.vault / ".beyin-multi-version").write_text("1.4.2\n", encoding="utf-8")
+
+        result = self.run_update("--apply")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            (self.vault / ".beyin-multi-version").read_text().strip(),
+            "1.4.3",
+        )
 
     def test_unstamped_v1_and_unknown_versions_are_rejected_without_mutation(self):
         cases = (

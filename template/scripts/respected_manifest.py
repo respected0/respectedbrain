@@ -4,8 +4,8 @@ from __future__ import annotations
 
 
 CORE_VERSION = "2.0.0"
-MULTI_VERSION = "1.4.2"
-UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2", "1.4.0", "1.4.1", MULTI_VERSION)
+MULTI_VERSION = "1.4.3"
+UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2", "1.4.0", "1.4.1", "1.4.2", MULTI_VERSION)
 
 GENERATED = (
     "AGENTS.md",
@@ -22,6 +22,10 @@ RUNTIME = (
     ".beyin/runtime_platform.py",
     ".beyin/map_builder.py",
     ".beyin/morning_briefing.py",
+    ".beyin/graph_analysis.py",
+    ".beyin/graphrag.py",
+    ".beyin/session_brain.py",
+    ".beyin/session_viz.py",
     ".beyin/hooks/lifecycle.py",
     ".beyin/hooks/bridge.py",
     ".beyin/model_runner.py",
@@ -31,6 +35,8 @@ RUNTIME = (
     ".claude/hooks/prompt-counter.sh",
     ".claude/hooks/session-end.sh",
     ".claude/hooks/pre-compact.sh",
+    ".claude/hooks/session-stop-capture.ps1",
+    ".claude/hooks/session-stop-capture.sh",
     ".claude/scripts/flush.py",
     ".claude/scripts/compile.py",
     ".agents/rules/software-quality-1.md",
@@ -38,6 +44,7 @@ RUNTIME = (
     ".cursor/rules/software-quality-1.mdc",
     ".cursor/rules/software-quality-2.mdc",
     "📋 Templates/Base.base",
+    "📋 Templates/Canvas.canvas",
     "scripts/render_integrations.py",
     "scripts/legacy_names.py",
     "scripts/install_antigravity_global.py",

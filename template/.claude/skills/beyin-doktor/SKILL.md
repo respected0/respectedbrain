@@ -229,6 +229,17 @@ Yerel saat 08.00'i geçtiyse bugünün `🎯 100-Command-Center/Briefings/YYYY-M
 `.claude/scripts/.state/briefing-health.json` kaydını ve platformun Respected zamanlayıcı tanımını
 salt okunur denetle. Brifing yoksa bunun zamanlayıcı eksikliği mi model hatası mı olduğunu kanıtla.
 
+### 19. Graf Topolojisi ve Köprü Analizi (Deterministik)
+
+```bash
+python3 .beyin/graph_analysis.py . --json 2>/dev/null || py -3 .beyin/graph_analysis.py . --json
+```
+
+🟢 Kırık link sayısı 0, kritik yetim sayfa oranı <%5.
+🟡 Kırık linkler var veya kopuk adalar (yetim sayfalar) tespit edildi.
+🔴 İsim çakışması (duplicate stems) var veya graf bütünlüğü bozulmuş.
+Düzeltme: Raporlanan kırık linkleri düzelt, çakışan aynı isimli sayfaları birleştir.
+
 ## Düzeltme planı sözleşmesi
 
 Teşhis tablosundan sonra her kırmızı ve anlamlı sarı bulgu için numaralı bir plan yaz:
