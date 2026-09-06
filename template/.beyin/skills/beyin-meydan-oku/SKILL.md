@@ -1,6 +1,6 @@
 ---
 name: beyin-meydan-oku
-description: Use when the user proposes a new decision, architecture, idea, or strategy and wants the vault to critically challenge it using past decisions, post-mortems, lessons, and recorded failures.
+description: "Yeni karar ve mimarileri geçmiş hatalar ve kararlarla eleştirel test eder. \"meydan oku\", \"challenge\", \"bu karar doğru mu\" dendiğinde kullan."
 ---
 
 # Beyin Meydan Oku (/challenge)

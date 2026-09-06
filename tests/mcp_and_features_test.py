@@ -219,6 +219,16 @@ class TemplateAndSkillsTest(unittest.TestCase):
                 self.assertIn(f"name: {s}", text)
                 self.assertIn("description:", text)
 
+    def test_skills_map_within_lifecycle_cap(self) -> None:
+        skills_map = ROOT / "template" / "🎯 100-Command-Center" / "Skills-Map.md"
+        self.assertTrue(skills_map.is_file())
+        text = skills_map.read_text(encoding="utf-8")
+        self.assertLessEqual(
+            len(text),
+            1500,
+            f"Skills-Map.md ({len(text)} chars) exceeds the 1,500-char lifecycle hook cap, which triggers truncation notes.",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,9 +6,9 @@ Kanonik kaynak: `.beyin/skills/`
 
 | Skill | Ne zaman kullanılır |
 | --- | --- |
-| `ajan-gecmis-tara` | Use when the user asks to mine, scan, import, or extract past conversation logs directly from local AI agent CLIs (Claude Code, Google Antigravity, OpenAI Codex). |
+| `ajan-gecmis-tara` | Yerel AI ajan (Antigravity, Claude Code, Codex) loglarını tarayıp vault'a aktarır. \"ajan geçmiş\", \"geçmiş tara\", \"kod geçmişi aktar\" dendiğinde kullan. |
 | `beyin-doktor` | Beynin sağlık kontrolü. Hook'lar, script'ler, hafıza dosyaları, günlük loglar, derleme durumu ve vault hijyeni tek tabloda raporlanır. "beyin doktor", "doktor", "sağlık kontrolü", "beyin çalışıyor mu", "hafıza bozuk mu" dendiğinde veya bir hafıza mekanizmasının sessizce çalışmadığından şüphelenildiğinde kullan. |
-| `beyin-meydan-oku` | Use when the user proposes a new decision, architecture, idea, or strategy and wants the vault to critically challenge it using past decisions, post-mortems, lessons, and recorded failures. |
-| `beyin-oruntu` | Use when the user asks to analyze recent activity (e.g. past 30 days) to uncover hidden patterns, repeated bottlenecks, unspoken friction, or emerging trends across projects and notes. |
+| `beyin-meydan-oku` | Yeni karar ve mimarileri geçmiş hatalar ve kararlarla eleştirel test eder. \"meydan oku\", \"challenge\", \"bu karar doğru mu\" dendiğinde kullan. |
+| `beyin-oruntu` | Son 30 gündeki örtük sürtünmeleri, darboğazları ve örüntüleri çıkarır. \"örüntü\", \"trend\", \"nerede takılıyoruz\" dendiğinde kullan. |
 | `gecmis-import` | Eski sohbet geçmişini (ChatGPT, Claude, Gemini Takeout dışa aktarımları) vault'un günlük log formatına çevirip derleyicinin sindirmesi için daily/ altına yazar. "geçmiş import", "geçmişimi aktar", "takeout", "chatgpt geçmişi", "eski sohbetlerimi beyne yükle" dendiğinde kullan. |
 | `inbox-duzenle` | Use when the user asks to organize, classify, clean up, triage, or file notes from the inbox or Dump folder. |

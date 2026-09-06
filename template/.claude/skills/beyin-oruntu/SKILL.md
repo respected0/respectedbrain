@@ -1,6 +1,6 @@
 ---
 name: beyin-oruntu
-description: Use when the user asks to analyze recent activity (e.g. past 30 days) to uncover hidden patterns, repeated bottlenecks, unspoken friction, or emerging trends across projects and notes.
+description: "Son 30 gündeki örtük sürtünmeleri, darboğazları ve örüntüleri çıkarır. \"örüntü\", \"trend\", \"nerede takılıyoruz\" dendiğinde kullan."
 ---
 
 # Beyin Örüntü Çıkarıcı (/emerge)
