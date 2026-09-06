@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Çapraz Ajan Geçmiş Sohbet Madencisi - RespectedOS.
+"""Çapraz Ajan Geçmiş Sohbet Madencisi - İkinci Beyin.
 
 Yerel diskteki Claude Code, Google Antigravity ve OpenAI Codex oturum kayıtlarını
 (JSONL) tarayarak ikinci beyin vault'una (daily/ veya inbox/dump) aktarır.

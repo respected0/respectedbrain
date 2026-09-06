@@ -21,14 +21,19 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-DEFAULT_SIDECAR_DIR = Path.home() / ".respectedos" / "session-brain"
+DEFAULT_SIDECAR_DIR = Path(
+    os.environ.get(
+        "RESPECTED_SIDECAR_DIR",
+        Path.home() / ".respectedbrain" / "session-brain",
+    )
+)
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RespectedOS Session Graph</title>
+  <title>İkinci Beyin Oturum Grafı</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -91,7 +96,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
   <div id="sidebar">
-    <h2>🧠 RespectedOS Oturum Grafı</h2>
+    <h2>🧠 İkinci Beyin Oturum Grafı</h2>
     <input type="text" id="search" placeholder="Oturum veya konu ara...">
     <div class="slider-box">
       <span>Zaman Filtresi (Son N Gün): <b id="daysVal">Tümü</b></span>

@@ -482,8 +482,8 @@ def register_mcp(vault_root: Path) -> list[str]:
         antigravity_mcp_dir.mkdir(parents=True, exist_ok=True)
         instructions_file = antigravity_mcp_dir / "instructions.md"
         instructions_file.write_text(
-            "# RespectedOS MCP Server\n\n"
-            "Bu sunucu, Furkan'ın kalıcı ikinci beyin vault'u RespectedOS'e doğrudan erişim sağlar.\n"
+            "# Respected Brain MCP Server\n\n"
+            f"Bu sunucu, kalıcı ikinci beyin vault'una ({vault_root.name}) doğrudan erişim sağlar.\n"
             "Başka projelerde çalışırken mimari kararları, kuralları veya geçmiş bilgileri sorgulamak için bu araçları kullan.\n",
             encoding="utf-8",
         )

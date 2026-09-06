@@ -55,9 +55,19 @@ def resolve_vault_root(candidate: Path | None = None) -> Path:
     for p in [cur, *cur.parents]:
         if (p / "knowledge").is_dir() or (p / ".beyin").is_dir():
             return p
-    default_win = Path(r"C:\Users\Furkan\Documents\RespectedOS")
-    if default_win.is_dir():
-        return default_win
+    env_vault = os.environ.get("RESPECTED_VAULT") or os.environ.get("VAULT_ROOT")
+    if env_vault:
+        p = Path(env_vault).expanduser().resolve()
+        if p.is_dir():
+            return p
+    docs = Path.home() / "Documents"
+    if docs.is_dir():
+        try:
+            for candidate_dir in docs.iterdir():
+                if candidate_dir.is_dir() and ((candidate_dir / "knowledge").is_dir() or (candidate_dir / ".beyin").is_dir()):
+                    return candidate_dir
+        except OSError:
+            pass
     return cur
 
 

@@ -7,7 +7,7 @@ description: Yerel AI ajan (Antigravity, Codex) loglarını tarar. "ajan geçmi�
 
 ## Amaç ve İlke
 
-Furkan farklı projelerde çalışırken Claude Code, Antigravity veya Codex ile derin teknik problemler çözmüş olabilir. Bu oturumların hepsi yerel diskte JSONL formatında durur. Bu beceri, harici bir dışa aktarma zip'i beklemeden doğrudan diskteki ajan klasörlerini tarar, konuşmaları imbikten geçirir ve RespectedOS vault'una aktarır.
+Kullanıcı farklı projelerde çalışırken Claude Code, Antigravity veya Codex ile derin teknik problemler çözmüş olabilir. Bu oturumların hepsi yerel diskte JSONL formatında durur. Bu beceri, harici bir dışa aktarma zip'i beklemeden doğrudan diskteki ajan klasörlerini tarar, konuşmaları imbikten geçirir ve ikinci beyin vault'una aktarır.
 
 ## Desteklenen Ajanlar
 

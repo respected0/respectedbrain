@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Yerel Full-Text Search (FTS5) arama motoru - RespectedOS.
+"""Yerel Full-Text Search (FTS5) arama motoru - İkinci Beyin.
 
 Harici bağımlılık veya API ücreti olmadan SQLite FTS5 ve BM25 kullanarak
 vault içindeki tüm notlarda yüksek hızlı, anlamsal ve kök tabanlı arama yapar.
@@ -39,12 +39,24 @@ def resolve_vault_root(candidate: Path | None = None) -> Path:
         if (p / ".beyin").is_dir() and (p / "knowledge").is_dir():
             return p
 
-    # 2. Standart RespectedOS yolu
-    default_win = Path(r"C:\Users\Furkan\Documents\RespectedOS")
-    if default_win.is_dir():
-        return default_win
+    # 2. Ortam değişkeni (RESPECTED_VAULT veya VAULT_ROOT)
+    env_vault = os.environ.get("RESPECTED_VAULT") or os.environ.get("VAULT_ROOT")
+    if env_vault:
+        p = Path(env_vault).expanduser().resolve()
+        if p.is_dir():
+            return p
 
-    # 3. Bulunamazsa mevcut çalışma dizini
+    # 3. Kullanıcının Documents dizinindeki vault adayları
+    docs = Path.home() / "Documents"
+    if docs.is_dir():
+        try:
+            for candidate_dir in docs.iterdir():
+                if candidate_dir.is_dir() and ((candidate_dir / "knowledge").is_dir() or (candidate_dir / ".beyin").is_dir()):
+                    return candidate_dir
+        except OSError:
+            pass
+
+    # 4. Bulunamazsa mevcut çalışma dizini
     return cur
 
 
@@ -309,7 +321,7 @@ class SearchEngine:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="RespectedOS Yerel Hibrit Arama")
+    parser = argparse.ArgumentParser(description="İkinci Beyin Yerel Hibrit Arama")
     parser.add_argument("query", nargs="?", default="", help="Aranacak ifade")
     parser.add_argument("--vault", type=Path, default=None, help="Vault kök dizini")
     parser.add_argument("--reindex", action="store_true", help="Tüm vault'u yeniden indeksle")

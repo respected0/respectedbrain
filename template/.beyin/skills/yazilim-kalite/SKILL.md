@@ -5,7 +5,7 @@ description: Kod kalitesi, adversarial review ve verification gate uygular. "kal
 
 # Yazılım Geliştirme Kalite Kuralları & Golden Standard Gate
 
-Bu skill, RespectedOS altındaki ve bağlı tüm yazılım geliştirme görevlerinde kod kalitesini, hata toleransını, regresyon güvenliğini ve gerçek dünya senaryolarını güvenceye almak için kullanılır.
+Bu skill, ikinci beyin altındaki ve bağlı tüm yazılım geliştirme görevlerinde kod kalitesini, hata toleransını, regresyon güvenliğini ve gerçek dünya senaryolarını güvenceye almak için kullanılır.
 
 > **Ana İlke:** Yalnızca çalışan kod üretmek yeterli değildir. AI'nın hedefi salt kod üretmek değil; en küçük güvenli değişiklikle doğru davranışı üretmek, beklenmeyen senaryoları düşünmek, çalışan özellikleri bozmadan sonucu **kanıtlanabilir** şekilde doğrulamaktır.
 

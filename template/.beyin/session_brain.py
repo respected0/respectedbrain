@@ -1,7 +1,7 @@
 """Session Brain: Vault Dışı Hafif Oturum Arama Motoru.
 
 AI oturum loglarını (Claude Code, ChatGPT, Codex vb.) vault'u şişirmeden
-bağımsız bir dizinde (`~/.respectedos/session-brain/`) saklar ve indeksler.
+bağımsız bir dizinde (`~/.respectedbrain/session-brain/`) saklar ve indeksler.
 
 Zaman Çürümesi (Recency Decay) + Terim Ağırlıklandırma (TF-IDF benzeri) formülüyle
 "Geçen ay çözdüğümüz auth bug'ı" gibi oturumları anında bulur.
@@ -25,7 +25,12 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-DEFAULT_SIDECAR_DIR = Path.home() / ".respectedos" / "session-brain"
+DEFAULT_SIDECAR_DIR = Path(
+    os.environ.get(
+        "RESPECTED_SIDECAR_DIR",
+        Path.home() / ".respectedbrain" / "session-brain",
+    )
+)
 
 _WORD_RE = re.compile(r"\w+")
 _STOP_WORDS = {

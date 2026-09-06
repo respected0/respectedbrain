@@ -325,7 +325,7 @@ def format_report(res: Dict[str, Any]) -> str:
     """Analiz sonucunu yüksek sinyalli metin raporuna dönüştürür."""
     lines = [
         "==================================================",
-        "          RESPECTED-OS GRAF ANALİZ RAPORU         ",
+        "          İKİNCİ BEYİN GRAF ANALİZ RAPORU         ",
         "==================================================",
         f"Toplam Taranan Sayfa : {res['total_pages']}",
         f"Toplam Bağlantı (Kenar): {res['total_edges']}",
