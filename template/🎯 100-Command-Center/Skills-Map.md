@@ -6,6 +6,9 @@ Kanonik kaynak: `.beyin/skills/`
 
 | Skill | Ne zaman kullanılır |
 | --- | --- |
+| `ajan-gecmis-tara` | Use when the user asks to mine, scan, import, or extract past conversation logs directly from local AI agent CLIs (Claude Code, Google Antigravity, OpenAI Codex). |
 | `beyin-doktor` | Beynin sağlık kontrolü. Hook'lar, script'ler, hafıza dosyaları, günlük loglar, derleme durumu ve vault hijyeni tek tabloda raporlanır. "beyin doktor", "doktor", "sağlık kontrolü", "beyin çalışıyor mu", "hafıza bozuk mu" dendiğinde veya bir hafıza mekanizmasının sessizce çalışmadığından şüphelenildiğinde kullan. |
+| `beyin-meydan-oku` | Use when the user proposes a new decision, architecture, idea, or strategy and wants the vault to critically challenge it using past decisions, post-mortems, lessons, and recorded failures. |
+| `beyin-oruntu` | Use when the user asks to analyze recent activity (e.g. past 30 days) to uncover hidden patterns, repeated bottlenecks, unspoken friction, or emerging trends across projects and notes. |
 | `gecmis-import` | Eski sohbet geçmişini (ChatGPT, Claude, Gemini Takeout dışa aktarımları) vault'un günlük log formatına çevirip derleyicinin sindirmesi için daily/ altına yazar. "geçmiş import", "geçmişimi aktar", "takeout", "chatgpt geçmişi", "eski sohbetlerimi beyne yükle" dendiğinde kullan. |
 | `inbox-duzenle` | Use when the user asks to organize, classify, clean up, triage, or file notes from the inbox or Dump folder. |

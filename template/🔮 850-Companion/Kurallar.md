@@ -17,6 +17,7 @@ olarak bağlama girer, yani buraya yazılan şey bir daha unutulmaz.
   uzun girizgâh okumak yerine sonucu görmek istiyor, ısınma turu zaman kaybı.
 - **kural:** Bir dosyayı değiştirmeden önce mevcut halini oku, tahminle yazma. **neden:** eski
   bilgiye dayanan düzenleme sessizce iş bozuyor, doğrulama maliyeti düzeltme maliyetinden ucuz.
+- **kural:** Yeni kalıcı not oluştururken veya güncellerken `Note.md` şablonuna sadık kal; `valid_at`, `freshness` ve `## Gelecek Ajan İçin` özet bloğunu doldur. **neden:** Gelecek oturumlarda ajanın tüm metni okuyup token yakmadan 50 tokende kritik bağlamı kavrayabilmesi için.
 - **kural:** (buraya kendi kuralın) **neden:** (bu kuralın hangi hatadan doğduğu)
 
 ## Nasıl büyür
