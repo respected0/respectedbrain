@@ -297,7 +297,7 @@ class TemplateAndSkillsTest(unittest.TestCase):
 
     def test_scan_open_loops(self) -> None:
         sys.path.insert(0, str(ROOT / "template" / ".beyin"))
-        from morning_briefing import _scan_open_loops
+        from morning_briefing import _scan_open_loops  # type: ignore[import-not-found]
 
         with tempfile.TemporaryDirectory() as td:
             v_root = Path(td)
@@ -323,7 +323,7 @@ class TemplateAndSkillsTest(unittest.TestCase):
 
     def test_precompact_transcript_backup(self) -> None:
         sys.path.insert(0, str(ROOT / "template" / ".beyin" / "hooks"))
-        import lifecycle
+        import lifecycle  # type: ignore[import-not-found]
 
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             v_root = Path(td)

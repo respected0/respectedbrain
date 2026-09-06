@@ -22,8 +22,8 @@ SCRIPTS_DIR = BEYIN_DIR.parent / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-import runtime_platform
-from legacy_names import LEGACY_BRIEFING_BEGIN, LEGACY_BRIEFING_END
+import runtime_platform  # type: ignore[import-not-found]
+from legacy_names import LEGACY_BRIEFING_BEGIN, LEGACY_BRIEFING_END  # type: ignore[import-not-found]
 
 
 ModelCall = Callable[[str, Path], tuple[str | None, str | None, str | None]]
