@@ -1,6 +1,6 @@
 ---
 name: beyin-meydan-oku
-description: Yeni kararları geçmiş hatalar ve kararlarla eleştirel test eder. "meydan oku", "challenge", "bu karar doğru mu" dendiğinde kullan.
+description: Kararları geçmiş hata ve verilerle eleştirel test eder. "meydan oku", "challenge", "bu karar doğru mu" için kullan.
 ---
 
 # Beyin Meydan Oku (/challenge)

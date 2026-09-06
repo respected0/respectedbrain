@@ -1,6 +1,6 @@
 ---
 name: obsidian-layout
-description: Obsidian görsel arayüzünü, sekmeleri, dosya ağacını, fontları ve CSS snippet'larını düzenler. "obsidian tema", "obsidian görünüm", "css düzenle", "sekmeler", "arayüz" dendiğinde kullan.
+description: Obsidian görsel temasını ve CSS snippetlarını düzenler. "obsidian tema", "css düzenle", "görünüm" için kullan.
 ---
 
 # Obsidian Görsel Düzenleyici (Layout Adjustment)

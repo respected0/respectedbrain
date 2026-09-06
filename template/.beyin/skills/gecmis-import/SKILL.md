@@ -1,6 +1,6 @@
 ---
 name: gecmis-import
-description: Eski sohbet geçmişini (ChatGPT, Claude, Takeout) günlük loga çevirip daily/ altına yazar. "geçmiş import", "chatgpt geçmişi" dendiğinde kullan.
+description: Eski sohbetleri (ChatGPT, Claude) daily/ altına aktarır. "geçmiş import", "chatgpt geçmişi" dendiğinde kullan.
 ---
 
 # Geçmiş İçe Aktarımı

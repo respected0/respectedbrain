@@ -6,11 +6,12 @@ Kanonik kaynak: `.beyin/skills/`
 
 | Skill | Ne zaman kullanılır |
 | --- | --- |
-| `ajan-gecmis-tara` | Yerel AI ajan (Antigravity, Codex) loglarını tarayıp aktarır. "ajan geçmiş", "geçmiş tara", "kod geçmişi aktar" dendiğinde kullan. |
-| `beyin-doktor` | Beynin sağlık kontrolü. Hook, hafıza, log ve vault hijyenini raporlar. "beyin doktor", "sağlık kontrolü", "beyin çalışıyor mu" dendiğinde kullan. |
-| `beyin-meydan-oku` | Yeni kararları geçmiş hatalar ve kararlarla eleştirel test eder. "meydan oku", "challenge", "bu karar doğru mu" dendiğinde kullan. |
-| `beyin-oruntu` | Son 30 gündeki örtük sürtünme ve darboğaz örüntülerini çıkarır. "örüntü", "trend", "nerede takılıyoruz" dendiğinde kullan. |
-| `gecmis-import` | Eski sohbet geçmişini (ChatGPT, Claude, Takeout) günlük loga çevirip daily/ altına yazar. "geçmiş import", "chatgpt geçmişi" dendiğinde kullan. |
-| `inbox-duzenle` | Gelen kutusu veya Dump notlarını tasnif edip düzenler. "inbox düzenle", "dump temizle" dendiğinde veya inbox triyajında kullan. |
-| `otonom-arastirma` | Web ve kaynaklarda derinlemesine araştırma yapar; sadece kalıcıysa kasaya aktarır. "araştır", "derin araştırma", "incele" dendiğinde kullan. |
-| `yazilim-kalite` | Yazılım kalite kuralları, adversarial review, regresyon ve verification gate. "kalite kontrol", "yazılım kalite", "quality gate" dendiğinde kullan. |
+| `ajan-gecmis-tara` | Yerel AI ajan (Antigravity, Codex) loglarını tarar. "ajan geçmiş", "geçmiş tara" dendiğinde kullan. |
+| `beyin-doktor` | Beynin sağlık kontrolü; hook, hafıza ve vault hijyenini denetler. "beyin doktor", "sağlık kontrolü" için kullan. |
+| `beyin-meydan-oku` | Kararları geçmiş hata ve verilerle eleştirel test eder. "meydan oku", "challenge", "bu karar doğru mu" için kullan. |
+| `beyin-oruntu` | 30 gündeki örtük sürtünme ve darboğaz örüntülerini çıkarır. "örüntü", "trend", "nerede takılıyoruz" için kullan. |
+| `gecmis-import` | Eski sohbetleri (ChatGPT, Claude) daily/ altına aktarır. "geçmiş import", "chatgpt geçmişi" dendiğinde kullan. |
+| `inbox-duzenle` | Gelen kutusu ve Dump notlarını tasnif edip düzenler. "inbox düzenle", "dump temizle", "triyaj" dendiğinde kullan. |
+| `obsidian-layout` | Obsidian görsel temasını ve CSS snippetlarını düzenler. "obsidian tema", "css düzenle", "görünüm" için kullan. |
+| `otonom-arastirma` | Webde derin araştırma yapar, kalıcı bilgiyi kasaya işler. "araştır", "derin araştırma", "incele" için kullan. |
+| `yazilim-kalite` | Kod kalitesi, adversarial review ve verification gate uygular. "kalite kontrol", "yazılım kalite" için kullan. |

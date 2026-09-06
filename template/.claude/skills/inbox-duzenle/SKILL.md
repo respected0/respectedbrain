@@ -1,6 +1,6 @@
 ---
 name: inbox-duzenle
-description: Gelen kutusu veya Dump notlarını tasnif edip düzenler. "inbox düzenle", "dump temizle" dendiğinde veya inbox triyajında kullan.
+description: Gelen kutusu ve Dump notlarını tasnif edip düzenler. "inbox düzenle", "dump temizle", "triyaj" dendiğinde kullan.
 ---
 
 # Inbox Düzenleme

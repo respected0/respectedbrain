@@ -1,6 +1,6 @@
 ---
 name: beyin-doktor
-description: Beynin sağlık kontrolü. Hook, hafıza, log ve vault hijyenini raporlar. "beyin doktor", "sağlık kontrolü", "beyin çalışıyor mu" dendiğinde kullan.
+description: Beynin sağlık kontrolü; hook, hafıza ve vault hijyenini denetler. "beyin doktor", "sağlık kontrolü" için kullan.
 ---
 
 # Beyin Doktoru

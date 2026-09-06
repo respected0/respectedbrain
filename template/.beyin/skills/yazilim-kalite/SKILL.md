@@ -1,6 +1,6 @@
 ---
 name: yazilim-kalite
-description: Yazılım kalite kuralları, adversarial review, regresyon ve verification gate. "kalite kontrol", "yazılım kalite", "quality gate" dendiğinde kullan.
+description: Kod kalitesi, adversarial review ve verification gate uygular. "kalite kontrol", "yazılım kalite" için kullan.
 ---
 
 # Yazılım Geliştirme Kalite Kuralları & Golden Standard Gate

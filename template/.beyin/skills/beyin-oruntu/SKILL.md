@@ -1,6 +1,6 @@
 ---
 name: beyin-oruntu
-description: Son 30 gündeki örtük sürtünme ve darboğaz örüntülerini çıkarır. "örüntü", "trend", "nerede takılıyoruz" dendiğinde kullan.
+description: 30 gündeki örtük sürtünme ve darboğaz örüntülerini çıkarır. "örüntü", "trend", "nerede takılıyoruz" için kullan.
 ---
 
 # Beyin Örüntü Çıkarıcı (/emerge)
