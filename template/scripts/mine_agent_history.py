@@ -71,6 +71,7 @@ class AgentHistoryMiner:
         pattern = str(antigravity_brain / "*" / ".system_generated" / "logs" / "transcript.jsonl")
         for file_path in glob.glob(pattern):
             p = Path(file_path)
+            # conversation id üst dizinlerden alınır
             conv_id = p.parents[2].name
             try:
                 stat = p.stat()
@@ -95,6 +96,7 @@ class AgentHistoryMiner:
         if not claude_dir.is_dir():
             return sessions
 
+        # Claude projelerindeki jsonl kayıtları
         for p in claude_dir.rglob("*.jsonl"):
             if "session" in p.name.lower() or "transcript" in p.name.lower() or len(p.stem) == 36:
                 try:
@@ -153,6 +155,7 @@ class AgentHistoryMiner:
                     except json.JSONDecodeError:
                         continue
 
+                    # Antigravity formatı
                     if agent == "antigravity":
                         msg_type = record.get("type", "")
                         content = str(record.get("content", "")).strip()
@@ -160,8 +163,10 @@ class AgentHistoryMiner:
                             user_inputs.append(content)
                         elif msg_type == "PLANNER_RESPONSE" and content:
                             if len(content) > 30 and not content.startswith("{"):
+                                # sadece ilk 300 karakteri kaydet (özet için)
                                 model_thoughts_or_summaries.append(content[:300].strip())
 
+                    # Standart / Codex / Claude formatları
                     else:
                         role = record.get("role") or record.get("source") or ""
                         content = str(record.get("content") or record.get("text") or record.get("message") or "").strip()
@@ -261,6 +266,7 @@ def main() -> int:
     if args.source in ("all", "codex"):
         candidates.extend(miner.discover_codex_sessions())
 
+    # Tarihe göre en yeniden eskiye sırala
     candidates.sort(key=lambda x: x["mtime"], reverse=True)
 
     print(f"Toplam {len(candidates)} ajan oturum dosyası bulundu.")

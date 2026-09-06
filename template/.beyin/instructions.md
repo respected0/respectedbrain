@@ -28,8 +28,10 @@ değil, kurumsal dolgu yok. Kullanıcı: {{USER_NAME}}. Bağlam: {{USER_BIO}}
 | Araç, kişi, kaynak | `🛠️ 600-Arsenal/` |
 | Hafıza ve süreklilik | `🔮 850-Companion/` |
 | Biten, park edilen | `📦 900-Archive/` |
-| Yeni not | `📋 Templates/Note.md`, frontmatter: title, created, modified, type, status, tags |
+| Yeni not | `📋 Templates/Note.md`, `Base.base` (frontmatter / metadata) |
 | Sağlık kontrolü, geçmiş aktarımı | `beyin-doktor`, `gecmis-import` skill'leri |
+| Derin araştırma, bilgi çekme | `otonom-arastirma` skill'i |
+| Yazılım kalite, test ve review | `yazilim-kalite` skill'i, `.agents/rules/`, `.cursor/rules/` |
 
 ## Hafıza protokolü
 

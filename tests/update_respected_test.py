@@ -356,6 +356,11 @@ class UpdateRespectedTest(unittest.TestCase):
             (self.vault / ".beyin-multi-version").read_text().strip(),
             "1.4.1",
         )
+        self.assertTrue((self.vault / ".cursor/rules/software-quality-1.mdc").is_file())
+        self.assertTrue((self.vault / ".cursor/rules/software-quality-2.mdc").is_file())
+        self.assertTrue((self.vault / ".agents/rules/software-quality-1.md").is_file())
+        self.assertTrue((self.vault / ".agents/rules/software-quality-2.md").is_file())
+        self.assertTrue((self.vault / "📋 Templates/Base.base").is_file())
 
     def test_unstamped_v1_and_unknown_versions_are_rejected_without_mutation(self):
         cases = (

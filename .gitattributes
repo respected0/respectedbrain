@@ -3,4 +3,6 @@
 *.py text eol=lf
 *.json text eol=lf
 *.md text eol=lf
+*.mdc text eol=lf
+*.base text eol=lf
 *.yml text eol=lf

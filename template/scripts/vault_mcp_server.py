@@ -30,6 +30,7 @@ if str(SCRIPT_DIR) not in sys.path:
 try:
     from arama import SearchEngine, resolve_vault_root
 except ImportError:
+    # template içinden çağrılma durumu
     from scripts.arama import SearchEngine, resolve_vault_root
 
 
@@ -149,6 +150,7 @@ class RespectedMcpServer:
 
         elif name == "respected_get_decisions":
             project = arguments.get("project")
+            # 1. 500-Knowledge, Projects ve Companion altındaki karar ve kuralları ara
             search_query = f"{project} karar" if project else "karar mimari kural ADR"
             results = self.search_engine.search(search_query, limit=8)
             kurallar_file = self.vault_root / "🔮 850-Companion" / "Kurallar.md"
@@ -211,6 +213,7 @@ class RespectedMcpServer:
 
             try:
                 target_file.write_text(note_body, encoding="utf-8")
+                # İndeksi güncelle
                 self.search_engine.index_vault()
                 return f"Başarılı: Not '{filename}' olarak '📥 000-Inbox/Dump/' dizinine kaydedildi ve arama indeksine eklendi."
             except Exception as e:
@@ -253,6 +256,7 @@ class RespectedMcpServer:
                 self._send(resp)
 
             elif method == "notifications/initialized":
+                # Bildirim, yanıt gerektirmez
                 pass
 
             elif method == "ping":

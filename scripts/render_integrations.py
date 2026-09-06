@@ -184,6 +184,16 @@ def render(check: bool, profile: Profile) -> bool:
         "install_global.py",
         "install_briefing_schedule.py",
         "set_summary_provider.py",
+        "defuddle.py",
+        "url_safety.py",
+        "vault_linter.py",
+        "tiling_check.py",
+        "arama.py",
+        "vault_mcp_server.py",
+        "mine_agent_history.py",
+        "backup_restic.py",
+        "publish_git_snapshot.py",
+        "repair_daily.py",
     ):
         helper_source = REPO / "scripts" / helper_name
         helper_target = TEMPLATE / "scripts" / helper_name

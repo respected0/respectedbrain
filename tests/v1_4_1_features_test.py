@@ -178,17 +178,34 @@ class TestManifestAndTemplates(unittest.TestCase):
         self.assertIn("scripts/defuddle.py", manifest.RUNTIME)
         self.assertIn("scripts/vault_linter.py", manifest.RUNTIME)
         self.assertIn("scripts/tiling_check.py", manifest.RUNTIME)
+        self.assertIn(".agents/rules/software-quality-1.md", manifest.RUNTIME)
+        self.assertIn(".agents/rules/software-quality-2.md", manifest.RUNTIME)
+        self.assertIn(".cursor/rules/software-quality-1.mdc", manifest.RUNTIME)
+        self.assertIn(".cursor/rules/software-quality-2.mdc", manifest.RUNTIME)
+        self.assertIn("📋 Templates/Base.base", manifest.RUNTIME)
 
     def test_new_skills_and_templates_exist(self):
         # Otonom araştırma skill'i
         self.assertTrue((ROOT / "template" / ".beyin" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())
         self.assertTrue((ROOT / "template" / ".agents" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())
+        self.assertTrue((ROOT / "template" / ".claude" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())
 
         # Yazılım kalite skill'i ve iki parçalı kural seti (Madde 1-13 ve Madde 14-25 + Gate)
         self.assertTrue((ROOT / "template" / ".beyin" / "skills" / "yazilim-kalite" / "SKILL.md").is_file())
         self.assertTrue((ROOT / "template" / ".agents" / "skills" / "yazilim-kalite" / "SKILL.md").is_file())
+        self.assertTrue((ROOT / "template" / ".claude" / "skills" / "yazilim-kalite" / "SKILL.md").is_file())
         self.assertTrue((ROOT / "template" / ".agents" / "rules" / "software-quality-1.md").is_file())
         self.assertTrue((ROOT / "template" / ".agents" / "rules" / "software-quality-2.md").is_file())
+
+        # Cursor MDC kalite kural setleri (Frontmatter + kurallar)
+        cursor_q1 = ROOT / "template" / ".cursor" / "rules" / "software-quality-1.mdc"
+        cursor_q2 = ROOT / "template" / ".cursor" / "rules" / "software-quality-2.mdc"
+        self.assertTrue(cursor_q1.is_file())
+        self.assertTrue(cursor_q2.is_file())
+        self.assertTrue(cursor_q1.read_text(encoding="utf-8").startswith("---\ndescription:"))
+        self.assertTrue(cursor_q2.read_text(encoding="utf-8").startswith("---\ndescription:"))
+        self.assertIn("alwaysApply: true", cursor_q1.read_text(encoding="utf-8"))
+        self.assertIn("alwaysApply: true", cursor_q2.read_text(encoding="utf-8"))
 
         # Obsidian Base şablonu
         self.assertTrue((ROOT / "template" / "📋 Templates" / "Base.base").is_file())

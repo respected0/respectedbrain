@@ -33,15 +33,18 @@ def resolve_vault_root(candidate: Path | None = None) -> Path:
             return resolved
         return resolved
 
+    # 1. Mevcut dizin ve üst dizinler
     cur = Path.cwd().resolve()
     for p in [cur, *cur.parents]:
         if (p / ".beyin").is_dir() and (p / "knowledge").is_dir():
             return p
 
+    # 2. Standart RespectedOS yolu
     default_win = Path(r"C:\Users\Furkan\Documents\RespectedOS")
     if default_win.is_dir():
         return default_win
 
+    # 3. Bulunamazsa mevcut çalışma dizini
     return cur
 
 

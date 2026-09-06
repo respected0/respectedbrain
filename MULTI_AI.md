@@ -21,8 +21,8 @@ Araçlara özel dosyalar üretilir; elle düzenlenmez:
 
 - `CLAUDE.md` — Claude Code
 - `AGENTS.md` ve `.codex/hooks.json` — Codex
-- `.cursor/rules/beyin.mdc` ve `.cursor/hooks.json` — Cursor
-- `.agents/rules/beyin.md`, `.agents/skills/` ve `.agents/hooks.json` — Antigravity
+- `.cursor/rules/` (`beyin.mdc`, `software-quality-1.mdc`, `software-quality-2.mdc`) ve `.cursor/hooks.json` — Cursor
+- `.agents/rules/` (`beyin.md`, `software-quality-1.md`, `software-quality-2.md`), `.agents/skills/` ve `.agents/hooks.json` — Antigravity
 - `.claude/skills/` — Claude Code
 
 Kaynaktan tekrar üretmek ve drift kontrolü yapmak için:
