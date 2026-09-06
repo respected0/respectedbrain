@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -386,6 +387,19 @@ def _finish_session(
     if reason == "end" and prompts >= 5 and not modified:
         detail = f"Oturum hafıza güncellemeden bitti. Prompt: {prompts}. {now:%Y-%m-%d %H:%M}\n"
         _atomic_write(reflection_file, detail)
+
+    if reason == "precompact":
+        transcript_path_str = payload.get("transcript_path")
+        if isinstance(transcript_path_str, str) and transcript_path_str:
+            t_path = Path(transcript_path_str)
+            if t_path.is_file():
+                logs_dir = vault_root / "🔮 850-Companion" / "Session-Logs"
+                logs_dir.mkdir(parents=True, exist_ok=True)
+                target_log = logs_dir / f"{now:%Y%m%d_%H%M%S}_{key[:8]}.jsonl"
+                try:
+                    shutil.copyfile(t_path, target_log)
+                except OSError:
+                    pass
 
     launched = _launch_flush(
         vault_root,

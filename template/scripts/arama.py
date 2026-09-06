@@ -48,6 +48,36 @@ def resolve_vault_root(candidate: Path | None = None) -> Path:
     return cur
 
 
+def read_head(path: Path, max_chars: int = 1200) -> str:
+    """Dosyanın yalnızca ilk max_chars karakterini okur (frontmatter ve başlık I/O optimizasyonu)."""
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as handle:
+            return handle.read(max_chars)
+    except OSError:
+        return ""
+
+
+def parse_frontmatter_head(path: Path, max_chars: int = 1200) -> tuple[dict[str, Any], bool]:
+    """Büyük dosyaları tamamen belleğe okumadan, ilk 1200 karakterden frontmatter ayrıştırır."""
+    head = read_head(path, max_chars=max_chars)
+    if not head.startswith("---"):
+        return {}, False
+    parts = head.split("---", 2)
+    if len(parts) < 3:
+        return {}, False
+    fm: dict[str, Any] = {}
+    for line in parts[1].splitlines():
+        if ":" in line:
+            key, val = line.split(":", 1)
+            key = key.strip().lower()
+            val = val.strip().strip('"').strip("'")
+            if val.startswith("[") and val.endswith("]"):
+                fm[key] = [x.strip().strip('"').strip("'") for x in val[1:-1].split(",") if x.strip()]
+            else:
+                fm[key] = val
+    return fm, True
+
+
 def parse_markdown_meta(content: str) -> tuple[dict[str, Any], str]:
     """Basit frontmatter ayrıştırıcı ve metin gövdesi."""
     frontmatter: dict[str, Any] = {}

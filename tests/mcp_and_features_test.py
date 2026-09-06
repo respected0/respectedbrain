@@ -25,11 +25,11 @@ for p in (ROOT, SCRIPTS_DIR):
         sys.path.insert(0, str(p))
 
 try:
-    from scripts.arama import SearchEngine
+    from scripts.arama import SearchEngine, read_head, parse_frontmatter_head
     from scripts.vault_mcp_server import RespectedMcpServer
     from scripts.mine_agent_history import AgentHistoryMiner
 except ImportError:
-    from arama import SearchEngine  # type: ignore[import-not-found]
+    from arama import SearchEngine, read_head, parse_frontmatter_head  # type: ignore[import-not-found]
     from vault_mcp_server import RespectedMcpServer  # type: ignore[import-not-found]
     from mine_agent_history import AgentHistoryMiner  # type: ignore[import-not-found]
 
@@ -267,6 +267,86 @@ class TemplateAndSkillsTest(unittest.TestCase):
             1500,
             f"Skills-Map.md ({len(text)} chars) exceeds the 1,500-char lifecycle hook cap, which triggers truncation notes.",
         )
+
+    def test_note_template_has_epistemic_fields(self) -> None:
+        note_template = ROOT / "template" / "📋 Templates" / "Note.md"
+        self.assertTrue(note_template.is_file())
+        content = note_template.read_text(encoding="utf-8")
+        self.assertIn("scope:", content)
+        self.assertIn("confidence:", content)
+        self.assertIn("supersedes:", content)
+
+    def test_read_head_and_frontmatter_head(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            test_file = Path(td) / "big_note.md"
+            header = "---\ntitle: Büyük Not\nscope: platform\ntags: [a, b]\n---\n"
+            # 50.000 karakterlik gövde
+            body = "# Başlık\n" + ("Uzun satır metni.\n" * 2000)
+            test_file.write_text(header + body, encoding="utf-8")
+
+            # Yalnızca ilk 1200 karakter okunmalı
+            head = read_head(test_file, max_chars=1200)
+            self.assertLessEqual(len(head), 1200)
+            self.assertIn("title: Büyük Not", head)
+
+            fm, valid = parse_frontmatter_head(test_file, max_chars=1200)
+            self.assertTrue(valid)
+            self.assertEqual(fm["title"], "Büyük Not")
+            self.assertEqual(fm["scope"], "platform")
+            self.assertEqual(fm["tags"], ["a", "b"])
+
+    def test_scan_open_loops(self) -> None:
+        sys.path.insert(0, str(ROOT / "template" / ".beyin"))
+        from morning_briefing import _scan_open_loops
+
+        with tempfile.TemporaryDirectory() as td:
+            v_root = Path(td)
+            # 1. 300-Projects altında açık todo
+            p_dir = v_root / "🏰 300-Projects" / "ProjectAlpha"
+            p_dir.mkdir(parents=True)
+            (p_dir / "Tasks.md").write_text("# Tasks\n- [ ] Database migration yap\n- [x] Schema tasarla\n", encoding="utf-8")
+
+            # 2. Daily log altında açık todo
+            d_dir = v_root / "daily"
+            d_dir.mkdir(parents=True)
+            (d_dir / "2026-09-06.md").write_text("# Günlük\n- [ ] Sarah ile 1:1 yap\n", encoding="utf-8")
+
+            # 3. Inbox dump
+            i_dir = v_root / "📥 000-Inbox" / "Dump"
+            i_dir.mkdir(parents=True)
+            (i_dir / "meeting.md").write_text("# Meeting\n", encoding="utf-8")
+
+            loops_text = _scan_open_loops(v_root)
+            self.assertIn("Database migration yap", loops_text)
+            self.assertIn("Sarah ile 1:1 yap", loops_text)
+            self.assertIn("İşlenmeyi bekleyen", loops_text)
+
+    def test_precompact_transcript_backup(self) -> None:
+        sys.path.insert(0, str(ROOT / "template" / ".beyin" / "hooks"))
+        import lifecycle
+
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            v_root = Path(td)
+            (v_root / "🔮 850-Companion").mkdir(parents=True)
+            (v_root / "🔮 850-Companion" / "Last-Session.md").write_text("## Session: test\n", encoding="utf-8")
+            s_dir = v_root / ".claude" / "scripts" / ".state"
+            s_dir.mkdir(parents=True)
+
+            # Geçici sahte transkript dosyası
+            fake_transcript = Path(td) / "fake_transcript.jsonl"
+            fake_transcript.write_text('{"type": "message", "content": "hello"}\n', encoding="utf-8")
+
+            payload = {
+                "session_id": "session-xyz123",
+                "transcript_path": str(fake_transcript),
+            }
+            lifecycle._finish_session(v_root, s_dir, payload, "precompact", dt.datetime.now(), "antigravity")
+
+            logs_dir = v_root / "🔮 850-Companion" / "Session-Logs"
+            self.assertTrue(logs_dir.is_dir())
+            backed_files = list(logs_dir.glob("*.jsonl"))
+            self.assertEqual(len(backed_files), 1)
+            self.assertIn("hello", backed_files[0].read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
