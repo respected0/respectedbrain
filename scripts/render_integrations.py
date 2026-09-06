@@ -27,7 +27,7 @@ def write_text(path: Path, content: str, check: bool) -> bool:
         print(path.relative_to(ROOT))
         return True
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    path.write_text(content, encoding="utf-8", newline="\n")
     return True
 
 
@@ -88,10 +88,15 @@ def bridge_argv(
         bridge = vault / ".beyin" / "hooks" / "bridge.py"
         return [*profile.python_command, str(bridge), *suffix]
     if profile.name == "windows-wsl":
+        wsl_cd = vault.as_posix()
+        if len(wsl_cd) >= 2 and wsl_cd[1] == ":":
+            drive = wsl_cd[0].lower()
+            rest = wsl_cd[2:].lstrip("/")
+            wsl_cd = f"/mnt/{drive}/{rest}"
         return [
             "wsl.exe",
             "--cd",
-            vault.as_posix(),
+            wsl_cd,
             *profile.python_command,
             ".beyin/hooks/bridge.py",
             *suffix,
@@ -99,7 +104,8 @@ def bridge_argv(
     bridge = vault / ".beyin" / "hooks" / "bridge.py" if global_hook else PurePath(
         ".beyin/hooks/bridge.py"
     )
-    return [*profile.python_command, str(bridge), *suffix]
+    bridge_str = bridge.as_posix() if profile.name == "portable" else str(bridge)
+    return [*profile.python_command, bridge_str, *suffix]
 
 
 def command_text(

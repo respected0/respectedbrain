@@ -60,13 +60,16 @@ def load_legacy_names():
 class NamingContractTest(unittest.TestCase):
     def test_repository_current_surfaces_have_no_unallowlisted_legacy_brand(self):
         result = subprocess.run(
-            ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
             cwd=ROOT,
-            text=True,
             capture_output=True,
             check=True,
         )
-        paths = tuple(Path(line) for line in result.stdout.splitlines() if line)
+        paths = tuple(
+            Path(line)
+            for line in result.stdout.decode("utf-8", errors="replace").split("\0")
+            if line
+        )
         allowlist = {
             Path("docs/superpowers/plans/2026-09-02-respected-brain-rename.md"),
             Path("docs/superpowers/specs/2026-09-02-respected-brain-rename-design.md"),

@@ -40,7 +40,7 @@ def write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
-        temporary.write_text(content, encoding="utf-8")
+        temporary.write_text(content, encoding="utf-8", newline="\n")
         os.chmod(temporary, 0o600)
         os.replace(temporary, path)
     finally:
@@ -87,10 +87,19 @@ def merge_managed(existing: str, managed: str) -> str:
 
 
 def windows_path(vault: Path) -> str | None:
+    if vault.drive:
+        return str(vault)
     parts = vault.parts
     if len(parts) >= 4 and parts[1] == "mnt" and len(parts[2]) == 1:
         return f"{parts[2].upper()}:\\" + "\\".join(parts[3:])
     return None
+
+
+def _user_home() -> Path:
+    env_home = os.environ.get("HOME") or os.environ.get("USERPROFILE")
+    if env_home:
+        return Path(env_home)
+    return Path.home()
 
 
 def managed_rule(vault: Path) -> str:
@@ -372,7 +381,7 @@ def main() -> int:
             seen_homes.add(resolved)
     shared_skill_homes: set[Path] = set()
     if args.platform == "windows-wsl" and "codex" in providers:
-        candidates = [Path.home(), *args.antigravity_home]
+        candidates = [_user_home(), *args.antigravity_home]
         for candidate in candidates:
             resolved = candidate.expanduser().resolve()
             shared_skill_homes.add(resolved)

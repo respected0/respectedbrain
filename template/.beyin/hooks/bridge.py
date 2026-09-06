@@ -161,21 +161,24 @@ def dispatch(provider: str, event: str, payload: dict[str, Any]) -> str:
 
 
 def inside_vault(active: str) -> bool:
-    """Compare native Windows and POSIX workspace paths without treating C:\\... as relative in WSL."""
+    r"""Compare native Windows and POSIX workspace paths without treating C:\... as relative in WSL."""
     normalized = active.replace("\\", "/").rstrip("/")
     if re.match(r"^[A-Za-z]:/", normalized):
+        candidate = os.path.normpath(normalized).replace("\\", "/").casefold()
+        if ROOT.drive or re.match(r"^[A-Za-z]:/", str(ROOT).replace("\\", "/")):
+            root_folded = os.path.normpath(str(ROOT).replace("\\", "/")).replace("\\", "/").rstrip("/").casefold()
+            return candidate == root_folded or candidate.startswith(root_folded + "/")
         parts = ROOT.parts
         if len(parts) < 4 or parts[1] != "mnt" or len(parts[2]) != 1:
             return False
         root_native = f"{parts[2]}:/" + "/".join(parts[3:])
-        candidate = normalized.casefold()
-        root_folded = root_native.rstrip("/").casefold()
+        root_folded = os.path.normpath(root_native).replace("\\", "/").rstrip("/").casefold()
         return candidate == root_folded or candidate.startswith(root_folded + "/")
     path = Path(active)
     if not path.is_absolute():
         return False
     try:
-        path.resolve().relative_to(ROOT)
+        path.resolve().relative_to(ROOT.resolve())
     except (OSError, ValueError):
         return False
     return True

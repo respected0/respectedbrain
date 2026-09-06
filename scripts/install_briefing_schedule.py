@@ -102,12 +102,16 @@ def build_plan(
         worker = vault / ".beyin" / "morning_briefing.py"
         executable = python_executable or "py.exe"
         prefix = [] if python_executable else ["-3"]
-        arguments = subprocess.list2cmdline(prefix + [str(worker), *worker_arguments])
-        return SchedulePlan("windows-task", name, _windows_xml(executable, arguments))
+        arguments = subprocess.list2cmdline(
+            ["--headless", executable, *prefix, str(worker), *worker_arguments]
+        )
+        return SchedulePlan("windows-task", name, _windows_xml("conhost.exe", arguments))
     if platform == "windows-wsl":
         executable = python_executable or sys.executable
         arguments = subprocess.list2cmdline(
             [
+                "--headless",
+                "wsl.exe",
                 "--cd",
                 vault.as_posix(),
                 executable,
@@ -118,7 +122,7 @@ def build_plan(
                 *(["--provider-path", provider_path] if provider_path else []),
             ]
         )
-        return SchedulePlan("windows-task", name, _windows_xml("wsl.exe", arguments))
+        return SchedulePlan("windows-task", name, _windows_xml("conhost.exe", arguments))
     if platform == "linux":
         executable = python_executable or sys.executable
         command = shlex.join(
@@ -259,8 +263,12 @@ def _query_windows_task(name: str) -> tuple[subprocess.CompletedProcess[bytes], 
         return result, None
 
 
+def _current_uid() -> int:
+    return getattr(os, "getuid", lambda: 501)()
+
+
 def _windows_argument_path(path: Path) -> str:
-    if os.name == "nt" or not os.environ.get("WSL_INTEROP"):
+    if not os.environ.get("WSL_INTEROP"):
         return str(path)
     try:
         result = subprocess.run(
@@ -519,24 +527,24 @@ def install(
         )
         _persist_legacy_backups(home, legacy_name, legacy_snapshot)
         _write(target, plan.content)
-        subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}", str(target)], check=False)
+        subprocess.run(["launchctl", "bootout", f"gui/{_current_uid()}", str(target)], check=False)
         result = subprocess.run(
-            ["launchctl", "bootstrap", f"gui/{os.getuid()}", str(target)], check=False
+            ["launchctl", "bootstrap", f"gui/{_current_uid()}", str(target)], check=False
         )
         verified = subprocess.run(
-            ["launchctl", "print", f"gui/{os.getuid()}/{plan.name}"], check=False
+            ["launchctl", "print", f"gui/{_current_uid()}/{plan.name}"], check=False
         )
         if result.returncode != 0 or verified.returncode != 0:
             _restore(snapshot)
             if current_snapshot[target] is not None:
                 subprocess.run(
-                    ["launchctl", "bootstrap", f"gui/{os.getuid()}", str(target)],
+                    ["launchctl", "bootstrap", f"gui/{_current_uid()}", str(target)],
                     check=False,
                 )
             return 2
         if legacy_snapshot[legacy_target] is not None:
             subprocess.run(
-                ["launchctl", "bootout", f"gui/{os.getuid()}", str(legacy_target)],
+                ["launchctl", "bootout", f"gui/{_current_uid()}", str(legacy_target)],
                 check=False,
             )
             legacy_target.unlink(missing_ok=True)

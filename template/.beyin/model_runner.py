@@ -159,16 +159,17 @@ def _merge_wslenv(
 
 
 def _windows_user_environment(environment: dict[str, str], cwd: Path) -> None:
-    if os.name == "nt" or not environment.get("WSL_INTEROP"):
+    if not environment.get("WSL_INTEROP"):
         return
     user_root = runtime_platform.windows_user_root(cwd)
     if user_root is None:
         user_root = runtime_platform.windows_user_root(Path(__file__).resolve())
     if user_root is None:
         return
-    environment["USERPROFILE"] = str(user_root)
-    environment["LOCALAPPDATA"] = str(user_root / "AppData" / "Local")
-    environment["APPDATA"] = str(user_root / "AppData" / "Roaming")
+    root_str = str(user_root).replace("\\", "/")
+    environment["USERPROFILE"] = root_str
+    environment["LOCALAPPDATA"] = f"{root_str}/AppData/Local"
+    environment["APPDATA"] = f"{root_str}/AppData/Roaming"
     environment["BEYIN_INVOKED_BY"] = environment.get("BEYIN_INVOKED_BY", "beyin-scripts")
     environment["BEYIN_RECURSION_DEPTH"] = environment.get("BEYIN_RECURSION_DEPTH", "1")
     path_names = ("USERPROFILE", "LOCALAPPDATA", "APPDATA")

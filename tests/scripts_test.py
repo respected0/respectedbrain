@@ -143,6 +143,9 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
             encoding="utf-8",
         )
         stub.chmod(0o755)
+        if os.name == "nt":
+            cmd_stub = self.bin_dir / "claude.cmd"
+            cmd_stub.write_text(f'@"{sys.executable}" "%~dp0claude" %*\n', encoding="utf-8")
 
     def test_engines_do_not_import_posix_locking_directly(self) -> None:
         loader = r'''
@@ -866,6 +869,12 @@ print("loaded")
         self.assertEqual(state["last_status"], "fail:policy")
 
     def test_staged_symlink_is_rejected_before_promotion(self) -> None:
+        probe = self.root / ".symlink_probe"
+        try:
+            probe.symlink_to(self.root)
+            probe.unlink()
+        except OSError:
+            self.skipTest("symlink creation is unavailable on this environment")
         daily_path = self.daily / "2026-08-20.md"
         daily_path.write_text("symlink denemesi", encoding="utf-8")
         before = self._payload_snapshot()

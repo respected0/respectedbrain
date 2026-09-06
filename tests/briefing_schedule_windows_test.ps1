@@ -84,6 +84,8 @@ try {
 
     $CurrentQuery = Invoke-Task @("/Query", "/TN", $CurrentTask, "/XML")
     Assert-True ($CurrentQuery.Code -eq 0) "Current Respected briefing task is missing"
+    Assert-True ($CurrentQuery.Output -match "conhost\.exe") "Current Respected briefing task must use conhost.exe"
+    Assert-True ($CurrentQuery.Output -match "--headless") "Current Respected briefing task must use --headless"
     $LegacyQuery = Invoke-Task @("/Query", "/TN", $LegacyTask, "/XML")
     Assert-True ($LegacyQuery.Code -ne 0) "Legacy briefing task still exists after verified migration"
     Write-Host "ok - real Windows Task Scheduler legacy migration"

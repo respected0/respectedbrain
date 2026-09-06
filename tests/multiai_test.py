@@ -171,7 +171,8 @@ class MultiAITest(unittest.TestCase):
             )
             bridge.ROOT = vault
 
-            context = bridge.dispatch("codex", "start", {"session_id": "bridge-session"})
+            with mock.patch.object(bridge.LIFECYCLE, "_launch_flush"):
+                context = bridge.dispatch("codex", "start", {"session_id": "bridge-session"})
 
             self.assertIn("Ortak lifecycle bağlamı.", context)
             key = bridge.LIFECYCLE.session_key("bridge-session")
@@ -180,13 +181,16 @@ class MultiAITest(unittest.TestCase):
 
     def test_global_bridge_distinguishes_windows_vault_and_external_paths(self):
         bridge = load("bridge_windows_paths", ROOT / "template/.beyin/hooks/bridge.py")
-        parts = bridge.ROOT.parts
-        self.assertGreaterEqual(len(parts), 4)
-        native_root = f"{parts[2].upper()}:\\" + "\\".join(parts[3:])
-        self.assertTrue(bridge.inside_vault(native_root))
-        self.assertTrue(bridge.inside_vault(native_root + "\\nested"))
-        self.assertFalse(bridge.inside_vault("C:\\Projects\\unrelated"))
-        self.assertFalse(bridge.inside_vault("relative-project"))
+        with mock.patch.object(bridge, "ROOT", Path("/mnt/c/Users/Ada/Vault")):
+            self.assertTrue(bridge.inside_vault("C:\\Users\\Ada\\Vault"))
+            self.assertTrue(bridge.inside_vault("C:\\Users\\Ada\\Vault\\nested"))
+            self.assertFalse(bridge.inside_vault("C:\\Projects\\unrelated"))
+            self.assertFalse(bridge.inside_vault("relative-project"))
+        with mock.patch.object(bridge, "ROOT", Path("C:/Users/Ada/Vault")):
+            self.assertTrue(bridge.inside_vault("C:\\Users\\Ada\\Vault"))
+            self.assertTrue(bridge.inside_vault("C:\\Users\\Ada\\Vault\\nested"))
+            self.assertFalse(bridge.inside_vault("C:\\Projects\\unrelated"))
+            self.assertFalse(bridge.inside_vault("relative-project"))
 
     def test_runner_has_windows_user_local_agy_discovery(self):
         runner = (ROOT / "template/.beyin/model_runner.py").read_text(encoding="utf-8")
@@ -619,6 +623,7 @@ class MultiAITest(unittest.TestCase):
 
             environment = os.environ.copy()
             environment["HOME"] = str(wsl)
+            environment["USERPROFILE"] = str(wsl)
             first = subprocess.run(
                 command,
                 capture_output=True,
@@ -666,6 +671,7 @@ class MultiAITest(unittest.TestCase):
             wsl_home.mkdir()
             environment = os.environ.copy()
             environment["HOME"] = str(wsl_home)
+            environment["USERPROFILE"] = str(wsl_home)
 
             result = subprocess.run(
                 [

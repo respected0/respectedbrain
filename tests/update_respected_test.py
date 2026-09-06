@@ -105,7 +105,10 @@ class UpdateRespectedTest(unittest.TestCase):
         environment.update(
             {
                 "HOME": str(self.home),
+                "USERPROFILE": str(self.home),
                 "TMPDIR": str(self.transaction_root),
+                "TMP": str(self.transaction_root),
+                "TEMP": str(self.transaction_root),
             }
         )
         if env:
@@ -233,14 +236,27 @@ class UpdateRespectedTest(unittest.TestCase):
         inside_temp.mkdir()
         before_staging = tree_digest(self.vault)
 
-        staging_result = self.run_update("--apply", env={"TMPDIR": str(inside_temp)})
+        staging_result = self.run_update(
+            "--apply",
+            env={
+                "TMPDIR": str(inside_temp),
+                "TMP": str(inside_temp),
+                "TEMP": str(inside_temp),
+            },
+        )
 
         self.assertNotEqual(staging_result.returncode, 0, staging_result.stdout + staging_result.stderr)
         self.assertEqual(tree_digest(self.vault), before_staging)
         self.assertIn("staging alanı vault dışında", staging_result.stdout + staging_result.stderr)
 
         before_backup = tree_digest(self.vault)
-        backup_result = self.run_update("--apply", env={"HOME": str(self.vault)})
+        backup_result = self.run_update(
+            "--apply",
+            env={
+                "HOME": str(self.vault),
+                "USERPROFILE": str(self.vault),
+            },
+        )
 
         self.assertNotEqual(backup_result.returncode, 0, backup_result.stdout + backup_result.stderr)
         self.assertEqual(tree_digest(self.vault), before_backup)

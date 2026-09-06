@@ -127,10 +127,12 @@ class RegressionMatrixTest(unittest.TestCase):
     # Scenario 3: Codex normal flow: SessionStart -> UserPromptSubmit -> SessionEnd
     # -------------------------------------------------------------------------
     def test_03_codex_normal_flow(self):
-        start_payload = {"session_id": "codex-s1"}
-        code, stdout = LIFECYCLE.handle_event(self.vault, "codex", "SessionStart", start_payload)
-        self.assertEqual(code, 0)
-        self.assertIn("Furkan", stdout)
+        with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
+            start_payload = {"session_id": "codex-s1"}
+            code, stdout = LIFECYCLE.handle_event(self.vault, "codex", "SessionStart", start_payload)
+            self.assertEqual(code, 0)
+            self.assertIn("Furkan", stdout)
+            mock_launch.assert_called_once()
 
         prompt_payload = {"session_id": "codex-s1", "prompt": "test"}
         code, _ = LIFECYCLE.handle_event(self.vault, "codex", "UserPromptSubmit", prompt_payload)
@@ -156,9 +158,11 @@ class RegressionMatrixTest(unittest.TestCase):
     # Scenario 5: Cursor normal flow: sessionStart -> beforeSubmitPrompt -> sessionEnd
     # -------------------------------------------------------------------------
     def test_05_cursor_normal_flow(self):
-        code, stdout = LIFECYCLE.handle_event(self.vault, "cursor", "sessionStart", {"session_id": "cur-1"})
-        self.assertEqual(code, 0)
-        self.assertIn("Furkan", stdout)
+        with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
+            code, stdout = LIFECYCLE.handle_event(self.vault, "cursor", "sessionStart", {"session_id": "cur-1"})
+            self.assertEqual(code, 0)
+            self.assertIn("Furkan", stdout)
+            mock_launch.assert_called_once()
 
         code, _ = LIFECYCLE.handle_event(self.vault, "cursor", "beforeSubmitPrompt", {"session_id": "cur-1"})
         self.assertEqual(code, 0)
@@ -172,17 +176,21 @@ class RegressionMatrixTest(unittest.TestCase):
     # Scenario 6: Cursor preCompact (empty transcript scenario)
     # -------------------------------------------------------------------------
     def test_06_cursor_precompact_empty_transcript(self):
-        payload = {"session_id": "cur-pre-empty"}
-        code, _ = LIFECYCLE.handle_event(self.vault, "cursor", "preCompact", payload)
-        self.assertEqual(code, 0)
+        with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
+            payload = {"session_id": "cur-pre-empty"}
+            code, _ = LIFECYCLE.handle_event(self.vault, "cursor", "preCompact", payload)
+            self.assertEqual(code, 0)
+            mock_launch.assert_called_once()
 
     # -------------------------------------------------------------------------
     # Scenario 7: Antigravity normal flow: PreInvocation -> Stop
     # -------------------------------------------------------------------------
     def test_07_antigravity_normal_flow(self):
-        code, stdout = LIFECYCLE.handle_event(self.vault, "antigravity", "PreInvocation", {"session_id": "agy-1"})
-        self.assertEqual(code, 0)
-        self.assertIn("Furkan", stdout)
+        with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
+            code, stdout = LIFECYCLE.handle_event(self.vault, "antigravity", "PreInvocation", {"session_id": "agy-1"})
+            self.assertEqual(code, 0)
+            self.assertIn("Furkan", stdout)
+            mock_launch.assert_called_once()
 
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
             code, _ = LIFECYCLE.handle_event(self.vault, "antigravity", "Stop", {"session_id": "agy-1", "transcript_path": "/path"})
@@ -204,7 +212,8 @@ class RegressionMatrixTest(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_09_wsl_to_windows_wslenv_forwarding(self):
         env = {"WSL_INTEROP": "1", "WSLENV": "EXISTING_VAR"}
-        with mock.patch.object(MODEL_RUNNER.runtime_platform, "windows_user_root", return_value=Path("/mnt/c/Users/Furkan")):
+        with mock.patch.object(MODEL_RUNNER.runtime_platform, "windows_user_root", return_value=Path("/mnt/c/Users/Furkan")), \
+             mock.patch.object(MODEL_RUNNER.os, "name", "posix"):
             MODEL_RUNNER._windows_user_environment(env, self.vault)
         wslenv = env.get("WSLENV", "")
         # BEYIN_INVOKED_BY and BEYIN_RECURSION_DEPTH must be present in WSLENV as scalar (no /p)
@@ -431,9 +440,11 @@ class RegressionMatrixTest(unittest.TestCase):
             encoding="utf-8",
         )
 
-        code, stdout = LIFECYCLE.handle_event(self.vault, "antigravity", "PreInvocation", {"session_id": "agy-cont"})
-        self.assertEqual(code, 0)
-        self.assertIn("Furkan", stdout)
+        with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
+            code, stdout = LIFECYCLE.handle_event(self.vault, "antigravity", "PreInvocation", {"session_id": "agy-cont"})
+            self.assertEqual(code, 0)
+            self.assertIn("Furkan", stdout)
+            mock_launch.assert_called_once()
 
 
 if __name__ == "__main__":

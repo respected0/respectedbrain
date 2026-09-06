@@ -37,6 +37,8 @@ class BriefingScheduleTest(unittest.TestCase):
         self.assertTrue(plan.name.startswith("respected-morning-briefing-"))
         self.assertIn("<StartWhenAvailable>true</StartWhenAvailable>", plan.content)
         self.assertIn("T08:00:00", plan.content)
+        self.assertIn("<Command>conhost.exe</Command>", plan.content)
+        self.assertIn("--headless", plan.content)
         self.assertIn("py.exe", plan.content)
         self.assertIn("Ada Brain", plan.content)
         for provider in ("claude", "codex", "cursor", "agy"):
@@ -57,6 +59,9 @@ class BriefingScheduleTest(unittest.TestCase):
                 self.assertIn("morning_briefing.py", plan.content)
                 self.assertIn("--if-due", plan.content)
                 self.assertTrue(plan.name.startswith("respected-morning-briefing-"))
+                if platform == "windows-wsl":
+                    self.assertIn("<Command>conhost.exe</Command>", plan.content)
+                    self.assertIn("--headless", plan.content)
 
     def test_plan_can_pin_python_and_provider_search_path_without_pinning_provider(self):
         installer = load_installer()
