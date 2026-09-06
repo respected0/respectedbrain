@@ -48,7 +48,12 @@ COMPILE_PROMPT = """OTOMATİK DERLEYİCİ ROLÜ
 Bu başsız bir workspace görevidir. Başarı için aşağıdaki izinli stage dosyalarını
 araçlarla düzenle; sohbet açıklaması tek başına başarı değildir.
 
-BELLEK ŞEMASI KURALLARI
+BELLEK ŞEMASI VE 5-FAZLI KONSOLİDASYON KURALLARI
+- Faz 1 (Günü Doğrula): Günlük nottaki kararları, öğrenilenleri ve görevleri doğrula.
+- Faz 2 (Çelişkiyi Çöz / Belgele): Yeni bilgi mevcut kavramla çelişiyorsa eskiyi silme; evrimi ve gerekçeyi açıkla.
+- Faz 3 (Çapraz Sentez): Tekrar eden veya birleşen temaları knowledge/concepts/ ve connections/ altında sentezle.
+- Faz 4 (Yetimleri Sağalt): Her kavram en az iki ilgili kavrama ve kaynak günlüğe wikilink içermeli; yetim kavram bırakma.
+- Faz 5 (İndeksi Yenile): knowledge/index.md kataloğunu ve knowledge/log.md özetini eksiksiz güncelle.
 - Kavram dosyası knowledge/concepts/<ascii-kebab-slug>.md yolunda olmalı.
 - YAML frontmatter alanları title, aliases, tags, sources, created, updated olmalı;
   sources günlük dosya adlarının listesi olmalı.

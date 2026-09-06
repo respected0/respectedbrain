@@ -165,3 +165,15 @@ düzeltmeler ve ertelenen fikirler `docs/UPSTREAM-SYNC.md` ile
   Antigravity kotasını kullanması için `agy` CLI kurulu ve oturum açmış olmalıdır; yalnız IDE
   kuruluysa sistem kullanılabilir başka CLI'a geçer.
 - Multi-AI `1.4.2`, yerel BM25/FTS5 arama motoru, harici projeler için güvenli Kasa MCP sunucusu (`vault_mcp_server`), epistemik hafıza sözleşmesi (`scope`, `confidence`, `supersedes`), PreCompact transkript yedeği, 1.200 karakterlik `read_head` I/O optimizasyonu, sabah brifingi açık döngü sensörü (`open_loops`), Defuddle web içerik temizleyicisi, akıcı otonom araştırma becerisi, wiki-lint kasa bağlantı/yetim sayfa denetleyicisi, tiling-check benzer not dedektörü, compilation-value gate (not enflasyonu kapısı), untrusted source kalkanı, SSRF yerel ağ güvenlik filtresi, Obsidian Bases (.base) şablonu, çoklu ajan çakışma önleme protokolü ve Golden Standard & Adversarial Review kalite güvencesi kurallarını kapsar.
+- Multi-AI `1.4.4`, 11 yeni dayanıklı özellik ekler:
+  1. **Bounded Recall (`bounded_recall.py`)**: Kullanıcı her mesaj attığında kasadan en alakalı 2-3 nottan max 900 karakterlik hafif bir hafıza fısıltısı üretir; kısa/selamlama mesajlarında fail-closed olarak tamamen susar.
+  2. **PostCompact & Session-End Guard**: `post-compact.sh` ve bridge ile compact sonrası kritik hafıza durumunu anında canlandırır.
+  3. **Bi-Temporal Zaman Çizelgesi (`timeline:`)**: Notlarda ve şablonda gerçeğin geçerlilik aralığı (`from`/`until`) ile öğrenilme anını (`learned`) ve kaynağını (`source`) birbirinden ayıran çift zamanlı yapı.
+  4. **OKM & Freshness Linter**: `vault_linter.py` içinde tarihsiz sayaç veya hızlı gerçek iddialarını yakalayan tazelik denetimi.
+  5. **`## For future agent` Başlığı**: `Note.md` şablonuna ve kurallara eklenen 2-3 cümlelik ajan odaklı filtre özeti.
+  6. **Codebase Architect Scanner (`architect_scan.py`)**: Herhangi bir kod reposunun mimari hiyerarşisini, dillerini, giriş noktalarını ve git karar geçmişini otomatik tarayıp kasaya uygun mimari notu üreten araç.
+  7. **Meydan Okuma Becerisi (`beyin-meydan-oku`)**: Karar madenciliği ve zaman çizelgesi tutarlılık denetimi eklenmiş adversarial red-team skill'i.
+  8. **Akıllı Not Birleştirme (`smart_merge.py`)**: İki notu birleştirirken metadata union yapan, kaynak notu ASLA silmeyip `redirect: [[Hedef]]` ile emekliye ayıran ve kasa genelindeki tüm wikilink'leri güncelleyen araç.
+  9. **Kanonik İçerik Özeti (`canonical_content_hash`)**: HTML ve boşlukları normalize edip mükerrer kaydı önleyen 16 karakterlik SHA-256 kalkanı.
+  10. **ASCII Tire Kuralı (`--fix-dashes`)**: Dosya adlarındaki link bozan En/Em tirelerini (`—`, `–`) standart ASCII tireye (`-`) çeviren linter yeteneği.
+  11. **5 Aşamalı Gece Derleme Mimarisi (`compile.py`)**: Gece derleyicisini Parse, Cluster, Synthesize, Challenge, Distill aşamalarıyla yapılandıran zihinsel model.

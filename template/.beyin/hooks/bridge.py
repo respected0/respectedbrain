@@ -27,7 +27,7 @@ if str(HOOK_DIR) not in sys.path:
 import lifecycle as LIFECYCLE
 
 
-EVENTS = ("start", "prompt", "end", "precompact")
+EVENTS = ("start", "prompt", "end", "precompact", "postcompact")
 SESSION_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
 
 
@@ -149,7 +149,7 @@ def output(provider: str, event: str, context: str) -> None:
         else:
             print(json.dumps({"decision": "stop"}, ensure_ascii=False))
     elif context:
-        event_name = {"start": "SessionStart", "prompt": "UserPromptSubmit", "end": "SessionEnd", "precompact": "PreCompact"}[event]
+        event_name = {"start": "SessionStart", "prompt": "UserPromptSubmit", "end": "SessionEnd", "precompact": "PreCompact", "postcompact": "PostCompact"}[event]
         print(json.dumps({"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": context}}, ensure_ascii=False))
 
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 
 CORE_VERSION = "2.0.0"
-MULTI_VERSION = "1.4.3"
-UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2", "1.4.0", "1.4.1", "1.4.2", MULTI_VERSION)
+MULTI_VERSION = "1.4.4"
+UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2", "1.4.0", "1.4.1", "1.4.2", "1.4.3", MULTI_VERSION)
 
 GENERATED = (
     "AGENTS.md",
@@ -26,6 +26,7 @@ RUNTIME = (
     ".beyin/graphrag.py",
     ".beyin/session_brain.py",
     ".beyin/session_viz.py",
+    ".beyin/bounded_recall.py",
     ".beyin/hooks/lifecycle.py",
     ".beyin/hooks/bridge.py",
     ".beyin/model_runner.py",
@@ -35,6 +36,7 @@ RUNTIME = (
     ".claude/hooks/prompt-counter.sh",
     ".claude/hooks/session-end.sh",
     ".claude/hooks/pre-compact.sh",
+    ".claude/hooks/post-compact.sh",
     ".claude/hooks/session-stop-capture.ps1",
     ".claude/hooks/session-stop-capture.sh",
     ".claude/scripts/flush.py",
@@ -60,6 +62,8 @@ RUNTIME = (
     "scripts/defuddle.py",
     "scripts/url_safety.py",
     "scripts/vault_linter.py",
+    "scripts/architect_scan.py",
+    "scripts/smart_merge.py",
     "scripts/tiling_check.py",
 )
 

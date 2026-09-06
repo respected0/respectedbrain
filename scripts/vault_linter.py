@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Vault Linter - Kasa Sağlığı ve Bağlantı Denetleyicisi (wiki-lint).
+"""Vault Linter - Kasa Sağlığı, Bağlantı ve Tazelik Denetleyicisi (wiki-lint).
 
-Respected Brain içindeki kırık wikilink'leri ([[Ölü Link]]), hiçbir yerden
-bağlantı almayan yetim (orphan) sayfaları ve geçersiz YAML frontmatter
-bloklarını tespit ederek deterministik rapor üretir.
+Respected Brain içindeki:
+  1. Kırık wikilink'leri ([[Ölü Link]])
+  2. Hiçbir yerden bağlantı almayan yetim (orphan) sayfaları
+  3. Geçersiz YAML frontmatter bloklarını
+  4. Dosya adlarındaki en-dash/em-dash tuzaklarını (Obsidian link bozucular)
+  5. OKM / Freshness Policy ihlallerini (tarihsiz sayaç / hızlı gerçek iddiaları)
+tespit ederek deterministik rapor üretir.
 """
 
 from __future__ import annotations
@@ -18,6 +22,12 @@ from typing import Any
 
 # Wikilink regex: [[Hedef]] veya [[Hedef|Görünen İsim]] veya [[Hedef#Başlık]]
 WIKILINK_RE = re.compile(r"\[\[([^\]\|#]+)(?:#[^\]\|]+)?(?:\|[^\]]+)?\]\]")
+
+# Hızlı gerçek (fast-fact / sayaç) olup tarihsiz şimdiki zaman kipiyle yazılmış kalıplar
+UNSTAMPED_FAST_FACT_RE = re.compile(
+    r"(?i)\b(?:pipeline|bakiye|anlaşma|açık iş|stok|deal|open tickets)\s*(?:has|is at|toplamı|sayısı|var|bulunuyor)\s*[:=]?\s*\d+"
+)
+DATE_STAMP_RE = re.compile(r"(?i)(?:as of|\bas of\b|\bitibarıyla\b|\btarihinde\b)\s*\d{4}")
 
 EXCLUDED_DIRS = {
     ".git",
@@ -72,10 +82,11 @@ def resolve_vault_root(candidate: Path | None = None) -> Path:
 
 
 def lint_vault(vault_root: Path) -> dict[str, Any]:
-    """Vault genelinde bağlantı ve yapı denetimi yapar."""
+    """Vault genelinde bağlantı, yapı, dosya adı ve tazelik denetimi yapar."""
     all_md_files: dict[str, Path] = {}  # stem.lower() -> Path
     relative_paths: set[str] = set()
     file_contents: dict[Path, str] = {}
+    filename_issues: list[dict[str, str]] = []
 
     for root, dirs, files in os.walk(vault_root):
         dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not d.startswith(".")]
@@ -86,6 +97,14 @@ def lint_vault(vault_root: Path) -> dict[str, Any]:
                 stem = full_p.stem.lower()
                 all_md_files[stem] = full_p
                 relative_paths.add(rel_p.lower())
+
+                # En-dash / Em-dash kontrolü
+                if "—" in file or "–" in file:
+                    filename_issues.append({
+                        "file": rel_p,
+                        "issue": "Dosya adında ASCII dışı uzun tire (— veya –) var. Standart '-' (ASCII 0x2D) kullanın.",
+                    })
+
                 try:
                     file_contents[full_p] = full_p.read_text(encoding="utf-8", errors="replace")
                 except Exception:
@@ -94,6 +113,7 @@ def lint_vault(vault_root: Path) -> dict[str, Any]:
     dead_links: list[dict[str, str]] = []
     incoming_links_count: dict[Path, int] = {p: 0 for p in file_contents.keys()}
     frontmatter_issues: list[dict[str, str]] = []
+    freshness_warnings: list[dict[str, str]] = []
 
     for file_path, content in file_contents.items():
         rel_src = file_path.relative_to(vault_root).as_posix()
@@ -142,6 +162,18 @@ def lint_vault(vault_root: Path) -> dict[str, Any]:
                     "target": target_clean,
                 })
 
+        # Freshness (Tazelik / OKM) Kontrolü (Sadece tarihli olmayan ana bilgi/proje sayfalarında)
+        is_dated_container = any(rel_src.startswith(d) for d in ["daily/", "Logs/", "📦 900-Archive/"])
+        if not is_dated_container:
+            for line_no, line in enumerate(content.splitlines(), 1):
+                if UNSTAMPED_FAST_FACT_RE.search(line):
+                    if not DATE_STAMP_RE.search(line):
+                        freshness_warnings.append({
+                            "file": f"{rel_src}:{line_no}",
+                            "line": line.strip()[:80],
+                            "warning": "Tarihsiz sayaç/hızlı gerçek iddiası. '(as of YYYY-MM-DD)' ekleyin.",
+                        })
+
     # Yetim (Orphan) Sayfaları Belirleme
     orphan_pages: list[str] = []
     for p, count in incoming_links_count.items():
@@ -152,6 +184,12 @@ def lint_vault(vault_root: Path) -> dict[str, Any]:
             if not any(rel.startswith(ignore) for ignore in ["📋 Templates", "📦 900-Archive", "📥 000-Inbox/Dump"]):
                 orphan_pages.append(rel)
 
+    is_healthy = (
+        len(dead_links) == 0
+        and len(frontmatter_issues) == 0
+        and len(filename_issues) == 0
+    )
+
     return {
         "vault_root": str(vault_root),
         "total_markdown_files": len(file_contents),
@@ -161,17 +199,43 @@ def lint_vault(vault_root: Path) -> dict[str, Any]:
         "orphan_pages": orphan_pages[:100],
         "frontmatter_issues_count": len(frontmatter_issues),
         "frontmatter_issues": frontmatter_issues,
-        "is_healthy": len(dead_links) == 0 and len(frontmatter_issues) == 0,
+        "filename_issues_count": len(filename_issues),
+        "filename_issues": filename_issues,
+        "freshness_warnings_count": len(freshness_warnings),
+        "freshness_warnings": freshness_warnings[:100],
+        "is_healthy": is_healthy,
     }
 
 
+def fix_dashes(vault_root: Path) -> int:
+    """Dosya adlarındaki em-dash ve en-dash karakterlerini standart ASCII '-' ile değiştirir."""
+    fixed = 0
+    for root, dirs, files in os.walk(vault_root):
+        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not d.startswith(".")]
+        for file in files:
+            if file.endswith(".md") and ("—" in file or "–" in file):
+                old_p = Path(root) / file
+                new_name = file.replace("—", "-").replace("–", "-")
+                new_p = Path(root) / new_name
+                if not new_p.exists():
+                    old_p.rename(new_p)
+                    fixed += 1
+    return fixed
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Vault Linter - Kasa Bağlantı ve Sağlık Kontrolü")
+    parser = argparse.ArgumentParser(description="Vault Linter - Kasa Bağlantı, Sağlık ve Tazelik Kontrolü")
     parser.add_argument("--vault", help="Denetlenecek vault kök dizini")
     parser.add_argument("--json", action="store_true", help="JSON formatında çıktı")
+    parser.add_argument("--fix-dashes", action="store_true", help="Dosya adlarındaki uzun tireleri otomatik ASCII '-' yap")
     args = parser.parse_args()
 
     v_root = resolve_vault_root(Path(args.vault) if args.vault else None)
+
+    if args.fix_dashes:
+        count = fix_dashes(v_root)
+        print(f"Toplam {count} dosya adındaki tire ASCII '-' olarak düzeltildi.")
+
     results = lint_vault(v_root)
 
     if args.json:
@@ -193,10 +257,20 @@ def main() -> int:
             if results['orphan_pages_count'] > 15:
                 print(f"  ... ve {results['orphan_pages_count'] - 15} adet daha.")
 
+        if results['filename_issues']:
+            print(f"\nDosya Adı Tire Sorunları: {results['filename_issues_count']}")
+            for fni in results['filename_issues']:
+                print(f"  [TİRE HATASI] {fni['file']}: {fni['issue']}")
+
         if results['frontmatter_issues']:
             print(f"\nFrontmatter Sorunları: {results['frontmatter_issues_count']}")
             for fi in results['frontmatter_issues']:
                 print(f"  [FRONTMATTER] {fi['file']}: {fi['issue']}")
+
+        if results['freshness_warnings']:
+            print(f"\nTazelik (OKM / Freshness) Uyarıları: {results['freshness_warnings_count']}")
+            for fw in results['freshness_warnings'][:10]:
+                print(f"  [TAZELİK] {fw['file']}: {fw['warning']} -> '{fw['line']}'")
 
         print("\nGenel Durum: " + ("TEMİZ / SAĞLIKLI" if results["is_healthy"] else "DİKKAT GEREKİYOR"))
 

@@ -9,7 +9,9 @@ yerel ağa (LAN), localhost'a, intranet adreslerine veya özel portlara
 from __future__ import annotations
 
 import argparse
+import hashlib
 import ipaddress
+import re
 import socket
 import sys
 from urllib.parse import urlparse
@@ -97,6 +99,36 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
         return False, f"DNS çözümleme güvenlik hatası: {e}"
 
     return True, "URL güvenli"
+
+
+def normalize_canonical_text(text: str) -> str:
+    """Temizlenmiş kanonik metin gövdesi oluşturur.
+
+    1. HTML ve script etiketlerini ayıklar.
+    2. BOM karakterini ve CRLF'yi LF'ye çevirir.
+    3. Madde imlerini (* ve +) standart '-' yapar.
+    4. Tüm whitespace dizilerini (yeni satırlar dahil) tek bir boşluğa indirir ve kırpar.
+    """
+    if not text:
+        return ""
+    clean = re.sub(r"<[^>]+>", " ", text)
+    clean = clean.lstrip("\ufeff")
+    clean = clean.replace("\r\n", "\n").replace("\r", "\n")
+    clean = re.sub(r"^\s*[\*\+]\s+", "- ", clean, flags=re.MULTILINE)
+    clean = re.sub(r"\s+", " ", clean).strip()
+    return clean
+
+
+def canonical_content_hash(text: str) -> str:
+    """Kanonik metnin ilk 16 karakterlik SHA-256 özetini döndürür.
+
+    Web ve dosya içeriklerinde mükerrer kaydı önlemek için kullanılır.
+    """
+    canonical = normalize_canonical_text(text)
+    if not canonical:
+        return ""
+    import hashlib
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
 def main() -> int:

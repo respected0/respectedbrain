@@ -454,7 +454,7 @@ def handle(
             return context
         if event == "prompt":
             return count_prompt(state_dir, session_id)
-        if event in ("end", "precompact"):
+        if event in ("end", "precompact", "postcompact"):
             return _finish_session(vault, state_dir, payload, event, current, provider)
         _record_health(state_dir, event, "unknown-event", current)
     except (OSError, UnicodeError, ValueError) as error:
@@ -467,6 +467,7 @@ EVENT_NAME_MAP = {
     "userpromptsubmit": "prompt",
     "sessionend": "end",
     "precompact": "precompact",
+    "postcompact": "postcompact",
     "beforesubmitprompt": "prompt",
     "preinvocation": "start",
     "stop": "end",
@@ -488,7 +489,7 @@ def handle_event(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--event", choices=("start", "prompt", "end", "precompact"), required=True)
+    parser.add_argument("--event", choices=("start", "prompt", "end", "precompact", "postcompact"), required=True)
     parser.add_argument("--provider", default=os.environ.get("BEYIN_PROVIDER", "claude"))
     parser.add_argument("--vault-root", type=Path, default=Path(__file__).resolve().parents[2])
     args = parser.parse_args(argv)
