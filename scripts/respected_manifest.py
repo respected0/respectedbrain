@@ -42,6 +42,9 @@ RUNTIME = (
     "scripts/repair_daily.py",
     "scripts/backup_restic.py",
     "scripts/publish_git_snapshot.py",
+    "scripts/arama.py",
+    "scripts/vault_mcp_server.py",
+    "scripts/mine_agent_history.py",
 )
 
 SKILL_DESTINATIONS = (".beyin/skills", ".claude/skills", ".agents/skills")
