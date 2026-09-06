@@ -13,7 +13,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from install_global import apply_plan, build, windows_path  # noqa: E402
+from install_global import apply_plan, build  # noqa: E402
 
 
 def main() -> int:
@@ -44,8 +44,6 @@ def main() -> int:
     for home in homes:
         if not home.is_dir():
             parser.error(f"Antigravity kullanıcı kökü bulunamadı: {home}")
-    if windows_path(vault) is None:
-        parser.error("Windows Antigravity için vault /mnt/<sürücü>/... altında olmalı")
 
     plans: list[tuple[Path, list[tuple[Path, str | None]]]] = []
     try:

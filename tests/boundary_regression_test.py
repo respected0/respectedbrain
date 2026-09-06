@@ -161,6 +161,34 @@ class BoundaryRegressionTest(unittest.TestCase):
             saved = json.loads(config_file.read_text(encoding="utf-8"))
             self.assertEqual(saved["python_command"], ["py.exe", "-3"])
 
+    def test_install_antigravity_global_accepts_non_windows_vault_path(self):
+        """install_antigravity_global must not reject Linux/POSIX vault paths where windows_path is None."""
+        scripts_dir = str(ROOT / "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import install_antigravity_global
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir).resolve()
+            home = temp_path / "home"
+            home.mkdir(parents=True, exist_ok=True)
+            vault = ROOT / "template"
+
+            # Before fix, windows_path returning None caused parser.error (SystemExit 2)
+            # After fix, windows_path is not required, so main succeeds with return code 0
+            patch_target = getattr(install_antigravity_global, "windows_path", None)
+            if patch_target is not None:
+                with mock.patch("install_antigravity_global.windows_path", return_value=None), \
+                     mock.patch.object(sys, "argv", ["install_antigravity_global.py", str(vault), "--antigravity-home", str(home), "--apply"]):
+                    exit_code = install_antigravity_global.main()
+                    self.assertEqual(exit_code, 0)
+                    self.assertTrue((home / ".gemini/config/hooks.json").is_file())
+            else:
+                with mock.patch.object(sys, "argv", ["install_antigravity_global.py", str(vault), "--antigravity-home", str(home), "--apply"]):
+                    exit_code = install_antigravity_global.main()
+                    self.assertEqual(exit_code, 0)
+                    self.assertTrue((home / ".gemini/config/hooks.json").is_file())
+
 
 if __name__ == "__main__":
     unittest.main()
