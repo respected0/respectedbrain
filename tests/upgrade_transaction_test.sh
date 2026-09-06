@@ -303,7 +303,7 @@ test_fresh_shell_chain() {
   run_upgrade_fresh "$case_dir" "$case_dir/finalize.out" --vault "$vault" --stage finalize
   assert_eq 0 "$RUN_STATUS" "taze shell finalize başarısız" || return 1
 
-  for hook in lib.sh session-start.sh prompt-counter.sh session-end.sh pre-compact.sh; do
+  for hook in lib.sh session-start.sh prompt-counter.sh session-end.sh pre-compact.sh post-compact.sh; do
     assert_file "$vault/.claude/hooks/$hook" || return 1
     [ -x "$vault/.claude/hooks/$hook" ] \
       || { diag "v2 kancası çalıştırılabilir değil: $hook"; return 1; }

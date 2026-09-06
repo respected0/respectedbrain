@@ -91,7 +91,13 @@ def main() -> int:
         copy_file(TEMPLATE / ".beyin/config.json", config)
 
     for relative in RUNTIME:
-        copy_file(TEMPLATE / relative, vault / relative)
+        dest = vault / relative
+        copy_file(TEMPLATE / relative, dest)
+        if relative.endswith(".sh") and not sys.platform.startswith("win"):
+            try:
+                dest.chmod(0o755)
+            except Exception:
+                pass
     for relative in CURRENT_TOOL_FILES:
         copy_file(TEMPLATE / relative, vault / relative)
     shutil.copytree(TEMPLATE / ".beyin" / "skills", vault / ".beyin" / "skills", dirs_exist_ok=True)
