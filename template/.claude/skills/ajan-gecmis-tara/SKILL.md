@@ -1,0 +1,39 @@
+---
+name: ajan-gecmis-tara
+description: Use when the user asks to mine, scan, import, or extract past conversation logs directly from local AI agent CLIs (Claude Code, Google Antigravity, OpenAI Codex).
+---
+
+# Çapraz Ajan Geçmiş Madencisi (/ajan-gecmis-tara)
+
+## Amaç ve İlke
+
+Furkan farklı projelerde çalışırken Claude Code, Antigravity veya Codex ile derin teknik problemler çözmüş olabilir. Bu oturumların hepsi yerel diskte JSONL formatında durur. Bu beceri, harici bir dışa aktarma zip'i beklemeden doğrudan diskteki ajan klasörlerini tarar, konuşmaları imbikten geçirir ve RespectedOS vault'una aktarır.
+
+## Desteklenen Ajanlar
+
+- **Google Antigravity:** `%USERPROFILE%\.gemini\antigravity-ide\brain\*\transcript.jsonl`
+- **Claude Code:** `~/.claude/projects/` altındaki JSONL oturumları
+- **OpenAI Codex:** `~/.codex/sessions/*.jsonl`
+
+## Akış
+
+1. **Önizleme (Dry-run):**
+   Önce diski tara ve kaç adet yeni oturum bulunduğunu göster:
+   ```bash
+   python scripts/mine_agent_history.py --dry-run --limit 10
+   ```
+
+2. **Kullanıcı Onayı:**
+   Hangi ajanların (hepsi, yalnız antigravity, yalnız claude) ve nereye (`daily/` veya `📥 000-Inbox/Dump/`) aktarılacağını teyit et.
+
+3. **İçe Aktarma (Import):**
+   Onaylanan oturumları vault'a aktar:
+   ```bash
+   python scripts/mine_agent_history.py --source all --limit 10 --target daily
+   ```
+
+4. **Derleme ve Haritalama:**
+   Aktarılan logları derleyiciye bildirmek veya haritayı güncellemek için:
+   ```bash
+   python scripts/arama.py --reindex
+   ```
