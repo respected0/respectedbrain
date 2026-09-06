@@ -203,7 +203,7 @@ katmanı tamamlanmadan “güncel” sayılmaz.
 
 Damgasız v1 vault'un native Windows dönüşümü henüz desteklenmez; bu özel durumda doğrulanmış WSL
 `upgrade.sh` yolu kullanılmalıdır. Native Windows, sıfırdan kurulum ve damgalı Respected
-`1.0.0/1.1.0/1.2.0/1.3.0/1.3.1/1.3.2/1.4.0 → 1.4.1` güncellemesi için desteklenir.
+`1.0.0/1.1.0/1.2.0/1.3.0/1.3.1/1.3.2/1.4.0/1.4.1 → 1.4.2` güncellemesi için desteklenir.
 
 Damgalı bir kurulumda önce salt okunur önizleme, sonra açık uygulama adımı kullanılır:
 

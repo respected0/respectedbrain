@@ -25,7 +25,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.
 ```
 
 Çıktı temizse `-PreflightOnly` bölümünü kaldırıp aynı komutu yeniden çalıştır. Hedef klasör yok veya
-tamamen boş olmalıdır. Kurulum sonunda `.beyin-version` `2.0.0`, `.beyin-multi-version` `1.4.1`
+tamamen boş olmalıdır. Kurulum sonunda `.beyin-version` `2.0.0`, `.beyin-multi-version` `1.4.2`
 ve `.beyin/config.json` içindeki platform `windows-native` olur.
 
 `-Providers` ana agentı sabitlemez; yalnız ön koşulda hangi kurulu CLI'ların doğrulanacağını söyler.

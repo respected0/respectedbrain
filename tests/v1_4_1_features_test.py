@@ -171,9 +171,10 @@ class TestVaultLinterAndTiling(unittest.TestCase):
 class TestManifestAndTemplates(unittest.TestCase):
     """1.4.1 Sürüm Manifesti, Şablonlar ve Kurallar."""
 
-    def test_manifest_version_is_1_4_1(self):
-        self.assertEqual(manifest.MULTI_VERSION, "1.4.1")
+    def test_manifest_version_is_1_4_2(self):
+        self.assertEqual(manifest.MULTI_VERSION, "1.4.2")
         self.assertIn("1.4.1", manifest.UPDATABLE_MULTI_VERSIONS)
+        self.assertIn("1.4.2", manifest.UPDATABLE_MULTI_VERSIONS)
         self.assertIn("scripts/url_safety.py", manifest.RUNTIME)
         self.assertIn("scripts/defuddle.py", manifest.RUNTIME)
         self.assertIn("scripts/vault_linter.py", manifest.RUNTIME)
@@ -211,7 +212,7 @@ class TestManifestAndTemplates(unittest.TestCase):
         self.assertTrue((ROOT / "template" / "📋 Templates" / "Base.base").is_file())
 
         # Sürüm dosyası
-        self.assertEqual((ROOT / "template" / ".beyin-multi-version").read_text().strip(), "1.4.1")
+        self.assertEqual((ROOT / "template" / ".beyin-multi-version").read_text().strip(), "1.4.2")
 
 
 if __name__ == "__main__":
