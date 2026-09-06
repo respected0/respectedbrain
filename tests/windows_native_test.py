@@ -299,7 +299,7 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
         )
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((vault / ".beyin-multi-version").read_text().strip(), "1.4.0")
+        self.assertEqual((vault / ".beyin-multi-version").read_text().strip(), "1.4.1")
         self.assertEqual(personal.read_bytes(), before)
         self.assertTrue((vault / "scripts/update_respected.py").is_file())
         backups = tuple((profile / ".respected/update-backups").glob("*/*"))

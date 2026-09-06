@@ -165,7 +165,4 @@ düzeltmeler ve ertelenen fikirler `docs/UPSTREAM-SYNC.md` ile
   Antigravity kotasını kullanması için `agy` CLI kurulu ve oturum açmış olmalıdır; yalnız IDE
   kuruluysa sistem kullanılabilir başka CLI'a geçer.
 - Cursor kotasını kullanmak için `cursor-agent` CLI kurulu ve oturum açmış olmalıdır.
-- Multi-AI `1.4.0`, ortak Python lifecycle, görünür otomatik haritalar, provider-neutral sabah
-  brifingi, portable lock/process katmanı, üç deterministik profil, transactional updater,
-  native Windows installer, model çıktısı normalizasyonu, 1-shot şema onarımı,
-  provider-neutral immutable handoff event log mimarisi, Linux CI kapısı ve opt-in Restic/Git yedekleme araçlarını kapsar.
+- Multi-AI `1.4.1`, yerel BM25/FTS5 arama motoru, Defuddle web içerik temizleyicisi, akıcı otonom araştırma becerisi, wiki-lint kasa bağlantı/yetim sayfa denetleyicisi, tiling-check benzer not dedektörü, compilation-value gate (not enflasyonu kapısı), untrusted source kalkanı, SSRF yerel ağ güvenlik filtresi, Obsidian Bases (.base) şablonu, çoklu ajan çakışma önleme protokolü ve Golden Standard & Adversarial Review kalite güvencesi kurallarını kapsar.

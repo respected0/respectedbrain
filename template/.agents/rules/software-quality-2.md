@@ -1,0 +1,354 @@
+# AI Software Development Quality Rules (Kısım 2: Madde 14-25 ve Golden Standard Gate)
+
+Bu kurallar, AI Software Development Quality Rules kural setinin ikinci kısmıdır (Madde 14-25, Golden Standard Completion Gate ve Final Prensip). Kısım 1 (Madde 1-13) ile birlikte bir bütündür.
+
+## 14. Büyük Değişikliklerde Önce Etki Analizi
+
+Birden fazla modülü etkileyen değişikliklerde kod yazmadan önce kısaca belirle:
+
+* hangi bileşenler etkileniyor
+* mevcut davranışlardan hangileri bozulabilir
+* veri modeli etkileniyor mu
+* API contract değişiyor mu
+* migration gerekiyor mu
+* backward compatibility gerekiyor mu
+
+Sonrasında implementasyona geç.
+
+---
+
+## 15. Kritik Akışlarda Failure Matrix Kullan
+
+Önemli özelliklerde gerekirse şu dört kategoriyi düşün:
+
+### Success
+
+Normal beklenen kullanım.
+
+### User Error
+
+Kullanıcıdan kaynaklanan geçersiz veya beklenmeyen giriş.
+
+### System Failure
+
+Network, API, database, filesystem veya servis hatası.
+
+### Timing / State Failure
+
+Race condition, duplicate request, stale state, lifecycle veya concurrency problemleri.
+
+---
+
+## 16. Görev Tamamlama Kriteri
+
+Bir özellik yalnızca kod yazıldığında tamamlanmış değildir.
+
+Mümkün olduğunda aşağıdaki süreç uygulanmalıdır:
+
+IMPLEMENT
+→ REVIEW
+→ EDGE CASE ANALYSIS
+→ TEST
+→ FIX
+→ REGRESSION CHECK
+→ VERIFY
+
+Ancak basit ve düşük riskli değişikliklerde gereksiz süreç oluşturma. Test ve review derinliğini değişikliğin riskine göre ayarla.
+
+---
+
+## 17. Risk Bazlı Çalış
+
+Her değişikliği aynı ağırlıkta ele alma.
+
+### Düşük risk
+
+Örnek:
+
+* text değişikliği
+* basit stil
+* küçük UI düzenlemesi
+
+Minimum doğrulama yeterlidir.
+
+### Orta risk
+
+Örnek:
+
+* yeni component
+* form logic
+* API kullanım değişikliği
+* state management değişikliği
+
+Happy path + önemli edge case + regression kontrolü yap.
+
+### Yüksek risk
+
+Örnek:
+
+* authentication
+* authorization
+* ödeme
+* database migration
+* realtime state
+* concurrency
+* veri silme
+* kritik algoritma
+* güvenlik
+* kullanıcı verisi
+* production infrastructure
+
+Derin adversarial review, failure scenarios ve regression testi yap.
+
+---
+
+## 18. AI İçin Ana Kural
+
+Hedefin yalnızca görevi mümkün olan en hızlı şekilde "çalışıyor" durumuna getirmek değildir.
+
+Hedef:
+
+> En küçük güvenli değişiklikle doğru davranışı üretmek, beklenmeyen senaryoları düşünmek ve daha önce çalışan özellikleri bozmadan sonucu doğrulamaktır.
+
+Bir şeyden emin değilsen bunu saklama.
+
+"Muhtemelen çalışır" ile "doğrulandı" arasındaki farkı her zaman koru.
+
+---
+
+## 19. Implementasyon ve Review Aşamalarını Ayır
+
+Aynı AI hem implementasyonu hem doğrulamayı yapıyor olsa bile bu iki görevi tek zihinsel adım olarak yürütme.
+
+Önemli değişikliklerde:
+
+1. Implementasyonu tamamla.
+2. Implementasyon kararlarını savunmayı bırak.
+3. Ayrı bir review aşamasına geç.
+4. Gereksinimleri yeniden okuyarak kodu dışarıdan yazılmış gibi incele.
+5. Özellikle kendi yaptığın varsayımları sorgula.
+6. Kodun doğru olduğunu kanıtlamaya değil, yanlış olduğunu göstermeye çalış.
+
+Review sırasında yalnızca implementation'ın tasarımına göre test üretme. Orijinal gereksinimlerden bağımsız olarak beklenen davranışı yeniden çıkar.
+
+---
+
+## 20. UI ve Gerçek Kullanıcı Akışlarını Doğrula
+
+Unit ve integration testlerinin geçmesi kullanıcı deneyiminin doğru olduğu anlamına gelmez.
+
+Kullanıcı arayüzünü veya birden fazla ekran/sistemi kapsayan değişikliklerde uygun olduğunda gerçek kullanıcı akışını da doğrula.
+
+Kontrol edilmesi gerekenler arasında şunlar bulunabilir:
+
+* component gerçekten render oluyor mu
+* loading / empty / error state'leri doğru görünüyor mu
+* kullanıcı hızlı veya beklenmedik işlem yaptığında UI bozuluyor mu
+* navigation doğru çalışıyor mu
+* modal / dialog / keyboard / scroll davranışı doğru mu
+* küçük ve büyük ekranlarda layout bozuluyor mu
+* hata sonrası kullanıcı recover edebiliyor mu
+* frontend ve backend birlikte gerçek akışta çalışıyor mu
+* mümkünse kritik kullanıcı yolunda end-to-end test var mı
+
+UI değişikliklerinde yalnızca kod seviyesindeki testlere dayanma.
+
+Görsel veya etkileşimsel doğrulama yapılmadıysa bunu açıkça belirt.
+
+---
+
+## Golden Standard Completion Gate
+
+Anlamlı bir yazılım geliştirme görevi aşağıdaki kontroller tamamlanmadan "done", "fixed", "working", "complete" veya benzeri şekilde tamamlanmış ilan edilmemelidir.
+
+### Zorunlu kontrol sırası
+
+1. Requirement doğrulama
+2. Implementasyon
+3. Bağımsız self-review
+4. Adversarial / failure analysis
+5. Relevant edge-case verification
+6. Relevant automated tests
+7. Regression verification
+8. Runtime / integration verification when applicable
+9. UI / visual verification when applicable
+10. Final evidence report
+
+### Minimum senaryo kuralı
+
+Her anlamlı özellik için en az şu üç kategori düşünülmelidir:
+
+* Success path
+* Failure path
+* Edge / invalid / state-related path
+
+Yalnızca happy path'in doğrulanması yeterli kabul edilmez.
+
+### Regression gate
+
+Bir değişiklik yeni davranışı düzeltse bile daha önce çalışan ilgili davranışlardan herhangi birini bozuyorsa görev tamamlanmış sayılmaz.
+
+### Review independence rule
+
+Aynı AI implementasyonu ve review'ı yapıyorsa bile review aşamasında implementasyonu savunmamalıdır.
+
+Reviewer aşamasında:
+
+* orijinal requirement yeniden okunmalı
+* expected behavior implementation'dan bağımsız çıkarılmalı
+* kendi varsayımları özellikle sorgulanmalı
+* çözümün yanlış olduğunu gösterecek senaryolar aranmalıdır
+
+### Test integrity rule
+
+Başarısız bir test yalnızca kodu geçirmek amacıyla değiştirilemez.
+
+Test değiştirilecekse önce test expectation'ının neden yanlış olduğu gösterilmelidir.
+
+### UI / runtime rule
+
+UI veya kullanıcı akışını etkileyen değişikliklerde yalnızca unit test sonucu yeterli değildir.
+
+Uygun olduğunda gerçek render, navigation, loading, empty, error, responsive ve interaction davranışı doğrulanmalıdır.
+
+### Evidence rule
+
+Görev sonunda sonuçlar şu üç kategoride ayrılmalıdır:
+
+* VERIFIED — gerçekten çalıştırıldı / gözlemlendi
+* INFERRED — kod incelemesine dayanıyor ancak runtime doğrulaması yapılmadı
+* NOT VERIFIED — kontrol edilmedi veya ortam nedeniyle doğrulanamadı
+
+Doğrulanmamış bir durum "çalışıyor" şeklinde sunulmamalıdır.
+
+---
+
+## 21. Security Verification
+
+Güvenliği ayrı ve zorunlu bir kalite boyutu olarak ele al.
+
+Değişiklikle ilgili olduğunda özellikle kontrol et:
+
+* input validation ve sanitization
+* authentication ve authorization sınırları
+* privilege escalation ihtimali
+* secrets / token / credential sızıntısı
+* hassas verinin loglara veya istemciye sızması
+* injection türleri
+* insecure direct object access
+* güvenilmeyen dış veriler
+* dependency vulnerability riskleri
+* yanlış güvenlik varsayımları
+
+Güvenlik açısından kritik bir davranışı yalnızca normal fonksiyonel testlerin geçmesine dayanarak güvenli kabul etme.
+
+---
+
+## 22. Data Integrity, Migration ve Rollback
+
+Veriyi değiştiren, silen veya schema değiştiren işlemlerde veri güvenliğini tasarımın parçası kabul et.
+
+İlgili olduğunda kontrol et:
+
+* işlem yarıda kalırsa veri hangi durumda kalır
+* transaction gerekli mi
+* duplicate veya retry veri bozulmasına yol açabilir mi
+* migration backward-compatible mı
+* mevcut veriyle migration gerçekten çalışıyor mu
+* rollback mümkün mü
+* destructive operation yanlışlıkla tetiklenebilir mi
+* backup veya recovery mekanizması gerekli mi
+
+Geri döndürülmesi zor veya veri kaybına yol açabilecek değişikliklerde rollback/recovery düşünülmeden görevi tamamlanmış sayma.
+
+---
+
+## 23. Observability ve Production Diagnosability
+
+Bir sistemin yalnızca hata vermemesi değil, hata verdiğinde nedeninin anlaşılabilmesi de önemlidir.
+
+İlgili değişikliklerde kontrol et:
+
+* önemli hatalar loglanıyor mu
+* loglar yeterli bağlam içeriyor mu
+* hassas veri loglanıyor mu
+* hata sessizce kayboluyor mu
+* gerekli metric veya health signal mevcut mu
+* production'da problemin kaynağı teşhis edilebilir mi
+
+Kullanıcıya hata gösterilmesi ile geliştiriciye teşhis bilgisi sağlanmasını ayrı ihtiyaçlar olarak değerlendir.
+
+---
+
+## 24. Performance ve Resource Verification
+
+Performans açısından anlamlı değişikliklerde yalnızca kodun fonksiyonel olarak çalışmasına bakma.
+
+İlgili olduğunda değerlendir:
+
+* gereksiz tekrar sorgular
+* N+1 query
+* gereksiz network çağrıları
+* aşırı render
+* blocking operation
+* memory growth / leak
+* CPU kullanımı
+* büyük veri davranışı
+* concurrency altında darboğaz
+* latency
+* rate limit
+* gereksiz pahalı işlem
+
+Performans kritikse tahmin etmek yerine mümkün olduğunda ölç.
+
+Ölçülmemiş performans iddialarını doğrulanmış gerçek olarak sunma.
+
+---
+
+## 25. Dependency, API ve Contract Safety
+
+Harici paket, framework, API, SDK, database veya servis davranışı hakkında hafızaya veya varsayıma dayanma.
+
+Değişiklik bunlardan birine bağlıysa mümkün olduğunda doğrula:
+
+* kullanılan gerçek sürüm
+* mevcut API contract
+* breaking changes
+* deprecation
+* config gereksinimleri
+* schema/interface uyumluluğu
+* mevcut lockfile ve dependency yapısı
+* repository içindeki gerçek kullanım
+
+Yeni dependency eklemeden önce gerçekten gerekli olup olmadığını kontrol et.
+
+Mevcut dependency ile çözülebilecek bir problem için gereksiz paket ekleme.
+
+API veya contract değişikliğinde producer ve consumer taraflarının ikisini de değerlendir.
+
+---
+
+## Final Golden Standard Principle
+
+Bir görevin tamamlanması yalnızca:
+
+**“Yeni kod çalışıyor.”**
+
+anlamına gelmez.
+
+Tamamlanmış bir görev, risk seviyesine uygun olarak şu sorulara makul kanıtlarla cevap verebilmelidir:
+
+* Doğru şeyi mi yaptık?
+* Beklenen durumda çalışıyor mu?
+* Beklenmeyen durumda güvenli davranıyor mu?
+* Edge case'lerde ne oluyor?
+* Eski çalışan davranışları bozduk mu?
+* Güvenlik sınırlarını bozduk mu?
+* Veriyi riske attık mı?
+* Gerçek kullanıcı akışı çalışıyor mu?
+* Production'da hata olursa anlayabilir miyiz?
+* Performans kabul edilebilir mi?
+* Kullandığımız dependency/API varsayımları doğru mu?
+* Bunların hangilerini gerçekten doğruladık?
+
+AI'nın amacı kod üretmek değil, **kanıtlanabilir şekilde güvenli ve doğru bir değişiklik üretmektir.**

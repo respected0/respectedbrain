@@ -4,8 +4,8 @@ from __future__ import annotations
 
 
 CORE_VERSION = "2.0.0"
-MULTI_VERSION = "1.4.0"
-UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2", MULTI_VERSION)
+MULTI_VERSION = "1.4.1"
+UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2", "1.4.0", MULTI_VERSION)
 
 GENERATED = (
     "AGENTS.md",
@@ -45,6 +45,10 @@ RUNTIME = (
     "scripts/arama.py",
     "scripts/vault_mcp_server.py",
     "scripts/mine_agent_history.py",
+    "scripts/defuddle.py",
+    "scripts/url_safety.py",
+    "scripts/vault_linter.py",
+    "scripts/tiling_check.py",
 )
 
 SKILL_DESTINATIONS = (".beyin/skills", ".claude/skills", ".agents/skills")

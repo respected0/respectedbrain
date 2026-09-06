@@ -205,12 +205,17 @@ Düzeltme: yedeği vault dışına taşı ve `chmod 600` ver; git izliyorsa
 `git rm --cached <dosya>` ile izlemeden çıkar, `.gitignore` kuralını doğrula, ve
 sızmış anahtarı sağlayıcıdan **iptal edip yenile**.
 
-### 16. Bağlantı, tekrar ve bayatlık adayları
+### 16. Bağlantı, kırık link, yetim sayfa ve tekrar kontrolü (wiki-lint & tiling)
 
-Salt okunur olarak Markdown wikilink/bağlantı hedeflerini doğrula; aynı SHA-256 içeriğe sahip
-notları kesin tekrar, benzer başlık veya örtüşen özet taşıyanları inceleme adayı olarak raporla.
-Frontmatter `modified` alanı veya dosya mtime değeri 180 günden eski olan notları yalnız “bayatlık
-adayı” say; otomatik olarak yanlış veya silinebilir kabul etme.
+```bash
+python scripts/vault_linter.py 2>/dev/null || python3 scripts/vault_linter.py 2>/dev/null
+python scripts/tiling_check.py 2>/dev/null || python3 scripts/tiling_check.py 2>/dev/null
+```
+
+🟢 Kırık link (dead link) 0, frontmatter hatası 0, kritik mükerrer yok.
+🟡 Yetim (hiçbir yerden link almayan) sayfalar veya %70+ benzer not çiftleri var.
+🔴 Kırık wikilink'ler (`[[VarOlmayanNot]]`) veya bozuk frontmatter blokları tespit edildi.
+Düzeltme: Raporlanan kırık linkleri düzelt veya hedef notu oluştur; benzer notları inceleyip birleştir (merge).
 
 ### 17. Inbox ve otomatik haritalar
 

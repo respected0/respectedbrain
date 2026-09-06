@@ -1,0 +1,45 @@
+# Obsidian Bases Şablonu (.base)
+# Dinamik tablo, filtre, formül ve özet görünümü
+
+filters:
+  and:
+    - 'file.inFolder("🧠 500-Knowledge") or file.inFolder("🏰 300-Projects")'
+    - 'status != "archived"'
+
+formulas:
+  guncel_mi: 'if((now() - file.mtime) < 2592000000, "🟢 Güncel", "🟡 Gözden Geçir")'
+
+properties:
+  file.name:
+    displayName: "Not / Proje Başlığı"
+  status:
+    displayName: "Durum"
+  type:
+    displayName: "Tür"
+  formula.guncel_mi:
+    displayName: "Tazelik"
+  updated:
+    displayName: "Son Güncelleme"
+
+views:
+  - type: table
+    name: "Tüm Aktif Notlar"
+    order:
+      - file.name
+      - type
+      - status
+      - formula.guncel_mi
+      - updated
+    sort:
+      - property: updated
+        direction: desc
+
+  - type: cards
+    name: "Kavram Kartları"
+    filters:
+      and:
+        - 'type == "concept" or file.hasTag("kavram")'
+    order:
+      - file.name
+      - status
+      - updated
