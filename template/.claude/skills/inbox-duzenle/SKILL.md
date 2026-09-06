@@ -1,6 +1,6 @@
 ---
 name: inbox-duzenle
-description: Use when the user asks to organize, classify, clean up, triage, or file notes from the inbox or Dump folder.
+description: Gelen kutusu veya Dump notlarını tasnif edip düzenler. "inbox düzenle", "dump temizle" dendiğinde veya inbox triyajında kullan.
 ---
 
 # Inbox Düzenleme

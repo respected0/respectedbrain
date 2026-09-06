@@ -6,9 +6,11 @@ Kanonik kaynak: `.beyin/skills/`
 
 | Skill | Ne zaman kullanılır |
 | --- | --- |
-| `ajan-gecmis-tara` | Yerel AI ajan (Antigravity, Claude Code, Codex) loglarını tarayıp vault'a aktarır. \"ajan geçmiş\", \"geçmiş tara\", \"kod geçmişi aktar\" dendiğinde kullan. |
-| `beyin-doktor` | Beynin sağlık kontrolü. Hook'lar, script'ler, hafıza dosyaları, günlük loglar, derleme durumu ve vault hijyeni tek tabloda raporlanır. "beyin doktor", "doktor", "sağlık kontrolü", "beyin çalışıyor mu", "hafıza bozuk mu" dendiğinde veya bir hafıza mekanizmasının sessizce çalışmadığından şüphelenildiğinde kullan. |
-| `beyin-meydan-oku` | Yeni karar ve mimarileri geçmiş hatalar ve kararlarla eleştirel test eder. \"meydan oku\", \"challenge\", \"bu karar doğru mu\" dendiğinde kullan. |
-| `beyin-oruntu` | Son 30 gündeki örtük sürtünmeleri, darboğazları ve örüntüleri çıkarır. \"örüntü\", \"trend\", \"nerede takılıyoruz\" dendiğinde kullan. |
-| `gecmis-import` | Eski sohbet geçmişini (ChatGPT, Claude, Gemini Takeout dışa aktarımları) vault'un günlük log formatına çevirip derleyicinin sindirmesi için daily/ altına yazar. "geçmiş import", "geçmişimi aktar", "takeout", "chatgpt geçmişi", "eski sohbetlerimi beyne yükle" dendiğinde kullan. |
-| `inbox-duzenle` | Use when the user asks to organize, classify, clean up, triage, or file notes from the inbox or Dump folder. |
+| `ajan-gecmis-tara` | Yerel AI ajan (Antigravity, Codex) loglarını tarayıp aktarır. "ajan geçmiş", "geçmiş tara", "kod geçmişi aktar" dendiğinde kullan. |
+| `beyin-doktor` | Beynin sağlık kontrolü. Hook, hafıza, log ve vault hijyenini raporlar. "beyin doktor", "sağlık kontrolü", "beyin çalışıyor mu" dendiğinde kullan. |
+| `beyin-meydan-oku` | Yeni kararları geçmiş hatalar ve kararlarla eleştirel test eder. "meydan oku", "challenge", "bu karar doğru mu" dendiğinde kullan. |
+| `beyin-oruntu` | Son 30 gündeki örtük sürtünme ve darboğaz örüntülerini çıkarır. "örüntü", "trend", "nerede takılıyoruz" dendiğinde kullan. |
+| `gecmis-import` | Eski sohbet geçmişini (ChatGPT, Claude, Takeout) günlük loga çevirip daily/ altına yazar. "geçmiş import", "chatgpt geçmişi" dendiğinde kullan. |
+| `inbox-duzenle` | Gelen kutusu veya Dump notlarını tasnif edip düzenler. "inbox düzenle", "dump temizle" dendiğinde veya inbox triyajında kullan. |
+| `otonom-arastirma` | Web ve kaynaklarda derinlemesine araştırma yapar; sadece kalıcıysa kasaya aktarır. "araştır", "derin araştırma", "incele" dendiğinde kullan. |
+| `yazilim-kalite` | Yazılım kalite kuralları, adversarial review, regresyon ve verification gate. "kalite kontrol", "yazılım kalite", "quality gate" dendiğinde kullan. |

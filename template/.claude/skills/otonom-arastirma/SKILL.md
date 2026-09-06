@@ -1,6 +1,6 @@
 ---
 name: otonom-arastirma
-description: İnternette ve kaynaklarda derinlemesine, kaynaklı ve filtrelenmiş araştırma yapar. Kullanıcıyı onay bürokrasisine boğmadan doğrudan doğru bilgiyi sunar; sadece kalıcıysa kasaya aktarır. "araştır", "derin araştırma", "bu konuyu incele", "internette bak", "karşılaştır", "neymiş öğren" dendiğinde kullan.
+description: Web ve kaynaklarda derinlemesine araştırma yapar; sadece kalıcıysa kasaya aktarır. "araştır", "derin araştırma", "incele" dendiğinde kullan.
 ---
 
 # Otonom Araştırma

@@ -1,6 +1,6 @@
 ---
 name: ajan-gecmis-tara
-description: "Yerel AI ajan (Antigravity, Claude Code, Codex) loglarını tarayıp vault'a aktarır. \"ajan geçmiş\", \"geçmiş tara\", \"kod geçmişi aktar\" dendiğinde kullan."
+description: Yerel AI ajan (Antigravity, Codex) loglarını tarayıp aktarır. "ajan geçmiş", "geçmiş tara", "kod geçmişi aktar" dendiğinde kullan.
 ---
 
 # Çapraz Ajan Geçmiş Madencisi (/ajan-gecmis-tara)

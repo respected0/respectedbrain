@@ -1,6 +1,6 @@
 ---
 name: yazilim-kalite
-description: Yazılım geliştirme kalite kuralları, adversarial review, failure matrix, regresyon ve golden standard verification gate. Kod yazma, refactor, bugfix, PR review veya kod tamamlama süreçlerinde kalite güvencesi için kullanılır. "kalite kontrol", "yazılım kalite", "quality gate", "adversarial review", "regresyon kontrolü", "failure matrix" dendiğinde kullan.
+description: Yazılım kalite kuralları, adversarial review, regresyon ve verification gate. "kalite kontrol", "yazılım kalite", "quality gate" dendiğinde kullan.
 ---
 
 # Yazılım Geliştirme Kalite Kuralları & Golden Standard Gate

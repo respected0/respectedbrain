@@ -1,6 +1,6 @@
 ---
 name: beyin-meydan-oku
-description: "Yeni karar ve mimarileri geçmiş hatalar ve kararlarla eleştirel test eder. \"meydan oku\", \"challenge\", \"bu karar doğru mu\" dendiğinde kullan."
+description: Yeni kararları geçmiş hatalar ve kararlarla eleştirel test eder. "meydan oku", "challenge", "bu karar doğru mu" dendiğinde kullan.
 ---
 
 # Beyin Meydan Oku (/challenge)
