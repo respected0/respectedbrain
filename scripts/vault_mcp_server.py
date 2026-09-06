@@ -12,6 +12,7 @@ import argparse
 import datetime as dt
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any
 
@@ -118,6 +119,54 @@ class RespectedMcpServer:
                     "required": ["title", "content"],
                 },
             },
+            {
+                "name": "respected_remember",
+                "description": (
+                    "Dış projede çalışırken öğrenilen kalıcı bir kuralı, teknik kısıtı veya mimari gotcha'yı "
+                    "RespectedOS vault'una epistemik sözleşmeyle (scope, confidence, supersedes) atomik olarak kaydeder."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "description": "Dersin veya kuralın başlığı"},
+                        "content": {"type": "string", "description": "Detaylı açıklama, bağlam veya kod örneği"},
+                        "scope": {
+                            "type": "string",
+                            "enum": ["project", "platform", "general"],
+                            "description": "Kapsam: 'project' (yalnızca bu proje), 'platform' (örn: ios, react, flutter), 'general' (evrensel kural)",
+                            "default": "general",
+                        },
+                        "confidence": {
+                            "type": "string",
+                            "enum": ["verified", "inferred", "unverified"],
+                            "description": "Güvenilirlik: 'verified' (kodla test edildi), 'inferred' (çıkarım), 'unverified' (şüpheli)",
+                            "default": "verified",
+                        },
+                        "supersedes": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "İsteğe bağlı: Bu kuralın geçersiz kıldığı eski kural veya not isimleri",
+                        },
+                        "project": {"type": "string", "description": "İsteğe bağlı proje adı (scope: project ise zorunlu)"},
+                        "tags": {"type": "array", "items": {"type": "string"}, "description": "İsteğe bağlı etiketler"},
+                    },
+                    "required": ["title", "content"],
+                },
+            },
+            {
+                "name": "respected_expand",
+                "description": (
+                    "Belirli bir notun komşuluk grafiğini getirir: Notun içinden dışarıya verilen bağlantılar (outbound links) "
+                    "ve kasadaki diğer notlardan bu nota verilen geri bağlantılar (backlinks)."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "title_or_path": {"type": "string", "description": "İncelenecek notun başlığı veya dosya yolu (örn: 'React Gotchas' veya '🧠 500-Knowledge/React.md')"},
+                    },
+                    "required": ["title_or_path"],
+                },
+            },
         ]
 
     def call_tool(self, name: str, arguments: dict[str, Any]) -> str:
@@ -218,6 +267,123 @@ class RespectedMcpServer:
                 return f"Başarılı: Not '{filename}' olarak '📥 000-Inbox/Dump/' dizinine kaydedildi ve arama indeksine eklendi."
             except Exception as e:
                 return f"Not yazılırken hata oluştu: {e}"
+
+        elif name == "respected_remember":
+            title = arguments.get("title", "Kalıcı Ders").strip()
+            content = arguments.get("content", "").strip()
+            scope = arguments.get("scope", "general")
+            confidence = arguments.get("confidence", "verified")
+            supersedes = arguments.get("supersedes", [])
+            project = arguments.get("project", "").strip()
+            tags = arguments.get("tags", [])
+
+            safe_slug = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in title)[:50]
+            now = dt.datetime.now()
+            timestamp = now.strftime("%Y%m%d")
+            filename = f"{timestamp}_{safe_slug}.md"
+
+            if scope == "project" and project:
+                dest_dir = self.vault_root / "🏰 300-Projects" / project
+            else:
+                dest_dir = self.vault_root / "🧠 500-Knowledge"
+
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            target_file = dest_dir / filename
+
+            tag_list_str = ", ".join(f'"{t}"' for t in tags) if tags else ""
+            sup_list_str = ", ".join(f'"{s}"' for s in supersedes) if supersedes else ""
+            date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+            note_body = (
+                f"---\n"
+                f'title: "{title}"\n'
+                f'created: "{date_str}"\n'
+                f'modified: "{date_str}"\n'
+                f'type: lesson\n'
+                f'scope: {scope}\n'
+                f'confidence: {confidence}\n'
+                f'supersedes: [{sup_list_str}]\n'
+                f'project: "{project}"\n'
+                f'tags: [{tag_list_str}]\n'
+                f"source: mcp_remember\n"
+                f"---\n\n"
+                f"# {title}\n\n"
+                f"{content}\n"
+            )
+
+            try:
+                target_file.write_text(note_body, encoding="utf-8")
+                self.search_engine.index_vault()
+                rel_path = target_file.relative_to(self.vault_root)
+                return (
+                    f"Başarılı: Ders '{title}' epistemik sözleşmeyle kaydedildi.\n"
+                    f"- Yol: `{rel_path}`\n"
+                    f"- Kapsam: `{scope}` | Güvenilirlik: `{confidence}`\n"
+                    f"- Geçersiz kıldığı: `{supersedes if supersedes else 'Yok'}`"
+                )
+            except Exception as e:
+                return f"Ders kaydedilirken hata oluştu: {e}"
+
+        elif name == "respected_expand":
+            target_str = arguments.get("title_or_path", "").strip()
+            target_path = self._safe_resolve(target_str)
+            if not target_path or not target_path.is_file():
+                found = None
+                target_stem = Path(target_str).stem.lower()
+                for p in self.vault_root.rglob("*.md"):
+                    if p.stem.lower() == target_stem:
+                        found = p
+                        break
+                if not found:
+                    return f"'{target_str}' ile eşleşen bir not RespectedOS içinde bulunamadı."
+                target_path = found
+
+            rel_target = target_path.relative_to(self.vault_root)
+            target_name = target_path.stem
+
+            try:
+                content = target_path.read_text(encoding="utf-8", errors="replace")
+            except Exception as e:
+                return f"Not okunurken hata oluştu: {e}"
+
+            outbound_raw = re.findall(r"\[\[(.*?)\]\]", content)
+            outbound = []
+            for link in outbound_raw:
+                clean_link = link.split("|")[0].split("#")[0].strip()
+                if clean_link and clean_link not in outbound:
+                    outbound.append(clean_link)
+
+            backlinks = []
+            pattern = re.compile(rf"\[\[{re.escape(target_name)}(\|.*?)?(#.*?)?\]\]", re.IGNORECASE)
+            for md_file in self.vault_root.rglob("*.md"):
+                if md_file.resolve() == target_path.resolve():
+                    continue
+                try:
+                    f_content = md_file.read_text(encoding="utf-8", errors="replace")
+                    if pattern.search(f_content):
+                        rel_back = md_file.relative_to(self.vault_root)
+                        backlinks.append(str(rel_back))
+                except Exception:
+                    continue
+
+            lines = [
+                f"### RespectedOS Grafik Komşuluğu: `{rel_target}`\n",
+                f"**📤 Dış Bağlantılar (Bu nottan gidenler - {len(outbound)}):**",
+            ]
+            if outbound:
+                for out in outbound:
+                    lines.append(f"- `[[{out}]]`")
+            else:
+                lines.append("- (Dış bağlantı bulunamadı)")
+
+            lines.append(f"\n**📥 Geri Bağlantılar (Bu nota gelenler - {len(backlinks)}):**")
+            if backlinks:
+                for back in backlinks:
+                    lines.append(f"- `[[{back}]]`")
+            else:
+                lines.append("- (Geri bağlantı bulunamadı)")
+
+            return "\n".join(lines)
 
         else:
             return f"Bilinmeyen araç çağrısı: {name}"

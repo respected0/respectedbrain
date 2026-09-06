@@ -118,6 +118,8 @@ class McpServerTest(unittest.TestCase):
         self.assertIn("respected_get_decisions", tool_names)
         self.assertIn("respected_get_companion_context", tool_names)
         self.assertIn("respected_quick_capture", tool_names)
+        self.assertIn("respected_remember", tool_names)
+        self.assertIn("respected_expand", tool_names)
 
     def test_companion_context_tool(self) -> None:
         out = self.server.call_tool("respected_get_companion_context", {})
@@ -147,6 +149,43 @@ class McpServerTest(unittest.TestCase):
         captured_text = dump_files[0].read_text(encoding="utf-8")
         self.assertIn("Harika bir test fikri", captured_text)
         self.assertIn("fikir", captured_text)
+
+    def test_remember_tool_epistemic(self) -> None:
+        out = self.server.call_tool(
+            "respected_remember",
+            {
+                "title": "React Render Gotcha",
+                "content": "useEffect içinde setState yaparken dependency array'e dikkat et.",
+                "scope": "platform",
+                "confidence": "verified",
+                "supersedes": ["Eski React Kuralı"],
+                "tags": ["react", "frontend"],
+            },
+        )
+        self.assertIn("Başarılı", out)
+        self.assertIn("platform", out)
+        self.assertIn("verified", out)
+
+        knowledge_dir = self.vault / "🧠 500-Knowledge"
+        k_files = list(knowledge_dir.glob("*_React_Render_Gotcha.md"))
+        self.assertEqual(len(k_files), 1)
+        content = k_files[0].read_text(encoding="utf-8")
+        self.assertIn("scope: platform", content)
+        self.assertIn("confidence: verified", content)
+        self.assertIn('supersedes: ["Eski React Kuralı"]', content)
+
+    def test_expand_tool(self) -> None:
+        # Test için birbirine bağlı iki not oluşturalım
+        knowledge_dir = self.vault / "🧠 500-Knowledge"
+        knowledge_dir.mkdir(parents=True, exist_ok=True)
+        (knowledge_dir / "NodeA.md").write_text("# Node A\nBu not [[NodeB]] bağlantısı içerir.", encoding="utf-8")
+        (knowledge_dir / "NodeB.md").write_text("# Node B\nBu not da [[NodeA]] bağlantısı taşır.", encoding="utf-8")
+
+        out = self.server.call_tool("respected_expand", {"title_or_path": "NodeA"})
+        self.assertIn("Dış Bağlantılar", out)
+        self.assertIn("[[NodeB]]", out)
+        self.assertIn("Geri Bağlantılar", out)
+        self.assertIn("NodeB.md", out)
 
 
 class AgentHistoryMinerTest(unittest.TestCase):

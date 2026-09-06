@@ -5,6 +5,9 @@ modified: {{TODAY}}
 valid_at: {{TODAY}}
 recorded_at: {{TODAY}}
 freshness: dated # timeless | dated | pointer
+scope: general # project | platform | general
+confidence: verified # verified | inferred | unverified
+supersedes: []
 type: note
 status: active
 tags: []
