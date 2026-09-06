@@ -50,6 +50,7 @@ _configure_console_output()
 SUMMARY_PROVIDERS = {"auto", "claude", "codex", "cursor", "antigravity"}
 CURRENT_TOOL_FILES = ("scripts/update_respected.py", "scripts/respected_manifest.py")
 LEGACY_TOOL_FILES = (LEGACY_UPDATE_SCRIPT, LEGACY_MANIFEST_SCRIPT)
+LEGACY_ENGINE_FILES = (".claude/scripts/flush.py", ".claude/scripts/compile.py")
 
 
 class UpdateError(RuntimeError):
@@ -130,7 +131,11 @@ def _validate_source() -> None:
         raise UpdateError(
             "repo template klasörü yok; updater'ı Respected Brain checkout'undan çalıştır"
         )
-    missing = [relative for relative in RUNTIME if not (TEMPLATE / relative).is_file()]
+    missing = [
+        relative
+        for relative in RUNTIME
+        if not (REPO / relative if relative.startswith("scripts/") else TEMPLATE / relative).is_file()
+    ]
     missing.extend(relative for relative in CURRENT_TOOL_FILES if not (REPO / relative).is_file())
     if missing:
         raise UpdateError(f"repo template eksik managed dosya: {missing[0]}")
@@ -192,12 +197,15 @@ def _legacy_owned(relative: str, content: bytes) -> bool:
             "SKILL_DESTINATIONS",
         )
         return all(signature in text for signature in signatures)
+    if relative in LEGACY_ENGINE_FILES:
+        signatures = ("BEYIN", "runtime_platform")
+        return any(signature in text for signature in signatures)
     return False
 
 
 def _validated_legacy_removals(vault: Path) -> tuple[str, ...]:
     removals: list[str] = []
-    for relative in LEGACY_TOOL_FILES:
+    for relative in (*LEGACY_TOOL_FILES, *LEGACY_ENGINE_FILES):
         path = _safe_target(vault, relative)
         if not path.exists():
             continue
@@ -221,7 +229,7 @@ def _validate_target(vault: Path) -> tuple[str, str]:
         raise UpdateError(f"desteklenmeyen multi-AI sürümü: {shown}")
     if not (vault / ".beyin/instructions.md").is_file():
         raise UpdateError("kanonik .beyin/instructions.md yok")
-    for relative in (*managed_files(), *LEGACY_TOOL_FILES, ".beyin-multi-version"):
+    for relative in (*managed_files(), *LEGACY_TOOL_FILES, *LEGACY_ENGINE_FILES, ".beyin-multi-version"):
         _safe_target(vault, relative)
     return core, multi
 
@@ -338,7 +346,8 @@ def _restore(
 
 def _install_managed(vault: Path) -> None:
     for relative in RUNTIME:
-        _atomic_copy(TEMPLATE / relative, vault / relative)
+        source = REPO / relative if relative.startswith("scripts/") else TEMPLATE / relative
+        _atomic_copy(source, vault / relative)
     for relative in CURRENT_TOOL_FILES:
         _atomic_copy(REPO / relative, vault / relative)
     for source in sorted((TEMPLATE / ".beyin" / "skills").glob("*/SKILL.md")):
@@ -398,8 +407,8 @@ def _gate(vault: Path, relatives: tuple[str, ...], *, allow_test_failure: bool =
         ".beyin/hooks/lifecycle.py",
         ".beyin/hooks/bridge.py",
         ".beyin/model_runner.py",
-        ".claude/scripts/flush.py",
-        ".claude/scripts/compile.py",
+        ".beyin/engine/flush.py",
+        ".beyin/engine/compile.py",
         "scripts/render_integrations.py",
         "scripts/install_briefing_schedule.py",
     )
@@ -488,6 +497,36 @@ def _print_external_refresh_guidance() -> None:
     )
 
 
+def _cleanup_legacy_claude_scripts(vault: Path) -> None:
+    claude_scripts = vault / ".claude" / "scripts"
+    if not claude_scripts.is_dir():
+        return
+    for name in ("flush.py", "compile.py"):
+        target = claude_scripts / name
+        if target.is_file():
+            try:
+                target.unlink()
+            except OSError:
+                pass
+    pycache = claude_scripts / "__pycache__"
+    if pycache.is_dir():
+        shutil.rmtree(pycache, ignore_errors=True)
+    try:
+        remaining = [p for p in claude_scripts.iterdir() if p.name != ".state"]
+        if not remaining:
+            state_dir = claude_scripts / ".state"
+            if state_dir.is_dir():
+                dest_state = vault / ".beyin" / "engine" / ".state"
+                dest_state.parent.mkdir(parents=True, exist_ok=True)
+                if not dest_state.exists():
+                    shutil.move(str(state_dir), str(dest_state))
+                else:
+                    shutil.rmtree(state_dir, ignore_errors=True)
+            claude_scripts.rmdir()
+    except OSError:
+        pass
+
+
 def update(vault: Path, requested_profile: str, apply: bool) -> int:
     _validate_source()
     _core, current_multi = _validate_target(vault)
@@ -523,6 +562,7 @@ def update(vault: Path, requested_profile: str, apply: bool) -> int:
         _run_renderer(vault)
         for relative in legacy_removals:
             _safe_target(vault, relative).unlink()
+        _cleanup_legacy_claude_scripts(vault)
         _gate(vault, relatives)
         ensure_bytecode_cleanup(vault)
         _atomic_write(vault / ".beyin-multi-version", f"{MULTI_VERSION}\n")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Respected Brain 1.4.1 Yeni Özellikler Birim Testleri.
+"""Respected Brain Kasa ve İçerik Hijyeni Birim Testleri.
 
 url_safety, defuddle, vault_linter, tiling_check, yeni skill'ler ve
 Obsidian Bases şablonlarının sözleşmelerini doğrular.
@@ -64,6 +64,30 @@ class TestUrlSafety(unittest.TestCase):
         safe, reason = validate_safe_url("https://example.com:22/ssh")
         self.assertFalse(safe)
         self.assertIn("port", reason.lower())
+
+    def test_blocks_cloud_metadata_ip(self):
+        # AWS / GCP / Azure IMDS endpoint 169.254.169.254 (link-local)
+        safe, reason = validate_safe_url("http://169.254.169.254/latest/meta-data/")
+        self.assertFalse(safe)
+        self.assertIn("engellendi", reason.lower())
+
+    def test_blocks_ipv6_loopback(self):
+        safe, reason = validate_safe_url("http://[::1]/")
+        self.assertFalse(safe)
+        self.assertIn("engellendi", reason.lower())
+
+    def test_handles_null_empty_and_invalid_inputs(self):
+        safe, reason = validate_safe_url("")
+        self.assertFalse(safe)
+        self.assertIn("boş veya geçersiz", reason)
+
+        safe, reason = validate_safe_url("   ")
+        self.assertFalse(safe)
+        self.assertIn("boş veya geçersiz", reason)
+
+        safe, reason = validate_safe_url(None)  # type: ignore
+        self.assertFalse(safe)
+        self.assertIn("boş veya geçersiz", reason)
 
 
 class TestDefuddle(unittest.TestCase):
@@ -171,11 +195,12 @@ class TestVaultLinterAndTiling(unittest.TestCase):
 class TestManifestAndTemplates(unittest.TestCase):
     """1.4.1 Sürüm Manifesti, Şablonlar ve Kurallar."""
 
-    def test_manifest_version_is_1_4_4(self):
-        self.assertEqual(manifest.MULTI_VERSION, "1.4.4")
+    def test_manifest_version_is_1_4_5(self):
+        self.assertEqual(manifest.MULTI_VERSION, "1.4.5")
         self.assertIn("1.4.1", manifest.UPDATABLE_MULTI_VERSIONS)
         self.assertIn("1.4.2", manifest.UPDATABLE_MULTI_VERSIONS)
         self.assertIn("1.4.3", manifest.UPDATABLE_MULTI_VERSIONS)
+        self.assertIn("1.4.4", manifest.UPDATABLE_MULTI_VERSIONS)
         self.assertIn("scripts/url_safety.py", manifest.RUNTIME)
         self.assertIn("scripts/defuddle.py", manifest.RUNTIME)
         self.assertIn("scripts/vault_linter.py", manifest.RUNTIME)
@@ -218,7 +243,7 @@ class TestManifestAndTemplates(unittest.TestCase):
         self.assertTrue((ROOT / "template" / "📋 Templates" / "Base.base").is_file())
 
         # Sürüm dosyası
-        self.assertEqual((ROOT / "template" / ".beyin-multi-version").read_text().strip(), "1.4.4")
+        self.assertEqual((ROOT / "template" / ".beyin-multi-version").read_text().strip(), "1.4.5")
 
 
 if __name__ == "__main__":

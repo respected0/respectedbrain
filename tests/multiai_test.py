@@ -156,7 +156,7 @@ class MultiAITest(unittest.TestCase):
         bridge = load("bridge_shared_lifecycle", ROOT / "template/.beyin/hooks/bridge.py")
         with tempfile.TemporaryDirectory() as temporary:
             vault = Path(temporary) / "Bridge Brain"
-            state = vault / ".claude/scripts/.state"
+            state = vault / ".beyin/engine/.state"
             memory = vault / "🔮 850-Companion"
             state.mkdir(parents=True)
             memory.mkdir(parents=True)
@@ -166,7 +166,7 @@ class MultiAITest(unittest.TestCase):
                 "## Session: Bridge\nOrtak lifecycle bağlamı.\n## Previous\n",
                 encoding="utf-8",
             )
-            (vault / ".claude/scripts/flush.py").write_text(
+            (vault / ".beyin/engine/flush.py").write_text(
                 "# no-op recorder for detached catch-up\n", encoding="utf-8"
             )
             bridge.ROOT = vault

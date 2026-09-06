@@ -33,8 +33,8 @@ LIFECYCLE = load_module("c9_lifecycle", TEMPLATE / ".beyin/hooks/lifecycle.py")
 BRIDGE = load_module("c9_bridge", TEMPLATE / ".beyin/hooks/bridge.py")
 MODEL_RUNNER = load_module("c9_model_runner", TEMPLATE / ".beyin/model_runner.py")
 RUNTIME = load_module("c9_runtime", TEMPLATE / ".beyin/runtime_platform.py")
-FLUSH = load_module("c9_flush", TEMPLATE / ".claude/scripts/flush.py")
-COMPILE = load_module("c9_compile", TEMPLATE / ".claude/scripts/compile.py")
+FLUSH = load_module("c9_flush", TEMPLATE / ".beyin/engine/flush.py")
+COMPILE = load_module("c9_compile", TEMPLATE / ".beyin/engine/compile.py")
 BRIEFING = load_module("c9_briefing", TEMPLATE / ".beyin/morning_briefing.py")
 REPAIR_DAILY = load_module("c9_repair_daily", ROOT / "scripts/repair_daily.py")
 
@@ -68,7 +68,7 @@ class RegressionMatrixTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="respected-c9-")
         self.vault = Path(self.temporary.name) / "TestBrain"
-        self.state_dir = self.vault / ".claude" / "scripts" / ".state"
+        self.state_dir = self.vault / ".beyin" / "engine" / ".state"
         self.daily_dir = self.vault / "daily"
         self.knowledge_dir = self.vault / "knowledge"
         self.briefings_dir = self.vault / "🎯 100-Command-Center" / "Briefings"

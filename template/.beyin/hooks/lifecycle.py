@@ -48,7 +48,11 @@ def session_key(session_id: str) -> str:
 
 
 def _state_dir(vault_root: Path) -> Path:
-    return vault_root / ".claude" / "scripts" / ".state"
+    engine_state = vault_root / ".beyin" / "engine" / ".state"
+    legacy_state = vault_root / ".claude" / "scripts" / ".state"
+    if legacy_state.exists() and not engine_state.exists():
+        return legacy_state
+    return engine_state
 
 
 def _atomic_write(path: Path, value: str, mode: int = 0o600) -> None:
@@ -252,7 +256,8 @@ def _launch_flush(
     reason: str | None = None,
     maybe_compile: bool = False,
 ) -> bool:
-    script = vault_root / ".claude" / "scripts" / "flush.py"
+    engine_flush = vault_root / ".beyin" / "engine" / "flush.py"
+    script = engine_flush if engine_flush.is_file() else vault_root / ".claude" / "scripts" / "flush.py"
     command = [sys.executable, str(script)]
     hook_input: Path | None = None
     if maybe_compile:

@@ -92,15 +92,43 @@ def main() -> int:
 
     for relative in RUNTIME:
         dest = vault / relative
-        copy_file(TEMPLATE / relative, dest)
+        src = REPO / relative if relative.startswith("scripts/") else TEMPLATE / relative
+        copy_file(src, dest)
         if relative.endswith(".sh") and not sys.platform.startswith("win"):
             try:
                 dest.chmod(0o755)
             except Exception:
                 pass
     for relative in CURRENT_TOOL_FILES:
-        copy_file(TEMPLATE / relative, vault / relative)
+        copy_file(REPO / relative, vault / relative)
     shutil.copytree(TEMPLATE / ".beyin" / "skills", vault / ".beyin" / "skills", dirs_exist_ok=True)
+
+    claude_scripts_dir = vault / ".claude" / "scripts"
+    if claude_scripts_dir.is_dir():
+        for managed_name in ("flush.py", "compile.py"):
+            managed_file = claude_scripts_dir / managed_name
+            if managed_file.is_file():
+                try:
+                    managed_file.unlink()
+                except OSError:
+                    pass
+        pycache = claude_scripts_dir / "__pycache__"
+        if pycache.is_dir():
+            shutil.rmtree(pycache, ignore_errors=True)
+        try:
+            remaining = [p for p in claude_scripts_dir.iterdir() if p.name != ".state"]
+            if not remaining:
+                state_dir = claude_scripts_dir / ".state"
+                if state_dir.is_dir():
+                    dest_state = vault / ".beyin" / "engine" / ".state"
+                    dest_state.parent.mkdir(parents=True, exist_ok=True)
+                    if not dest_state.exists():
+                        shutil.move(str(state_dir), str(dest_state))
+                    else:
+                        shutil.rmtree(state_dir, ignore_errors=True)
+                claude_scripts_dir.rmdir()
+        except OSError:
+            pass
 
     platform = args.platform
     if platform == "auto":

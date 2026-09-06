@@ -175,34 +175,6 @@ def render(check: bool, profile: Profile) -> bool:
     config["platform"] = profile.name
     config["python_command"] = list(profile.python_command)
     changed |= write_json(SOURCE / "config.json", config, check)
-    for helper_name in (
-        "render_integrations.py",
-        "legacy_names.py",
-        "update_respected.py",
-        "respected_manifest.py",
-        "install_antigravity_global.py",
-        "install_global.py",
-        "install_briefing_schedule.py",
-        "set_summary_provider.py",
-        "defuddle.py",
-        "url_safety.py",
-        "vault_linter.py",
-        "tiling_check.py",
-        "arama.py",
-        "vault_mcp_server.py",
-        "mine_agent_history.py",
-        "backup_restic.py",
-        "publish_git_snapshot.py",
-        "repair_daily.py",
-    ):
-        helper_source = REPO / "scripts" / helper_name
-        helper_target = TEMPLATE / "scripts" / helper_name
-        if helper_source.is_file() and helper_source.resolve() != helper_target.resolve():
-            changed |= write_text(
-                helper_target,
-                helper_source.read_text(encoding="utf-8"),
-                check,
-            )
     for path in (TEMPLATE / "AGENTS.md", TEMPLATE / "CLAUDE.md"):
         changed |= write_text(path, generated, check)
     changed |= write_text(

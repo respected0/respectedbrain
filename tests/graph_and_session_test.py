@@ -100,6 +100,19 @@ class TestGraphRAG(unittest.TestCase):
         p = find_path(idx, "NodeA", "NodeC")
         self.assertEqual(p, ["NodeA", "NodeB", "NodeC"])
 
+    def test_path_finding_unreachable_and_missing_nodes_return_none(self):
+        (self.temp_dir / "NodeA.md").write_text("# NodeA\n[[NodeB]]", encoding="utf-8")
+        (self.temp_dir / "NodeB.md").write_text("# NodeB\nSon", encoding="utf-8")
+        (self.temp_dir / "Isolated.md").write_text("# Isolated\nBağımsız", encoding="utf-8")
+
+        idx = build_index(self.temp_dir)
+        # 1. Unreachable destination
+        self.assertIsNone(find_path(idx, "NodeA", "Isolated"))
+        # 2. Non-existent destination
+        self.assertIsNone(find_path(idx, "NodeA", "NonExistent"))
+        # 3. Non-existent source
+        self.assertIsNone(find_path(idx, "NonExistent", "NodeA"))
+
 
 class TestSessionBrain(unittest.TestCase):
     def setUp(self):
@@ -129,6 +142,21 @@ class TestSessionBrain(unittest.TestCase):
         self.assertGreater(len(results), 0)
         self.assertEqual(results[0]["id"], "sess-1")
         self.assertIn("Token refresh loop", results[0]["snippet"])
+
+    def test_ingest_skips_corrupt_jsonl_lines(self):
+        corrupt_jsonl = self.temp_data / "corrupt.jsonl"
+        corrupt_jsonl.write_text(
+            '{"id": "valid-1", "title": "Valid One", "text": "Content one"}\n'
+            '{"id": "broken", invalid json line\n'
+            '{"id": "valid-2", "title": "Valid Two", "text": "Content two"}\n',
+            encoding="utf-8",
+        )
+        sb = SessionBrain(self.temp_sidecar)
+        count = sb.ingest_file(corrupt_jsonl)
+        # Should ingest 2 valid items without throwing on the corrupt middle line
+        self.assertEqual(count, 2)
+        self.assertIn("valid-1", sb.sessions)
+        self.assertIn("valid-2", sb.sessions)
 
     def test_session_viz_renders_html(self):
         from session_viz import render_html  # type: ignore[import-not-found]

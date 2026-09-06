@@ -1,4 +1,4 @@
-"""Tests for Respected Brain v1.4.4 features.
+"""Tests for Respected Brain Smart Tools (Bounded Recall, Smart Merge, Architect Scanner).
 
 Covers:
 1. Bounded Recall (bounded_recall.py): Abstention gate, token bounding, FTS fallback.
@@ -65,6 +65,17 @@ class TestV144BoundedRecall(unittest.TestCase):
             # Either produced bounded string within 300 chars or gracefully abstained/empty
             self.assertLessEqual(len(result), 300)
 
+    def test_abstention_gate_on_slash_commands(self):
+        self.assertTrue(bounded_recall.should_abstain("/plan"))
+        self.assertTrue(bounded_recall.should_abstain("/help"))
+        self.assertTrue(bounded_recall.should_abstain("/goal"))
+
+    def test_bounded_recall_fails_closed_on_invalid_vault_or_error(self):
+        non_existent_vault = Path(tempfile.gettempdir()) / "non_existent_vault_12345"
+        # Must fail-closed: return empty string, never raise exception to the caller
+        result = bounded_recall.get_bounded_recall("substantive query about architecture", vault_root=non_existent_vault)
+        self.assertEqual(result, "")
+
 
 class TestV144SmartMerge(unittest.TestCase):
     """Smart Note Merge tests."""
@@ -95,6 +106,14 @@ class TestV144SmartMerge(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
+
+    def test_smart_merge_rejects_self_merge_without_data_loss(self):
+        original_content = self.source.read_text(encoding="utf-8")
+        with self.assertRaises(ValueError) as ctx:
+            smart_merge.smart_merge(self.source, self.source, vault_root=self.vault)
+        self.assertIn("kendisiyle birleştirilemez", str(ctx.exception))
+        # Ensure zero data loss - content is 100% intact
+        self.assertEqual(self.source.read_text(encoding="utf-8"), original_content)
 
     def test_smart_merge_merges_metadata_and_preserves_source_as_redirect(self):
         smart_merge.smart_merge(self.source, self.target, vault_root=self.vault)

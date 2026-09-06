@@ -28,7 +28,7 @@ class MapsTest(unittest.TestCase):
         self.vault = Path(self.temporary.name) / "Ada Brain"
         (self.vault / ".beyin/skills/doctor").mkdir(parents=True)
         (self.vault / ".agents/skills/doctor").mkdir(parents=True)
-        (self.vault / ".claude/scripts/.state").mkdir(parents=True)
+        (self.vault / ".beyin/engine/.state").mkdir(parents=True)
         (self.vault / "🎯 100-Command-Center").mkdir()
         (self.vault / "🏰 300-Projects/Respected").mkdir(parents=True)
         (self.vault / "🧠 500-Knowledge").mkdir()
@@ -47,7 +47,7 @@ class MapsTest(unittest.TestCase):
             "---\nname: doctor\ndescription: GENERATED DRIFT MUST BE IGNORED.\n---\n",
             encoding="utf-8",
         )
-        (self.vault / ".claude/scripts/.state/private.md").write_text(
+        (self.vault / ".beyin/engine/.state/private.md").write_text(
             "STATE SECRET\n", encoding="utf-8"
         )
 

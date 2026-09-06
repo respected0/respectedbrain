@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import importlib.util
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -15,12 +14,14 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parent.parent
-COMPILE_PATH = ROOT / "template/.claude/scripts/compile.py"
+COMPILE_PATH = ROOT / "template/.beyin/engine/compile.py"
 UPDATE_PATH = ROOT / "scripts/update_respected.py"
 
 
 def load_compile_module():
     spec = importlib.util.spec_from_file_location("compile_module", COMPILE_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("compile module cannot be loaded")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -31,6 +32,8 @@ def load_update_module():
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
     spec = importlib.util.spec_from_file_location("update_module", UPDATE_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("update module cannot be loaded")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -45,7 +48,7 @@ class BoundaryRegressionTest(unittest.TestCase):
         """If temporary staging directory falls inside vault root, compile must abort immediately."""
         with tempfile.TemporaryDirectory() as temp_dir:
             vault_root = Path(temp_dir).resolve()
-            state_dir = vault_root / ".claude" / "scripts" / ".state"
+            state_dir = vault_root / ".beyin" / "engine" / ".state"
             state_dir.mkdir(parents=True, exist_ok=True)
             daily_dir = vault_root / "daily"
             daily_dir.mkdir(parents=True, exist_ok=True)
@@ -166,7 +169,8 @@ class BoundaryRegressionTest(unittest.TestCase):
         scripts_dir = str(ROOT / "scripts")
         if scripts_dir not in sys.path:
             sys.path.insert(0, scripts_dir)
-        import install_antigravity_global
+        import importlib
+        install_antigravity_global = importlib.import_module("install_antigravity_global")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir).resolve()

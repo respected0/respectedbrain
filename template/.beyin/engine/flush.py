@@ -589,7 +589,9 @@ def maybe_trigger_compile(
 
     current = now or _event_now()
 
-    state_dir = vault_root / ".claude" / "scripts" / ".state"
+    engine_state = vault_root / ".beyin" / "engine" / ".state"
+    legacy_state = vault_root / ".claude" / "scripts" / ".state"
+    state_dir = engine_state if (engine_state.exists() or not legacy_state.exists()) else legacy_state
     compile_state = _load_json_object(
         state_dir / "compile-state.json",
         {"ingested": {}},
@@ -634,9 +636,11 @@ def maybe_trigger_compile(
     environment = os.environ.copy()
     environment.pop("BEYIN_INVOKED_BY", None)
     launcher = popen_factory or subprocess.Popen
+    engine_compile = vault_root / ".beyin" / "engine" / "compile.py"
+    compile_script = engine_compile if engine_compile.is_file() else vault_root / ".claude" / "scripts" / "compile.py"
     compile_argv = [
         sys.executable,
-        str(vault_root / ".claude" / "scripts" / "compile.py"),
+        str(compile_script),
         "--trigger-claim",
         str(trigger),
         "--before-date",

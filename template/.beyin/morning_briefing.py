@@ -232,7 +232,8 @@ def _update_dashboard(path: Path, day: str) -> None:
 
 
 def _run_morning_compile(vault_root: Path) -> None:
-    compile_script = vault_root / ".claude" / "scripts" / "compile.py"
+    engine_compile = vault_root / ".beyin" / "engine" / "compile.py"
+    compile_script = engine_compile if engine_compile.is_file() else vault_root / ".claude" / "scripts" / "compile.py"
     if not compile_script.is_file():
         return
     try:
@@ -269,7 +270,9 @@ def run_if_due(
     day = current.date().isoformat()
     final = root / "🎯 100-Command-Center/Briefings" / f"{day}.md"
     dashboard = root / "🎯 100-Command-Center/Dashboard.md"
-    state_dir = root / ".claude/scripts/.state"
+    engine_state = root / ".beyin/engine/.state"
+    legacy_state = root / ".claude/scripts/.state"
+    state_dir = legacy_state if (legacy_state.exists() and not engine_state.exists()) else engine_state
     for output in (final, dashboard, state_dir):
         if not runtime_platform.path_within_vault(output, root):
             return False

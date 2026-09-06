@@ -84,7 +84,7 @@ sys.exit(0)
                     vault = self._setup_fresh_vault(sandbox, provider)
 
                     # Prepare hook input
-                    state_dir = vault / ".claude" / "scripts" / ".state"
+                    state_dir = vault / ".beyin" / "engine" / ".state"
                     state_dir.mkdir(parents=True, exist_ok=True)
                     transcript = vault / "transcript.jsonl"
                     transcript.write_text(
@@ -107,7 +107,7 @@ sys.exit(0)
                     env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
                     env["BEYIN_PROVIDER"] = provider
 
-                    flush_script = vault / ".claude" / "scripts" / "flush.py"
+                    flush_script = vault / ".beyin" / "engine" / "flush.py"
                     result = subprocess.run(
                         [sys.executable, str(flush_script), "--hook-input", str(hook_input), "--reason", "sessionend"],
                         cwd=vault,

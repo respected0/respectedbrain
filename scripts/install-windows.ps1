@@ -260,6 +260,18 @@ try {
         Copy-Item -LiteralPath $Item.FullName -Destination $ResolvedVault -Recurse -Force
     }
 
+    $RepoScripts = Join-Path $RepoRoot "scripts"
+    $VaultScripts = Join-Path $ResolvedVault "scripts"
+    if (-not (Test-Path -LiteralPath $VaultScripts)) {
+        New-Item -ItemType Directory -Path $VaultScripts | Out-Null
+    }
+    $RepoOnlyScripts = @("install-windows.ps1", "enable_multiai.py", "upstream_sync.sh")
+    foreach ($ScriptFile in Get-ChildItem -LiteralPath $RepoScripts -File) {
+        if ($RepoOnlyScripts -notcontains $ScriptFile.Name) {
+            Copy-Item -LiteralPath $ScriptFile.FullName -Destination (Join-Path $VaultScripts $ScriptFile.Name) -Force
+        }
+    }
+
     $Replacements = @{
         "{{OS_NAME}}" = $OsName
         "{{USER_NAME}}" = $UserName
@@ -299,7 +311,7 @@ try {
     if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-version"))).Trim() -ne "2.0.0") {
         throw ".beyin-version gate başarısız"
     }
-    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-multi-version"))).Trim() -ne "1.4.4") {
+    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-multi-version"))).Trim() -ne "1.4.5") {
         throw ".beyin-multi-version gate başarısız"
     }
     $AdapterPaths = @(
@@ -325,6 +337,6 @@ catch {
 }
 
 Write-Host "Respected Brain kuruldu: $ResolvedVault"
-Write-Host "Sürüm: core 2.0.0 / multi-AI 1.4.4"
+Write-Host "Sürüm: core 2.0.0 / multi-AI 1.4.5"
 Write-Host "Global bağlantı ayrı ve seçicidir; SETUP-WINDOWS.md içindeki install_global.py adımını kullan."
 exit 0

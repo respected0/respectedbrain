@@ -51,7 +51,7 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
     Döndürür:
         (is_safe: bool, reason: str)
     """
-    if not url or not isinstance(url, str):
+    if not isinstance(url, str) or not url.strip():
         return False, "URL boş veya geçersiz"
 
     url = url.strip()

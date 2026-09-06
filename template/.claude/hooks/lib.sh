@@ -9,7 +9,11 @@ else
   BEYIN_PROJECT_DIR=$(CDPATH= cd "$BEYIN_HOOK_DIR/../.." 2>/dev/null && pwd)
 fi
 
-BEYIN_STATE_DIR="$BEYIN_PROJECT_DIR/.claude/scripts/.state"
+if [ -d "$BEYIN_PROJECT_DIR/.claude/scripts/.state" ] && [ ! -d "$BEYIN_PROJECT_DIR/.beyin/engine" ]; then
+  BEYIN_STATE_DIR="$BEYIN_PROJECT_DIR/.claude/scripts/.state"
+else
+  BEYIN_STATE_DIR="$BEYIN_PROJECT_DIR/.beyin/engine/.state"
+fi
 mkdir -p "$BEYIN_STATE_DIR" 2>/dev/null || :
 
 beyin_mark_python_missing() {

@@ -43,7 +43,7 @@ class MorningBriefingTest(unittest.TestCase):
         self.vault = Path(self.temporary.name) / "Ada Brain"
         for relative in (
             ".beyin",
-            ".claude/scripts/.state",
+            ".beyin/engine/.state",
             "daily",
             "knowledge",
             "🎯 100-Command-Center",
@@ -160,7 +160,7 @@ class MorningBriefingTest(unittest.TestCase):
         self.assertTrue(
             worker.run_if_due(self.vault, now, lambda prompt, cwd: (VALID, None, "cursor"))
         )
-        self.assertFalse((self.vault / ".claude/scripts/.state/briefing-health.json").exists())
+        self.assertFalse((self.vault / ".beyin/engine/.state/briefing-health.json").exists())
 
     def test_concurrent_runs_make_one_model_call_and_one_final(self):
         worker = load_worker()
@@ -272,7 +272,7 @@ class MorningBriefingTest(unittest.TestCase):
         worker = load_worker()
         outside = Path(self.temporary.name) / "external-lock"
         outside.write_bytes(b"")
-        lock = self.vault / ".claude/scripts/.state/morning-briefing-2026-08-31.lock"
+        lock = self.vault / ".beyin/engine/.state/morning-briefing-2026-08-31.lock"
         try:
             lock.symlink_to(outside)
         except OSError as error:

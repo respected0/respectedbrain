@@ -25,7 +25,7 @@ import uuid
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SOURCE_SCRIPTS = REPO_ROOT / "template" / ".claude" / "scripts"
+SOURCE_SCRIPTS = REPO_ROOT / "template" / ".beyin" / "engine"
 VALID_SUMMARY = """## Bağlam
 Kalıcı bağlam.
 ## Önemli Konuşmalar
@@ -55,20 +55,21 @@ class ScriptsTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="beyin-tests-")
         self.root = Path(self.temporary.name)
         self.vault = self.root / "vault"
-        self.scripts = self.vault / ".claude" / "scripts"
+        self.engine = self.vault / ".beyin" / "engine"
+        self.scripts = self.engine
         self.beyin = self.vault / ".beyin"
-        self.state = self.scripts / ".state"
+        self.state = self.engine / ".state"
         self.daily = self.vault / "daily"
         self.knowledge = self.vault / "knowledge"
         self.bin_dir = self.root / "bin"
-        self.scripts.mkdir(parents=True)
-        self.beyin.mkdir()
+        self.engine.mkdir(parents=True)
+        self.beyin.mkdir(exist_ok=True)
         self.state.mkdir()
         self.daily.mkdir()
         self.knowledge.mkdir()
         self.bin_dir.mkdir()
-        shutil.copy2(SOURCE_SCRIPTS / "flush.py", self.scripts / "flush.py")
-        shutil.copy2(SOURCE_SCRIPTS / "compile.py", self.scripts / "compile.py")
+        shutil.copy2(SOURCE_SCRIPTS / "flush.py", self.engine / "flush.py")
+        shutil.copy2(SOURCE_SCRIPTS / "compile.py", self.engine / "compile.py")
         shutil.copy2(
             REPO_ROOT / "template" / ".beyin" / "runtime_platform.py",
             self.beyin / "runtime_platform.py",
@@ -787,7 +788,7 @@ print("loaded")
 
     def test_hostile_transcript_cannot_persist_outside_allow_list(self) -> None:
         hooks_dir = self.vault / ".claude" / "hooks"
-        hooks_dir.mkdir()
+        hooks_dir.mkdir(parents=True, exist_ok=True)
         real_hook = hooks_dir / "session-start.sh"
         real_hook.write_text("original hook\n", encoding="utf-8")
         directive = (

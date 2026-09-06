@@ -26,6 +26,9 @@ class WindowsNativeTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="respected-native-")
         self.vault = Path(self.temporary.name) / "Ada Brain"
         shutil.copytree(ROOT / "template", self.vault)
+        (self.vault / "scripts").mkdir(parents=True, exist_ok=True)
+        for p in (ROOT / "scripts").glob("*.py"):
+            shutil.copy2(p, self.vault / "scripts" / p.name)
         subprocess.run(
             [
                 sys.executable,
@@ -38,7 +41,7 @@ class WindowsNativeTest(unittest.TestCase):
             check=True,
             text=True,
         )
-        self.state = self.vault / ".claude/scripts/.state"
+        self.state = self.vault / ".beyin/engine/.state"
         self.state.mkdir(parents=True, exist_ok=True)
         self._write_memory()
         self._write_flush_recorder()
@@ -61,7 +64,7 @@ class WindowsNativeTest(unittest.TestCase):
         (self.vault / "knowledge/index.md").write_text("# Index\n", encoding="utf-8")
 
     def _write_flush_recorder(self):
-        recorder = self.vault / ".claude/scripts/flush.py"
+        recorder = self.vault / ".beyin/engine/flush.py"
         recorder.write_text(
             """import json, os, sys
 from pathlib import Path
@@ -189,7 +192,7 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
         environment["BEYIN_FAKE_NOW"] = "2026-08-28T23:00:00+03:00"
 
         result = subprocess.run(
-            [sys.executable, str(self.vault / ".claude/scripts/flush.py"), "--maybe-compile"],
+            [sys.executable, str(self.vault / ".beyin/engine/flush.py"), "--maybe-compile"],
             cwd=self.vault,
             env=environment,
             text=True,
@@ -204,7 +207,7 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
     def test_compile_staging_uses_windows_system_temp_and_is_cleaned(self):
         daily = self.vault / "daily/2026-08-30.md"
         daily.write_text("# Native staging\n", encoding="utf-8")
-        module_path = self.vault / ".claude/scripts/compile.py"
+        module_path = self.vault / ".beyin/engine/compile.py"
         spec = importlib.util.spec_from_file_location("native_compile", module_path)
         assert spec and spec.loader
         compiler = importlib.util.module_from_spec(spec)
@@ -261,6 +264,9 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
         vault = Path(self.temporary.name) / "Update Brain"
         profile = Path(self.temporary.name) / "profile"
         shutil.copytree(ROOT / "template", vault)
+        (vault / "scripts").mkdir(parents=True, exist_ok=True)
+        for p in (ROOT / "scripts").glob("*.py"):
+            shutil.copy2(p, vault / "scripts" / p.name)
         profile.mkdir()
         (vault / ".beyin-multi-version").write_text("1.2.0\n", encoding="utf-8")
         instructions = vault / ".beyin/instructions.md"
@@ -299,7 +305,7 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
         )
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((vault / ".beyin-multi-version").read_text().strip(), "1.4.4")
+        self.assertEqual((vault / ".beyin-multi-version").read_text().strip(), "1.4.5")
         self.assertEqual(personal.read_bytes(), before)
         self.assertTrue((vault / "scripts/update_respected.py").is_file())
         backups = tuple((profile / ".respected/update-backups").glob("*/*"))

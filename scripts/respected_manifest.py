@@ -4,8 +4,8 @@ from __future__ import annotations
 
 
 CORE_VERSION = "2.0.0"
-MULTI_VERSION = "1.4.4"
-UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2", "1.4.0", "1.4.1", "1.4.2", "1.4.3", MULTI_VERSION)
+MULTI_VERSION = "1.4.5"
+UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2", "1.4.0", "1.4.1", "1.4.2", "1.4.3", "1.4.4", MULTI_VERSION)
 
 GENERATED = (
     "AGENTS.md",
@@ -39,8 +39,8 @@ RUNTIME = (
     ".claude/hooks/post-compact.sh",
     ".claude/hooks/session-stop-capture.ps1",
     ".claude/hooks/session-stop-capture.sh",
-    ".claude/scripts/flush.py",
-    ".claude/scripts/compile.py",
+    ".beyin/engine/flush.py",
+    ".beyin/engine/compile.py",
     ".agents/rules/software-quality-1.md",
     ".agents/rules/software-quality-2.md",
     ".cursor/rules/software-quality-1.mdc",
@@ -68,3 +68,8 @@ RUNTIME = (
 )
 
 SKILL_DESTINATIONS = (".beyin/skills", ".claude/skills", ".agents/skills")
+REPO_ONLY_SCRIPTS = (
+    "install-windows.ps1",
+    "enable_multiai.py",
+    "upstream_sync.sh",
+)

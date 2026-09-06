@@ -72,6 +72,8 @@ def smart_merge(
         raise FileNotFoundError(f"Kaynak not bulunamadı: {source_path}")
     if not target_path.exists():
         raise FileNotFoundError(f"Hedef not bulunamadı: {target_path}")
+    if source_path.resolve() == target_path.resolve():
+        raise ValueError("Kaynak ve hedef not aynı dosya olamaz; bir not kendisiyle birleştirilemez.")
 
     source_content = source_path.read_text(encoding="utf-8", errors="replace")
     target_content = target_path.read_text(encoding="utf-8", errors="replace")

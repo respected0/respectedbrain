@@ -48,6 +48,9 @@ class UpdateRespectedTest(unittest.TestCase):
         self.transaction_root.mkdir()
         self.vault = Path(self.temporary.name) / "Ada Brain"
         shutil.copytree(ROOT / "template", self.vault)
+        (self.vault / "scripts").mkdir(parents=True, exist_ok=True)
+        for p in (ROOT / "scripts").glob("*.py"):
+            shutil.copy2(p, self.vault / "scripts" / p.name)
         (self.vault / ".beyin-version").write_text("2.0.0\n", encoding="utf-8")
         (self.vault / ".beyin-multi-version").write_text("1.1.0\n", encoding="utf-8")
         self.instructions = "# Ada Brain\n\nKişisel ve kalıcı talimat.\n"
@@ -164,7 +167,7 @@ class UpdateRespectedTest(unittest.TestCase):
         result = self.run_update("--apply")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.4.4")
+        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "1.4.5")
         self.assertEqual((self.vault / ".beyin-version").read_text().strip(), "2.0.0")
         self.assertEqual((self.vault / ".beyin/instructions.md").read_bytes(), instruction_before)
         self.assertEqual(self.note.read_bytes(), note_before)
@@ -275,7 +278,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertIn("geçersiz vault yolu", result.stdout + result.stderr)
 
     def test_already_current_vault_returns_three_without_mutation(self):
-        (self.vault / ".beyin-multi-version").write_text("1.4.4\n", encoding="utf-8")
+        (self.vault / ".beyin-multi-version").write_text("1.4.5\n", encoding="utf-8")
         before = tree_digest(self.vault)
 
         result = self.run_update("--apply")
@@ -289,7 +292,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertIn("install_briefing_schedule.py", result.stdout)
 
     def test_post_update_guidance_survives_a_cp1252_windows_console(self):
-        (self.vault / ".beyin-multi-version").write_text("1.4.4\n", encoding="utf-8")
+        (self.vault / ".beyin-multi-version").write_text("1.4.5\n", encoding="utf-8")
         environment = os.environ.copy()
         environment["HOME"] = str(self.home)
         environment["USERPROFILE"] = str(self.home)
@@ -321,7 +324,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.4",
+            "1.4.5",
         )
 
     def test_1_3_1_vault_receives_the_patch_release(self):
@@ -332,7 +335,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.4",
+            "1.4.5",
         )
 
     def test_1_3_2_vault_receives_the_minor_release(self):
@@ -343,7 +346,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.4",
+            "1.4.5",
         )
 
     def test_1_4_0_vault_receives_the_patch_release(self):
@@ -354,7 +357,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.4",
+            "1.4.5",
         )
         self.assertTrue((self.vault / ".cursor/rules/software-quality-1.mdc").is_file())
         self.assertTrue((self.vault / ".cursor/rules/software-quality-2.mdc").is_file())
@@ -370,7 +373,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.4",
+            "1.4.5",
         )
         self.assertTrue((self.vault / ".cursor/rules/software-quality-1.mdc").is_file())
         self.assertTrue((self.vault / ".cursor/rules/software-quality-2.mdc").is_file())
@@ -386,7 +389,7 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.4",
+            "1.4.5",
         )
 
     def test_1_4_3_vault_receives_the_patch_release(self):
@@ -397,7 +400,18 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
             (self.vault / ".beyin-multi-version").read_text().strip(),
-            "1.4.4",
+            "1.4.5",
+        )
+
+    def test_1_4_4_vault_receives_the_patch_release(self):
+        (self.vault / ".beyin-multi-version").write_text("1.4.4\n", encoding="utf-8")
+
+        result = self.run_update("--apply")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            (self.vault / ".beyin-multi-version").read_text().strip(),
+            "1.4.5",
         )
 
     def test_unstamped_v1_and_unknown_versions_are_rejected_without_mutation(self):
@@ -428,6 +442,47 @@ class UpdateRespectedTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(tree_digest(vault), before)
             self.assertIn("sürüm", (result.stdout + result.stderr).casefold())
+    def test_legacy_claude_scripts_migrated_and_user_custom_scripts_preserved(self):
+        claude_scripts = self.vault / ".claude" / "scripts"
+        claude_scripts.mkdir(parents=True, exist_ok=True)
+        legacy_flush = claude_scripts / "flush.py"
+        legacy_compile = claude_scripts / "compile.py"
+        user_script = claude_scripts / "user_tool.py"
+
+        legacy_flush.write_text("# BEYIN runtime_platform flush\n", encoding="utf-8")
+        legacy_compile.write_text("# BEYIN compile script\n", encoding="utf-8")
+        user_script.write_text("# my custom tool\nprint('hello')\n", encoding="utf-8")
+
+        result = self.run_update("--apply")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        self.assertTrue((self.vault / ".beyin/engine/flush.py").is_file())
+        self.assertTrue((self.vault / ".beyin/engine/compile.py").is_file())
+        self.assertFalse(legacy_flush.exists())
+        self.assertFalse(legacy_compile.exists())
+        self.assertTrue(claude_scripts.is_dir())
+        self.assertTrue(user_script.is_file())
+        self.assertEqual(user_script.read_text(encoding="utf-8"), "# my custom tool\nprint('hello')\n")
+
+    def test_legacy_claude_scripts_cleanly_removed_when_no_user_files(self):
+        claude_scripts = self.vault / ".claude" / "scripts"
+        claude_scripts.mkdir(parents=True, exist_ok=True)
+        legacy_flush = claude_scripts / "flush.py"
+        legacy_compile = claude_scripts / "compile.py"
+        legacy_state = claude_scripts / ".state"
+        legacy_state.mkdir(parents=True, exist_ok=True)
+        (legacy_state / "dummy.json").write_text("{}", encoding="utf-8")
+
+        legacy_flush.write_text("# BEYIN runtime_platform flush\n", encoding="utf-8")
+        legacy_compile.write_text("# BEYIN compile script\n", encoding="utf-8")
+
+        result = self.run_update("--apply")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        self.assertTrue((self.vault / ".beyin/engine/flush.py").is_file())
+        self.assertTrue((self.vault / ".beyin/engine/compile.py").is_file())
+        self.assertTrue((self.vault / ".beyin/engine/.state/dummy.json").is_file())
+        self.assertFalse(claude_scripts.exists())
 
 
 if __name__ == "__main__":

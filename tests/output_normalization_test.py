@@ -11,7 +11,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parent.parent
-FLUSH_PATH = ROOT / "template/.claude/scripts/flush.py"
+FLUSH_PATH = ROOT / "template/.beyin/engine/flush.py"
 
 
 def load_flush_module():
