@@ -1,6 +1,7 @@
 param([string]$PythonExecutable = $env:RESPECTED_TEST_PYTHON)
 
 $ErrorActionPreference = "Stop"
+$env:PYTHONIOENCODING = "utf-8"
 
 if ([string]::IsNullOrWhiteSpace($PythonExecutable)) {
     $DiscoveredPython = Get-Command py, python, python3 -All -ErrorAction SilentlyContinue | Where-Object {

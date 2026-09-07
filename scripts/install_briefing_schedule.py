@@ -28,6 +28,17 @@ TASK_PREFIX = "respected-morning-briefing-"
 TIMER_SEPARATOR = "\n---RESPECTED-TIMER---\n"
 
 
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting on non-ASCII output."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
+
+
 class SchedulePlan:
     def __init__(self, kind: str, name: str, content: str, paths: tuple[PurePath, ...] = ()):
         self.kind = kind

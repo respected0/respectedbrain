@@ -26,4 +26,7 @@ jobs:
       - name: Native lifecycle and runtime
         shell: pwsh
         run: py.exe -3 -m unittest -v tests.windows_native_test tests.runtime_platform_test
+      - name: Run all Python unit and integration tests (Windows)
+        shell: pwsh
+        run: python -m unittest discover -s tests -p "*test*.py"
 
