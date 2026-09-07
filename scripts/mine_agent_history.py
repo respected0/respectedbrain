@@ -203,6 +203,7 @@ class AgentHistoryMiner:
         time_str = parsed["mtime"].strftime("%H:%M:%S")
 
         safe_slug = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in parsed["title"])[:35]
+        safe_slug = safe_slug.strip("._-") or "session"
         filename = f"{date_str}_{parsed['agent']}_{safe_slug}.md"
 
         if target_folder == "inbox":

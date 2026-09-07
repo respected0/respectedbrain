@@ -140,6 +140,26 @@ class TestV144SmartMerge(unittest.TestCase):
         self.assertIn("[[Yeni_Not]]", referrer_content)
         self.assertNotIn("[[Eski_Not]]", referrer_content)
 
+    def test_smart_merge_preserves_scalar_tags_and_aliases(self):
+        """Scalar (single-string) tags and aliases in frontmatter must not be dropped during merge."""
+        source = self.vault / "500-Knowledge" / "Scalar_Source.md"
+        source.write_text(
+            "---\ntitle: Scalar Source\ntags: single-tag\naliases: single-alias\n---\n# Content\n",
+            encoding="utf-8",
+        )
+        target = self.vault / "500-Knowledge" / "Scalar_Target.md"
+        target.write_text(
+            "---\ntitle: Scalar Target\ntags: [existing-tag]\naliases: [existing-alias]\n---\n# Content\n",
+            encoding="utf-8",
+        )
+
+        smart_merge.smart_merge(source, target, self.vault)
+        target_content = target.read_text(encoding="utf-8")
+        self.assertIn("single-tag", target_content)
+        self.assertIn("existing-tag", target_content)
+        self.assertIn("single-alias", target_content)
+        self.assertIn("existing-alias", target_content)
+
 
 class TestV144ArchitectScan(unittest.TestCase):
     """Codebase Architect Scanner tests."""

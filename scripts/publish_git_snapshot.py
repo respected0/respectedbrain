@@ -155,6 +155,7 @@ def publish_if_due(
             capture_output=True,
             text=True,
             check=False,
+            timeout=60,
         )
         if push_proc.returncode != 0:
             return {"status": "push-failed", "error": push_proc.stderr}

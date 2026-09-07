@@ -157,7 +157,20 @@ def clean_html(html_content: str) -> str:
     return parser.get_markdown()
 
 
-def fetch_and_clean_url(url: str, timeout: int = 15) -> tuple[bool, str]:
+MAX_FETCH_BYTES = 5 * 1024 * 1024  # 5 MB tavan bellek sınırı
+
+
+class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """HTTP yönlendirmelerinde (301/302/307) hedef URL'yi de SSRF kalkanından geçirir."""
+
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> Any:
+        safe, reason = validate_safe_url(newurl)
+        if not safe:
+            raise ValueError(f"Yönlendirme engellendi (güvenlik kalkanı): {reason}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def fetch_and_clean_url(url: str, timeout: int = 15, max_bytes: int = MAX_FETCH_BYTES) -> tuple[bool, str]:
     """URL'den güvenli şekilde HTML indirip temiz Markdown döndürür."""
     safe, reason = validate_safe_url(url)
     if not safe:
@@ -171,9 +184,10 @@ def fetch_and_clean_url(url: str, timeout: int = 15) -> tuple[bool, str]:
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as response:
+        opener = urllib.request.build_opener(SafeRedirectHandler)
+        with opener.open(req, timeout=timeout) as response:
             charset = response.headers.get_content_charset() or "utf-8"
-            raw_bytes = response.read()
+            raw_bytes = response.read(max_bytes)
             html_text = raw_bytes.decode(charset, errors="replace")
             cleaned_md = clean_html(html_text)
             return True, cleaned_md

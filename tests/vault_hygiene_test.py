@@ -135,6 +135,18 @@ class TestDefuddle(unittest.TestCase):
         self.assertIn("def test(): return True", md)
         self.assertIn("[Tıklayın](https://example.com)", md)
 
+    def test_defuddle_safe_redirect_handler_blocks_private_destinations(self):
+        """Redirects to private IP or metadata must be blocked by SafeRedirectHandler."""
+        from scripts.defuddle import SafeRedirectHandler
+        handler = SafeRedirectHandler()
+        with self.assertRaises(ValueError) as ctx:
+            handler.redirect_request(None, None, 302, "Found", {}, "http://127.0.0.1:8080/admin")
+        self.assertIn("Yönlendirme engellendi", str(ctx.exception))
+
+        with self.assertRaises(ValueError) as ctx:
+            handler.redirect_request(None, None, 302, "Found", {}, "http://169.254.169.254/latest/meta-data/")
+        self.assertIn("Yönlendirme engellendi", str(ctx.exception))
+
 
 class TestVaultLinterAndTiling(unittest.TestCase):
     """Vault Linter ve Tiling Benzerlik Testleri."""

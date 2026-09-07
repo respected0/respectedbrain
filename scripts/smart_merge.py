@@ -72,6 +72,18 @@ def dump_frontmatter(fm: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _ensure_string_list(val: Any) -> list[str]:
+    """YAML değerini güvenli şekilde temiz string listesine dönüştürür."""
+    if not val:
+        return []
+    if isinstance(val, list):
+        return [str(x).strip() for x in val if str(x).strip()]
+    if isinstance(val, str):
+        cleaned = val.strip()
+        return [cleaned] if cleaned else []
+    return [str(val).strip()]
+
+
 def smart_merge(
     source_path: Path,
     target_path: Path,
@@ -100,16 +112,18 @@ def smart_merge(
     merged_fm = dict(target_fm)
 
     # Etiketler (Tags)
-    source_tags = set(source_fm.get("tags", [])) if isinstance(source_fm.get("tags"), list) else set()
-    target_tags = set(target_fm.get("tags", [])) if isinstance(target_fm.get("tags"), list) else set()
+    source_tags = set(_ensure_string_list(source_fm.get("tags")))
+    target_tags = set(_ensure_string_list(target_fm.get("tags")))
     merged_fm["tags"] = sorted(list(source_tags | target_tags))
 
     # Aliases
-    target_aliases = set(target_fm.get("aliases", [])) if isinstance(target_fm.get("aliases"), list) else set()
-    target_aliases.add(source_stem)
+    source_aliases = set(_ensure_string_list(source_fm.get("aliases")))
+    target_aliases = set(_ensure_string_list(target_fm.get("aliases")))
+    all_aliases = source_aliases | target_aliases
+    all_aliases.add(source_stem)
     if "title" in source_fm and source_fm["title"]:
-        target_aliases.add(str(source_fm["title"]))
-    merged_fm["aliases"] = sorted(list(target_aliases))
+        all_aliases.add(str(source_fm["title"]).strip())
+    merged_fm["aliases"] = sorted(list(all_aliases))
     merged_fm["updated"] = today
 
     # 2. Gövde Birleştirme
