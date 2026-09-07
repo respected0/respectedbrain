@@ -16,6 +16,17 @@ import time
 from typing import Any
 
 
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
+
+
 FORBIDDEN_NAME_PATTERNS = (
     re.compile(r"^\.env(\..+)?$", re.IGNORECASE),
     re.compile(r"^.*id_rsa.*$", re.IGNORECASE),

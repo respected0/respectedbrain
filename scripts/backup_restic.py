@@ -15,6 +15,17 @@ import tempfile
 from typing import Any
 
 
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
+
+
 def check_prerequisites() -> tuple[bool, str]:
     """Verify that restic CLI is installed on the host."""
     binary = shutil.which("restic") or shutil.which("restic.exe")
@@ -25,12 +36,15 @@ def check_prerequisites() -> tuple[bool, str]:
 
 def check_target_safety(vault_root: Path, repo_target: str) -> None:
     """Ensure repo target is not inside the vault itself."""
+    is_inside = False
     try:
         target_path = Path(repo_target).resolve()
-        if target_path == vault_root or target_path.is_relative_to(vault_root):
-            raise ValueError("Yedek deposu (repo target) vault içinde olamaz.")
+        is_inside = (target_path == vault_root or target_path.is_relative_to(vault_root))
     except (ValueError, OSError):
-        pass
+        is_inside = False
+
+    if is_inside:
+        raise ValueError("Yedek deposu (repo target) vault içinde olamaz.")
 
 
 def run_backup(
@@ -45,7 +59,10 @@ def run_backup(
     if not ready:
         return {"status": "error", "error": message}
 
-    check_target_safety(vault_root, repo_target)
+    try:
+        check_target_safety(vault_root, repo_target)
+    except ValueError as exc:
+        return {"status": "error", "error": str(exc)}
 
     env = os.environ.copy()
     if password:

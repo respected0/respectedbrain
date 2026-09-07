@@ -20,6 +20,17 @@ import re
 import sys
 from typing import Any
 
+
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
+
 # Wikilink regex: [[Hedef]] veya [[Hedef|Görünen İsim]] veya [[Hedef#Başlık]]
 WIKILINK_RE = re.compile(r"\[\[([^\]\|#]+)(?:#[^\]\|]+)?(?:\|[^\]]+)?\]\]")
 

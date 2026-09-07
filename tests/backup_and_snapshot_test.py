@@ -43,6 +43,16 @@ class BackupAndSnapshotTest(unittest.TestCase):
             self.assertFalse(installed)
             self.assertIn("restic kurulu değil", message.lower())
 
+    def test_restic_target_safety_aborts_when_inside_vault(self):
+        """Restic backup must refuse to initialize repo inside the vault itself."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir).resolve()
+            inside_target = str(vault / "backups")
+            with mock.patch.object(self.restic, "check_prerequisites", return_value=(True, "restic")):
+                result = self.restic.run_backup(vault, inside_target)
+                self.assertEqual(result.get("status"), "error")
+                self.assertIn("vault içinde olamaz", result.get("error", ""))
+
     def test_git_snapshot_secret_guard_aborts_on_forbidden_files(self):
         """Git snapshot must abort immediately if a secret file like .env is present in candidate paths."""
         with tempfile.TemporaryDirectory() as temp_dir:

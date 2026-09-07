@@ -23,6 +23,17 @@ import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Set
 
+
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
+
 LANGUAGE_EXTENSIONS = {
     ".py": "Python",
     ".ts": "TypeScript",
