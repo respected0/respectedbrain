@@ -39,9 +39,8 @@ FORBIDDEN_NAME_PATTERNS = (
 def check_secret_guard(vault_root: Path) -> tuple[bool, list[str]]:
     """Scan vault candidate paths for potential secrets or forbidden files."""
     forbidden = []
-    for current, _dirs, files in os.walk(vault_root, topdown=True, followlinks=False):
-        if ".git" in Path(current).parts:
-            continue
+    for current, dirs, files in os.walk(vault_root, topdown=True, followlinks=False):
+        dirs[:] = [d for d in dirs if d not in {".git", "node_modules", ".venv", "venv", "__pycache__"}]
         for file_name in files:
             for pattern in FORBIDDEN_NAME_PATTERNS:
                 if pattern.match(file_name):

@@ -71,7 +71,12 @@ def decode_windows_output(value: bytes) -> str:
 def _decode_windows_xml(value: bytes) -> str:
     if value.startswith((b"\xff\xfe", b"\xfe\xff")):
         return value.decode("utf-16")
-    return value.decode("utf-8-sig")
+    for encoding in ("utf-8-sig", "utf-8", "cp857", "cp1254", "cp1252"):
+        try:
+            return value.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return value.decode("utf-8", errors="replace")
 
 
 def _task_signature(content: str) -> tuple[str, str, str]:
@@ -192,6 +197,21 @@ def _write(path: Path, content: str) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _write_bytes(path: Path, content: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        os.chmod(temporary, 0o600)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def _snapshot(paths: tuple[PurePath, ...]) -> dict[Path, tuple[bytes, int] | None]:
     snapshot: dict[Path, tuple[bytes, int] | None] = {}
     for raw_path in paths:
@@ -240,7 +260,7 @@ def _persist_file_backups(
         return None
     backup = _backup_directory(home, plan.name)
     for path, content in changed.items():
-        _write(backup / path.name, content.decode("utf-8"))
+        _write_bytes(backup / path.name, content)
     print(f"backup: {backup}")
     return backup
 
@@ -255,7 +275,7 @@ def _persist_legacy_backups(
         return None
     backup = _backup_directory(home, name)
     for path, content in existing.items():
-        _write(backup / path.name, content.decode("utf-8"))
+        _write_bytes(backup / path.name, content)
     print(f"backup: {backup}")
     return backup
 

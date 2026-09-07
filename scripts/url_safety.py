@@ -82,7 +82,8 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
     hostname_clean = hostname.lower().strip(".")
 
     # Yasaklı hostname kontrolü
-    if hostname_clean in DISALLOWED_HOSTNAMES or hostname_clean.endswith(".local") or hostname_clean.endswith(".internal"):
+    disallowed_suffixes = (".local", ".internal", ".localhost", ".lan", ".home", ".home.arpa", ".corp")
+    if hostname_clean in DISALLOWED_HOSTNAMES or any(hostname_clean.endswith(s) for s in disallowed_suffixes):
         return False, f"Yerel ve dahili ağ hostlarına erişim engellendi: {hostname}"
 
     # Port kontrolü

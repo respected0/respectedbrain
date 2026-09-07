@@ -102,7 +102,8 @@ def detect_modules(root: Path) -> List[Dict[str, Any]]:
         if entry.is_dir() and entry.name not in EXCLUDED_DIRS and not entry.name.startswith("."):
             # Alt dosya sayısını hesapla
             file_count = 0
-            for _, _, files in os.walk(entry):
+            for _, dirnames, files in os.walk(entry):
+                dirnames[:] = [d for d in dirnames if d not in EXCLUDED_DIRS and not d.startswith(".")]
                 file_count += len(files)
                 if file_count > 500:
                     break
@@ -179,8 +180,9 @@ def detect_entry_points(root: Path) -> List[str]:
 
 def detect_signals(root: Path) -> Dict[str, bool]:
     """Operasyonel altyapı sinyallerini tespit eder."""
+    docker_files = ("Dockerfile", "docker-compose.yml", "docker-compose.yaml", "compose.yaml", "compose.yml")
     return {
-        "has_docker": (root / "Dockerfile").exists() or (root / "docker-compose.yml").exists(),
+        "has_docker": any((root / f).exists() for f in docker_files),
         "has_makefile": (root / "Makefile").exists(),
         "has_ci": (root / ".github" / "workflows").is_dir() or (root / ".gitlab-ci.yml").exists(),
         "has_tests": (root / "tests").is_dir() or (root / "test").is_dir(),

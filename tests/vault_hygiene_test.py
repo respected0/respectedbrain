@@ -203,6 +203,26 @@ class TestVaultLinterAndTiling(unittest.TestCase):
         self.assertIn("docker", pair["common_terms"])
         self.assertGreaterEqual(pair["similarity_pct"], 50.0)
 
+    def test_vault_linter_ignores_code_block_wikilinks(self):
+        from scripts.vault_linter import lint_vault
+        test_note = self.vault / "knowledge" / "code_example.md"
+        test_note.write_text(
+            '---\ntitle: "Kod Ornegi"\ncreated: "2026-09-07"\ntype: note\nstatus: active\n---\n\n'
+            "# Kod Ornegi\n\n"
+            "Burada bir kod ornegi var:\n\n"
+            "```markdown\n"
+            "Burada [[VarOlmayanNotOrnegi]] yer aliyor ve dead link olmamali.\n"
+            "```\n\n"
+            "Inline kod: `[[DigerOrnek]]` da yoksayilmali.\n",
+            encoding="utf-8",
+        )
+        report = lint_vault(self.vault)
+        # VarOlmayanNotOrnegi ve DigerOrnek dead link olmamalı
+        dead_link_targets = [d["target"] for d in report["dead_links"]]
+        self.assertNotIn("VarOlmayanNotOrnegi", dead_link_targets)
+        self.assertNotIn("DigerOrnek", dead_link_targets)
+
+
 
 class TestManifestAndTemplates(unittest.TestCase):
     """1.4.1 Sürüm Manifesti, Şablonlar ve Kurallar."""
@@ -256,6 +276,28 @@ class TestManifestAndTemplates(unittest.TestCase):
 
         # Sürüm dosyası
         self.assertEqual((ROOT / "template" / ".beyin-multi-version").read_text().strip(), "1.4.5")
+
+    def test_url_safety_blocks_rfc_internal_domains(self):
+        from scripts.url_safety import validate_safe_url
+        internal_domains = [
+            "http://gateway.home.arpa",
+            "https://server.corp",
+            "http://router.lan",
+            "http://device.local",
+            "http://sub.localhost",
+        ]
+        for url in internal_domains:
+            safe, reason = validate_safe_url(url)
+            self.assertFalse(safe, f"Internal URL {url} should be blocked")
+            self.assertIn("engellendi", reason)
+
+    def test_install_briefing_schedule_decode_windows_xml_fallbacks(self):
+        from scripts.install_briefing_schedule import _decode_windows_xml
+        # CP857 ile kodlanmış Türkçe karakterler içeren XML
+        turkish_text = '<?xml version="1.0"?><Task><Author>Şükrü Çağlar</Author></Task>'
+        cp857_bytes = turkish_text.encode("cp857")
+        decoded = _decode_windows_xml(cp857_bytes)
+        self.assertIn("Şükrü Çağlar", decoded)
 
 
 if __name__ == "__main__":

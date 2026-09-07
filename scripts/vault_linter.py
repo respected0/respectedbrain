@@ -31,6 +31,12 @@ def _configure_console_output() -> None:
 
 _configure_console_output()
 
+def strip_code_blocks(text: str) -> str:
+    """Markdown içindeki fenced ve inline kod bloklarını ayıklar."""
+    no_fences = re.sub(r"```[\s\S]*?```", "", text)
+    return re.sub(r"`[^`\n]+`", "", no_fences)
+
+
 # Wikilink regex: [[Hedef]] veya [[Hedef|Görünen İsim]] veya [[Hedef#Başlık]]
 WIKILINK_RE = re.compile(r"\[\[([^\]\|#]+)(?:#[^\]\|]+)?(?:\|[^\]]+)?\]\]")
 
@@ -138,8 +144,9 @@ def lint_vault(vault_root: Path) -> dict[str, Any]:
                     "issue": "Kapanmamış YAML frontmatter (eksik ikinci '---')",
                 })
 
-        # Wikilink kontrolü
-        matches = WIKILINK_RE.findall(content)
+        # Wikilink kontrolü (kod bloklarındaki sahte wikilink örneklerini ayıkla)
+        clean_text = strip_code_blocks(content)
+        matches = WIKILINK_RE.findall(clean_text)
         for target in matches:
             target_clean = target.strip()
             if not target_clean:

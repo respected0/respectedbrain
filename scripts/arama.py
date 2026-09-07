@@ -17,12 +17,15 @@ import sqlite3
 import sys
 from typing import Any
 
-if hasattr(sys.stdout, "reconfigure"):
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting on non-ASCII output."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
 
 
 def resolve_vault_root(candidate: Path | None = None) -> Path:
