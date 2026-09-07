@@ -294,6 +294,8 @@ class TestManifestAndTemplates(unittest.TestCase):
             "http://0x7f000001",
             "http://[::1]",
             "http://[::ffff:127.0.0.1]",
+            "http://127.0.0.1.nip.io",
+            "http://localtest.me",
         ]
         for url in internal_domains:
             safe, reason = validate_safe_url(url)
@@ -323,6 +325,14 @@ class TestManifestAndTemplates(unittest.TestCase):
         cp857_bytes = turkish_text.encode("cp857")
         decoded = _decode_windows_xml(cp857_bytes)
         self.assertIn("Şükrü Çağlar", decoded)
+
+    def test_defuddle_fail_closed_import_protection(self):
+        """When validate_safe_url fallback is called, it must fail closed (return False)."""
+        import inspect
+        import scripts.defuddle as defuddle_mod
+        source = inspect.getsource(defuddle_mod)
+        self.assertNotIn('lambda u: (True, "ok")', source)
+        self.assertIn("validate_safe_url = lambda u: (False,", source)
 
 
 if __name__ == "__main__":

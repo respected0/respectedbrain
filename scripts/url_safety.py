@@ -85,22 +85,21 @@ def is_private_or_reserved_ip(ip_str: str) -> bool:
     except (OSError, ValueError):
         pass
 
-    # 3. Dword / integer IP (örn: 2130706433)
-    if clean_ip.isdigit():
-        try:
-            val = int(clean_ip)
-            if 0 <= val <= 0xFFFFFFFF:
-                ip4 = ipaddress.IPv4Address(val)
-                return (
-                    ip4.is_private
-                    or ip4.is_loopback
-                    or ip4.is_link_local
-                    or ip4.is_multicast
-                    or ip4.is_reserved
-                    or ip4.is_unspecified
-                )
-        except (ValueError, OverflowError):
-            pass
+    # 3. Dword / integer / hex / octal IP (örn: 2130706433, 0x7f000001)
+    try:
+        val = int(clean_ip, 0)
+        if 0 <= val <= 0xFFFFFFFF:
+            ip4 = ipaddress.IPv4Address(val)
+            return (
+                ip4.is_private
+                or ip4.is_loopback
+                or ip4.is_link_local
+                or ip4.is_multicast
+                or ip4.is_reserved
+                or ip4.is_unspecified
+            )
+    except (ValueError, OverflowError):
+        pass
 
     return False
 
@@ -147,8 +146,21 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
     if "." not in hostname_clean and ":" not in hostname_clean:
         return False, f"Yerel ve dahili ağ hostlarına erişim engellendi: {hostname}"
 
-    # Yasaklı hostname son ekleri ve özel adlar
-    disallowed_suffixes = (".local", ".internal", ".localhost", ".lan", ".home", ".home.arpa", ".corp")
+    # Yasaklı hostname son ekleri ve özel adlar (dahili ağlar ve wildcard loopback servisleri)
+    disallowed_suffixes = (
+        ".local",
+        ".internal",
+        ".localhost",
+        ".lan",
+        ".home",
+        ".home.arpa",
+        ".corp",
+        ".nip.io",
+        ".sslip.io",
+        ".localtest.me",
+        ".lvh.me",
+        ".vcap.me",
+    )
     if hostname_clean in DISALLOWED_HOSTNAMES or any(hostname_clean.endswith(s) for s in disallowed_suffixes):
         return False, f"Yerel ve dahili ağ hostlarına erişim engellendi: {hostname}"
 
@@ -168,7 +180,7 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
             sockaddr = item[4]
             resolved_ip = sockaddr[0]
             if is_private_or_reserved_ip(resolved_ip):
-                return False, f"Host çözümlendiğinde özel/yerel IP adresine ulaşıyor ({resolved_ip})"
+                return False, f"Host çözümlendiğinde özel/yerel IP adresine erişim engellendi ({resolved_ip})"
     except socket.gaierror:
         # DNS çözülemediyse bile host adı genel olarak kabul edilebilir (ağ kapalı olabilir veya test ediliyor olabilir)
         pass

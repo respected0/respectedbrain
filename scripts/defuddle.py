@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 from html import unescape
 from html.parser import HTMLParser
+from pathlib import Path
 import re
 import sys
 from typing import Any
@@ -27,13 +28,17 @@ def _configure_console_output() -> None:
 
 _configure_console_output()
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
 try:
     from url_safety import validate_safe_url
 except ImportError:
     try:
         from scripts.url_safety import validate_safe_url
     except ImportError:
-        validate_safe_url = lambda u: (True, "ok")
+        validate_safe_url = lambda u: (False, "url_safety güvenlik modülü yüklenemedi; istek engellendi")
 
 
 class SimpleHtmlToMarkdown(HTMLParser):
