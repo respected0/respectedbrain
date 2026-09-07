@@ -10,9 +10,11 @@
 *.orig
 
 # Local runtime state
+.beyin/engine/.state/
 .claude/hooks/.state/
 .claude/scripts/.state/*
 !.claude/scripts/.state/.gitkeep
+🔮 850-Companion/Session-Logs/
 
 # OS / editor noise
 .DS_Store

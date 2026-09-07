@@ -67,11 +67,11 @@ kullanılabilir.
 ### 5. python3-missing işareti
 
 ```bash
-if [ -f .claude/scripts/.state/python3-missing ]; then echo "isaret VAR, tarih: $(head -1 .claude/scripts/.state/python3-missing 2>/dev/null)"; else echo "isaret yok"; fi
+f=".beyin/engine/.state/python3-missing"; [ -f "$f" ] || f=".claude/scripts/.state/python3-missing"; if [ -f "$f" ]; then echo "isaret VAR, tarih: $(head -1 "$f" 2>/dev/null)"; else echo "isaret yok"; fi
 ```
 
 🟢 işaret yok. 🔴 işaret var: hook'lar python3 bulamadığı için JSON kaçışını yapamamış.
-Düzeltme: python3'ü kur, sonra dosyayı sil: `rm .claude/scripts/.state/python3-missing`.
+Düzeltme: python3'ü kur, sonra dosyayı sil: `rm -f .beyin/engine/.state/python3-missing .claude/scripts/.state/python3-missing`.
 
 ### 6. Günlük log tazeliği
 
@@ -86,18 +86,18 @@ numaralı kontrollere dön, arıza flush zincirinde.
 ### 7. Derleme durumu
 
 ```bash
-f=".claude/scripts/.state/compile-state.json"; if [ -f "$f" ]; then m=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f"); n=$(date +%s); echo "state: $(( (n - m) / 3600 )) saat once guncellendi"; python3 -c "import json;d=json.load(open('.claude/scripts/.state/compile-state.json'));print('last_run:',d.get('last_run','yok'));print('last_status:',d.get('last_status','yok'));print('ingested:',len(d.get('ingested',{})),'log')" 2>/dev/null || echo "state dosyasi bozuk, JSON okunamadi"; else echo "compile: state dosyasi yok, henuz hic derleme calismadi"; fi
+f=".beyin/engine/.state/compile-state.json"; [ -f "$f" ] || f=".claude/scripts/.state/compile-state.json"; if [ -f "$f" ]; then m=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f"); n=$(date +%s); echo "state: $(( (n - m) / 3600 )) saat once guncellendi"; python3 -c "import json;d=json.load(open('$f'));print('last_run:',d.get('last_run','yok'));print('last_status:',d.get('last_status','yok'));print('ingested:',len(d.get('ingested',{})),'log')" 2>/dev/null || echo "state dosyasi bozuk, JSON okunamadi"; else echo "compile: state dosyasi yok, henuz hic derleme calismadi"; fi
 ```
 
 🟢 `last_run` 48 saatten yeni ve `last_status` `ok`. 🟡 state yok ama vault yeni kurulmuş veya
 henüz sabah 08:00 olmamış. 🔴 `last_status` `fail:` ile başlıyor veya 48 saatten eski.
-Düzeltme: elle bir tur çalıştır ve hatayı gör: `python3 .claude/scripts/compile.py --dry-run`,
-sonra `python3 .claude/scripts/compile.py`.
+Düzeltme: elle bir tur çalıştır ve hatayı gör: `python3 .beyin/engine/compile.py --dry-run`,
+sonra `python3 .beyin/engine/compile.py`.
 
 ### 8. Sağlık kayıtlarındaki son hatalar
 
 ```bash
-if [ -f .claude/scripts/.state/health.json ]; then tail -c 2000 .claude/scripts/.state/health.json; else echo "health: kayit yok"; fi
+f=".beyin/engine/.state/health.json"; [ -f "$f" ] || f=".claude/scripts/.state/health.json"; if [ -f "$f" ]; then tail -c 2000 "$f"; else echo "health: kayit yok"; fi
 ```
 
 🟢 kayıt yok veya son kayıt 7 günden eski. 🔴 son 48 saatte hata kaydı var.

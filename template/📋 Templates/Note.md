@@ -2,6 +2,7 @@
 title: 
 created: {{TODAY}}
 modified: {{TODAY}}
+updated: {{TODAY}}
 valid_at: {{TODAY}}
 recorded_at: {{TODAY}}
 freshness: dated # timeless | dated | pointer
@@ -15,8 +16,8 @@ timeline:
     until: present
     learned: {{TODAY}}
     source: ""
-type: note
-status: active
+type: note # note | concept | project | decision | meeting
+status: active # active | draft | paused | archived | done
 tags: []
 ---
 

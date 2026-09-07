@@ -37,7 +37,7 @@ if ([string]::IsNullOrWhiteSpace($SessionId)) {
 }
 
 # 2. Oturum başına 1 kez çalışma kilidi (Sentinel)
-$SentinelDir = [System.IO.Path]::Combine([System.Environment]::GetFolderPath('UserProfile'), ".respectedos", "hooks", "sentinels")
+$SentinelDir = [System.IO.Path]::Combine([System.Environment]::GetFolderPath('UserProfile'), ".respectedbrain", "hooks", "sentinels")
 if (-not (Test-Path $SentinelDir)) {
     New-Item -ItemType Directory -Path $SentinelDir -Force | Out-Null
 }
@@ -80,7 +80,7 @@ New-Item -ItemType Directory -Path $SessionLock -Force | Out-Null
 
 # Claude'u uyandır: stderr üzerinden exit code 2
 $PromptMessage = @"
-[RESPECTED-OS HAFIZA SİSTEMİ BİLDİRİMİ]
+[RESPECTED-BRAIN HAFIZA SİSTEMİ BİLDİRİMİ]
 Bu oturumda anlamlı kod/dosya değişiklikleri yapıldı.
 Oturumu kapatmadan önce lütfen:
 1. '🔮 850-Companion/Last-Session.md' dosyasını güncelle.

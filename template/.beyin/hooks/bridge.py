@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -77,7 +78,7 @@ def resolve_antigravity_transcript(
     ):
         return ""
     profile = home or Path.home()
-    for product in ("antigravity-ide", "antigravity-cli"):
+    for product in ("antigravity-ide", "antigravity-cli", "antigravity"):
         brain = profile / ".gemini" / product / "brain"
         candidate = (
             brain
@@ -201,12 +202,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
     # Antigravity invokes PreInvocation before every model call. Initialize only once.
-    if args.provider == "antigravity" and args.event == "start" and payload.get("invocationNum") not in (None, 0):
-        output(args.provider, args.event, "")
-        return 0
+    if args.provider == "antigravity" and args.event == "start":
+        inv = payload.get("invocationNum")
+        if inv is not None and isinstance(inv, int):
+            state_dir = LIFECYCLE._state_dir(ROOT)
+            key = LIFECYCLE.session_key(payload["session_id"])
+            LIFECYCLE._atomic_write(state_dir / f"prompt_count.{key}", f"{inv + 1}\n")
+        if inv not in (None, 0):
+            output(args.provider, args.event, "")
+            return 0
 
-    context = dispatch(args.provider, args.event, payload)
-    output(args.provider, args.event, context)
+    try:
+        context = dispatch(args.provider, args.event, payload)
+        output(args.provider, args.event, context)
+    except Exception as error:
+        state_dir = LIFECYCLE._state_dir(ROOT)
+        LIFECYCLE._record_health(state_dir, args.event, f"bridge-error:{type(error).__name__}:{error}", datetime.now())
+        output(args.provider, args.event, "")
     return 0
 
 

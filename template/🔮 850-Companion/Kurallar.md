@@ -1,6 +1,7 @@
 ---
 title: Kurallar
 created: {{TODAY}}
+modified: {{TODAY}}
 updated: {{TODAY}}
 type: memory
 tags: [companion, kurallar]

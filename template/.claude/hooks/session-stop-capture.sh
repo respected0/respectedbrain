@@ -30,7 +30,7 @@ except:
     print('default_session')
 " 2>/dev/null || echo "default_session")
 
-SENTINEL_DIR="$HOME/.respectedos/hooks/sentinels"
+SENTINEL_DIR="$HOME/.respectedbrain/hooks/sentinels"
 mkdir -p "$SENTINEL_DIR"
 SESSION_LOCK="$SENTINEL_DIR/$SESSION_ID"
 
@@ -65,7 +65,7 @@ mkdir "$SESSION_LOCK" 2>/dev/null || exit 0
 
 # Claude'u rewake et (stderr + exit 2)
 cat << 'EOF' >&2
-[RESPECTED-OS HAFIZA SİSTEMİ BİLDİRİMİ]
+[RESPECTED-BRAIN HAFIZA SİSTEMİ BİLDİRİMİ]
 Bu oturumda anlamlı kod/dosya değişiklikleri yapıldı.
 Oturumu kapatmadan önce lütfen:
 1. '🔮 850-Companion/Last-Session.md' dosyasını güncelle.

@@ -20,6 +20,8 @@ properties:
     displayName: "Tazelik"
   updated:
     displayName: "Son Güncelleme"
+  modified:
+    displayName: "Son Değişiklik"
 
 views:
   - type: table

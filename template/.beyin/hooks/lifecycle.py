@@ -357,7 +357,7 @@ def count_prompt(state_dir: Path, session_id: str) -> str:
     counter = state_dir / f"prompt_count.{key}"
     lock_path = state_dir / f"prompt_count.{key}.lock"
     with lock_path.open("a+", encoding="utf-8") as lock_handle:
-        with runtime_platform.exclusive_lock(lock_handle, blocking=True) as held:
+        with runtime_platform.exclusive_lock(lock_handle, blocking=True, timeout=2.0) as held:
             if not held:
                 return ""
             count = _read_integer(counter) + 1
@@ -404,7 +404,10 @@ def _finish_session(
                 try:
                     shutil.copyfile(t_path, target_log)
                 except OSError:
-                    pass
+                    try:
+                        target_log.write_bytes(t_path.read_bytes())
+                    except OSError:
+                        pass
 
     launched = _launch_flush(
         vault_root,
@@ -462,7 +465,7 @@ def handle(
         if event in ("end", "precompact", "postcompact"):
             return _finish_session(vault, state_dir, payload, event, current, provider)
         _record_health(state_dir, event, "unknown-event", current)
-    except (OSError, UnicodeError, ValueError) as error:
+    except Exception as error:
         _record_health(state_dir, event, f"{type(error).__name__}: {error}", current)
     return ""
 

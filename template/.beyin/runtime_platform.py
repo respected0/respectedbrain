@@ -38,17 +38,25 @@ def _acquire_windows(handle: IO[str], *, blocking: bool, timeout: float) -> bool
             time.sleep(0.05)
 
 
-def _acquire_posix(handle: IO[str], *, blocking: bool) -> bool:
+def _acquire_posix(handle: IO[str], *, blocking: bool, timeout: float = 300.0) -> bool:
     import fcntl
 
-    operation = fcntl.LOCK_EX
     if not blocking:
-        operation |= fcntl.LOCK_NB
-    try:
-        fcntl.flock(handle.fileno(), operation)
-    except BlockingIOError:
-        return False
-    return True
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+        except (BlockingIOError, OSError):
+            return False
+
+    deadline = time.monotonic() + max(timeout, 0.0)
+    while True:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+        except (BlockingIOError, OSError):
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.05)
 
 
 def _release(handle: IO[str]) -> None:
@@ -73,7 +81,7 @@ def exclusive_lock(
     if os.name == "nt":
         held = _acquire_windows(handle, blocking=blocking, timeout=timeout)
     else:
-        held = _acquire_posix(handle, blocking=blocking)
+        held = _acquire_posix(handle, blocking=blocking, timeout=timeout)
     try:
         yield held
     finally:
