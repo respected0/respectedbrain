@@ -191,19 +191,18 @@ python3 scripts/set_summary_provider.py cursor
 Bu seçim kod yazdığın ana agentı değiştirmez; yalnız kapanış özeti ve bilgi derlemesinde önce hangi
 yerel CLI'ın çağrılacağını belirler. Seçilen sağlayıcı geçici olarak kullanılamazsa fallback devam eder.
 
-### Zaten v1 beynin varsa
+### Zaten beynin varsa
 
-Aynı komut yeter. `SETUP.md` önce mevcut bir beyin arar, bulursa yükseltme moduna geçer ve işi
-tek bir script'e devreder: `scripts/upgrade.sh`. Bu işlem ara bir “avenoxbeyin v2” kurulumu
-bırakmaz; çekirdek v2 dosyalarını, tek-kaynak agent talimatlarını ve Claude/Codex/Cursor/
-Antigravity adapterlarını aynı doğrulanmış işlem içinde kurarak doğrudan **Respected Brain**'e
-yükseltir. Yükseltme **sadece ekler**: mevcut hafıza dosyalarına, Dashboard'a ve notlarına
-dokunulmaz. Yalnız eski çekirdek `2.0.0` damgası bulunan yarım bir kurulum da eksik Respected
-katmanı tamamlanmadan “güncel” sayılmaz.
+Mevcut bir Respected Brain vault'u (sürüm `2.0.0` / `1.0.0` – `1.4.5`), repo kökünden doğrudan `scripts/update_respected.py` ile güncellenir:
 
-Damgasız v1 vault'un native Windows dönüşümü henüz desteklenmez; bu özel durumda doğrulanmış WSL
-`upgrade.sh` yolu kullanılmalıdır. Native Windows, sıfırdan kurulum ve damgalı Respected
-`1.0.0/1.1.0/1.2.0/1.3.0/1.3.1/1.3.2/1.4.0/1.4.1/1.4.2/1.4.3 → 1.4.4` güncellemesi için desteklenir.
+```bash
+python3 scripts/update_respected.py "/mutlak/vault/yolu"
+python3 scripts/update_respected.py "/mutlak/vault/yolu" --apply
+```
+
+(İsteğe bağlı `--force` bayrağı ile aynı sürümdeki dosyalar da yeniden eşitlenebilir).
+
+Eğer daha önceden çekirdek `2.0.0` kurulmuş ancak çoklu-AI katmanı eksik kalmış bir vault varsa `scripts/enable_multiai.py "/mutlak/vault/yolu" --apply` ile tamamlanır. Tarihsel v1 geçiş scripti (`upgrade.sh`) v1.4.5 mimari sadeleştirmesinde tekil kaynak kuralı gereğince emekliye ayrılmıştır; damgasız eski v1 vault'larının hafıza klasörleri (`🔮 850-Companion`) yeni template üzerine aktarılabilir. Native Windows, sıfırdan kurulum ve damgalı Respected `1.0.0/1.1.0/1.2.0/1.3.0/1.3.1/1.3.2/1.4.0/1.4.1/1.4.2/1.4.3/1.4.4/1.4.5 → 1.4.6` güncellemesi için tam desteklenir.
 
 Damgalı bir kurulumda önce salt okunur önizleme, sonra açık uygulama adımı kullanılır:
 
@@ -407,22 +406,19 @@ the selected local CLI (`claude`, `codex`, `agy`, or `cursor-agent`) compiles th
 `knowledge/`. The next session starts with that knowledge index already in context.
 
 Install: `git clone https://github.com/respected0/respectedbrain.git && cd respectedbrain`, then ask
-your coding agent to read and follow `SETUP.md`. Already running v1?
-The same command detects it and hands the work to one committed script, `scripts/upgrade.sh`.
-That transaction upgrades directly to Respected Brain: core v2 plus the shared instruction source and
-Claude/Codex/Cursor/Antigravity adapters. It does not leave an intermediate avenoxbeyin-v2 install.
-It is additive only, your memory files are never touched, the settings merge is idempotent, and it takes
-a **verified** git snapshot before it changes anything. A core-only `2.0.0` vault is completed rather
-than treated as current. Two things it will ask you about, and stop
-for if you say no: renaming the memory folder to the fixed `🔮 850-Companion` path (a `git mv`, the
-contents never move), and removing v1 hook wiring left behind in `settings.local.json` so hooks
-stop firing twice. Neither version stamp is written early: after every gate passes, the multi-AI
-stamp is written first and the authoritative `.beyin-version` stamp is the final write.
+your coding agent to read and follow `SETUP.md`. Already running Respected Brain?
+Use `python3 scripts/update_respected.py "/path/to/vault" --apply` to update an existing stamped vault
+(`1.0.0` - `1.4.5` -> `1.4.6`). If an older vault only has core `2.0.0` stamped, run `scripts/enable_multiai.py`
+to configure the multi-AI layer. The historical v1 migration script (`upgrade.sh`) was retired in v1.4.5;
+fresh vaults are initialized directly from `template/` or via `scripts/install-windows.ps1`.
+Updates are additive only, your memory files are never touched, the settings merge is idempotent, and
+updater actions are verified before execution. Two things to keep in mind: the memory folder uses the
+fixed `🔮 850-Companion` path, and version stamps are written only after every validation gate passes.
 
 Platform honesty: the original macOS path remains supported. Linux desktop remains unverified.
 Windows + WSL remains verified with Windows-side hooks invoking the Python memory engine through
 `wsl.exe`. Native Windows fresh install and stamped Respected updates use `py.exe -3` without WSL or
-Bash; unstamped v1 migration still uses WSL. A provider-neutral global installer can connect any
+Bash. A provider-neutral global installer can connect any
 named vault to Claude, Codex, Cursor and Antigravity across unrelated code repositories.
 
 Users may switch coding agents without migrating the vault. `auto` prefers the agent that emitted

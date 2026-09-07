@@ -1,9 +1,9 @@
 # SETUP.md multi-AI: Activate this second brain (agent runbook)
 
 > Respected Brain Claude Code, Codex, Cursor ve Antigravity ile kullanılabilir. Kurulum sonunda
-> `python3 scripts/render_integrations.py` çalıştır. Mevcut v1 vault'u doğrudan Respected Brain'e
-> yükseltmek için `scripts/upgrade.sh` akışını kullan; bağımsız `enable_multiai.py` yalnız zaten
-> v2 olan eski/harici kurulumları elle tamamlama ve onarım aracıdır. Ayrıntı:
+> `python3 scripts/render_integrations.py` çalıştır. Mevcut bir Respected Brain vault'unu güncellemek
+> için `scripts/update_respected.py` kullan; eksik multi-AI katmanını tamamlamak için `enable_multiai.py`
+> kullanılır. Tarihsel v1 geçiş scripti (`upgrade.sh`) v1.4.5 sürümünde emekliye ayrılmıştır. Ayrıntı:
 > `MULTI_AI.md`.
 
 ## Platform profiles
@@ -18,9 +18,8 @@ Respected has exactly three installed runtime profiles:
 
 If this checkout is running directly in Windows and the user wants a fresh native vault, stop this
 POSIX-oriented runbook and follow `SETUP-WINDOWS.md`. For an already stamped Respected Brain
-`2.0.0` / `1.0.0`, `1.1.0`, `1.2.0`, `1.3.0`, `1.3.1` or `1.3.2` vault, `scripts/update_respected.py --platform windows-native`
-is supported. An unstamped v1
-vault must not be converted natively yet; use the verified WSL `upgrade.sh` transaction instead.
+`2.0.0` / `1.0.0`, `1.1.0`, `1.2.0`, `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2`, `1.4.3`, `1.4.4` or `1.4.5` vault, `scripts/update_respected.py --platform windows-native`
+is supported (updating to `1.4.6`). Unstamped legacy v1 vaults should have their memory folders transferred to a fresh template vault.
 Claude is never mandatory when another selected provider CLI is installed and authenticated.
 
 > You are a coding agent, run from inside a freshly cloned `respectedbrain` repo. The user wants their
@@ -114,13 +113,10 @@ Decide:
 | Bulgu | Mod |
 | --- | --- |
 | `TARAMA TAMAM: 0 aday` | **MODE A, sıfırdan kurulum** (PHASE 0'a git) |
-| Aday var, `.beyin-version` yok | **MODE B, v1'den yükseltme** (PHASE U1'e git) |
-| Aday var, `.beyin-version` = `2.0.0`, `.beyin-multi-version` yok | **MODE B**, Respected katmanını tamamla |
-| Damgalar `2.0.0` / `1.0.0` | **MODE C, mevcut Respected güncellemesi**: `scripts/update_respected.py` kullan |
-| Damgalar `2.0.0` / `1.1.0` | **MODE C, mevcut Respected güncellemesi**: `scripts/update_respected.py` kullan |
-| Damgalar `2.0.0` / `1.2.0` | **MODE C, mevcut Respected güncellemesi**: `scripts/update_respected.py` kullan |
-| Damgalar `2.0.0` / `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2`, `1.4.3` | **MODE C**, `1.4.4` sürümüne güncelle |
-| Damgalar `2.0.0` / `1.4.4` | Zaten güncel Respected Brain. Sadece `beyin-doktor` çalıştır |
+| Aday var, `.beyin-version` yok | **Damgasız v1**: Hafıza klasörünü (`🔮 850-Companion`) MODE A ile yeni vault'a aktar |
+| Aday var, `.beyin-version` = `2.0.0`, `.beyin-multi-version` yok | **v2 tamamla**: `scripts/enable_multiai.py` ile çoklu-AI katmanını kur |
+| Damgalar `2.0.0` / `1.0.0`, `1.1.0`, `1.2.0`, `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2`, `1.4.3`, `1.4.4`, `1.4.5` | **MODE C**, `1.4.6` sürümüne güncelle: `scripts/update_respected.py` kullan |
+| Damgalar `2.0.0` / `1.4.6` | Zaten güncel Respected Brain. Sadece `beyin-doktor` çalıştır (zorlamak için `--force`) |
 | Aday var, `.beyin-version` başka bir değer | Kullanıcıya göster, ne yapılacağını sor |
 
 Tell the user which mode you picked and why, in one Turkish sentence. Never guess silently.
@@ -257,10 +253,11 @@ Verify the v2 pieces landed:
 ```bash
 cd "{{VAULT_PATH}}"
 ls .claude/hooks/          # session-start.sh prompt-counter.sh session-end.sh pre-compact.sh lib.sh
-ls .claude/scripts/        # flush.py compile.py
+ls .beyin/engine/          # flush.py compile.py
 ls .claude/skills/         # beyin-doktor gecmis-import
 ls -d daily knowledge/concepts knowledge/connections
 cat .beyin-version         # 2.0.0
+cat .beyin-multi-version   # 1.4.6
 ```
 
 ## PHASE 3: Personalize (substitute placeholders)
@@ -478,7 +475,7 @@ If the doctor cannot run for any reason, do the manual check instead:
 cd "{{VAULT_PATH}}"
 ls -l .claude/hooks/*.sh | awk '{print $1, $NF}'   # hepsi çalıştırılabilir olmalı
 python3 -c "import json;d=json.load(open('.claude/settings.json'));print(sorted(d.get('hooks',{})))"
-python3 -m py_compile .claude/scripts/flush.py .claude/scripts/compile.py && echo "scriptler ✓"
+python3 -m py_compile .beyin/engine/flush.py .beyin/engine/compile.py && echo "scriptler ✓"
 ```
 
 ## PHASE 8: Verify and first-run report
@@ -513,11 +510,14 @@ Every Bash call you make is a **separate process**. A variable you set in one fe
 result was real: `"$V/daily"` expanded to `/daily`, `"$V/.beyin-version"` to `/.beyin-version`,
 and the version stamp was written before the checks that were supposed to justify it.
 
-So the entire upgrade lives in one committed, versioned script:
+So the entire upgrade lived in one committed, versioned script (retired in v1.4.5):
 
 ```
 scripts/upgrade.sh
 ```
+
+> [!NOTE]
+> **Tarihsel Not / Mimari Durum:** `scripts/upgrade.sh` betiği v1.4.5 sürümünde kod tabanından emekliye ayrılmıştır (v1 purge). Mevcut damgalı Respected Brain vault'larını (`1.0.0` - `1.4.5`) güncellemek için **MODE C (`scripts/update_respected.py`)**, eksik çoklu-AI katmanını kurmak için ise `scripts/enable_multiai.py` kullanılır. Eski damgasız bir v1 vault'u aktarılırken `🔮 850-Companion` klasörü taze bir Respected Brain vault'una taşınmalıdır. Aşağıdaki MODE B akışı bu mimari geçişin tarihsel sözleşmesini belgeler.
 
 Every call carries the vault path as an argument, so there is nothing to lose between calls. The
 script runs `set -euo pipefail`, derives the repo path from its own location, canonicalizes both
@@ -548,7 +548,7 @@ sits inside it, and any directory without the v1 markers (`CLAUDE.md` plus a `�
 **ADD (only if absent):**
 - `daily/`, `knowledge/`, `knowledge/concepts/`, `knowledge/connections/` with their `.gitkeep`s
 - `knowledge/index.md`, `knowledge/log.md`
-- `.claude/scripts/` (flush.py, compile.py, `.state/`)
+- `.beyin/engine/` (flush.py, compile.py, `.state/`)
 - `.claude/skills/beyin-doktor/`, `.claude/skills/gecmis-import/`
 - `🔮 850-Companion/Kurallar.md`
 - `.beyin/` canonical instructions, provider config, bridge, model runner and shared skills
@@ -620,7 +620,7 @@ Pass only the confirmation flags the check asked for. Read the numbered output b
 | Çıkış kodu | Anlamı | Ne yapacaksın |
 | --- | --- | --- |
 | `0` | Respected çekirdeği ve adapterları hazır, iki sürüm damgası da HENÜZ yazılmadı | PHASE U4'e geç |
-| `3` | vault zaten çekirdek `2.0.0` + Respected multi-AI `1.4.4` | yükseltme yok, sadece `beyin doktor` çalıştır |
+| `3` | vault zaten çekirdek `2.0.0` + Respected multi-AI `1.4.6` | güncelleme gerekmez, sadece `beyin doktor` çalıştır |
 | `10` | yeniden adlandırma onayı eksik | PHASE U2'ye dön |
 | `11` | yerel kanca temizliği onayı eksik | PHASE U2'ye dön |
 | `1` | sert hata, ekranda `HATA:` satırı var | DUR. Kullanıcıya oku, düzelt, tekrar çalıştır |
@@ -681,7 +681,7 @@ bash scripts/upgrade.sh --vault "/kullanicinin/mutlak/vault/yolu" --stage finali
 
 Only if all twelve pass does it commit with an **explicit path allow-list** (never `git add -A`),
 abort if any staged path looks like local settings or a backup, verify that `HEAD` really moved,
-and only then write `.beyin-multi-version = 1.4.4` followed by the authoritative final
+and only then write `.beyin-multi-version = 1.4.6` followed by the authoritative final
 `.beyin-version = 2.0.0` write. If any gate fails it prints the failing rows, writes no stamp, and
 the vault stays honestly unfinished. A vault that already has only the old v2 core stamp is not
 treated as complete; the same upgrade finishes its Respected layer.
@@ -703,8 +703,8 @@ user explicitly requests another first choice.
 # MODE C: Update an existing stamped Respected Brain
 
 Use this only when `.beyin-version` is `2.0.0` and `.beyin-multi-version` is `1.0.0`, `1.1.0`,
-`1.2.0`, `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2` or `1.4.3`.
-Do not use the v1 `upgrade.sh` flow and do not run `enable_multiai.py` as a routine updater.
+`1.2.0`, `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2`, `1.4.3`, `1.4.4` or `1.4.5`.
+Do not run `enable_multiai.py` as a routine updater (it is for onboarding v2 core vaults).
 
 Preview first; this validates and prints managed paths without changing the vault:
 
@@ -712,7 +712,7 @@ Preview first; this validates and prints managed paths without changing the vaul
 python3 scripts/update_respected.py "/absolute/path/to/vault"
 ```
 
-Then apply:
+Then apply (optionally add `--force` to re-sync managed files even if already on 1.4.6):
 
 ```bash
 python3 scripts/update_respected.py "/absolute/path/to/vault" --apply
@@ -722,8 +722,8 @@ The updater preserves `.beyin/instructions.md`, `summary_provider`, extra config
 non-managed note. It stages outside the vault in a mode-`0700` system temporary directory and
 backs up every mutation target under `~/.respected/update-backups/<vault-id>/<timestamp>/`. It
 then promotes runtime files atomically, renders the explicit platform profile, runs syntax/JSON/drift and
-placeholder gates, and writes `.beyin-multi-version = 1.4.4` last. If a gate fails it restores the
-managed files from that backup and leaves the old `1.0.0`, `1.1.0`, `1.2.0`, `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2` or `1.4.3` stamp intact.
+placeholder gates, and writes `.beyin-multi-version = 1.4.6` last. If a gate fails it restores the
+managed files from that backup and leaves the old `1.0.0`, `1.1.0`, `1.2.0`, `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2`, `1.4.3`, `1.4.4` or `1.4.5` stamp intact.
 
 The updater intentionally does not mutate user-level tool configuration or the operating-system
 scheduler inside the vault transaction. If global access or the morning schedule was installed,

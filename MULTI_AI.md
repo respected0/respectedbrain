@@ -6,9 +6,9 @@ Markdown hafızasını, kuralları, skill'leri ve günlük/knowledge hattını p
 Kurulu platform profili tam olarak üç değerden biridir: macOS/Linux için `portable`, Windows
 uygulamaları ile WSL motoru için `windows-wsl`, WSL/Bash olmadan Windows Python için
 `windows-native`. Native sıfırdan kurulum [SETUP-WINDOWS.md](SETUP-WINDOWS.md) ile yapılır.
-Damgalı `2.0.0` / `1.0.0`, `1.1.0` veya `1.2.0` Respected Brain vault'u native güncellenebilir;
-damgasız v1'in native dönüşümü
-henüz desteklenmez ve doğrulanmış WSL upgrade akışını kullanır.
+Damgalı `2.0.0` / `1.0.0` – `1.4.5` Respected Brain vault'u native güncellenebilir (`scripts/update_respected.py`).
+Tarihsel v1 geçiş scripti (`upgrade.sh`) v1.4.5 sürümünde emekliye ayrılmıştır; v1 hafıza klasörleri
+yeni vault'a aktarılabilir.
 
 ## Tek kaynak ilkesi
 
@@ -35,8 +35,8 @@ python3 scripts/render_integrations.py --check
 ## Mevcut v2 vault'u taşımak
 
 Bu bölüm yalnız daha önce çekirdek v2'ye yükseltilmiş harici/eski bir vault'u elle tamamlamak veya
-onarım yapmak içindir. v1'den güncel Respected Brain'e geçiyorsan bunu ayrıca çalıştırma;
-`scripts/upgrade.sh` çekirdek ve multi-AI katmanını tek doğrulanmış işlemde birlikte kurar.
+onarım yapmak içindir. Mevcut damgalı Respected Brain vault'larını (`1.0.0` – `1.4.5`) güncellemek için
+doğrudan `scripts/update_respected.py` kullanılır.
 
 Komut önce yalnızca nelerin yönetileceğini gösterir:
 
@@ -146,13 +146,12 @@ sessizce özetlenir. Bilgi derlemesi (`compile.py`) sabah 08:00 zamanlayıcısı
 başlangıcı tamamlanmış önceki günleri catch-up olarak derler; içinde bulunulan günün hâlâ değişen
 daily dosyasını erken derlemez.
 
-## Tarihsel kaynaklardan yenilik incelemek
+## Bağımsız geliştirme ve mimari sözleşmeler
 
-Respected Brain bağımsız geliştirilir; Avenox Beyin ve topluluk dalları otomatik olarak merge
-edilmez. Dışarıdaki bir düzeltme önce davranış ve lisans açısından incelenir, ardından gerekliyse
-tek kaynaklı ve provider-neutral mimariye yeniden uyarlanır. Son incelenen SHA'lar, alınan
-düzeltmeler ve ertelenen fikirler `docs/UPSTREAM-SYNC.md` ile
-`docs/UPSTREAM-ADOPTION-BACKLOG.md` dosyalarında tarihsel kanıt olarak tutulur.
+Respected Brain bağımsız ve kendine yeten (self-contained) bir mimaride geliştirilir;
+dış upstream sync bağımlılığı veya fork takibi yoktur. Sistem mimarisi, teknik spesifikasyonlar
+ve Zero-Trust güvenlik sınırları `docs/` altındaki yaşayan teknik dökümanlarda
+(`ARCHITECTURE.md`, `SPECIFICATION.md`, `SECURITY.md`) tanımlanmıştır.
 
 ## Bilinen sınırlar
 
@@ -177,3 +176,5 @@ düzeltmeler ve ertelenen fikirler `docs/UPSTREAM-SYNC.md` ile
   9. **Kanonik İçerik Özeti (`canonical_content_hash`)**: HTML ve boşlukları normalize edip mükerrer kaydı önleyen 16 karakterlik SHA-256 kalkanı.
   10. **ASCII Tire Kuralı (`--fix-dashes`)**: Dosya adlarındaki link bozan En/Em tirelerini (`—`, `–`) standart ASCII tireye (`-`) çeviren linter yeteneği.
   11. **5 Aşamalı Gece Derleme Mimarisi (`compile.py`)**: Gece derleyicisini Parse, Cluster, Synthesize, Challenge, Distill aşamalarıyla yapılandıran zihinsel model.
+- Multi-AI `1.4.5`, tekil kaynak (single source of truth) mimarisini kurar: tüm betikler doğrudan `scripts/` altında birleştirilmiş, kopya `template/scripts/` arşivi ve tarihsel v1 geçiş araçları temizlenmiş, derleme motorları `.beyin/engine/` (`flush.py`, `compile.py`) altına taşınmıştır.
+- Multi-AI `1.4.6`, `update_respected.py` için `--force` bayrağını, çapraz platform CI matrisini, Windows UTF-8/OEM konsol dayanıklılığını ve güvenli kilit mekanizmalarını tamamlar.

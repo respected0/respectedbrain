@@ -25,7 +25,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.
 ```
 
 Çıktı temizse `-PreflightOnly` bölümünü kaldırıp aynı komutu yeniden çalıştır. Hedef klasör yok veya
-tamamen boş olmalıdır. Kurulum sonunda `.beyin-version` `2.0.0`, `.beyin-multi-version` `1.4.4`
+tamamen boş olmalıdır. Kurulum sonunda `.beyin-version` `2.0.0`, `.beyin-multi-version` `1.4.6`
 ve `.beyin/config.json` içindeki platform `windows-native` olur.
 
 `-Providers` ana agentı sabitlemez; yalnız ön koşulda hangi kurulu CLI'ların doğrulanacağını söyler.
@@ -63,7 +63,7 @@ yeniden denenir. Provider adı göreve gömülmez; değiştirilen mevcut görev 
 
 ## Mevcut Respected Brain'i güncellemek
 
-Damgaları `2.0.0` / `1.0.0`, `1.1.0` veya `1.2.0` olan mevcut Respected Brain vault'unu repo
+Damgaları `2.0.0` / `1.0.0` – `1.4.5` olan mevcut Respected Brain vault'unu repo
 kökünden güncelle:
 
 ```powershell
@@ -71,8 +71,10 @@ py -3 scripts/update_respected.py "$HOME\Documents\AdaOS" --platform windows-nat
 py -3 scripts/update_respected.py "$HOME\Documents\AdaOS" --platform windows-native --apply
 ```
 
+(İsteğe bağlı `--force` bayrağı ile aynı sürümdeki dosyalar da yeniden eşitlenebilir).
+
 İlk komut önizlemedir ve hiçbir dosya değiştirmez. Transaction staging alanı vault dışında sistem
 geçici dizininde oluşturulur; yedekler `$HOME\.respected\update-backups\` altında tutulur.
 
-Damgasız eski v1 vault'u native Windows üzerinde doğrudan dönüştürme henüz desteklenmez. O işlem
-şimdilik WSL içindeki `scripts/upgrade.sh` ile yapılır; üretim vault'unda denemeden önce yedek al.
+Tarihsel v1 geçiş scripti (`upgrade.sh`) v1.4.5 sürümünde emekliye ayrılmıştır; damgasız eski v1 vault'larının
+hafıza klasörleri (`🔮 850-Companion`) taze bir Respected Brain vault'una aktarılabilir.

@@ -71,8 +71,6 @@ class NamingContractTest(unittest.TestCase):
             if line
         )
         allowlist = {
-            Path("docs/superpowers/plans/2026-09-02-respected-brain-rename.md"),
-            Path("docs/superpowers/specs/2026-09-02-respected-brain-rename-design.md"),
             Path("tests/install_windows_test.ps1"),
             Path("tests/multiai_test.py"),
             Path("tests/naming_contract_test.py"),

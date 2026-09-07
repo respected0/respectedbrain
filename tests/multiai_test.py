@@ -439,8 +439,8 @@ class MultiAITest(unittest.TestCase):
 
     def test_public_spec_and_template_have_no_stale_claude_only_setup(self):
         paths = (
-            ROOT / "docs/SPEC-V2.md",
-            ROOT / "docs/beyin-v2.md",
+            ROOT / "docs/SPECIFICATION.md",
+            ROOT / "docs/ARCHITECTURE.md",
             ROOT / "template/🎯 100-Command-Center/Dashboard.md",
             ROOT / "template/🔮 850-Companion/Last-Session.md",
         )
@@ -470,8 +470,8 @@ class MultiAITest(unittest.TestCase):
             ROOT / "SETUP.md",
             ROOT / "MULTI_AI.md",
             ROOT / "SETUP-WINDOWS.md",
-            ROOT / "docs/SPEC-V2.md",
-            ROOT / "docs/beyin-v2.md",
+            ROOT / "docs/SPECIFICATION.md",
+            ROOT / "docs/ARCHITECTURE.md",
         )
         text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
         for required in (
