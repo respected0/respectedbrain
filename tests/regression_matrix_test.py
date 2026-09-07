@@ -17,6 +17,18 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "template"
+SCRIPTS_DIR = str(ROOT / "scripts")
+ORIGINAL_SYS_PATH = list(sys.path)
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
+
+LOADED_MODULE_NAMES: list[str] = []
+
+
+def tearDownModule() -> None:
+    for name in LOADED_MODULE_NAMES:
+        sys.modules.pop(name, None)
+    sys.path[:] = ORIGINAL_SYS_PATH
 
 
 def load_module(name: str, path: Path):
@@ -25,6 +37,7 @@ def load_module(name: str, path: Path):
         raise RuntimeError(f"Cannot load module {name} from {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
+    LOADED_MODULE_NAMES.append(name)
     spec.loader.exec_module(module)
     return module
 
@@ -243,11 +256,11 @@ class RegressionMatrixTest(unittest.TestCase):
                 self.assertEqual(code, 0)
                 mock_launch.assert_not_called()
 
-            # Health warning should be written
+            # Health warning must be written
             health_path = self.state_dir / "health.json"
-            if health_path.exists():
-                health_data = json.loads(health_path.read_text(encoding="utf-8"))
-                self.assertTrue(any("reentrant" in str(v) or "recursion" in str(v) for v in health_data.values()))
+            self.assertTrue(health_path.is_file(), "health.json must exist when re-entrant call is ignored")
+            health_data = json.loads(health_path.read_text(encoding="utf-8"))
+            self.assertTrue(any("reentrant" in str(v) or "recursion" in str(v) for v in health_data.values()))
 
     # -------------------------------------------------------------------------
     # Scenario 12: Duplicate daily blocks cleanup with timestamped backup
@@ -395,23 +408,37 @@ class RegressionMatrixTest(unittest.TestCase):
     # Scenario 18: Briefing generates even if compile fails (fail-soft)
     # -------------------------------------------------------------------------
     def test_18_briefing_generates_even_if_compile_fails(self):
-        def failing_compile(*args, **kwargs):
-            return False, "compile-test-error"
+        compile_called = False
+
+        def failing_compile(root):
+            nonlocal compile_called
+            compile_called = True
+            raise RuntimeError("compile-simulated-error")
 
         morning_time = datetime(2026, 9, 4, 8, 5)
-        with mock.patch.object(BRIEFING, "_run_compile_stage", failing_compile, create=True):
-            result = BRIEFING.run_if_due(
-                self.vault,
-                morning_time,
-                model_call=lambda p, c: (VALID_BRIEFING_BODY, None, "custom"),
-            )
-            self.assertTrue(result)
-            briefing_file = self.briefings_dir / "2026-09-04.md"
-            self.assertTrue(briefing_file.exists())
-            health = self.state_dir / "briefing-health.json"
-            if health.exists():
-                data = json.loads(health.read_text(encoding="utf-8"))
-                self.assertIn("compile-test-error", str(data))
+        result = BRIEFING.run_if_due(
+            self.vault,
+            morning_time,
+            model_call=lambda p, c: (VALID_BRIEFING_BODY, None, "custom"),
+            compile_call=failing_compile,
+        )
+        self.assertTrue(result, "run_if_due must return True even if compilation raises an exception")
+        self.assertTrue(compile_called, "compile_call must be attempted before generating briefing")
+        briefing_file = self.briefings_dir / "2026-09-04.md"
+        self.assertTrue(briefing_file.is_file(), "Briefing file must be successfully generated")
+
+    def test_21_briefing_model_failure_records_health(self):
+        morning_time = datetime(2026, 9, 4, 8, 30)
+        result = BRIEFING.run_if_due(
+            self.vault,
+            morning_time,
+            model_call=lambda p, c: (None, "model-timeout-error", "custom"),
+        )
+        self.assertFalse(result, "run_if_due must return False when model call fails")
+        health = self.state_dir / "briefing-health.json"
+        self.assertTrue(health.is_file(), "briefing-health.json must be recorded on model error")
+        data = json.loads(health.read_text(encoding="utf-8"))
+        self.assertEqual(data.get("error"), "model-timeout-error")
 
     # -------------------------------------------------------------------------
     # Scenario 19: All background processes run without console & no UAC

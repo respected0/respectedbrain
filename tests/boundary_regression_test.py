@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,10 +13,15 @@ import tempfile
 import unittest
 from unittest import mock
 
+ORIGINAL_SYS_PATH = list(sys.path)
 
 ROOT = Path(__file__).resolve().parent.parent
 COMPILE_PATH = ROOT / "template/.beyin/engine/compile.py"
 UPDATE_PATH = ROOT / "scripts/update_respected.py"
+
+
+def tearDownModule() -> None:
+    sys.path[:] = ORIGINAL_SYS_PATH
 
 
 def load_compile_module():
@@ -145,7 +151,6 @@ class BoundaryRegressionTest(unittest.TestCase):
                 encoding="utf-8",
             )
             self.update._prepare_config(vault, "portable", "auto")
-            import json
             saved = json.loads(config_file.read_text(encoding="utf-8"))
             self.assertEqual(saved["python_command"], ["/home/furkan/.pyenv/shims/python3"])
 
@@ -163,6 +168,27 @@ class BoundaryRegressionTest(unittest.TestCase):
             self.update._prepare_config(vault, "windows-native", "windows-native")
             saved = json.loads(config_file.read_text(encoding="utf-8"))
             self.assertEqual(saved["python_command"], ["py.exe", "-3"])
+
+    def test_prepare_config_corrupt_json_raises_update_error(self):
+        """If config.json contains malformed JSON, _prepare_config must fail-closed."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir).resolve()
+            (vault / ".beyin").mkdir(parents=True, exist_ok=True)
+            config_file = vault / ".beyin/config.json"
+            config_file.write_text('{invalid_json: true,}\n', encoding="utf-8")
+
+            with self.assertRaises(self.update.UpdateError) as cm:
+                self.update._prepare_config(vault, "portable", "auto")
+            self.assertIn("geçersiz JSON", str(cm.exception))
+
+    def test_backup_root_inside_vault_raises_update_error(self):
+        """_backup_root must fail closed if backup destination resolves inside vault."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir).resolve()
+            with mock.patch.object(self.update.Path, "home", return_value=vault):
+                with self.assertRaises(self.update.UpdateError) as cm:
+                    self.update._backup_root(vault)
+                self.assertIn("transaction yedeği vault dışında olmalı", str(cm.exception))
 
     def test_install_antigravity_global_accepts_non_windows_vault_path(self):
         """install_antigravity_global must not reject Linux/POSIX vault paths where windows_path is None."""

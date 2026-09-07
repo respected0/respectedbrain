@@ -19,9 +19,15 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "scripts"))
-sys.path.insert(0, str(ROOT / "template" / ".beyin"))
+ORIGINAL_SYS_PATH = list(sys.path)
+for p in (str(ROOT), str(ROOT / "scripts"), str(ROOT / "template" / ".beyin")):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+
+def tearDownModule():
+    sys.path[:] = ORIGINAL_SYS_PATH
+
 
 from scripts import respected_manifest as manifest
 from scripts import url_safety
@@ -49,21 +55,52 @@ class TestV144BoundedRecall(unittest.TestCase):
         self.assertFalse(bounded_recall.should_abstain("PostgreSQL connection pooling ayarları"))
 
     def test_bounded_recall_produces_budgeted_output(self):
+        from scripts.arama import SearchEngine
+
         with tempfile.TemporaryDirectory() as temp_dir:
             vault = Path(temp_dir)
             (vault / "500-Knowledge").mkdir(parents=True)
             doc = vault / "500-Knowledge" / "Auth.md"
             doc.write_text(
-                "---\ntitle: Auth Notu\n---\n# Auth\nNext.js auth session ve token doğrulama mimarisi.\n" * 50,
+                "---\ntitle: Auth Notu\n---\n# Auth\nNext.js auth session ve token doğrulama mimarisi.\n" * 20,
                 encoding="utf-8",
             )
+            engine = SearchEngine(vault)
+            engine.index_vault()
+
             result = bounded_recall.get_bounded_recall(
                 "Next.js auth mimarisi token",
                 vault_root=vault,
                 max_chars=200,
             )
-            # Either produced bounded string within 300 chars or gracefully abstained/empty
-            self.assertLessEqual(len(result), 300)
+            # Must return substantive bounded recall, never empty when matches exist
+            self.assertTrue(result.startswith("[Hafıza Fısıltısı]"))
+            self.assertIn("Auth.md", result)
+            self.assertLessEqual(len(result), 200)
+            self.assertGreater(len(result), 30)
+
+    def test_bounded_recall_handles_fts_syntax_and_special_chars(self):
+        from scripts.arama import SearchEngine
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir)
+            (vault / "500-Knowledge").mkdir(parents=True)
+            (vault / "500-Knowledge" / "Syntax.md").write_text("# Syntax\nFTS5 test query syntax handling.", encoding="utf-8")
+            engine = SearchEngine(vault)
+            engine.index_vault()
+
+            # Queries with unbalanced quotes and FTS5 operators must not raise exceptions
+            res1 = bounded_recall.get_bounded_recall('"unclosed quote in query', vault_root=vault)
+            self.assertIsInstance(res1, str)
+            res2 = bounded_recall.get_bounded_recall("AND OR NOT * near", vault_root=vault)
+            self.assertIsInstance(res2, str)
+
+    def test_bounded_recall_boundary_max_chars(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir)
+            # max_chars <= 0 must return empty string safely (fail-closed)
+            result = bounded_recall.get_bounded_recall("substantive query about architecture", vault_root=vault, max_chars=0)
+            self.assertEqual(result, "")
 
     def test_abstention_gate_on_slash_commands(self):
         self.assertTrue(bounded_recall.should_abstain("/plan"))
@@ -160,6 +197,11 @@ class TestV144SmartMerge(unittest.TestCase):
         self.assertIn("single-alias", target_content)
         self.assertIn("existing-alias", target_content)
 
+    def test_smart_merge_rejects_non_existent_source(self):
+        non_existent = self.vault / "500-Knowledge" / "NonExistent.md"
+        with self.assertRaises((FileNotFoundError, ValueError)):
+            smart_merge.smart_merge(non_existent, self.target, vault_root=self.vault)
+
 
 class TestV144ArchitectScan(unittest.TestCase):
     """Codebase Architect Scanner tests."""
@@ -182,6 +224,20 @@ class TestV144ArchitectScan(unittest.TestCase):
             self.assertIn("## For future agent", md)
             self.assertIn("## 1. Diller ve Dağılım", md)
             self.assertIn("## 2. Modül Hiyerarşisi", md)
+
+    def test_scan_codebase_handles_missing_or_corrupt_manifest(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            proj = Path(temp_dir)
+            (proj / "main.py").write_text("print('hello')", encoding="utf-8")
+            # Missing package.json should not raise an exception
+            report = architect_scan.scan_codebase(proj)
+            self.assertEqual(report["name"], proj.name)
+            self.assertEqual(report["dependencies"], [])
+
+            # Corrupt package.json should not crash scan
+            (proj / "package.json").write_text("{invalid json", encoding="utf-8")
+            report_corrupt = architect_scan.scan_codebase(proj)
+            self.assertEqual(report_corrupt["name"], proj.name)
 
 
 class TestV144VaultLinter(unittest.TestCase):

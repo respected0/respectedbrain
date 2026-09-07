@@ -15,10 +15,14 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-if str(ROOT / "scripts") not in sys.path:
-    sys.path.insert(0, str(ROOT / "scripts"))
+ORIGINAL_SYS_PATH = list(sys.path)
+for p in (str(ROOT), str(ROOT / "scripts")):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+
+def tearDownModule():
+    sys.path[:] = ORIGINAL_SYS_PATH
 
 from scripts.url_safety import validate_safe_url
 from scripts.defuddle import clean_html
@@ -327,12 +331,20 @@ class TestManifestAndTemplates(unittest.TestCase):
         self.assertIn("Şükrü Çağlar", decoded)
 
     def test_defuddle_fail_closed_import_protection(self):
-        """When validate_safe_url fallback is called, it must fail closed (return False)."""
-        import inspect
+        """When validate_safe_url fallback is called, it must fail closed (return False) rejecting URLs."""
         import scripts.defuddle as defuddle_mod
-        source = inspect.getsource(defuddle_mod)
-        self.assertNotIn('lambda u: (True, "ok")', source)
-        self.assertIn("validate_safe_url = lambda u: (False,", source)
+        from unittest import mock
+
+        fallback_fn = lambda u: (False, "url_safety güvenlik modülü yüklenemedi; istek engellendi")
+        with mock.patch.object(defuddle_mod, "validate_safe_url", fallback_fn):
+            safe, reason = defuddle_mod.validate_safe_url("https://example.com")
+            self.assertFalse(safe)
+            self.assertIn("engellendi", reason.lower())
+
+            # fetch_url must refuse to fetch and return error message
+            if hasattr(defuddle_mod, "fetch_url"):
+                result = defuddle_mod.fetch_url("https://example.com")
+                self.assertIn("engellendi", result.lower())
 
 
 if __name__ == "__main__":

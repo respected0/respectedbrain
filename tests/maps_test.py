@@ -5,12 +5,18 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 
+ORIGINAL_SYS_PATH = list(sys.path)
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "template" / ".beyin" / "map_builder.py"
+
+
+def tearDownModule() -> None:
+    sys.path[:] = ORIGINAL_SYS_PATH
 
 
 def load_builder():

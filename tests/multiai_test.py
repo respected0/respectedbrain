@@ -21,17 +21,27 @@ import io
 ROOT = Path(__file__).resolve().parents[1]
 
 
+LOADED_MODULE_NAMES: set[str] = set()
+
+
 def load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
+    LOADED_MODULE_NAMES.add(name)
     try:
         spec.loader.exec_module(module)
     except Exception:
         sys.modules.pop(name, None)
+        LOADED_MODULE_NAMES.discard(name)
         raise
     return module
+
+
+def tearDownModule():
+    for name in list(LOADED_MODULE_NAMES):
+        sys.modules.pop(name, None)
 
 
 class MultiAITest(unittest.TestCase):

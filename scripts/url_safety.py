@@ -30,6 +30,9 @@ _configure_console_output()
 # Standart izin verilen portlar
 ALLOWED_PORTS = {80, 443}
 
+# Azami güvenli URL uzunluğu
+MAX_URL_LENGTH = 2048
+
 # Yasaklı yerel/özel host isimleri
 DISALLOWED_HOSTNAMES = {
     "localhost",
@@ -114,6 +117,9 @@ def validate_safe_url(url: str, require_resolvable: bool = False) -> tuple[bool,
         return False, "URL boş veya geçersiz"
 
     url = url.strip()
+    if len(url) > MAX_URL_LENGTH:
+        return False, f"URL azami uzunluk sınırını aşıyor ({len(url)} > {MAX_URL_LENGTH})"
+
     if "\x00" in url:
         return False, "URL içinde geçersiz NUL karakteri"
 

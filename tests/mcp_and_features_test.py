@@ -20,9 +20,14 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = ROOT / "scripts"
+ORIGINAL_SYS_PATH = list(sys.path)
 for p in (ROOT, SCRIPTS_DIR):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
+
+
+def tearDownModule():
+    sys.path[:] = ORIGINAL_SYS_PATH
 
 try:
     from scripts.arama import SearchEngine, read_head, parse_frontmatter_head
@@ -56,10 +61,7 @@ class SearchEngineTest(unittest.TestCase):
         self.engine = SearchEngine(self.vault)
 
     def tearDown(self) -> None:
-        try:
-            self.temp_dir.cleanup()
-        except Exception:
-            pass
+        self.temp_dir.cleanup()
 
     def test_indexing_and_search(self) -> None:
         stats = self.engine.index_vault()
@@ -90,6 +92,20 @@ class SearchEngineTest(unittest.TestCase):
         self.assertEqual(len(res), 1)
         self.assertEqual(res[0]["title"], "Auth Kararı")
 
+    def test_search_handles_malformed_fts_queries(self):
+        """Unclosed quotes or raw FTS5 operators must not crash search engine."""
+        self.engine.index_vault()
+        # Should gracefully return results or empty list without raising sqlite3.OperationalError
+        res1 = self.engine.search('"unclosed quote')
+        self.assertIsInstance(res1, list)
+        res2 = self.engine.search('AND OR NOT *')
+        self.assertIsInstance(res2, list)
+
+    def test_search_non_existent_category_returns_empty(self):
+        self.engine.index_vault()
+        res = self.engine.search("Python", category="NonExistentCategory")
+        self.assertEqual(res, [])
+
 
 class McpServerTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -105,10 +121,7 @@ class McpServerTest(unittest.TestCase):
         self.server.search_engine.index_vault()
 
     def tearDown(self) -> None:
-        try:
-            self.temp_dir.cleanup()
-        except Exception:
-            pass
+        self.temp_dir.cleanup()
 
     def test_tools_manifest(self) -> None:
         manifest = self.server.get_tools_manifest()
@@ -120,6 +133,10 @@ class McpServerTest(unittest.TestCase):
         self.assertIn("respected_quick_capture", tool_names)
         self.assertIn("respected_remember", tool_names)
         self.assertIn("respected_expand", tool_names)
+
+    def test_unknown_tool_returns_error_message(self) -> None:
+        out = self.server.call_tool("unknown_tool_xyz", {})
+        self.assertIn("Bilinmeyen araç", out)
 
     def test_companion_context_tool(self) -> None:
         out = self.server.call_tool("respected_get_companion_context", {})
@@ -216,10 +233,7 @@ class AgentHistoryMinerTest(unittest.TestCase):
         self.miner = AgentHistoryMiner(self.vault)
 
     def tearDown(self) -> None:
-        try:
-            self.temp_dir.cleanup()
-        except Exception:
-            pass
+        self.temp_dir.cleanup()
 
     def test_parse_and_import(self) -> None:
         # Sahte JSONL oturumu
@@ -240,13 +254,13 @@ class AgentHistoryMinerTest(unittest.TestCase):
         }
 
         parsed = self.miner.parse_session(session_info)
-        self.assertIsNotNone(parsed)
-        assert parsed is not None
+        self.assertIsInstance(parsed, dict)
         self.assertEqual(parsed["agent"], "antigravity")
         self.assertIn("Python FTS5 nasıl kurulur?", parsed["title"])
+        self.assertTrue(any("SQLite FTS5" in s for s in parsed.get("summaries", [])))
 
         written_file = self.miner.import_session(parsed, target_folder="daily")
-        self.assertIsNotNone(written_file)
+        self.assertIsInstance(written_file, Path)
         self.assertTrue(written_file.is_file())
         content = written_file.read_text(encoding="utf-8")
         self.assertIn("antigravity_test123", content)
@@ -255,6 +269,21 @@ class AgentHistoryMinerTest(unittest.TestCase):
 
         # Tekrar import edilmemeli (deduplication)
         self.assertIn("antigravity_test123", self.miner.imported_ids)
+
+    def test_parse_session_empty_and_corrupt_records(self) -> None:
+        """Empty session file or corrupt JSON lines must not raise unhandled exceptions."""
+        session_file = Path(self.temp_dir.name) / "corrupt_session.jsonl"
+        session_file.write_text("{not valid json\n", encoding="utf-8")
+
+        session_info = {
+            "agent": "codex",
+            "id": "corrupt_123",
+            "path": session_file,
+            "mtime": dt.datetime.now(),
+        }
+        parsed = self.miner.parse_session(session_info)
+        # Should gracefully return None or safe dict without crashing
+        self.assertTrue(parsed is None or isinstance(parsed, dict))
 
 
 class TemplateAndSkillsTest(unittest.TestCase):
@@ -316,7 +345,9 @@ class TemplateAndSkillsTest(unittest.TestCase):
             self.assertEqual(fm["tags"], ["a", "b"])
 
     def test_scan_open_loops(self) -> None:
-        sys.path.insert(0, str(ROOT / "template" / ".beyin"))
+        p1 = str(ROOT / "template" / ".beyin")
+        sys.path.insert(0, p1)
+        self.addCleanup(lambda: sys.path.remove(p1) if p1 in sys.path else None)
         from morning_briefing import _scan_open_loops  # type: ignore
 
         with tempfile.TemporaryDirectory() as td:
@@ -342,7 +373,9 @@ class TemplateAndSkillsTest(unittest.TestCase):
             self.assertIn("İşlenmeyi bekleyen", loops_text)
 
     def test_precompact_transcript_backup(self) -> None:
-        sys.path.insert(0, str(ROOT / "template" / ".beyin" / "hooks"))
+        p2 = str(ROOT / "template" / ".beyin" / "hooks")
+        sys.path.insert(0, p2)
+        self.addCleanup(lambda: sys.path.remove(p2) if p2 in sys.path else None)
         import lifecycle  # type: ignore
 
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:

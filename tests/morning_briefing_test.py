@@ -7,14 +7,23 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import importlib.util
 from pathlib import Path
+import sys
 import tempfile
 import threading
 import unittest
 from unittest.mock import patch
 
 
+ORIGINAL_SYS_PATH = list(sys.path)
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_DIR = str(ROOT / "scripts")
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
 MODULE_PATH = ROOT / "template/.beyin/morning_briefing.py"
+
+
+def tearDownModule() -> None:
+    sys.path[:] = ORIGINAL_SYS_PATH
 VALID = """## Dün tamamlananlar
 - Derleyici düzeldi.
 ## Açık işler

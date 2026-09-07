@@ -16,6 +16,9 @@ if str(BEYIN_DIR) not in sys.path:
 SCRIPTS_DIR = BEYIN_DIR.parent / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
+REPO_SCRIPTS = BEYIN_DIR.parents[1] / "scripts"
+if REPO_SCRIPTS.is_dir() and str(REPO_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(REPO_SCRIPTS))
 
 import runtime_platform
 

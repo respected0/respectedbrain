@@ -11,10 +11,15 @@ from unittest.mock import patch, MagicMock
 
 import sys
 ROOT = Path(__file__).resolve().parents[1]
+ORIGINAL_SYS_PATH = list(sys.path)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
+
+
+def tearDownModule():
+    sys.path[:] = ORIGINAL_SYS_PATH
 
 from scripts.url_safety import validate_safe_url, is_safe_url
 from scripts.publish_git_snapshot import publish_if_due
@@ -52,7 +57,30 @@ class ZeroTrustSecurityTests(unittest.TestCase):
         self.assertTrue(is_safe_url("https://github.com"))
         self.assertFalse(is_safe_url("https://this-domain-definitely-does-not-exist-xyz12345.org", require_resolvable=True))
 
+    def test_url_safety_rejects_malicious_schemes_and_excessive_length(self):
+        # Desteklenmeyen veya zararlı şemalar fail-closed reddedilmeli
+        for bad_scheme in ("javascript:alert(1)", "data:text/html,<script>alert(1)</script>", "file:///etc/passwd"):
+            safe, reason = validate_safe_url(bad_scheme)
+            self.assertFalse(safe)
+            self.assertTrue(len(reason) > 0)
+
+        # Kullanıcı kimlik bilgisi içeren URL reddedilmeli
+        safe, reason = validate_safe_url("http://user:pass@127.0.0.1/")
+        self.assertFalse(safe)
+        self.assertIn("kimlik", reason.lower())
+
+        # Aşırı uzun URL
+        huge_url = "https://example.com/" + ("a" * 5000)
+        safe, reason = validate_safe_url(huge_url)
+        self.assertFalse(safe)
+
     # --- 2. publish_git_snapshot Tests ---
+    def test_publish_git_snapshot_unmocked_non_git_vault_halts_fail_closed(self):
+        """Without any mocks, running publish_if_due on a non-git directory must halt fail-closed."""
+        result = publish_if_due(self.vault_root, "origin", "main", apply=True)
+        self.assertTrue(result["status"].startswith("halted:"))
+        self.assertIn("fail-closed", result["detail"].lower())
+
     @patch("scripts.publish_git_snapshot._branch_divergence_status")
     @patch("scripts.publish_git_snapshot.check_secret_guard")
     def test_publish_git_snapshot_fail_closed_on_divergence_error(self, mock_guard, mock_div):
