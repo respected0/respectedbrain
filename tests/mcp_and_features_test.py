@@ -174,6 +174,26 @@ class McpServerTest(unittest.TestCase):
         self.assertIn("confidence: verified", content)
         self.assertIn('supersedes: ["Eski React Kuralı"]', content)
 
+    def test_remember_tool_blocks_path_traversal(self) -> None:
+        """respected_remember must not allow writing outside the vault via project path traversal."""
+        out = self.server.call_tool(
+            "respected_remember",
+            {
+                "title": "Malicious Traversal",
+                "content": "Malicious content",
+                "scope": "project",
+                "project": "../../malicious_dir",
+            },
+        )
+        # Slashes and dots are sanitized into safe chars, staying strictly inside 🏰 300-Projects
+        self.assertIn("Başarılı", out)
+        # Must strictly be inside vault
+        malicious_outside = self.vault.parent / "malicious_dir"
+        self.assertFalse(malicious_outside.exists())
+        # Cleaned project folder must be inside 300-Projects
+        project_dir = self.vault / "🏰 300-Projects"
+        self.assertTrue(any("malicious_dir" in p.name for p in project_dir.iterdir()))
+
     def test_expand_tool(self) -> None:
         # Test için birbirine bağlı iki not oluşturalım
         knowledge_dir = self.vault / "🧠 500-Knowledge"

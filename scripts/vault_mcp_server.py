@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -235,7 +236,7 @@ class RespectedMcpServer:
             content = arguments.get("content", "").strip()
             tags = arguments.get("tags", [])
 
-            safe_slug = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in title)[:40]
+            safe_slug = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in title)[:40].strip("._-") or "note"
             now = dt.datetime.now()
             timestamp = now.strftime("%Y%m%d_%H%M%S")
             filename = f"{timestamp}_{safe_slug}.md"
@@ -277,13 +278,20 @@ class RespectedMcpServer:
             project = arguments.get("project", "").strip()
             tags = arguments.get("tags", [])
 
-            safe_slug = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in title)[:50]
+            safe_slug = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in title)[:50].strip("._-") or "lesson"
             now = dt.datetime.now()
             timestamp = now.strftime("%Y%m%d")
             filename = f"{timestamp}_{safe_slug}.md"
 
             if scope == "project" and project:
-                dest_dir = self.vault_root / "🏰 300-Projects" / project
+                clean_project = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in project).strip("._-")
+                if not clean_project:
+                    return "Hata: Geçersiz proje adı."
+                dest_dir = (self.vault_root / "🏰 300-Projects" / clean_project).resolve()
+                try:
+                    dest_dir.relative_to(self.vault_root)
+                except ValueError:
+                    return "Hata: Proje hedefi vault dışında olamaz."
             else:
                 dest_dir = self.vault_root / "🧠 500-Knowledge"
 
@@ -346,8 +354,8 @@ class RespectedMcpServer:
             except Exception as e:
                 return f"Not okunurken hata oluştu: {e}"
 
-            outbound_raw = re.findall(r"\[\[(.*?)\]\]", content)
             outbound = []
+            outbound_raw = re.findall(r"\[\[(.*?)\]\]", content)
             for link in outbound_raw:
                 clean_link = link.split("|")[0].split("#")[0].strip()
                 if clean_link and clean_link not in outbound:
@@ -355,16 +363,22 @@ class RespectedMcpServer:
 
             backlinks = []
             pattern = re.compile(rf"\[\[{re.escape(target_name)}(\|.*?)?(#.*?)?\]\]", re.IGNORECASE)
-            for md_file in self.vault_root.rglob("*.md"):
-                if md_file.resolve() == target_path.resolve():
-                    continue
-                try:
-                    f_content = md_file.read_text(encoding="utf-8", errors="replace")
-                    if pattern.search(f_content):
-                        rel_back = md_file.relative_to(self.vault_root)
-                        backlinks.append(str(rel_back))
-                except Exception:
-                    continue
+            excluded_dirs = {".git", ".beyin", "cache", "node_modules", ".claude", ".gemini", "venv", ".venv", "__pycache__"}
+            for root, dirs, files in os.walk(self.vault_root):
+                dirs[:] = [d for d in dirs if not d.startswith(".") and d not in excluded_dirs]
+                for file_name in files:
+                    if not file_name.endswith(".md"):
+                        continue
+                    md_file = Path(root) / file_name
+                    if md_file.resolve() == target_path.resolve():
+                        continue
+                    try:
+                        f_content = md_file.read_text(encoding="utf-8", errors="replace")
+                        if pattern.search(f_content):
+                            rel_back = md_file.relative_to(self.vault_root)
+                            backlinks.append(str(rel_back))
+                    except Exception:
+                        continue
 
             lines = [
                 f"### RespectedOS Grafik Komşuluğu: `{rel_target}`\n",
