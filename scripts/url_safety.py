@@ -41,7 +41,12 @@ DISALLOWED_HOSTNAMES = {
 
 
 def is_private_or_reserved_ip(ip_str: str) -> bool:
-    """Verilen IP adresinin özel, yerel veya rezerve olup olmadığını doğrular."""
+    """Verilen IP adresinin özel, yerel veya rezerve olup olmadığını doğrular.
+
+    Standart noktalı gösterimin yanı sıra octal, hex, dword/integer ve
+    kısaltılmış IPv4 (örn. 127.1) obfuskasyonlarını da çözerek inceler.
+    """
+    # 1. Standart IPv4 veya IPv6 ayrıştırması
     try:
         ip = ipaddress.ip_address(ip_str)
         return (
@@ -53,7 +58,41 @@ def is_private_or_reserved_ip(ip_str: str) -> bool:
             or ip.is_unspecified
         )
     except ValueError:
-        return False
+        pass
+
+    # 2. Obfuscated IPv4 (octal, hex, integer/dword, short-form örn: 127.1)
+    try:
+        raw_bytes = socket.inet_aton(ip_str)
+        ip4 = ipaddress.IPv4Address(raw_bytes)
+        return (
+            ip4.is_private
+            or ip4.is_loopback
+            or ip4.is_link_local
+            or ip4.is_multicast
+            or ip4.is_reserved
+            or ip4.is_unspecified
+        )
+    except (OSError, ValueError):
+        pass
+
+    # 3. Dword / integer IP (örn: 2130706433)
+    if ip_str.isdigit():
+        try:
+            val = int(ip_str)
+            if 0 <= val <= 0xFFFFFFFF:
+                ip4 = ipaddress.IPv4Address(val)
+                return (
+                    ip4.is_private
+                    or ip4.is_loopback
+                    or ip4.is_link_local
+                    or ip4.is_multicast
+                    or ip4.is_reserved
+                    or ip4.is_unspecified
+                )
+        except (ValueError, OverflowError):
+            pass
+
+    return False
 
 
 def validate_safe_url(url: str) -> tuple[bool, str]:
@@ -81,7 +120,11 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
 
     hostname_clean = hostname.lower().strip(".")
 
-    # Yasaklı hostname kontrolü
+    # Noktasız ve iki noktasız tekil intranet host adları (router, nas, localhost, corp, intranet vb.)
+    if "." not in hostname_clean and ":" not in hostname_clean:
+        return False, f"Yerel ve dahili ağ hostlarına erişim engellendi: {hostname}"
+
+    # Yasaklı hostname son ekleri ve özel adlar
     disallowed_suffixes = (".local", ".internal", ".localhost", ".lan", ".home", ".home.arpa", ".corp")
     if hostname_clean in DISALLOWED_HOSTNAMES or any(hostname_clean.endswith(s) for s in disallowed_suffixes):
         return False, f"Yerel ve dahili ağ hostlarına erişim engellendi: {hostname}"
@@ -91,7 +134,7 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
     if port is not None and port not in ALLOWED_PORTS:
         return False, f"Güvensiz port: {port} (Yalnızca 80 ve 443 portlarına izin verilir)"
 
-    # Doğrudan IP adresi kontrolü
+    # Doğrudan IP adresi kontrolü (standart ve obfuskasyonlu)
     if is_private_or_reserved_ip(hostname_clean):
         return False, f"Özel/yerel IP adresine erişim engellendi: {hostname_clean}"
 

@@ -285,10 +285,19 @@ class TestManifestAndTemplates(unittest.TestCase):
             "http://router.lan",
             "http://device.local",
             "http://sub.localhost",
+            "http://router",
+            "http://nas",
+            "http://intranet",
+            "http://127.1",
+            "http://0177.0.0.1",
+            "http://2130706433",
+            "http://0x7f000001",
+            "http://[::1]",
+            "http://[::ffff:127.0.0.1]",
         ]
         for url in internal_domains:
             safe, reason = validate_safe_url(url)
-            self.assertFalse(safe, f"Internal URL {url} should be blocked")
+            self.assertFalse(safe, f"Internal URL {url} should be blocked (reason: {reason})")
             self.assertIn("engellendi", reason)
 
     def test_install_briefing_schedule_decode_windows_xml_fallbacks(self):
