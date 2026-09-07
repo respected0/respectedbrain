@@ -8,9 +8,10 @@ description: Obsidian görsel temasını ve CSS snippetlarını düzenler. "obsi
 Bu skill, Obsidian arayüzünü kullanıcının isteğine göre CSS snippet'ları üzerinden güvenle düzenler.
 
 ## Nasıl Çalışırsın
-1. CSS dosyaları `.obsidian/snippets/` klasöründe yaşar (`secondbrain-layout.css`).
-2. Obsidian'da snippet'ı aktif etmek için `.obsidian/app.json` veya `appearance.json` içindeki `enabledCssSnippets` listesine snippet adı eklenir.
-3. Asla temayı bozacak global `!important` karmaşası yaratma, CSS değişkenlerini (`var(--interactive-accent)`, `var(--background-primary)`) kullan.
+1. Temel sistem CSS dosyası `.obsidian/snippets/secondbrain-layout.css` dosyasında yaşar ve sistem güncellemeleriyle senkronize edilir.
+2. Kullanıcıya özel stil/renk değişiklikleri gerekiyorsa, sistem güncellemelerinde ezilmemesi için `.obsidian/snippets/custom.css` dosyasına yazılır.
+3. Obsidian'da snippet'ları aktif etmek için `.obsidian/appearance.json` içindeki `enabledCssSnippets` listesine snippet adı eklenir.
+4. Asla temayı bozacak global `!important` karmaşası yaratma, CSS değişkenlerini (`var(--interactive-accent)`, `var(--background-primary)`) kullan.
 
 ## Temel Sınıflar
 - `.nav-file-title`, `.nav-folder-title`: Dosya ağacı satırları ve klasör başlıkları.

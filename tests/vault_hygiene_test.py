@@ -251,8 +251,12 @@ class TestManifestAndTemplates(unittest.TestCase):
         self.assertIn(".cursor/rules/software-quality-2.mdc", manifest.RUNTIME)
         self.assertIn("📋 Templates/Base.base", manifest.RUNTIME)
         self.assertIn("📋 Templates/Canvas.canvas", manifest.RUNTIME)
+        self.assertIn(".obsidian/snippets/secondbrain-layout.css", manifest.RUNTIME)
 
     def test_new_skills_and_templates_exist(self):
+        # Obsidian CSS Snippet
+        self.assertTrue((ROOT / "template" / ".obsidian" / "snippets" / "secondbrain-layout.css").is_file())
+
         # Otonom araştırma skill'i
         self.assertTrue((ROOT / "template" / ".beyin" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())
         self.assertTrue((ROOT / "template" / ".agents" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())

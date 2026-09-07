@@ -47,6 +47,7 @@ RUNTIME = (
     ".cursor/rules/software-quality-2.mdc",
     "📋 Templates/Base.base",
     "📋 Templates/Canvas.canvas",
+    ".obsidian/snippets/secondbrain-layout.css",
     "scripts/render_integrations.py",
     "scripts/legacy_names.py",
     "scripts/install_antigravity_global.py",
