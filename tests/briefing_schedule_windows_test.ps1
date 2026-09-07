@@ -3,18 +3,33 @@ param([string]$PythonExecutable = $env:RESPECTED_TEST_PYTHON)
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($PythonExecutable)) {
-    $PythonCommand = Get-Command py.exe -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($PythonCommand) {
-        $PythonExecutable = $PythonCommand.Source
-        $PythonPrefix = @("-3")
+    $DiscoveredPython = Get-Command py, python, python3 -All -ErrorAction SilentlyContinue | Where-Object {
+        $_.Source -and -not $_.Source.ToLowerInvariant().Contains("\windowsapps\")
+    } | Select-Object -First 1
+    if ($DiscoveredPython) {
+        $PythonExecutable = $DiscoveredPython.Source
+        if ($DiscoveredPython.Name -match '^py(\.exe)?$') {
+            $PythonPrefix = @("-3")
+        }
+        else {
+            $PythonPrefix = @()
+        }
     }
     else {
-        $BundledPython = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
-        if (-not (Test-Path -LiteralPath $BundledPython -PathType Leaf)) {
+        $CandidatePythons = @(
+            (Join-Path $env:USERPROFILE "AppData\Local\Python\bin\python.exe"),
+            (Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe")
+        )
+        foreach ($Candidate in $CandidatePythons) {
+            if (Test-Path -LiteralPath $Candidate -PathType Leaf) {
+                $PythonExecutable = $Candidate
+                $PythonPrefix = @()
+                break
+            }
+        }
+        if (-not $PythonExecutable) {
             throw "Python executable not found; pass -PythonExecutable explicitly"
         }
-        $PythonExecutable = $BundledPython
-        $PythonPrefix = @()
     }
 }
 else {
