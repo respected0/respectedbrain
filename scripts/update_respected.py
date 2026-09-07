@@ -527,7 +527,7 @@ def _cleanup_legacy_claude_scripts(vault: Path) -> None:
         pass
 
 
-def update(vault: Path, requested_profile: str, apply: bool) -> int:
+def update(vault: Path, requested_profile: str, apply: bool, force: bool = False) -> int:
     _validate_source()
     _core, current_multi = _validate_target(vault)
     config = _load_object(vault / ".beyin/config.json")
@@ -546,8 +546,8 @@ def update(vault: Path, requested_profile: str, apply: bool) -> int:
     if not apply:
         print("ÖNİZLEME: hiçbir dosya değişmedi. Uygulamak için --apply ekle.")
         return 0
-    if current_multi == MULTI_VERSION:
-        print("Bu vault zaten güncel.")
+    if current_multi == MULTI_VERSION and not force:
+        print("Bu vault zaten güncel. Zorlamak için --force kullanın.")
         _print_external_refresh_guidance()
         return 3
 
@@ -589,10 +589,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("vault", type=Path)
     parser.add_argument("--platform", choices=("auto", *PROFILES), default="auto")
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--force", action="store_true", help="Sürüm aynı olsa bile güncelleştirmeyi yeniden uygula")
     args = parser.parse_args(argv)
     vault = args.vault.expanduser().resolve()
     try:
-        return update(vault, args.platform, args.apply)
+        return update(vault, args.platform, args.apply, args.force)
     except UpdateError as error:
         print(f"HATA: {error}", file=sys.stderr)
         return 2
