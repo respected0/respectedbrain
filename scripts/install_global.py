@@ -11,6 +11,16 @@ from pathlib import Path, PurePath
 import sys
 
 
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting on non-ASCII output."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))

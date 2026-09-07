@@ -9,7 +9,19 @@ import json
 from pathlib import Path, PurePath
 import shlex
 import subprocess
+import sys
 from typing import Any, Literal
+
+
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting on non-ASCII output."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
 
 
 REPO = Path(__file__).resolve().parents[1]
