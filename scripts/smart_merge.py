@@ -17,6 +17,8 @@ import os
 from pathlib import Path
 import re
 import sys
+import tempfile
+import json
 from typing import Any, Dict, List, Set, Tuple
 
 
@@ -29,6 +31,27 @@ def _configure_console_output() -> None:
 
 
 _configure_console_output()
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write text atomically via temporary file and atomic rename."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        temporary.unlink(missing_ok=True)
+        raise
+
 
 WIKILINK_RE = re.compile(r"\[\[([^\]\|#]+)(?:#[^\]\|]+)?(?:\|[^\]]+)?\]\]")
 
@@ -60,14 +83,20 @@ def parse_frontmatter_and_body(content: str) -> Tuple[Dict[str, Any], str, str]:
 
 
 def dump_frontmatter(fm: Dict[str, Any]) -> str:
-    """Frontmatter sözlüğünü YAML formatına döker."""
+    """Frontmatter sözlüğünü güvenli YAML formatına döker."""
     lines = ["---"]
     for k, v in fm.items():
         if isinstance(v, list):
-            items_str = ", ".join(f'"{x}"' if " " in str(x) else str(x) for x in v)
+            items_str = ", ".join(json.dumps(str(x), ensure_ascii=False) if any(c in str(x) for c in (":", " ", "#", "[", "]")) else str(x) for x in v)
             lines.append(f"{k}: [{items_str}]")
         else:
-            lines.append(f"{k}: {v}")
+            val_str = str(v)
+            if val_str.startswith("[[") and val_str.endswith("]]"):
+                lines.append(f"{k}: {val_str}")
+            elif any(ch in val_str for ch in (":", "#", "[", "]", "{", "}", "\"", "'")) or " " in val_str:
+                lines.append(f"{k}: {json.dumps(val_str, ensure_ascii=False)}")
+            else:
+                lines.append(f"{k}: {val_str}")
     lines.append("---")
     return "\n".join(lines)
 
@@ -153,7 +182,7 @@ def smart_merge(
 
     # 4. Vault Genelinde Link Güncelleme
     updated_files: List[str] = []
-    link_pattern = re.compile(rf"\[\[{re.escape(source_stem)}(\|[^\]]+)?\]\]", re.IGNORECASE)
+    link_pattern = re.compile(rf"\[\[{re.escape(source_stem)}(#[^\]\|]+)?(\|[^\]]+)?\]\]", re.IGNORECASE)
 
     for root, dirs, files in os.walk(vault_root):
         dirs[:] = [d for d in dirs if not d.startswith(".") and d not in {"node_modules", ".git", "cache"}]
@@ -165,21 +194,22 @@ def smart_merge(
                 try:
                     txt = file_p.read_text(encoding="utf-8", errors="replace")
                     if link_pattern.search(txt):
-                        # Linki hedefle değiştir
+                        # Linki hedefle değiştir (anchor ve alias korunur)
                         def _repl(match):
-                            alias_part = match.group(1) or ""
-                            return f"[[{target_stem}{alias_part}]]"
+                            anchor_part = match.group(1) or ""
+                            alias_part = match.group(2) or ""
+                            return f"[[{target_stem}{anchor_part}{alias_part}]]"
 
                         new_txt = link_pattern.sub(_repl, txt)
                         if not dry_run:
-                            file_p.write_text(new_txt, encoding="utf-8")
+                            _atomic_write_text(file_p, new_txt)
                         updated_files.append(file_p.relative_to(vault_root).as_posix())
                 except Exception:
                     pass
 
     if not dry_run:
-        target_path.write_text(new_target_content, encoding="utf-8")
-        source_path.write_text(redirect_content, encoding="utf-8")
+        _atomic_write_text(target_path, new_target_content)
+        _atomic_write_text(source_path, redirect_content)
 
     return {
         "source": str(source_path),

@@ -93,6 +93,12 @@ def jaccard_similarity(set_a: set[str], set_b: set[str]) -> float:
 
 def check_tiling(vault_root: Path, threshold: float = 0.55) -> dict[str, Any]:
     """Kasadaki tüm notları tarayarak benzerlik eşiğini aşan çiftleri bulur."""
+    try:
+        threshold = float(threshold)
+    except (TypeError, ValueError):
+        raise ValueError(f"threshold sayısal olmalıdır: {threshold}")
+    if not (0.0 <= threshold <= 1.0):
+        raise ValueError(f"threshold 0.0 ile 1.0 arasında olmalıdır: {threshold}")
     notes: list[tuple[str, str, set[str]]] = []  # (rel_path, stem, tokens)
 
     for root, dirs, files in os.walk(vault_root):

@@ -152,10 +152,16 @@ class SimpleHtmlToMarkdown(HTMLParser):
         return cleaned.strip()
 
 
+MAX_HTML_STRING_LEN = 10 * 1024 * 1024  # 10 MB karakter sınırı
+
+
 def clean_html(html_content: str) -> str:
     """Verilen HTML metnini ayıklayıp temiz Markdown döndürür."""
     if not html_content:
         return ""
+
+    if len(html_content) > MAX_HTML_STRING_LEN:
+        html_content = html_content[:MAX_HTML_STRING_LEN]
 
     parser = SimpleHtmlToMarkdown()
     parser.feed(html_content)

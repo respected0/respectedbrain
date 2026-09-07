@@ -47,15 +47,26 @@ class RespectedMcpServer:
         self.vault_root = vault_root.resolve()
         self.search_engine = SearchEngine(self.vault_root)
 
+    MAX_NOTE_BYTES = 5 * 1024 * 1024  # 5 MB güvenlik tavanı
+
     def _safe_resolve(self, relative_path: str) -> Path | None:
-        """Path traversal güvenliği ile vault içindeki dosyayı bulur."""
-        clean = Path(relative_path.strip().lstrip("/\\"))
-        target = (self.vault_root / clean).resolve()
-        try:
-            target.relative_to(self.vault_root)
-        except ValueError:
+        """Path traversal, ADS ve NUL byte korumasıyla vault içindeki dosyayı bulur."""
+        if not relative_path or not isinstance(relative_path, str):
             return None
-        return target
+        if "\x00" in relative_path or ":" in relative_path:
+            return None
+        try:
+            raw_path = Path(relative_path.strip().lstrip("/\\"))
+            # Windows reserved device names
+            for part in raw_path.parts:
+                stem = part.split(".")[0].upper()
+                if stem in {"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "LPT1", "LPT2", "LPT3"}:
+                    return None
+            target = (self.vault_root / raw_path).resolve()
+            target.relative_to(self.vault_root)
+            return target
+        except (ValueError, OSError):
+            return None
 
     def get_tools_manifest(self) -> list[dict[str, Any]]:
         """Sunulan araçların tanımları."""
@@ -193,6 +204,8 @@ class RespectedMcpServer:
             if not target or not target.is_file():
                 return f"Hata: '{rel_path}' dosyası RespectedOS vault'u içinde bulunamadı."
             try:
+                if target.stat().st_size > self.MAX_NOTE_BYTES:
+                    return f"Hata: '{rel_path}' çok büyük ({target.stat().st_size} bayt). Güvenlik sınırı: {self.MAX_NOTE_BYTES} bayt."
                 content = target.read_text(encoding="utf-8", errors="replace")
                 return f"### Dosya: {rel_path}\n\n{content}"
             except Exception as e:

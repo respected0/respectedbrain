@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import tempfile
 from typing import Any
 
 def _configure_console_output() -> None:
@@ -26,6 +27,27 @@ def _configure_console_output() -> None:
 
 
 _configure_console_output()
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write text atomically via temporary file and atomic rename."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    safe_prefix = "".join(c if c.isalnum() or c in ("-", "_", ".") else "_" for c in path.name)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{safe_prefix}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        temporary.unlink(missing_ok=True)
+        raise
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
@@ -58,7 +80,7 @@ class AgentHistoryMiner:
     def _save_state(self) -> None:
         try:
             data = {"imported_ids": sorted(list(self.imported_ids))}
-            self.state_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            _atomic_write_text(self.state_file, json.dumps(data, indent=2) + "\n")
         except Exception:
             pass
 
@@ -207,7 +229,8 @@ class AgentHistoryMiner:
 
         safe_slug = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in parsed["title"])[:35]
         safe_slug = safe_slug.strip("._-") or "session"
-        filename = f"{date_str}_{parsed['agent']}_{safe_slug}.md"
+        safe_agent_slug = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in parsed["agent"])[:30].strip("._-") or "agent"
+        filename = f"{date_str}_{safe_agent_slug}_{safe_slug}.md"
 
         if target_folder == "inbox":
             out_dir = self.vault_root / "📥 000-Inbox" / "Dump"
@@ -220,18 +243,22 @@ class AgentHistoryMiner:
         inputs_rendered = "\n".join(f"- {u[:200]}" for u in parsed["user_inputs"][:10])
         summaries_rendered = "\n\n".join(f"> {s}..." for s in parsed["summaries"])
 
+        safe_title = json.dumps(parsed["title"], ensure_ascii=False)
+        safe_agent = json.dumps(parsed["agent"], ensure_ascii=False)
+        safe_id = json.dumps(parsed["id"], ensure_ascii=False)
+
         content = (
             f"---\n"
-            f'title: "{parsed["title"]}"\n'
+            f"title: {safe_title}\n"
             f'created: "{date_str} {time_str}"\n'
             f'valid_at: "{date_str}"\n'
             f'recorded_at: "{dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}"\n'
-            f'type: session-history\n'
-            f'status: imported\n'
-            f'agent: "{parsed["agent"]}"\n'
-            f'session_id: "{parsed["id"]}"\n'
-            f'freshness: dated\n'
-            f'tags: ["gecmis-import", "{parsed["agent"]}"]\n'
+            f"type: session-history\n"
+            f"status: imported\n"
+            f"agent: {safe_agent}\n"
+            f"session_id: {safe_id}\n"
+            f"freshness: dated\n"
+            f'tags: ["gecmis-import", {safe_agent}]\n'
             f"---\n\n"
             f"# {parsed['title']}\n\n"
             f"**Kaynak Ajan:** `{parsed['agent']}`  \n"
@@ -243,7 +270,7 @@ class AgentHistoryMiner:
             f"{summaries_rendered}\n"
         )
 
-        out_file.write_text(content, encoding="utf-8")
+        _atomic_write_text(out_file, content)
         self.imported_ids.add(parsed["id"])
         self._save_state()
         return out_file

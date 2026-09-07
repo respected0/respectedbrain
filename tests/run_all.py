@@ -15,13 +15,25 @@ import sys
 import time
 
 
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def run_command(title: str, command: list[str], env: dict | None = None) -> tuple[bool, float, str]:
-    print(f"\n>> Koşturuluyor: {title}")
+    print(f"\n>> Koşturuluyor: {title}", flush=True)
     start = time.perf_counter()
     merged_env = os.environ.copy()
+    merged_env["PYTHONUTF8"] = "1"
+    merged_env["PYTHONIOENCODING"] = "utf-8"
     if env:
         merged_env.update(env)
     process = subprocess.run(
@@ -30,19 +42,21 @@ def run_command(title: str, command: list[str], env: dict | None = None) -> tupl
         env=merged_env,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     elapsed = time.perf_counter() - start
     output = (process.stdout + process.stderr).strip()
     success = process.returncode == 0
     if success:
-        print(f"   [PASS] {title} ({elapsed:.2f}s)")
+        print(f"   [PASS] {title} ({elapsed:.2f}s)", flush=True)
     else:
-        print(f"   [FAIL] {title} ({elapsed:.2f}s) - Exit code: {process.returncode}")
+        print(f"   [FAIL] {title} ({elapsed:.2f}s) - Exit code: {process.returncode}", flush=True)
         if output:
-            print("   --- Çıktı ---")
+            print("   --- Çıktı ---", flush=True)
             for line in output.splitlines()[-15:]:
-                print(f"   | {line}")
-            print("   -------------")
+                print(f"   | {line}", flush=True)
+            print("   -------------", flush=True)
     return success, elapsed, output
 
 

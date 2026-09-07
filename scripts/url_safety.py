@@ -104,7 +104,7 @@ def is_private_or_reserved_ip(ip_str: str) -> bool:
     return False
 
 
-def validate_safe_url(url: str) -> tuple[bool, str]:
+def validate_safe_url(url: str, require_resolvable: bool = False) -> tuple[bool, str]:
     """Bir URL'in dış ağ için güvenli olup olmadığını doğrular.
 
     Döndürür:
@@ -114,10 +114,12 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
         return False, "URL boş veya geçersiz"
 
     url = url.strip()
+    if "\x00" in url:
+        return False, "URL içinde geçersiz NUL karakteri"
 
     try:
         parsed = urlparse(url)
-    except Exception as e:
+    except (ValueError, Exception) as e:
         return False, f"URL ayrıştırma hatası: {e}"
 
     if parsed.scheme.lower() not in ("http", "https"):
@@ -125,7 +127,7 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
 
     try:
         hostname = parsed.hostname
-    except Exception as e:
+    except (ValueError, Exception) as e:
         return False, f"Geçersiz hostname: {e}"
 
     if not hostname:
@@ -174,20 +176,27 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
 
     # DNS çözümleme ve çözümlenen IP kontrolü
     try:
-        # getaddrinfo ile tüm olası IP'leri çöz
         addr_info = socket.getaddrinfo(hostname_clean, port or (443 if parsed.scheme == "https" else 80))
+        if not addr_info and require_resolvable:
+            return False, "Host adı çözümlenemedi (boş DNS yanıtı)"
         for item in addr_info:
             sockaddr = item[4]
             resolved_ip = sockaddr[0]
             if is_private_or_reserved_ip(resolved_ip):
                 return False, f"Host çözümlendiğinde özel/yerel IP adresine erişim engellendi ({resolved_ip})"
-    except socket.gaierror:
-        # DNS çözülemediyse bile host adı genel olarak kabul edilebilir (ağ kapalı olabilir veya test ediliyor olabilir)
-        pass
+    except socket.gaierror as e:
+        if require_resolvable:
+            return False, f"Host adı DNS ile çözümlenemedi: {e}"
     except Exception as e:
         return False, f"DNS çözümleme güvenlik hatası: {e}"
 
     return True, "URL güvenli"
+
+
+def is_safe_url(url: str, require_resolvable: bool = False) -> bool:
+    """Boolean dönen pratik güvenlik kalkanı."""
+    safe, _ = validate_safe_url(url, require_resolvable=require_resolvable)
+    return safe
 
 
 def normalize_canonical_text(text: str) -> str:

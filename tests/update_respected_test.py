@@ -112,6 +112,8 @@ class UpdateRespectedTest(unittest.TestCase):
                 "TMPDIR": str(self.transaction_root),
                 "TMP": str(self.transaction_root),
                 "TEMP": str(self.transaction_root),
+                "PYTHONUTF8": "1",
+                "PYTHONIOENCODING": "utf-8",
             }
         )
         if env:
@@ -121,6 +123,8 @@ class UpdateRespectedTest(unittest.TestCase):
             cwd=ROOT,
             env=environment,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             check=False,
         )

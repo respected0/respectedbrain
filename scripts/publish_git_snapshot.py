@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Any
 
@@ -22,6 +23,29 @@ def _configure_console_output() -> None:
         reconfigure = getattr(stream, "reconfigure", None)
         if callable(reconfigure):
             reconfigure(errors="replace")
+
+
+_configure_console_output()
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    """Write text atomically via temporary file and replace."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 _configure_console_output()
@@ -117,6 +141,8 @@ def publish_if_due(
     div_status = _branch_divergence_status(vault_root, remote, branch)
     if div_status == "diverged":
         return {"status": "halted:diverged", "detail": "Uzak dal ile yerel commitler çatışıyor; fail-closed duruldu."}
+    if div_status in ("error", "unknown"):
+        return {"status": f"halted:{div_status}", "detail": f"Uzak dal durumu sorgulanamadı ({div_status}); fail-closed duruldu."}
 
     receipt_file = vault_root / ".beyin" / ".git-snapshot-receipt.json"
     now_epoch = time.time()
@@ -160,10 +186,9 @@ def publish_if_due(
             return {"status": "push-failed", "error": push_proc.stderr}
 
         # Write atomic receipt
-        receipt_file.parent.mkdir(parents=True, exist_ok=True)
-        receipt_file.write_text(
+        _atomic_write(
+            receipt_file,
             json.dumps({"ts": now_epoch, "stamp": stamp, "remote": remote, "branch": branch}, indent=2) + "\n",
-            encoding="utf-8",
         )
         return {"status": "ok", "stamp": stamp}
     except subprocess.SubprocessError as exc:
