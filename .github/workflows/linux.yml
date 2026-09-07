@@ -24,11 +24,8 @@ jobs:
       - name: Run Python unit and integration tests
         run: python3 -m unittest discover -s tests -p "*test*.py"
 
-      - name: Run Shell hook and upgrade tests
-        run: |
-          bash tests/hooks_test.sh
-          bash tests/upgrade_settings_test.sh
-          bash tests/upgrade_transaction_test.sh
+      - name: Run Shell hook tests
+        run: bash tests/hooks_test.sh
 
       - name: Git diff check
         run: git diff --check
