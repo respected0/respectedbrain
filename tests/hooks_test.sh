@@ -1,13 +1,14 @@
 #!/bin/bash
 # Self-contained integration tests for the portable v2 hook set.
 set -eu
+export PYTHONIOENCODING=utf-8
 
 TEST_ROOT=$(CDPATH= cd "$(dirname "$0")/.." 2>/dev/null && pwd)
 SOURCE_HOOKS="$TEST_ROOT/template/.claude/hooks"
 SOURCE_BEYIN="$TEST_ROOT/template/.beyin"
 SOURCE_SETTINGS="$TEST_ROOT/template/.claude/settings.json"
 TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/beyin-hooks.XXXXXX")
-trap 'rm -rf "$TEST_TMP"' EXIT HUP INT TERM
+trap 'rm -rf "$TEST_TMP" 2>/dev/null || :' EXIT HUP INT TERM
 
 PASS_COUNT=0
 
@@ -68,6 +69,8 @@ json_context() {
 import json
 import sys
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 with open(sys.argv[1], encoding="utf-8") as handle:
     lines = [line for line in handle if line.strip()]
 if len(lines) != 1:
@@ -175,14 +178,16 @@ pass "settings.json dört olayı doğru timeout ve proje yollarıyla bağlıyor"
 
 CATCH_VAULT="$TEST_TMP/catchup-vault"
 CATCH_HOOKS="$CATCH_VAULT/.claude/hooks"
-CATCH_SCRIPTS="$CATCH_VAULT/.claude/scripts"
-CATCH_STATE="$CATCH_SCRIPTS/.state"
-mkdir -p "$CATCH_HOOKS" "$CATCH_STATE" "$CATCH_VAULT/🔮 850-Companion"
+CATCH_ENGINE="$CATCH_VAULT/.beyin/engine"
+CATCH_STATE="$CATCH_ENGINE/.state"
+mkdir -p "$CATCH_HOOKS" "$CATCH_VAULT/🔮 850-Companion"
 cp "$SOURCE_HOOKS"/*.sh "$CATCH_HOOKS/"
-cp -R "$SOURCE_BEYIN" "$CATCH_VAULT/.beyin"
+mkdir -p "$CATCH_VAULT/.beyin"
+cp -R "$SOURCE_BEYIN/." "$CATCH_VAULT/.beyin/"
+mkdir -p "$CATCH_STATE"
 chmod +x "$CATCH_HOOKS"/*.sh
 rm -f "$CATCH_HOOKS/lib.sh"
-cat > "$CATCH_SCRIPTS/flush.py" <<'PY'
+cat > "$CATCH_ENGINE/flush.py" <<'PY'
 #!/usr/bin/env python3
 import json
 from pathlib import Path
@@ -191,7 +196,7 @@ import sys
 state = Path(__file__).parent / ".state" / "catchup-call.json"
 state.write_text(json.dumps(sys.argv[1:]), encoding="utf-8")
 PY
-chmod +x "$CATCH_SCRIPTS/flush.py"
+chmod +x "$CATCH_ENGINE/flush.py"
 CATCH_OUT="$TEST_TMP/session-start-catchup.out"
 printf '%s\n' '{"session_id":"s-catchup","transcript_path":"/tmp/catchup.jsonl"}' \
   | CLAUDE_PROJECT_DIR="$CATCH_VAULT" "$CATCH_HOOKS/session-start.sh" > "$CATCH_OUT"
@@ -209,11 +214,13 @@ pass "ince launcher eski lib.sh olmadan ortak lifecycle çekirdeğini çalışt�
 
 VAULT="$TEST_TMP/vault"
 HOOKS="$VAULT/.claude/hooks"
-STATE="$VAULT/.claude/scripts/.state"
+ENGINE="$VAULT/.beyin/engine"
+STATE="$ENGINE/.state"
 MEMORY="$VAULT/🔮 850-Companion"
-mkdir -p "$HOOKS" "$STATE" "$MEMORY" "$VAULT/knowledge" "$VAULT/daily"
+mkdir -p "$HOOKS" "$VAULT/.beyin" "$MEMORY" "$VAULT/knowledge" "$VAULT/daily"
 cp "$SOURCE_HOOKS"/*.sh "$HOOKS/"
-cp -R "$SOURCE_BEYIN" "$VAULT/.beyin"
+cp -R "$SOURCE_BEYIN/." "$VAULT/.beyin/"
+mkdir -p "$STATE"
 chmod +x "$HOOKS"/*.sh
 
 cat > "$MEMORY/Last-Session.md" <<'EOF'
@@ -514,7 +521,7 @@ done
   || fail "100 eşzamanlı çağrı sonrası sayaç 100 değil"
 pass "100 gerçek paralel prompt-counter çağrısı atomik kilitle tam olarak 100 sayılıyor"
 
-cat > "$VAULT/.claude/scripts/flush.py" <<'PY'
+cat > "$ENGINE/flush.py" <<'PY'
 #!/usr/bin/env python3
 import argparse
 import json
@@ -535,7 +542,7 @@ with open(os.path.join(state_dir, "flush-" + args.reason + ".json"), "w", encodi
     )
 time.sleep(2)
 PY
-chmod +x "$VAULT/.claude/scripts/flush.py"
+chmod +x "$ENGINE/flush.py"
 
 END_SESSION=s-end
 END_KEY=$(session_key "$END_SESSION")
@@ -576,7 +583,8 @@ payload = json.dumps({"session_id": "s-end", "transcript_path": "/tmp/end.jsonl"
 env = os.environ.copy()
 env["CLAUDE_PROJECT_DIR"] = vault
 started = time.monotonic()
-result = subprocess.run([hook], input=payload, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+cmd = ["bash", hook] if sys.platform == "win32" else [hook]
+result = subprocess.run(cmd, input=payload, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 elapsed = time.monotonic() - started
 assert result.returncode == 0, result.stderr.decode()
 assert elapsed < 1.0, elapsed
@@ -656,12 +664,14 @@ for hook_name in session-start.sh prompt-counter.sh session-end.sh pre-compact.s
   [ ! -s "$GUARD_OUT" ] || fail "guard çıktıyı kesmedi: $hook_name"
 done
 [ ! -e "$GUARD_VAULT/.claude/scripts/.state" ] || fail "guard state yan etkisini engellemedi"
+[ ! -e "$GUARD_VAULT/.beyin/engine/.state" ] || fail "guard state yan etkisini engellemedi"
 pass "BEYIN_INVOKED_BY dört hook'u tüm yan etkilerden önce durduruyor"
 
 NO_PY_BIN="$TEST_TMP/no-python-bin"
 mkdir -p "$NO_PY_BIN"
-ln -s "$(command -v mkdir)" "$NO_PY_BIN/mkdir"
-ln -s "$(command -v sed)" "$NO_PY_BIN/sed"
+cp -p "$(command -v mkdir)"* "$NO_PY_BIN/" 2>/dev/null || ln -s "$(command -v mkdir)" "$NO_PY_BIN/mkdir"
+cp -p "$(command -v sed)"* "$NO_PY_BIN/" 2>/dev/null || ln -s "$(command -v sed)" "$NO_PY_BIN/sed"
+cp -p /usr/bin/msys-*.dll "$NO_PY_BIN/" 2>/dev/null || :
 NO_PY_OUT="$TEST_TMP/no-python.out"
 CLAUDE_PROJECT_DIR="$VAULT" PATH="$NO_PY_BIN" /bin/bash -c \
   '. "$1"; beyin_emit SessionStart "ignored unicode: ç"' _ "$HOOKS/lib.sh" > "$NO_PY_OUT"

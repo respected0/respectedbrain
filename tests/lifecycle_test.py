@@ -34,7 +34,7 @@ LIFECYCLE = load_lifecycle()
 
 class LifecycleTest(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
+        self.temporary = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.vault = Path(self.temporary.name) / "Ada Brain"
         self.state = self.vault / ".claude" / "scripts" / ".state"
         self.memory = self.vault / "🔮 850-Companion"
