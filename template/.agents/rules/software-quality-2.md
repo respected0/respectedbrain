@@ -1,6 +1,6 @@
-# AI Software Development Quality Rules (Kısım 2: Madde 14-25 ve Golden Standard Gate)
+# AI Software Development Quality Rules (Kısım 2: Madde 14-26 ve Golden Standard Gate)
 
-Bu kurallar, AI Software Development Quality Rules kural setinin ikinci kısmıdır (Madde 14-25, Golden Standard Completion Gate ve Final Prensip). Kısım 1 (Madde 1-13) ile birlikte bir bütündür.
+Bu kurallar, AI Software Development Quality Rules kural setinin ikinci kısmıdır (Madde 14-26, Golden Standard Completion Gate ve Final Prensip). Kısım 1 (Madde 1-13) ile birlikte bir bütündür.
 
 ## 14. Büyük Değişikliklerde Önce Etki Analizi
 
@@ -325,6 +325,18 @@ Yeni dependency eklemeden önce gerçekten gerekli olup olmadığını kontrol e
 Mevcut dependency ile çözülebilecek bir problem için gereksiz paket ekleme.
 
 API veya contract değişikliğinde producer ve consumer taraflarının ikisini de değerlendir.
+
+---
+
+## 26. İkinci Sorgulama Kuralı (Proaktif Derinlik ve Zero-Trust Eşiği)
+
+Kullanıcı aynı konuda veya kod alanında 2. kez **“emin misin / tekrar kontrol et / kaldı mı”** diye sorguladığında lokal yama refleksi derhal durdurulmalıdır.
+
+Bu eşik aşıldığında:
+1. **Lokal Yama Tuzağından Çık:** Sadece kullanıcının işaret ettiği satıra veya tek bir edge case'e odaklanmayı bırak.
+2. **Metodolojik Sıfırlama (Zero-Trust):** O ana kadar yapılan denetim metodolojisinin yüzeysel olduğunu kabul et. İlgili tüm bileşeni bağımsız bir güvenlik denetçisi/red team gibi baştan sona (failure matrix, lazy evaluation, parser confusion, unhandled exceptions, crash vectors) sorgula.
+3. **Kullanıcıyı QA Yapma:** Kullanıcının her sorusunda bir katman daha derine inerek parça parça hata bulmak yerine, tüm katmanları tek seferde proaktif olarak tüket.
+4. **Erken Zafer İlan Etme:** İstisna matrisi, uç obfuskasyonlar ve fail-closed davranışları kanıtlanmadan "Golden Standard seviyesindeyiz" iddiasında bulunma.
 
 ---
 

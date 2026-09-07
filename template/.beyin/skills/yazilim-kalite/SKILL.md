@@ -122,3 +122,15 @@ Görev tamamlandığında sonuçlar şu 3 kategoride açıkça raporlanır:
 | UI & Responsive Davranış | INFERRED | Component JSX ve CSS incelendi; tarayıcı testi kullanıcı onayı bekliyor. |
 | DB Rollback Mekanizması | NOT VERIFIED | Staging ortamı bulunmadığından canlı DB'de denenmedi. |
 ```
+
+---
+
+## 8. İkinci Sorgulama Kuralı (Proaktif Derinlik ve Zero-Trust Eşiği)
+
+Kullanıcı aynı konuda veya kod alanında 2. kez **“emin misin / tekrar kontrol et / kaldı mı”** diye sorguladığında lokal yama refleksi derhal durdurulmalıdır:
+
+1. **Lokal Yama Tuzağından Çık:** Sadece kullanıcının işaret ettiği satıra veya tek bir edge case'e odaklanmayı bırak.
+2. **Metodolojik Sıfırlama (Zero-Trust):** O ana kadar yapılan denetim metodolojisinin yüzeysel olduğunu kabul et. İlgili tüm bileşeni bağımsız bir güvenlik denetçisi/red team gibi baştan sona (failure matrix, lazy evaluation, parser confusion, unhandled exceptions, crash vectors) sorgula.
+3. **Kullanıcıyı QA Yapma:** Kullanıcının her sorusunda bir katman daha derine inerek parça parça hata bulmak yerine, tüm katmanları tek seferde proaktif olarak tüket.
+4. **Erken Zafer İlan Etme:** İstisna matrisi, uç obfuskasyonlar ve fail-closed davranışları kanıtlanmadan "Golden Standard seviyesindeyiz" iddiasında bulunma.
+
