@@ -1,25 +1,50 @@
-# Secrets, never commit. assert_no_secret_staged in scripts/upgrade.sh refuses to commit
+# Secrets, never commit. assert_no_secret_staged refuses to commit
 # these paths, so anything it guards must also be ignored here, otherwise the very first
 # snapshot stages a secret and the upgrade dies before it starts.
 .claude/settings.local.json
+*settings.local.json
 .beyin/backups/
 .env
+.env.*
+*.env
 *.yedek
 *.yedek-*
 *.bak
 *.orig
+*.key
+*.pem
+*.cert
+*.crt
+*.pfx
+*credentials*.json
+*token*.json
+auth.json
 
-# Local runtime state
+# Local runtime state & databases
 .beyin/engine/.state/
 .claude/hooks/.state/
 .claude/scripts/.state/*
 !.claude/scripts/.state/.gitkeep
 🔮 850-Companion/Session-Logs/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
 
 # OS / editor noise
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+[Dd]esktop.ini
+ehthumbs.db
 .obsidian/workspace*
 .obsidian/cache
 __pycache__/
-*.pyc
+*.py[cod]
 .beyin/cache/
+.pytest_cache/
+*.log

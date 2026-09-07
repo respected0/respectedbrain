@@ -1,8 +1,35 @@
 {
+  "files.encoding": "utf8",
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "[powershell]": {
+    "files.eol": "\r\n"
+  },
+  "[bat]": {
+    "files.eol": "\r\n"
+  },
   "python.analysis.extraPaths": [
     "./scripts",
     "./template/.beyin/engine",
     "./template/.beyin",
     "./template/.beyin/hooks"
-  ]
+  ],
+  "python.testing.unittestArgs": [
+    "-v",
+    "-s",
+    "./tests",
+    "-p",
+    "*test*.py"
+  ],
+  "python.testing.unittestEnabled": true,
+  "python.testing.pytestEnabled": false,
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.beyin/backups/**": true,
+    "**/.beyin/cache/**": true,
+    "**/__pycache__/**": true
+  }
 }

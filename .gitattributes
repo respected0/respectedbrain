@@ -1,8 +1,73 @@
-*.ps1 text eol=crlf
+# ==============================================================================
+# Git Line Endings & Encoding Attributes
+# ==============================================================================
+
+# Set default behavior: auto-detect text files and normalize line endings to LF on commit
+* text=auto
+
+# Configuration and repository metadata (always LF)
+.gitattributes text eol=lf
+.gitignore text eol=lf
+.editorconfig text eol=lf
+
+# POSIX Shell & Linux scripts (LF required for POSIX shebang execution)
 *.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+
+# Windows PowerShell & Batch scripts (CRLF standard)
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Source code & templates (always LF)
 *.py text eol=lf
 *.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+*.base text eol=lf
+
+# Documentation & Markdown (always LF)
 *.md text eol=lf
 *.mdc text eol=lf
-*.base text eol=lf
-*.yml text eol=lf
+*.txt text eol=lf
+*.rst text eol=lf
+*.svg text eol=lf
+
+# Binary files (prevent CRLF transformations and diff corruption)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.tar.gz binary
+*.tgz binary
+*.gz binary
+*.7z binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.sqlite binary
+*.sqlite3 binary
+*.db binary
+
+# Distribution export exclusions
+/.github export-ignore
+/.vscode export-ignore
+/tests export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore

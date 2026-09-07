@@ -1,0 +1,69 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  matrix-ci:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.13"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Verify render drift
+        run: python scripts/render_integrations.py --check
+
+      - name: Run Python unit and integration tests
+        run: python -m unittest discover -s tests -p "*test*.py"
+
+      - name: Run Shell hook tests (POSIX)
+        if: runner.os != 'Windows'
+        run: bash tests/hooks_test.sh
+
+      - name: Run Shell upstream sync tests (POSIX)
+        if: runner.os != 'Windows'
+        run: bash tests/upstream_sync_test.sh
+
+      - name: PowerShell fresh-install contract (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File tests/install_windows_test.ps1
+
+      - name: PowerShell briefing-schedule contract (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File tests/briefing_schedule_windows_test.ps1
+
+      - name: Native lifecycle and runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: python -m unittest -v tests.windows_native_test tests.runtime_platform_test
+
+      - name: Verify working tree clean
+        shell: bash
+        run: |
+          git diff --check
+          git diff --exit-code
+          test -z "$(git status --porcelain)" || { echo "Untracked or uncommitted changes detected:"; git status --porcelain; exit 1; }
