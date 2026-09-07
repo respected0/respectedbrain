@@ -144,6 +144,7 @@ class BackupAndSnapshotTest(unittest.TestCase):
 
             # 1. Create bare remote
             subprocess.run([git, "init", "--bare", str(remote_repo)], check=True, capture_output=True)
+            subprocess.run([git, "symbolic-ref", "HEAD", "refs/heads/main"], cwd=remote_repo, check=True, capture_output=True)
 
             # 2. Clone to local
             subprocess.run([git, "clone", str(remote_repo), str(local_repo)], check=True, capture_output=True)
@@ -164,13 +165,14 @@ class BackupAndSnapshotTest(unittest.TestCase):
 
             # 5. Simulate remote advancement via a second clone
             other_clone = temp_path / "other"
-            subprocess.run([git, "clone", str(remote_repo), str(other_clone)], check=True, capture_output=True)
+            subprocess.run([git, "clone", "-b", "main", str(remote_repo), str(other_clone)], check=True, capture_output=True)
             subprocess.run([git, "config", "user.email", "test@test.com"], cwd=other_clone, check=True)
             subprocess.run([git, "config", "user.name", "Tester"], cwd=other_clone, check=True)
             (other_clone / "remote_change.md").write_text("# Remote", encoding="utf-8")
             subprocess.run([git, "add", "."], cwd=other_clone, check=True, capture_output=True)
             subprocess.run([git, "commit", "-m", "remote commit"], cwd=other_clone, check=True, capture_output=True)
-            subprocess.run([git, "push", "origin", "main"], cwd=other_clone, check=True, capture_output=True)
+            push_res = subprocess.run([git, "push", "origin", "main"], cwd=other_clone, capture_output=True, text=True)
+            self.assertEqual(push_res.returncode, 0, f"git push failed: {push_res.stdout}\n{push_res.stderr}")
 
             # 6. Make competing local commit in local_repo
             (local_repo / "local_change.md").write_text("# Local", encoding="utf-8")
