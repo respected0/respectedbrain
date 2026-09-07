@@ -64,6 +64,9 @@ class GlobalBrandMigrationTest(unittest.TestCase):
         self.temporary.cleanup()
 
     def run_installer(self, *arguments: str):
+        env = os.environ.copy()
+        env["PYTHONUTF8"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
         return subprocess.run(
             [
                 sys.executable,
@@ -74,7 +77,9 @@ class GlobalBrandMigrationTest(unittest.TestCase):
                 *arguments,
             ],
             cwd=ROOT,
-            text=True,
+            env=env,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             check=False,
         )

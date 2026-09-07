@@ -20,8 +20,7 @@ TEMPLATE = ROOT / "template"
 class E2EFreshInstallLinuxTest(unittest.TestCase):
     def setUp(self):
         if os.name == "nt":
-            # On Windows, skip or run via WSL/POSIX emulation
-            pass
+            self.skipTest("Linux/POSIX E2E test; Windows covered by install_windows_test.ps1")
 
     def _create_provider_stub(self, bin_dir: Path, provider: str) -> Path:
         bin_dir.mkdir(parents=True, exist_ok=True)

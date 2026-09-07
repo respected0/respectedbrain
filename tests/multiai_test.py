@@ -726,7 +726,17 @@ class MultiAITest(unittest.TestCase):
                 "all",
             ]
 
-            result = subprocess.run(command, capture_output=True, text=True, check=False)
+            env = os.environ.copy()
+            env["PYTHONUTF8"] = "1"
+            env["PYTHONIOENCODING"] = "utf-8"
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                env=env,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
 
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout.count(f"kullanıcı kökü: {home.resolve()}"), 1)

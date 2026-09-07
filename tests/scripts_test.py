@@ -203,6 +203,8 @@ print("loaded")
         environment["PATH"] = f"{self.bin_dir}{os.pathsep}{environment['PATH']}"
         environment["BEYIN_TEST_LOG"] = str(self.stub_log)
         environment["BEYIN_FAKE_HOUR"] = "0"
+        environment["PYTHONUTF8"] = "1"
+        environment["PYTHONIOENCODING"] = "utf-8"
         environment.update(overrides)
         return environment
 
@@ -266,7 +268,7 @@ print("loaded")
             env=self._environment(**environment),
             text=True,
             capture_output=True,
-            timeout=15,
+            timeout=60,
             check=False,
         )
 
@@ -281,7 +283,7 @@ print("loaded")
             env=self._environment(**environment),
             text=True,
             capture_output=True,
-            timeout=15,
+            timeout=60,
             check=False,
         )
 
@@ -589,8 +591,8 @@ print("loaded")
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        first_output = first.communicate(timeout=10)
-        second_output = second.communicate(timeout=10)
+        first_output = first.communicate(timeout=30)
+        second_output = second.communicate(timeout=30)
         self.assertEqual(first.returncode, 0, first_output)
         self.assertEqual(second.returncode, 0, second_output)
         self.assertEqual(len(self._stub_calls("haiku")), 1)

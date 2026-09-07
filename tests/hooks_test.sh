@@ -605,7 +605,7 @@ assert call["reason"] == "sessionend"
 assert call["hook_input"] == {
     "session_id": "s-end",
     "transcript_path": "/tmp/end.jsonl",
-    "cwd": str(Path(sys.argv[1]).parents[3]),
+    "cwd": str(Path(sys.argv[1]).resolve().parents[3]),
     "model": "",
     "beyin_provider": "claude",
 }
@@ -642,7 +642,7 @@ assert call["reason"] == "precompact"
 assert call["hook_input"] == {
     "session_id": "s-pre",
     "transcript_path": "/tmp/pre.jsonl",
-    "cwd": str(Path(sys.argv[1]).parents[3]),
+    "cwd": str(Path(sys.argv[1]).resolve().parents[3]),
     "model": "",
     "beyin_provider": "claude",
 }
