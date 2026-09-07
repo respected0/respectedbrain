@@ -300,6 +300,22 @@ class TestManifestAndTemplates(unittest.TestCase):
             self.assertFalse(safe, f"Internal URL {url} should be blocked (reason: {reason})")
             self.assertIn("engellendi", reason)
 
+        # Geçersiz/taşan port (çökmeden fail-closed dönmeli)
+        safe, reason = validate_safe_url("http://example.com:65536/")
+        self.assertFalse(safe)
+        self.assertIn("Geçersiz port", reason)
+
+        # URL içi kimlik doğrulama / kullanıcı bilgisi engeli
+        safe, reason = validate_safe_url("http://admin:secret@example.com/")
+        self.assertFalse(safe)
+        self.assertIn("kimlik bilgisi", reason)
+
+        # Köşeli parantezli IPv6 doğrudan is_private_or_reserved_ip kontrolü
+        from scripts.url_safety import is_private_or_reserved_ip
+        self.assertTrue(is_private_or_reserved_ip("[::1]"))
+        self.assertTrue(is_private_or_reserved_ip("[::ffff:127.0.0.1]"))
+        self.assertFalse(is_private_or_reserved_ip("[2606:4700:4700::1111]"))
+
     def test_install_briefing_schedule_decode_windows_xml_fallbacks(self):
         from scripts.install_briefing_schedule import _decode_windows_xml
         # CP857 ile kodlanmış Türkçe karakterler içeren XML

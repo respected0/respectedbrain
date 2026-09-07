@@ -34,6 +34,11 @@ ALLOWED_PORTS = {80, 443}
 DISALLOWED_HOSTNAMES = {
     "localhost",
     "localhost.localdomain",
+    "localhost4",
+    "localhost6",
+    "ip6-localhost",
+    "ip6-loopback",
+    "localdomain",
     "broadcasthost",
     "local",
     "internal",
@@ -43,12 +48,17 @@ DISALLOWED_HOSTNAMES = {
 def is_private_or_reserved_ip(ip_str: str) -> bool:
     """Verilen IP adresinin özel, yerel veya rezerve olup olmadığını doğrular.
 
-    Standart noktalı gösterimin yanı sıra octal, hex, dword/integer ve
-    kısaltılmış IPv4 (örn. 127.1) obfuskasyonlarını da çözerek inceler.
+    Standart noktalı gösterimin yanı sıra octal, hex, dword/integer,
+    köşeli parantezli IPv6 ve kısaltılmış IPv4 (örn. 127.1) obfuskasyonlarını da inceler.
     """
+    if not isinstance(ip_str, str) or not ip_str.strip():
+        return False
+
+    clean_ip = ip_str.strip().strip("[]")
+
     # 1. Standart IPv4 veya IPv6 ayrıştırması
     try:
-        ip = ipaddress.ip_address(ip_str)
+        ip = ipaddress.ip_address(clean_ip)
         return (
             ip.is_private
             or ip.is_loopback
@@ -62,7 +72,7 @@ def is_private_or_reserved_ip(ip_str: str) -> bool:
 
     # 2. Obfuscated IPv4 (octal, hex, integer/dword, short-form örn: 127.1)
     try:
-        raw_bytes = socket.inet_aton(ip_str)
+        raw_bytes = socket.inet_aton(clean_ip)
         ip4 = ipaddress.IPv4Address(raw_bytes)
         return (
             ip4.is_private
@@ -76,9 +86,9 @@ def is_private_or_reserved_ip(ip_str: str) -> bool:
         pass
 
     # 3. Dword / integer IP (örn: 2130706433)
-    if ip_str.isdigit():
+    if clean_ip.isdigit():
         try:
-            val = int(ip_str)
+            val = int(clean_ip)
             if 0 <= val <= 0xFFFFFFFF:
                 ip4 = ipaddress.IPv4Address(val)
                 return (
@@ -114,9 +124,22 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
     if parsed.scheme.lower() not in ("http", "https"):
         return False, f"Desteklenmeyen protokol: {parsed.scheme} (Yalnızca http/https)"
 
-    hostname = parsed.hostname
+    try:
+        hostname = parsed.hostname
+    except Exception as e:
+        return False, f"Geçersiz hostname: {e}"
+
     if not hostname:
         return False, "Geçerli bir hostname bulunamadı"
+
+    # URL içinde kullanıcı adı / şifre (user:pass@host) bulunması güvenlik gereği engellenir
+    if parsed.username or parsed.password:
+        return False, "URL içinde kullanıcı adı veya kimlik bilgisi yer alamaz"
+
+    try:
+        port = parsed.port
+    except ValueError as e:
+        return False, f"Geçersiz port: {e}"
 
     hostname_clean = hostname.lower().strip(".")
 
@@ -130,7 +153,6 @@ def validate_safe_url(url: str) -> tuple[bool, str]:
         return False, f"Yerel ve dahili ağ hostlarına erişim engellendi: {hostname}"
 
     # Port kontrolü
-    port = parsed.port
     if port is not None and port not in ALLOWED_PORTS:
         return False, f"Güvensiz port: {port} (Yalnızca 80 ve 443 portlarına izin verilir)"
 
