@@ -669,8 +669,8 @@ pass "BEYIN_INVOKED_BY dört hook'u tüm yan etkilerden önce durduruyor"
 
 NO_PY_BIN="$TEST_TMP/no-python-bin"
 mkdir -p "$NO_PY_BIN"
-cp -p "$(command -v mkdir)"* "$NO_PY_BIN/" 2>/dev/null || ln -s "$(command -v mkdir)" "$NO_PY_BIN/mkdir"
-cp -p "$(command -v sed)"* "$NO_PY_BIN/" 2>/dev/null || ln -s "$(command -v sed)" "$NO_PY_BIN/sed"
+ln -sf "$(command -v mkdir)" "$NO_PY_BIN/mkdir" 2>/dev/null || cp "$(command -v mkdir)"* "$NO_PY_BIN/" 2>/dev/null || :
+ln -sf "$(command -v sed)" "$NO_PY_BIN/sed" 2>/dev/null || cp "$(command -v sed)"* "$NO_PY_BIN/" 2>/dev/null || :
 cp -p /usr/bin/msys-*.dll "$NO_PY_BIN/" 2>/dev/null || :
 NO_PY_OUT="$TEST_TMP/no-python.out"
 CLAUDE_PROJECT_DIR="$VAULT" PATH="$NO_PY_BIN" /bin/bash -c \
