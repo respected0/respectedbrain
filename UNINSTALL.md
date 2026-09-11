@@ -16,12 +16,12 @@ Repo klonlamanıza gerek kalmadan sisteminizi temizleyin:
 
 #### Windows (PowerShell)
 ```powershell
-irm https://raw.githubusercontent.com/respected0/secondbrain/main/uninstall.ps1 | iex
+irm https://raw.githubusercontent.com/respected0/respectedbrain/main/uninstall.ps1 | iex
 ```
 
 #### Linux & macOS (Bash)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/respected0/secondbrain/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/respected0/respectedbrain/main/uninstall.sh | bash
 ```
 
 ---

@@ -1,4 +1,7 @@
-# 🧠 Respected Brain: araç bağımsız, hatırlamayı unutmayan ikinci beyin
+<div align="center">
+
+# 🧠 Respected Brain
+### Araç bağımsız, hatırlamayı unutmayan yerel kişisel ikinci beyin
 
 <p align="center">
   <a href="https://github.com/respected0/respectedbrain/releases"><img src="https://img.shields.io/badge/Release-v0.0.1-blue.svg?style=flat-square" alt="Release"></a>
@@ -9,6 +12,8 @@
   <img src="https://img.shields.io/badge/MCP-Supported%20FTS5-teal.svg?style=flat-square" alt="MCP Server">
   <img src="https://img.shields.io/badge/Architecture-Zero--Trust%20Local%20Memory-orange.svg?style=flat-square" alt="Local Memory">
 </p>
+
+</div>
 
 [Obsidian](https://obsidian.md) ile Claude Code, Codex, Cursor ve Antigravity üstünde çalışan,
 açık kaynak bir **ikinci beyin**. Yerel bir Markdown vault, kalıcı hafıza, sıfır bağımlılık,
@@ -101,7 +106,7 @@ Respected Brain'i ihtiyacınıza ve alışkanlığınıza en uygun kanaldan sani
 Tercih ettiğiniz kodlama asistanına (**Claude Code, Cursor Agent, Codex, Antigravity, Windsurf**) aşağıdaki tek satırlık komutu vermeniz yeterlidir:
 
 ```text
-https://raw.githubusercontent.com/respected0/secondbrain/main/BOOTSTRAP.md dosyasını oku ve yönergelerine göre bu dizinde Respected Brain kasasını kur. Kuruluma başlamadan önce benden kullanıcı adımı, kasa adımı, çalışma ortamımı (Native/WSL) ve model fallback sıramı al. Bitince kurduğun tüm bileşenleri listele.
+https://raw.githubusercontent.com/respected0/respectedbrain/main/BOOTSTRAP.md dosyasını oku ve yönergelerine göre bu dizinde Respected Brain kasasını kur. Kuruluma başlamadan önce benden kullanıcı adımı, kasa adımı, çalışma ortamımı (Native/WSL/Hibrit) ve model fallback sıramı al. Bitince kurduğun tüm bileşenleri listele.
 ```
 
 Asistanınız `BOOTSTRAP.md` protokolünü okur; size adınızı, kasanızın kurulacağı yeri, düşünme ortağınızın adını ve model sıralamanızı sorarak kurulumu tamamlar.
@@ -114,11 +119,11 @@ Terminalden tek bir komutla interaktif kurulum sihirbazını başlatın:
 
 * **Windows (PowerShell):**
   ```powershell
-  irm https://raw.githubusercontent.com/respected0/secondbrain/main/install.ps1 | iex
+  irm https://raw.githubusercontent.com/respected0/respectedbrain/main/install.ps1 | iex
   ```
 * **Linux / macOS / WSL (Bash):**
   ```bash
-  curl -sSL https://raw.githubusercontent.com/respected0/secondbrain/main/install.sh | bash
+  curl -sSL https://raw.githubusercontent.com/respected0/respectedbrain/main/install.sh | bash
   ```
 
 *(Sisteminizde Python veya Git yüklü değilse, sihirbaz sizi uyarır ve tek tıkla yüklemeyi teklif eder).*
@@ -130,12 +135,53 @@ Terminalden tek bir komutla interaktif kurulum sihirbazını başlatın:
 Repoyu yerel makinenize klonlayıp renkli terminal sihirbazıyla kurmak isterseniz:
 
 ```bash
-git clone https://github.com/respected0/secondbrain.git
-cd secondbrain
+git clone https://github.com/respected0/respectedbrain.git
+cd respectedbrain
 python install.py
 ```
 
 Sihirbaz; algılanan AI modellerini listeler, model öncelik sırasını, çalışma ortamınızı (Windows Native, WSL veya Hibrit), masaüstü Obsidian açılış kısayolunu ve sabah brifingi saatini yapılandırır.
+
+---
+
+## 💻 Çalışma Ortamı Seçenekleri: Windows Native vs WSL vs Hibrit
+
+Kurulum sihirbazı veya `BOOTSTRAP.md` ortam tercihinizi sorar. Bu üç seçeneğin mimarisi ve sınırları şöyledir:
+
+```mermaid
+graph TD
+    subgraph S1 ["1. Windows Native (Tam Yerel Windows)"]
+        W1["Windows OS"] --> OBS1["Obsidian Desktop"]
+        W1 --> PY1["Windows Python (py.exe -3)"]
+        W1 --> SCH1["Windows Görev Zamanlayıcısı (schtasks)"]
+        OBS1 & PY1 & SCH1 --> V1["📁 C:\\Users\\...\\Documents\\Vault"]
+    end
+
+    subgraph S2 ["2. Windows WSL (İzole Linux Alt Sistemi)"]
+        L2["WSL2 / Linux"] --> OBS2["Terminal / WSLg"]
+        L2 --> PY2["Linux Python (/usr/bin/python3)"]
+        L2 --> SCH2["Linux systemd user timer / cron"]
+        OBS2 & PY2 & SCH2 --> V2["📁 /home/user/Vault"]
+    end
+
+    subgraph S3 ["3. Hibrit / Hybrid (Köprü Modu — En Esnek)"]
+        W3["Windows Katmanı"] --> OBS3["Obsidian Desktop (Hızlı GUI)"]
+        W3 --> KS3["Masaüstü Kısayolu (.url)"]
+        L3["WSL2 Katmanı"] --> AI3["AI CLI & Geliştirme Araçları"]
+        L3 --> PY3["WSL Python + bridge.py"]
+        OBS3 & KS3 --> V3["📁 C:\\Users\\...\\Documents\\Vault<br/>(WSL: /mnt/c/Users/.../Vault)"]
+        AI3 & PY3 -->|runtime_platform köprüsü| V3
+    end
+```
+
+| Karşılaştırma Ölçütü | 1. Windows Native | 2. Windows WSL (Saf Linux) | 3. Hibrit / Hybrid (Önerilen Köprü) |
+| :--- | :--- | :--- | :--- |
+| **Kasa Nerede Yaşar?** | Windows diskinde (`C:\Users\<ad>\...`) | WSL2 sanal diskinde (`/home/<user>/...`) | Windows diskinde (`C:\Users\<ad>\...` ↔ `/mnt/c/...`) |
+| **Obsidian Arayüzü** | Doğrudan Windows Obsidian uygulaması | WSLg Linux arayüzü veya ağ köprüsü | Doğrudan yerel Windows Obsidian (Maksimum hız) |
+| **Python Çalıştırıcı** | Windows Python (`py.exe -3` / `python.exe`) | Linux Python (`/usr/bin/python3`) | Windows Python veya WSL Python (Otomatik köprü) |
+| **Hook & Lifecycle** | PowerShell / Windows komut satırı | POSIX Bash scriptleri (`.sh`) | `wslpath` ve `runtime_platform` otomatik yol köprüsü |
+| **Sabah Brifingi** | Windows Görev Zamanlayıcısı (XML Task) | Linux `systemd` user timer / `cron` | Windows Task Scheduler veya Linux systemd |
+| **Kimin İçin İdeal?** | WSL kullanmayan, her işini Windows'ta görenler | Tüm geliştirme ortamı ve terminali WSL'de olanlar | **Kodları WSL'de koşan, Obsidian'ı Windows'ta kullananlar** |
 
 ---
 
@@ -146,8 +192,8 @@ Mevcut bir kasanızı en güncel kararlı sürüme (`0.0.1`) yükseltmek için 3
 1. **AI-Native Güncelleme:** Ajanınıza doğrudan söyleyin:
    > *"Kasamı en son kararlı Respected Brain sürümüne güncelle."* (Ayrıntılar: [UPDATE.md](UPDATE.md))
 2. **Tek Satır (One-Liner) Güncelleme:**
-   - **Windows:** `irm https://raw.githubusercontent.com/respected0/secondbrain/main/update.ps1 | iex`
-   - **Linux / macOS:** `curl -fsSL https://raw.githubusercontent.com/respected0/secondbrain/main/update.sh | bash`
+   - **Windows:** `irm https://raw.githubusercontent.com/respected0/respectedbrain/main/update.ps1 | iex`
+   - **Linux / macOS:** `curl -fsSL https://raw.githubusercontent.com/respected0/respectedbrain/main/update.sh | bash`
 3. **CLI Terminal:** `python update.py` (veya `python update.py --vault-path "/kasa/yolu" --apply`)
 
 ---
@@ -157,8 +203,8 @@ Mevcut bir kasanızı en güncel kararlı sürüme (`0.0.1`) yükseltmek için 3
 Sistem entegrasyonlarını (global AI kancaları, zamanlanmış sabah brifingi görevi, kısayollar ve MCP sunucusu) temizlemek için:
 
 - **Tek Satır (One-Liner):**
-  - **Windows:** `irm https://raw.githubusercontent.com/respected0/secondbrain/main/uninstall.ps1 | iex`
-  - **Linux / macOS:** `curl -fsSL https://raw.githubusercontent.com/respected0/secondbrain/main/uninstall.sh | bash`
+  - **Windows:** `irm https://raw.githubusercontent.com/respected0/respectedbrain/main/uninstall.ps1 | iex`
+  - **Linux / macOS:** `curl -fsSL https://raw.githubusercontent.com/respected0/respectedbrain/main/uninstall.sh | bash`
 - **CLI Terminal:** `python uninstall.py`
 
 *(Varsayılan olarak ikinci beyin kasanız ve notlarınız kesinlikle silinmez, güvendedir. Ayrıntılar: [UNINSTALL.md](UNINSTALL.md)).*
@@ -391,29 +437,26 @@ sequenceDiagram
     Engine->>Vault: compile.py çalışır, logları knowledge/ makalelerine dönüştürür
 ```
 
-```text
-   oturum biter                    konuşma sıkışmak üzere
-   (SessionEnd)                         (PreCompact)
-        |                                    |
-        v                                    v
-  session-end.sh                       pre-compact.sh
-        |                                    |
-        +------------------+-----------------+
-                           v
-                       flush.py   (claude / codex / agy / cursor-agent / özel CLI)
-                  transkripti okur, Türkçe özet çıkarır
-                           v
-                 daily/YYYY-MM-DD.md      <-- makine yazar, sen değil
-                           |
-        (saat 18'den sonra, günde bir kez, değişen log varsa)
-                           v
-                      compile.py          (seçilen yerel AI CLI)
-                           v
-   knowledge/concepts/*.md + knowledge/connections/*.md + knowledge/index.md
-                           |
-                           v
-                   session-start.sh
-        indeksi + bugünün logunu + hafızayı bir sonraki oturuma enjekte eder
+```mermaid
+flowchart TD
+    subgraph Trigger ["⚡ Olay Tetikleyicileri"]
+        SE["Oturum Bitişi<br/>(SessionEnd)"]
+        PC["Bağlam Sıkışması<br/>(PreCompact)"]
+    end
+
+    subgraph Pipeline ["⚙️ Otomatik Hafıza & Derleme Hattı"]
+        FLUSH["flush.py<br/>(Transkripti okur, Türkçe oturum özeti çıkarır)"]
+        DAILY["daily/YYYY-MM-DD.md<br/>(Günlük loglar — makine yazar, sen değil)"]
+        COMPILE["compile.py<br/>(LLM Bilgi Derleyicisi — Saat 18:00+ / Sabah)"]
+        KNOW["knowledge/index.md & makaleler<br/>(Kavramlar, bağlantılar ve bilgi tabanı)"]
+        INJECT["session-start / lifecycle.py<br/>(Yeni oturuma hafıza & bilgi indeksi enjekte eder)"]
+    end
+
+    SE & PC --> FLUSH
+    FLUSH --> DAILY
+    DAILY -->|Günde bir kez / Değişen log varsa| COMPILE
+    COMPILE --> KNOW
+    KNOW --> INJECT
 ```
 
 Yazma tarafı makineye ait, ilişki katmanı sana ait: ortağın hâlâ `Last-Session.md` ve `Threads.md`

@@ -27,20 +27,20 @@ Repo klonlamanıza gerek kalmadan doğrudan terminalinizden güncelleyin:
 
 #### Windows (PowerShell)
 ```powershell
-irm https://raw.githubusercontent.com/respected0/secondbrain/main/update.ps1 | iex
+irm https://raw.githubusercontent.com/respected0/respectedbrain/main/update.ps1 | iex
 ```
 *Özel kasa yolu belirtmek isterseniz:*
 ```powershell
-& { irm https://raw.githubusercontent.com/respected0/secondbrain/main/update.ps1 } -VaultPath "$HOME\Documents\RespectedOS" -Apply
+& { irm https://raw.githubusercontent.com/respected0/respectedbrain/main/update.ps1 } -VaultPath "$HOME\Documents\RespectedOS" -Apply
 ```
 
 #### Linux & macOS (Bash)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/respected0/secondbrain/main/update.sh | bash
+curl -fsSL https://raw.githubusercontent.com/respected0/respectedbrain/main/update.sh | bash
 ```
 *Özel kasa yolu belirtmek isterseniz:*
 ```bash
-curl -fsSL https://raw.githubusercontent.com/respected0/secondbrain/main/update.sh | bash -s -- --vault-path ~/Documents/RespectedOS --apply
+curl -fsSL https://raw.githubusercontent.com/respected0/respectedbrain/main/update.sh | bash -s -- --vault-path ~/Documents/RespectedOS --apply
 ```
 
 ---
