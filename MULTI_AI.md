@@ -69,7 +69,7 @@ Antigravity proje hook dosyalarını kendi standart konumlarından yükler.
 
 ## Her AI aracını bütün kod projelerinde vault'a bağlamak
 
-Vault'un adı serbesttir: `Ada Brain`, `İkinci Beyin`, `Notlarım` veya başka bir ad olabilir.
+Vault'un adı serbesttir: `respectedOS`, `Ada Brain`, `Notlarım` veya başka bir ad olabilir.
 Araçların başka kod repolarında çalışırken de merkezi vault'u bulması için kullanıcı düzeyi
 bağlantıyı kur:
 
@@ -106,7 +106,7 @@ Bu profil hook'larda `py.exe -3` ve vault içindeki `bridge.py` dosyasının mut
 kullanır; WSL, Bash veya `.sh` dosyası gerektirmez. `--providers` seçimi ana agent tercihi
 değildir: yalnız kurulu araçların hangilerine global bağlantı yazılacağını belirler. Bugün Codex ve
 Cursor ile başlayıp daha sonra `antigravity` veya `claude` ekleyebilirsin; mevcut kişisel kurallar
-ve diğer provider ayarları korunur. Herkesin vault adı da kendine aittir, sabit bir ad zorunlu
+ve diğer provider ayarları korunur. Herkesin vault adı da kendine aittir, `respectedOS` zorunlu
 değildir.
 
 ## Arka plan modeli nasıl seçilir?

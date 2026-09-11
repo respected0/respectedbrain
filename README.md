@@ -9,7 +9,7 @@ skill'ler `.beyin/skills/` altında tek kez tutulur; `CLAUDE.md`, `AGENTS.md`, C
 Antigravity rules/hook dosyaları buradan üretilir. Ayrıntılar ve mevcut v2 vault'u güvenli taşıma
 komutu için [MULTI_AI.md](MULTI_AI.md) dosyasına bak.
 
-Vault'un adı kullanıcıya aittir; sabit bir ad zorunlu değildir. İsteğe bağlı
+Vault'un adı kullanıcıya aittir; `respectedOS` veya başka sabit bir ad zorunlu değildir. İsteğe bağlı
 global kurulum, seçilen vault'u Claude, Codex, Cursor ve Antigravity'ye kullanıcı düzeyinde
 bağlayarak başka kod repolarında da aynı merkezi hafızayı kullanır.
 
@@ -375,9 +375,9 @@ Linux masaüstü kısayolu hâlâ saha testi bekliyor.
 
 ## Sık sorulan sorular
 
-### İkinci beyin (kasa) adı sabit olmak zorunda mı?
+### Vault'un adı `respectedOS` olmak zorunda mı?
 
-Hayır. Kurulumda verilen herhangi bir klasör adı ve
+Hayır. Bu yalnız bir kullanıcının kişisel seçimidir. Kurulumda verilen herhangi bir klasör adı ve
 mutlak yol kullanılabilir. İçerideki `🔮 850-Companion` klasörü ise runtime sözleşmesinin sabit
 parçasıdır; AI ortağının görünen adı dosyaların içindedir.
 
