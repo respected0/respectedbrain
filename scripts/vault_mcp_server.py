@@ -36,8 +36,28 @@ except ImportError:
     from scripts.arama import SearchEngine, resolve_vault_root
 
 
+def _detect_vault_identity(vault_root: Path) -> tuple[str, str]:
+    """Kasa dizininden veya konfigürasyondan işletim sistemi (OS) ve companion adını dinamik olarak çözer."""
+    os_name = vault_root.name if vault_root and vault_root.name else "İkinci Beyin"
+    companion_name = "Jarvis"
+
+    # 1. .beyin/config.json kontrolü
+    cfg_file = vault_root / ".beyin" / "config.json"
+    if cfg_file.is_file():
+        try:
+            cfg = json.loads(cfg_file.read_text(encoding="utf-8"))
+            if "os_name" in cfg and cfg["os_name"]:
+                os_name = str(cfg["os_name"]).strip()
+            if "companion" in cfg and cfg["companion"]:
+                companion_name = str(cfg["companion"]).strip()
+        except Exception:
+            pass
+
+    return os_name, companion_name
+
+
 class RespectedMcpServer:
-    """RespectedOS Vault MCP stdio Sunucusu."""
+    """Respected Brain Vault MCP stdio Sunucusu."""
 
     SERVER_NAME = "respected-vault-mcp"
     SERVER_VERSION = "1.0.0"
@@ -45,6 +65,7 @@ class RespectedMcpServer:
 
     def __init__(self, vault_root: Path) -> None:
         self.vault_root = vault_root.resolve()
+        self.os_name, self.companion_name = _detect_vault_identity(self.vault_root)
         self.search_engine = SearchEngine(self.vault_root)
 
     MAX_NOTE_BYTES = 5 * 1024 * 1024  # 5 MB güvenlik tavanı
@@ -74,7 +95,7 @@ class RespectedMcpServer:
             {
                 "name": "respected_search",
                 "description": (
-                    "RespectedOS ikinci beyin vault'undaki notlarda hızlı, anlamsal ve tam metin arama yapar. "
+                    "Kalıcı ikinci beyin vault'undaki notlarda hızlı, anlamsal ve tam metin arama yapar. "
                     "Başka projelerde kod yazarken mimari kararları, hafıza kayıtlarını veya teknik notları bulmak için kullan."
                 ),
                 "inputSchema": {
@@ -100,7 +121,7 @@ class RespectedMcpServer:
             },
             {
                 "name": "respected_get_decisions",
-                "description": "RespectedOS içinde kayıtlı mimari kararları, kuralları ve ADR özetlerini getirir.",
+                "description": "Kasa içinde kayıtlı mimari kararları, kuralları ve ADR özetlerini getirir.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -111,7 +132,7 @@ class RespectedMcpServer:
             },
             {
                 "name": "respected_get_companion_context",
-                "description": "Jarvis / RespectedOS derin hafıza özetini getirir (Core ilkeleri, Kurallar.md, Last-Session ve açık Threads).",
+                "description": f"{self.companion_name} / {self.os_name} derin hafıza özetini getirir (Core ilkeleri, Kurallar.md, Last-Session ve açık Threads).",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -120,7 +141,7 @@ class RespectedMcpServer:
             },
             {
                 "name": "respected_quick_capture",
-                "description": "Dış bir projede çalışırken RespectedOS vault'unun Inbox/Dump klasörüne yeni bir not, karar veya fikir bırakır.",
+                "description": "Dış bir projede çalışırken ikinci beyin vault'unun Inbox/Dump klasörüne yeni bir not, karar veya fikir bırakır.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -135,7 +156,7 @@ class RespectedMcpServer:
                 "name": "respected_remember",
                 "description": (
                     "Dış projede çalışırken öğrenilen kalıcı bir kuralı, teknik kısıtı veya mimari gotcha'yı "
-                    "RespectedOS vault'una epistemik sözleşmeyle (scope, confidence, supersedes) atomik olarak kaydeder."
+                    "ikinci beyin vault'una epistemik sözleşmeyle (scope, confidence, supersedes) atomik olarak kaydeder."
                 ),
                 "inputSchema": {
                     "type": "object",
@@ -189,9 +210,9 @@ class RespectedMcpServer:
             category = arguments.get("category")
             results = self.search_engine.search(query, limit=limit, category=category)
             if not results:
-                return f"'{query}' sorgusu için RespectedOS içinde eşleşen not bulunamadı."
+                return f"'{query}' sorgusu için {self.os_name} içinde eşleşen not bulunamadı."
             
-            lines = [f"### RespectedOS Arama Sonuçları: '{query}' ({len(results)} sonuç)\n"]
+            lines = [f"### {self.os_name} Arama Sonuçları: '{query}' ({len(results)} sonuç)\n"]
             for r in results:
                 lines.append(f"- **[{r['title']}]({r['path']})** (Kategori: `{r['category']}`, Skor: {r['score']})")
                 if r.get("snippet"):
@@ -202,7 +223,7 @@ class RespectedMcpServer:
             rel_path = arguments.get("path", "")
             target = self._safe_resolve(rel_path)
             if not target or not target.is_file():
-                return f"Hata: '{rel_path}' dosyası RespectedOS vault'u içinde bulunamadı."
+                return f"Hata: '{rel_path}' dosyası {self.os_name} vault'u içinde bulunamadı."
             try:
                 if target.stat().st_size > self.MAX_NOTE_BYTES:
                     return f"Hata: '{rel_path}' çok büyük ({target.stat().st_size} bayt). Güvenlik sınırı: {self.MAX_NOTE_BYTES} bayt."
@@ -221,7 +242,7 @@ class RespectedMcpServer:
             if kurallar_file.is_file():
                 kurallar_text = f"\n\n### Aktif Kurallar (Kurallar.md):\n{kurallar_file.read_text(encoding='utf-8', errors='replace')[:2000]}"
 
-            lines = ["### RespectedOS Karar ve Mimari Kayıtları:\n"]
+            lines = [f"### {self.os_name} Karar ve Mimari Kayıtları:\n"]
             for r in results:
                 lines.append(f"- **{r['title']}** (`{r['path']}`): {r['snippet']}")
             lines.append(kurallar_text)
@@ -235,7 +256,7 @@ class RespectedMcpServer:
                 ("Kurallar", companion_dir / "Kurallar.md"),
                 ("Threads", companion_dir / "Threads.md"),
             ]
-            parts = ["## RespectedOS Jarvis Companion Hafıza Özeti\n"]
+            parts = [f"## {self.os_name} — {self.companion_name} Derin Hafıza Özeti\n"]
             for label, fpath in files_to_read:
                 if fpath.is_file():
                     content = fpath.read_text(encoding="utf-8", errors="replace")
@@ -356,7 +377,7 @@ class RespectedMcpServer:
                         found = p
                         break
                 if not found:
-                    return f"'{target_str}' ile eşleşen bir not RespectedOS içinde bulunamadı."
+                    return f"'{target_str}' ile eşleşen bir not {self.os_name} içinde bulunamadı."
                 target_path = found
 
             rel_target = target_path.relative_to(self.vault_root)
@@ -394,7 +415,7 @@ class RespectedMcpServer:
                         continue
 
             lines = [
-                f"### RespectedOS Grafik Komşuluğu: `{rel_target}`\n",
+                f"### {self.os_name} Grafik Komşuluğu: `{rel_target}`\n",
                 f"**📤 Dış Bağlantılar (Bu nottan gidenler - {len(outbound)}):**",
             ]
             if outbound:
@@ -670,7 +691,7 @@ def register_mcp(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="RespectedOS Global MCP Vault Sunucusu")
+    parser = argparse.ArgumentParser(description="Respected Brain — Global MCP Vault Sunucusu")
     parser.add_argument("--vault", type=Path, default=None, help="Vault kök dizini")
     parser.add_argument("--test", action="store_true", help="Protokol yerine araçları test et")
     parser.add_argument("--register", action="store_true", help="AI editörleri ve araçlarına MCP sunucusunu kaydet")
@@ -687,7 +708,7 @@ def main() -> int:
 
     if args.register:
         client_list = [c.strip() for c in args.clients.split(",")] if args.clients else None
-        print(f"RespectedOS Vault: {vault}")
+        print(f"Respected Brain Kasa: {vault} (İsim: {server.os_name})")
         actions = register_mcp(vault, clients=client_list)
         for a in actions:
             print(f"✓ {a}")
@@ -695,7 +716,7 @@ def main() -> int:
         return 0
 
     if args.test:
-        print(f"RespectedOS Vault: {vault}")
+        print(f"Respected Brain Kasa: {vault} (İsim: {server.os_name} — Companion: {server.companion_name})")
         print("Mevcut Araçlar:")
         for t in server.get_tools_manifest():
             print(f" - {t['name']}: {t['description']}")
