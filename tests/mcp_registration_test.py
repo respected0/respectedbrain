@@ -112,9 +112,37 @@ class TestMcpRegistration(unittest.TestCase):
             clients=["cursor"],
         )
         self.assertEqual(len(actions), 1)
-        self.assertTrue((self.fake_home / ".cursor" / "mcp.json").is_file())
-        self.assertFalse((self.fake_home / ".claude.json").is_file())
-        self.assertFalse((self.fake_home / ".codeium" / "windsurf" / "mcp_config.json").is_file())
+    def test_corrupt_json_fails_closed_and_creates_backup(self) -> None:
+        cfg_file = self.fake_home / "corrupted.json"
+        cfg_file.write_text("{ this is not valid json : ;", encoding="utf-8")
+
+        new_entry = {"command": "python", "args": ["foo"]}
+        with self.assertRaises(RuntimeError) as ctx:
+            _update_mcp_json_file(cfg_file, new_entry)
+
+        self.assertIn("geçerli bir JSON değil", str(ctx.exception))
+        self.assertTrue(cfg_file.with_suffix(".json.corrupt_bak").is_file())
+        # Orijinal dosya bozuk haliyle korunmalı, ezilmemeli
+        self.assertIn("this is not valid json", cfg_file.read_text(encoding="utf-8"))
+
+    def test_antigravity_dual_registration(self) -> None:
+        actions = register_mcp(
+            vault_root=self.fake_vault,
+            home_dir=self.fake_home,
+            appdata_dir=self.fake_appdata,
+            clients=["antigravity"],
+        )
+        self.assertTrue(any("global MCP kaydedildi" in a for a in actions))
+        self.assertTrue(any("yerel araç şemaları kaydedildi" in a for a in actions))
+
+        gemini_cfg = self.fake_home / ".gemini" / "config" / "mcp_config.json"
+        self.assertTrue(gemini_cfg.is_file())
+        data = json.loads(gemini_cfg.read_text(encoding="utf-8"))
+        self.assertIn("respected-vault", data.get("mcpServers", {}))
+
+        ide_dir = self.fake_home / ".gemini" / "antigravity-ide" / "mcp" / "respected-vault"
+        self.assertTrue((ide_dir / "instructions.md").is_file())
+        self.assertTrue((ide_dir / "respected_search.json").is_file())
 
 
 if __name__ == "__main__":

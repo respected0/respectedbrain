@@ -346,11 +346,19 @@ def install_vault(
             mcp_script = target_scripts / "vault_mcp_server.py"
             if mcp_script.is_file():
                 mcp_cmd = [sys.executable, str(mcp_script), "--vault", str(vault_path), "--register"]
-                mcp_res = subprocess.run(mcp_cmd, capture_output=True, text=True, check=False)
+                mcp_res = subprocess.run(
+                    mcp_cmd,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    check=False,
+                )
                 if mcp_res.returncode == 0:
                     for line in mcp_res.stdout.splitlines():
-                        if line.startswith("✓"):
-                            log(f"  {Colors.GREEN}{line}{Colors.RESET}")
+                        clean_line = line.strip()
+                        if clean_line.startswith("✓") or "kaydedildi" in clean_line.lower():
+                            log(f"  {Colors.GREEN}{clean_line}{Colors.RESET}")
                 else:
                     log(f"  {Colors.YELLOW}Uyarı: MCP kaydı tamamlanamadı: {mcp_res.stderr.strip()}{Colors.RESET}")
 

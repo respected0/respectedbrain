@@ -501,17 +501,23 @@ class RespectedMcpServer:
 
 
 def _update_mcp_json_file(file_path: Path, server_entry: dict[str, Any], server_key: str = "respected-vault") -> bool:
-    """Belirtilen JSON dosyasındaki mcpServers bloğuna güvenli ve atomik ekleme/güncelleme yapar."""
+    """Belirtilen JSON dosyasındaki mcpServers bloğuna güvenli, yedekli ve atomik ekleme/güncelleme yapar."""
     cfg: dict[str, Any] = {}
     if file_path.is_file():
+        raw_text = file_path.read_text(encoding="utf-8")
         try:
-            cfg = json.loads(file_path.read_text(encoding="utf-8"))
-        except Exception:
-            cfg = {}
+            cfg = json.loads(raw_text)
+        except Exception as err:
+            # Var olan bozuk dosyayı körü körüne ezmek yerine güvenli yedek alıp hata fırlat
+            backup_path = file_path.with_suffix(".json.corrupt_bak")
+            backup_path.write_text(raw_text, encoding="utf-8")
+            raise RuntimeError(f"Var olan {file_path.name} geçerli bir JSON değil (yedek alındı: {backup_path.name}): {err}")
     servers = cfg.setdefault("mcpServers", {})
     servers[server_key] = server_entry
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    file_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    temp_path = file_path.with_suffix(".json.tmp")
+    temp_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    temp_path.replace(file_path)
     return True
 
 
@@ -524,7 +530,7 @@ def register_mcp(
     """Popüler AI editörleri ve CLI araçları için MCP sunucusunu otomatik kaydeder.
 
     Desteklenen İstemciler:
-    - antigravity: Google Antigravity IDE (~/.gemini/antigravity-ide/mcp/respected-vault)
+    - antigravity: Google Antigravity IDE & Gemini CLI (~/.gemini/config/mcp_config.json ve IDE araç şemaları)
     - claude_code: Claude Code CLI (~/.claude.json)
     - claude_desktop: Claude Desktop (APPDATA/Claude veya Library/Application Support/Claude veya ~/.config/Claude)
     - cursor: Cursor IDE (~/.cursor/mcp.json)
@@ -546,10 +552,19 @@ def register_mcp(
         "args": [str(server_script.resolve()), "--vault", str(vault_root.resolve())],
     }
 
-    # 1. Google Antigravity IDE
+    # 1. Google Antigravity & Gemini CLI
     if target_clients is None or "antigravity" in target_clients:
+        # A. Global MCP config (~/.gemini/config/mcp_config.json)
+        gemini_cfg_path = home / ".gemini" / "config" / "mcp_config.json"
+        if target_clients is not None or gemini_cfg_path.parent.is_dir() or (home / ".gemini").is_dir():
+            try:
+                _update_mcp_json_file(gemini_cfg_path, server_entry)
+                actions.append(f"Antigravity / Gemini global MCP kaydedildi: {gemini_cfg_path}")
+            except Exception as e:
+                actions.append(f"Antigravity global MCP kayıt uyarısı: {e}")
+
+        # B. IDE Lazy Tool Manifest (~/.gemini/antigravity-ide/mcp/respected-vault)
         antigravity_dir = home / ".gemini" / "antigravity-ide" / "mcp" / "respected-vault"
-        # Eğer Antigravity yüklüyse ya da açıkça istenmişse
         if target_clients is not None or antigravity_dir.parent.is_dir() or (home / ".gemini").is_dir():
             try:
                 antigravity_dir.mkdir(parents=True, exist_ok=True)
@@ -569,9 +584,9 @@ def register_mcp(
                         "parameters": tool["inputSchema"],
                     }
                     schema_file.write_text(json.dumps(schema_data, indent=2, ensure_ascii=False), encoding="utf-8")
-                actions.append(f"Antigravity IDE MCP kaydedildi: {antigravity_dir}")
+                actions.append(f"Antigravity IDE yerel araç şemaları kaydedildi: {antigravity_dir}")
             except Exception as e:
-                actions.append(f"Antigravity IDE kayıt uyarısı: {e}")
+                actions.append(f"Antigravity IDE şema kayıt uyarısı: {e}")
 
     # 2. Claude Code CLI (~/.claude.json)
     if target_clients is None or "claude_code" in target_clients:

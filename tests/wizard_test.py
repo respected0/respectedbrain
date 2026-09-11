@@ -201,11 +201,17 @@ class WizardTest(unittest.TestCase):
             "e",                   # 11. MCP Sunucusu: EVET
         ]
 
-        with mock.patch("builtins.input", side_effect=mock_inputs):
+        # Gerçek kullanıcı home dizinini korumak için subprocess'ı izole et
+        with mock.patch("builtins.input", side_effect=mock_inputs), \
+             mock.patch("subprocess.run") as mock_sub:
+            mock_sub.return_value = mock.Mock(returncode=0, stdout="✓ Mocked MCP kaydı başarılı", stderr="")
             code = self.installer._interactive_wizard()
 
         self.assertEqual(code, 0)
         self.assertTrue((target_vault / "scripts" / "vault_mcp_server.py").is_file())
+        # subprocess.run'ın vault_mcp_server.py --register ile çağrıldığını doğrula
+        called_args = [call[0][0] for call in mock_sub.call_args_list if call[0]]
+        self.assertTrue(any("vault_mcp_server.py" in str(arg) and "--register" in arg for arg in called_args))
 
 
 if __name__ == "__main__":
