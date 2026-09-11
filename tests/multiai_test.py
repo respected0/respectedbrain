@@ -390,7 +390,7 @@ class MultiAITest(unittest.TestCase):
             True,
         )
         completed = SimpleNamespace(returncode=0, stdout="özet", stderr="")
-        win_cwd = Path("/mnt/c/Users/Ada/Documents/RespectedOS")
+        win_cwd = Path("/mnt/c/Users/Ada/Documents/AdaBrain")
 
         with mock.patch.dict(runner.os.environ, {"WSL_INTEROP": "/run/WSL/1_interop"}, clear=True), mock.patch.object(
             runner,

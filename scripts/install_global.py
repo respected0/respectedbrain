@@ -122,7 +122,7 @@ def managed_rule(vault: Path) -> str:
         f"Kalıcı hafıza vault'u **{vault.name}**: {locations}.\n"
         "Göreceli hafıza yollarını aktif kod reposuna göre değil bu vault köküne göre çöz. "
         "Kullanıcı istemedikçe proje kodunu vault'a taşıma. Vault adı kullanıcı tercihidir; "
-        "`respectedOS` olması gerekmez.\n\n"
+        "sabit bir ad olması gerekmez.\n\n"
         f"{instructions}\n"
         f"{END}"
     )

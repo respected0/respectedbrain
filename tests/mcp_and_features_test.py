@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RespectedOS yeni nesil yeteneklerin testleri.
+"""Respected Brain yeni nesil yeteneklerin testleri.
 
 Test edilen bileşenler:
 1. SQLite FTS5 yerel arama motoru (SearchEngine)
@@ -49,7 +49,7 @@ class SearchEngineTest(unittest.TestCase):
         # Örnek test notları
         (self.vault / "knowledge" / "Python_Mimarisi.md").write_text(
             "---\ntitle: Python Mimarisi\ntags: [python, backend]\nvalid_at: 2026-09-01\nfreshness: timeless\n---\n"
-            "# Python Mimarisi\nRespectedOS mimarisinde Python standart kütüphanesi tercih edilir.",
+            "# Python Mimarisi\nİkinci beyin mimarisinde Python standart kütüphanesi tercih edilir.",
             encoding="utf-8",
         )
         (self.vault / "🏰 300-Projects" / "Auth_ADR.md").write_text(
@@ -72,7 +72,7 @@ class SearchEngineTest(unittest.TestCase):
         results = self.engine.search("Python mimarisi")
         self.assertTrue(len(results) >= 1)
         self.assertEqual(results[0]["title"], "Python Mimarisi")
-        self.assertIn("RespectedOS", results[0]["snippet"])
+        self.assertIn("standart kütüphanesi", results[0]["snippet"])
 
         # Auth araması
         auth_results = self.engine.search("token cookie")
@@ -112,7 +112,7 @@ class McpServerTest(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.vault = Path(self.temp_dir.name)
         (self.vault / "🔮 850-Companion").mkdir(parents=True)
-        (self.vault / "🔮 850-Companion" / "Core.md").write_text("# Core\nJarvis düşünme ortağı.", encoding="utf-8")
+        (self.vault / "🔮 850-Companion" / "Core.md").write_text("# Core\nCompanion düşünme ortağı.", encoding="utf-8")
         (self.vault / "🔮 850-Companion" / "Kurallar.md").write_text("- kural: Direkt ol", encoding="utf-8")
         (self.vault / "🔮 850-Companion" / "Last-Session.md").write_text("Son oturum özeti.", encoding="utf-8")
         (self.vault / "🔮 850-Companion" / "Threads.md").write_text("Açık konular.", encoding="utf-8")
@@ -140,14 +140,14 @@ class McpServerTest(unittest.TestCase):
 
     def test_companion_context_tool(self) -> None:
         out = self.server.call_tool("respected_get_companion_context", {})
-        self.assertIn("Jarvis düşünme ortağı", out)
+        self.assertIn("Companion düşünme ortağı", out)
         self.assertIn("Direkt ol", out)
         self.assertIn("Son oturum özeti", out)
 
     def test_safe_note_read_and_path_traversal(self) -> None:
         # Geçerli okuma
         out = self.server.call_tool("respected_get_note", {"path": "🔮 850-Companion/Core.md"})
-        self.assertIn("Jarvis düşünme ortağı", out)
+        self.assertIn("Companion düşünme ortağı", out)
 
         # Path traversal atağı engellenmeli
         attack_out = self.server.call_tool("respected_get_note", {"path": "../../etc/passwd"})

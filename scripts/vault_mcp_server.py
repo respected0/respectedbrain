@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""RespectedOS Global MCP Vault Sunucusu (respected-vault-mcp).
+"""Respected Brain Global MCP Vault Sunucusu (respected-vault).
 
 Model Context Protocol (MCP) JSON-RPC 2.0 stdio sunucusu.
-Kullanıcının başka projelerde çalışırken Antigravity, Claude Code, Codex veya
-herhangi bir MCP uyumlu ajandan RespectedOS ikinci beynine doğrudan erişmesini sağlar.
+Kullanıcının başka projelerde çalışırken Antigravity, Claude Code, Codex, Cursor veya
+herhangi bir MCP uyumlu ajandan ikinci beyin kasasına doğrudan erişmesini sağlar.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ except ImportError:
 def _detect_vault_identity(vault_root: Path) -> tuple[str, str]:
     """Kasa dizininden veya konfigürasyondan işletim sistemi (OS) ve companion adını dinamik olarak çözer."""
     os_name = vault_root.name if vault_root and vault_root.name else "İkinci Beyin"
-    companion_name = "Jarvis"
+    companion_name = "Companion"
 
     # 1. .beyin/config.json kontrolü
     cfg_file = vault_root / ".beyin" / "config.json"

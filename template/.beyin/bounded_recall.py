@@ -26,7 +26,7 @@ MIN_QUERY_CHARS = 12
 CONVERSATIONAL_WORDS = {
     "ok", "tamam", "evet", "hayır", "olur", "peki", "merhaba", "selam",
     "günaydın", "iyi akşamlar", "teşekkürler", "sağol", "devam", "devam et", "et",
-    "anladım", "başla", "hazırım", "yes", "no", "thanks", "hello", "hi", "jarvis"
+    "anladım", "başla", "hazırım", "yes", "no", "thanks", "hello", "hi", "companion", "asistan"
 }
 
 _WORD_RE = re.compile(r"[\w\u00C0-\u017F]+", re.UNICODE)

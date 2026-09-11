@@ -94,8 +94,8 @@ class WizardTest(unittest.TestCase):
             str(target_vault),     # 1. Kasa yolu
             "Furkan",              # 2. Ad
             "Yazılım Mühendisi",   # 3. Bio
-            "Jarvis",              # 4. Companion
-            "RespectedOS",         # 5. OS Name
+            "Companion",           # 4. Companion
+            "TestOS",              # 5. OS Name
             "2",                   # 6. Seçim: [2] Google Antigravity Öncelikli
             "1",                   # 7. Ortam: [1] Native
             "h",                   # 8. Global AI: Hayır
@@ -122,8 +122,8 @@ class WizardTest(unittest.TestCase):
             str(target_vault),     # 1. Kasa yolu
             "Furkan",              # 2. Ad
             "Yazılım Mühendisi",   # 3. Bio
-            "Jarvis",              # 4. Companion
-            "RespectedOS",         # 5. OS Name
+            "Companion",           # 4. Companion
+            "TestOS",              # 5. OS Name
             "6",                   # 6. Seçim: [6] Özel Sıralama Belirle
             "antigravity, codex",  # Özel sıra
             "3",                   # 7. Ortam: [3] Hibrit
@@ -148,8 +148,8 @@ class WizardTest(unittest.TestCase):
             str(target_vault),     # 1. Kasa yolu
             "Furkan",              # 2. Ad
             "Yazılım Mühendisi",   # 3. Bio
-            "Jarvis",              # 4. Companion
-            "RespectedOS",         # 5. OS Name
+            "Companion",           # 4. Companion
+            "TestOS",              # 5. OS Name
             "5",                   # 6. Seçim: [5] Tek Model Kitle
             "codex",               # Kilitlenecek model
             "1",                   # 7. Ortam: [1] Native
@@ -174,7 +174,7 @@ class WizardTest(unittest.TestCase):
         target_vault.mkdir()
 
         shortcut_file = self.installer.create_desktop_shortcut(
-            os_name="RespectedOS",
+            os_name="TestOS",
             vault_path=target_vault,
             desktop_dir_override=desktop_dir,
         )
@@ -191,8 +191,8 @@ class WizardTest(unittest.TestCase):
             str(target_vault),     # 1. Kasa yolu
             "Furkan",              # 2. Ad
             "Mühendis",            # 3. Bio
-            "Jarvis",              # 4. Companion
-            "RespectedOS",         # 5. OS Name
+            "Companion",           # 4. Companion
+            "TestOS",              # 5. OS Name
             "1",                   # 6. Seçim: [1] Auto
             "1",                   # 7. Ortam: [1] Native
             "h",                   # 8. Global AI: Hayır

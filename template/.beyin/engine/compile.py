@@ -56,8 +56,8 @@ BELLEK ŞEMASI VE 5-FAZLI KONSOLİDASYON KURALLARI
 - Faz 5 (İndeksi Yenile): knowledge/index.md kataloğunu ve knowledge/log.md özetini eksiksiz güncelle.
 - Kavram dosyası knowledge/concepts/<domain>/<ascii-kebab-slug>.md veya knowledge/concepts/<ascii-kebab-slug>.md yolunda olmalı.
 - Alan (Domain) Ayrımı ve Context-Tagging:
-  * core: RespectedOS çekirdek hafıza (sistem, altyapı, hook'lar, companion kuralları, hafıza mimarisi)
-  * finance: Kişisel finans (Personal Finance OS, muhasebe, gelir-gider, bütçe, yatırım, bankacılık)
+  * core: İkinci beyin çekirdek hafıza (sistem, altyapı, hook'lar, companion kuralları, hafıza mimarisi)
+  * finance: Kişisel finans (bütçe, muhasebe, gelir-gider, yatırım, bankacılık)
   * project/<slug>: Özel proje alanları (örn: project/ecommerce, project/ai-agent)
   * general: Genel bilgi, metodoloji ve yukarıdaki alanlara girmeyen kavramlar
 - YAML frontmatter alanları title, domain, aliases, tags, sources, created, updated olmalı;

@@ -52,8 +52,8 @@ class KnowledgeDomainTest(unittest.TestCase):
     def test_compile_prompt_specifies_domain_tagging_and_index_structure(self) -> None:
         prompt = self.compiler.COMPILE_PROMPT
         self.assertIn("Alan (Domain) Ayrımı ve Context-Tagging:", prompt)
-        self.assertIn("* core: RespectedOS çekirdek hafıza", prompt)
-        self.assertIn("* finance: Kişisel finans (Personal Finance OS", prompt)
+        self.assertIn("* core: İkinci beyin çekirdek hafıza", prompt)
+        self.assertIn("* finance: Kişisel finans (bütçe, muhasebe", prompt)
         self.assertIn("title, domain, aliases, tags", prompt)
         self.assertIn("* project/<slug>:", prompt)
         self.assertIn("* general:", prompt)

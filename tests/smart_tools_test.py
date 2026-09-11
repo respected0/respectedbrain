@@ -42,7 +42,7 @@ class TestV144BoundedRecall(unittest.TestCase):
 
     def test_abstention_gate_on_short_or_conversational_prompts(self):
         self.assertTrue(bounded_recall.should_abstain("merhaba"))
-        self.assertTrue(bounded_recall.should_abstain("selam jarvis"))
+        self.assertTrue(bounded_recall.should_abstain("selam companion"))
         self.assertTrue(bounded_recall.should_abstain("teşekkürler"))
         self.assertTrue(bounded_recall.should_abstain("ok"))
         self.assertTrue(bounded_recall.should_abstain("tamam anladım"))
@@ -51,7 +51,7 @@ class TestV144BoundedRecall(unittest.TestCase):
 
     def test_abstention_gate_passes_substantive_prompts(self):
         self.assertFalse(bounded_recall.should_abstain("Next.js auth mimarisi ve session yönetimi nasıl olmalı?"))
-        self.assertFalse(bounded_recall.should_abstain("RespectedOS graphrag indexleme kararları neydi?"))
+        self.assertFalse(bounded_recall.should_abstain("İkinci beyin graphrag indexleme kararları neydi?"))
         self.assertFalse(bounded_recall.should_abstain("PostgreSQL connection pooling ayarları"))
 
     def test_bounded_recall_produces_budgeted_output(self):

@@ -45,7 +45,7 @@ py -3 scripts/install_global.py `
 ```
 
 İlk çalıştırma önizlemedir. Dosyaları kontrol edip aynı komuta `--apply` ekle. Vault adının
-`respectedOS` olması gerekmez.
+sabit bir ad olması gerekmez.
 
 ## Sabah brifingini etkinleştirmek
 
