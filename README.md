@@ -1,5 +1,15 @@
 # 🧠 Respected Brain: araç bağımsız, hatırlamayı unutmayan ikinci beyin
 
+<p align="center">
+  <a href="https://github.com/respected0/respectedbrain/releases"><img src="https://img.shields.io/badge/Release-v0.0.1-blue.svg?style=flat-square" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License"></a>
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20WSL-lightgrey.svg?style=flat-square" alt="Platforms">
+  <img src="https://img.shields.io/badge/Tested%20Agents-Antigravity%20%7C%20Codex%20%7C%20Claude%20%7C%20Cursor%20%7C%20Windsurf-purple.svg?style=flat-square" alt="Tested Agents">
+  <img src="https://img.shields.io/badge/MCP-Supported%20FTS5-teal.svg?style=flat-square" alt="MCP Server">
+  <img src="https://img.shields.io/badge/Architecture-Zero--Trust%20Local%20Memory-orange.svg?style=flat-square" alt="Local Memory">
+</p>
+
 [Obsidian](https://obsidian.md) ile Claude Code, Codex, Cursor ve Antigravity üstünde çalışan,
 açık kaynak bir **ikinci beyin**. Yerel bir Markdown vault, kalıcı hafıza, sıfır bağımlılık,
 sıfır ekstra ücret. Dosya yönetmezsin, konuşursun.
@@ -18,11 +28,50 @@ bağlayarak başka kod repolarında da aynı merkezi hafızayı kullanır.
 Respected bir sohbet uygulaması veya yeni bir model değildir. Agentların arasında duran ortak,
 dosya tabanlı hafıza katmanıdır:
 
-```text
-Antigravity ─┐
-Codex ───────┼─→ aynı vault → daily/ → knowledge/ → sonraki agent oturumu
-Claude ──────┤
-Cursor ──────┘
+```mermaid
+graph TD
+    subgraph Agents ["🤖 Desteklenen AI Ajanları & Editörler"]
+        AGY["Antigravity IDE"]
+        CDX["OpenAI Codex"]
+        CLD["Claude Code"]
+        CUR["Cursor IDE"]
+        WND["Windsurf / Cline"]
+    end
+
+    subgraph Hooks ["⚡ Yaşam Döngüsü Kancaları (Lifecycle Hooks)"]
+        H_START["session-start<br/>(Hafıza & Bilgi İndeksi Enjeksiyonu)"]
+        H_PROMPT["user-prompt<br/>(Dinamik Hatırlama & Guardrails)"]
+        H_COMPACT["pre-compact<br/>(Sıkışma Öncesi Yakalama)"]
+        H_END["session-end<br/>(Oturum Kapanış Tetikleyici)"]
+    end
+
+    subgraph MemoryEngine ["🧠 Respected Brain Yerel Motoru"]
+        FLUSH["flush.py<br/>(Yerel CLI ile Transkript Özetleyici)"]
+        DAILY["daily/YYYY-MM-DD.md<br/>(Günlük Oturum Logları)"]
+        COMPILE["compile.py<br/>(Karpathy LLM Bilgi Derleyicisi)"]
+        KNOWLEDGE["knowledge/<br/>(Kavramlar, İlişkiler & İndeks)"]
+        COMPANION["🔮 850-Companion/<br/>(Last-Session, Threads, Kurallar)"]
+    end
+
+    subgraph Access ["🔍 Dış Erişim & Entegrasyon"]
+        MCP["Model Context Protocol (MCP)<br/>scripts/vault_mcp_server.py (SQLite FTS5)"]
+        OBS["Obsidian Kasa Arayüzü<br/>(Yerel Markdown Görselleştirme)"]
+    end
+
+    AGY & CDX & CLD & CUR & WND -->|Oturum Başlar| H_START
+    AGY & CDX & CLD & CUR & WND -->|Kullanıcı Mesajı| H_PROMPT
+    CDX & CLD & CUR -->|Bağlam Taşmak Üzere| H_COMPACT
+    AGY & CDX & CLD & CUR & WND -->|Oturum Biter| H_END
+
+    H_COMPACT & H_END --> FLUSH
+    FLUSH --> DAILY
+    DAILY -->|Saat 18+ / Sabah Brifingi| COMPILE
+    COMPILE --> KNOWLEDGE
+    KNOWLEDGE & COMPANION --> H_START
+
+    DAILY & KNOWLEDGE & COMPANION --- MCP
+    DAILY & KNOWLEDGE & COMPANION --- OBS
+    MCP -.->|Araç Çağrıları| AGY & CUR & CLD & WND
 ```
 
 Bir projeye Antigravity ile başlayıp ertesi gün Codex'e geçebilirsin. Codex, Antigravity'nin özel
@@ -148,6 +197,35 @@ Antigravity IDE'yi hem Windows'ta hem **Connect to WSL** ile kullanıyorsan ek L
 `--antigravity-home` ile açıkça ver. Seçenek tekrarlanabilir; ek köklere yalnız `.gemini`
 entegrasyonu kurulur, Codex/Cursor/Claude ana `--home` altında kalır. Connect to WSL kullanmıyorsan
 bu seçeneği yazma.
+
+## Dış Projelerden ve Editörlerden Erişim: Model Context Protocol (MCP)
+
+Respected Brain, harici kod projelerinde çalışırken veya masaüstü AI editörlerini kullanırken kasanızdaki kalıcı hafızaya, kararlara ve bilgi tabanına anında erişebilmeniz için saf Python + SQLite FTS5 destekli yerel bir **Model Context Protocol (MCP)** sunucusu içerir.
+
+### Editörlere Tek Komutla Kayıt
+
+Aşağıdaki komutla Claude Desktop, Cursor, Antigravity IDE, Claude Code veya Windsurf editörlerine Respected Brain MCP sunucusunu otomatik olarak tanımlayabilirsiniz:
+
+```bash
+python3 scripts/vault_mcp_server.py --vault "/mutlak/vault/yolu" --register
+```
+
+Windows Native ortamında:
+```powershell
+py -3 scripts/vault_mcp_server.py --vault "C:\Users\KULLANICI\Documents\RespectedOS" --register
+```
+
+### Sağlanan MCP Araçları (Tools)
+
+| Araç | Açıklama |
+| :--- | :--- |
+| `respected_search` | Vault içinde SQLite FTS5 tabanlı ultra hızlı anahtar kelime araması. |
+| `respected_get_note` | Belirli bir not veya dokümanın tam içeriğini okur. |
+| `respected_get_decisions` | Kasa genelinde alınan geçmiş mimari ve teknik kararları listeler. |
+| `respected_get_companion_context` | Son oturum özeti (`Last-Session`), aktif konular (`Threads`) ve kuralları çeker. |
+| `respected_quick_capture` | Dış projedeyken kasa `📥 000-Inbox/Dump/` klasörüne anında ham not düşer. |
+| `respected_remember` | Önemli bir kural veya kararı doğrudan ortağın hafızasına kalıcı olarak işler. |
+| `respected_expand` | Bir kavramın bilgi tabanındaki bağlantılı kavram ağını genişletir. |
 
 ## Agent değiştirmek
 
@@ -278,7 +356,38 @@ kalır. Damgasız v1 shell yükseltmesinin doğrulanmış harici yedek kökü is
 
 ## Mimari
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User as 👤 Kullanıcı
+    participant Agent as 🤖 AI Ajanı (Antigravity/Codex/Claude/Cursor)
+    participant Hook as ⚡ Kanca (Hooks)
+    participant Engine as ⚙️ flush.py / compile.py
+    participant Vault as 📁 Respected Brain Vault (Markdown)
+
+    User->>Agent: Oturum başlatır
+    Agent->>Hook: session-start tetiklenir
+    Hook->>Vault: Last-Session, Threads, Kurallar ve Bilgi İndeksini okur
+    Hook-->>Agent: Sistem promptuna bağlamı enjekte eder
+    
+    User->>Agent: Çalışma & Kararlar (Sohbet / Kodlama)
+    
+    opt Bağlam Sıkışması
+        Agent->>Hook: pre-compact tetiklenir
+        Hook->>Engine: flush.py ile özet çıkar
+        Engine->>Vault: daily/YYYY-MM-DD.md dosyasına oturum özeti düşer
+    end
+
+    User->>Agent: Oturumu kapatır
+    Agent->>Hook: session-end tetiklenir
+    Hook->>Engine: flush.py arka planda çalışır
+    Engine->>Vault: daily/YYYY-MM-DD.md loguna oturum kaydedilir
+
+    Note over Vault,Engine: Saat 18:00 sonrası veya Sabah Brifinginde
+    Engine->>Vault: compile.py çalışır, logları knowledge/ makalelerine dönüştürür
 ```
+
+```text
    oturum biter                    konuşma sıkışmak üzere
    (SessionEnd)                         (PreCompact)
         |                                    |
@@ -305,6 +414,15 @@ kalır. Damgasız v1 shell yükseltmesinin doğrulanmış harici yedek kökü is
 
 Yazma tarafı makineye ait, ilişki katmanı sana ait: ortağın hâlâ `Last-Session.md` ve `Threads.md`
 dosyalarını kendi eliyle günceller. Makine katmanı onun yerine geçmez, altını doldurur.
+
+### Dürüst Sınırlar: Ne Yapar, Ne Yapmaz?
+
+| Ne Yapar? (Tasarım Hedefi) | Ne Yapmaz? (Dürüst Sınırlar) |
+| :--- | :--- |
+| **Tam Yerel ve Açık Format:** Notların %100 düz Markdown dosyalarıdır; Obsidian veya herhangi bir metin editörüyle sonsuza kadar okunabilir. | **Kapalı Kutu / SaaS Yok:** Gizli bir bulut sunucusuna veya ücretli üçüncü parti bellek platformuna bağımlı kılmaz. |
+| **Damıtılmış İş Bağlamı:** Oturumlardan kararları, kuralları, aktif konuları ve bilgi ağını aktarır. | **Bağlamı Şişirmez:** 100.000 tokenlik ham sohbet dökümünü bir sonraki oturuma yığarak modeli yavaşlatmaz ve kota yakmaz. |
+| **Sıfır Bağımlılık (Zero-Dep Core):** Dış Python kütüphaneleri (`pip install` dahi gerekmez) istemez; standart Python 3 ile çalışır. | **Ağır Vektör DB Şartı Koşmaz:** Ağır embedding modelleri ve GPU gerektirmez; SQLite FTS5 ve Karpathy LLM derleyicisi kullanır. |
+| **Çoklu AI Özgürlüğü:** Antigravity ile başla, Codex ile devam et, Claude Code ile test yaz. Hepsi aynı hafızaya konuşur. | **Sihirli Zihin Okuma Yapmaz:** Oturum kapanmadan önce birkaç saniyelik özet çıkarma payı bırakılmazsa o oturumun son anı `daily/` yerine insan notuna kalır. |
 
 ### Agent uyumluluk tablosu
 
