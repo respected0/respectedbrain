@@ -311,7 +311,7 @@ try {
     if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-version"))).Trim() -ne "2.0.0") {
         throw ".beyin-version gate başarısız"
     }
-    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-multi-version"))).Trim() -ne "1.4.6") {
+    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-multi-version"))).Trim() -ne "0.0.1") {
         throw ".beyin-multi-version gate başarısız"
     }
     $AdapterPaths = @(
@@ -337,6 +337,6 @@ catch {
 }
 
 Write-Host "Respected Brain kuruldu: $ResolvedVault"
-Write-Host "Sürüm: core 2.0.0 / multi-AI 1.4.6"
+Write-Host "Sürüm: core 2.0.0 / multi-AI 0.0.1"
 Write-Host "Global bağlantı ayrı ve seçicidir; SETUP-WINDOWS.md içindeki install_global.py adımını kullan."
 exit 0

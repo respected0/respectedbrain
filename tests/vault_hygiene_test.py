@@ -231,8 +231,8 @@ class TestVaultLinterAndTiling(unittest.TestCase):
 class TestManifestAndTemplates(unittest.TestCase):
     """1.4.1 Sürüm Manifesti, Şablonlar ve Kurallar."""
 
-    def test_manifest_version_is_1_4_5(self):
-        self.assertEqual(manifest.MULTI_VERSION, "1.4.6")
+    def test_manifest_version_is_0_0_1(self):
+        self.assertEqual(manifest.MULTI_VERSION, "0.0.1")
         self.assertIn("1.4.1", manifest.UPDATABLE_MULTI_VERSIONS)
         self.assertIn("1.4.2", manifest.UPDATABLE_MULTI_VERSIONS)
         self.assertIn("1.4.3", manifest.UPDATABLE_MULTI_VERSIONS)
@@ -283,7 +283,7 @@ class TestManifestAndTemplates(unittest.TestCase):
         self.assertTrue((ROOT / "template" / "📋 Templates" / "Base.base").is_file())
 
         # Sürüm dosyası
-        self.assertEqual((ROOT / "template" / ".beyin-multi-version").read_text().strip(), "1.4.6")
+        self.assertEqual((ROOT / "template" / ".beyin-multi-version").read_text().strip(), "0.0.1")
 
     def test_url_safety_blocks_rfc_internal_domains(self):
         from scripts.url_safety import validate_safe_url

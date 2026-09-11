@@ -18,8 +18,8 @@ Respected has exactly three installed runtime profiles:
 
 If this checkout is running directly in Windows and the user wants a fresh native vault, stop this
 POSIX-oriented runbook and follow `SETUP-WINDOWS.md`. For an already stamped Respected Brain
-`2.0.0` / `1.0.0`, `1.1.0`, `1.2.0`, `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2`, `1.4.3`, `1.4.4` or `1.4.5` vault, `scripts/update_respected.py --platform windows-native`
-is supported (updating to `1.4.6`). Unstamped legacy v1 vaults should have their memory folders transferred to a fresh template vault.
+`2.0.0` / `1.0.0` – `1.4.6` vault, `scripts/update_respected.py --platform windows-native`
+is supported (updating to `0.0.1`). Unstamped legacy v1 vaults should have their memory folders transferred to a fresh template vault.
 Claude is never mandatory when another selected provider CLI is installed and authenticated.
 
 > You are a coding agent, run from inside a freshly cloned `respectedbrain` repo. The user wants their
@@ -115,8 +115,8 @@ Decide:
 | `TARAMA TAMAM: 0 aday` | **MODE A, sıfırdan kurulum** (PHASE 0'a git) |
 | Aday var, `.beyin-version` yok | **Damgasız v1**: Hafıza klasörünü (`🔮 850-Companion`) MODE A ile yeni vault'a aktar |
 | Aday var, `.beyin-version` = `2.0.0`, `.beyin-multi-version` yok | **v2 tamamla**: `scripts/enable_multiai.py` ile çoklu-AI katmanını kur |
-| Damgalar `2.0.0` / `1.0.0`, `1.1.0`, `1.2.0`, `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2`, `1.4.3`, `1.4.4`, `1.4.5` | **MODE C**, `1.4.6` sürümüne güncelle: `scripts/update_respected.py` kullan |
-| Damgalar `2.0.0` / `1.4.6` | Zaten güncel Respected Brain. Sadece `beyin-doktor` çalıştır (zorlamak için `--force`) |
+| Damgalar `2.0.0` / `1.0.0` – `1.4.6` | **MODE C**, `0.0.1` sürümüne güncelle: `scripts/update_respected.py` kullan |
+| Damgalar `2.0.0` / `0.0.1` | Zaten güncel Respected Brain. Sadece `beyin-doktor` çalıştır (zorlamak için `--force`) |
 | Aday var, `.beyin-version` başka bir değer | Kullanıcıya göster, ne yapılacağını sor |
 
 Tell the user which mode you picked and why, in one Turkish sentence. Never guess silently.
@@ -257,7 +257,7 @@ ls .beyin/engine/          # flush.py compile.py
 ls .claude/skills/         # beyin-doktor gecmis-import
 ls -d daily knowledge/concepts knowledge/connections
 cat .beyin-version         # 2.0.0
-cat .beyin-multi-version   # 1.4.6
+cat .beyin-multi-version   # 0.0.1
 ```
 
 ## PHASE 3: Personalize (substitute placeholders)
@@ -620,7 +620,7 @@ Pass only the confirmation flags the check asked for. Read the numbered output b
 | Çıkış kodu | Anlamı | Ne yapacaksın |
 | --- | --- | --- |
 | `0` | Respected çekirdeği ve adapterları hazır, iki sürüm damgası da HENÜZ yazılmadı | PHASE U4'e geç |
-| `3` | vault zaten çekirdek `2.0.0` + Respected multi-AI `1.4.6` | güncelleme gerekmez, sadece `beyin doktor` çalıştır |
+| `3` | vault zaten çekirdek `2.0.0` + Respected multi-AI `0.0.1` | güncelleme gerekmez, sadece `beyin doktor` çalıştır |
 | `10` | yeniden adlandırma onayı eksik | PHASE U2'ye dön |
 | `11` | yerel kanca temizliği onayı eksik | PHASE U2'ye dön |
 | `1` | sert hata, ekranda `HATA:` satırı var | DUR. Kullanıcıya oku, düzelt, tekrar çalıştır |
@@ -681,7 +681,7 @@ bash scripts/upgrade.sh --vault "/kullanicinin/mutlak/vault/yolu" --stage finali
 
 Only if all twelve pass does it commit with an **explicit path allow-list** (never `git add -A`),
 abort if any staged path looks like local settings or a backup, verify that `HEAD` really moved,
-and only then write `.beyin-multi-version = 1.4.6` followed by the authoritative final
+and only then write `.beyin-multi-version = 0.0.1` followed by the authoritative final
 `.beyin-version = 2.0.0` write. If any gate fails it prints the failing rows, writes no stamp, and
 the vault stays honestly unfinished. A vault that already has only the old v2 core stamp is not
 treated as complete; the same upgrade finishes its Respected layer.
@@ -702,8 +702,7 @@ user explicitly requests another first choice.
 
 # MODE C: Update an existing stamped Respected Brain
 
-Use this only when `.beyin-version` is `2.0.0` and `.beyin-multi-version` is `1.0.0`, `1.1.0`,
-`1.2.0`, `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2`, `1.4.3`, `1.4.4` or `1.4.5`.
+Use this only when `.beyin-version` is `2.0.0` and `.beyin-multi-version` is `1.0.0` – `1.4.6`.
 Do not run `enable_multiai.py` as a routine updater (it is for onboarding v2 core vaults).
 
 Preview first; this validates and prints managed paths without changing the vault:
@@ -712,7 +711,7 @@ Preview first; this validates and prints managed paths without changing the vaul
 python3 scripts/update_respected.py "/absolute/path/to/vault"
 ```
 
-Then apply (optionally add `--force` to re-sync managed files even if already on 1.4.6):
+Then apply (optionally add `--force` to re-sync managed files even if already on 0.0.1):
 
 ```bash
 python3 scripts/update_respected.py "/absolute/path/to/vault" --apply
@@ -722,8 +721,8 @@ The updater preserves `.beyin/instructions.md`, `summary_provider`, extra config
 non-managed note. It stages outside the vault in a mode-`0700` system temporary directory and
 backs up every mutation target under `~/.respected/update-backups/<vault-id>/<timestamp>/`. It
 then promotes runtime files atomically, renders the explicit platform profile, runs syntax/JSON/drift and
-placeholder gates, and writes `.beyin-multi-version = 1.4.6` last. If a gate fails it restores the
-managed files from that backup and leaves the old `1.0.0`, `1.1.0`, `1.2.0`, `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2`, `1.4.3`, `1.4.4` or `1.4.5` stamp intact.
+placeholder gates, and writes `.beyin-multi-version = 0.0.1` last. If a gate fails it restores the
+managed files from that backup and leaves the old stamp intact.
 
 The updater intentionally does not mutate user-level tool configuration or the operating-system
 scheduler inside the vault transaction. If global access or the morning schedule was installed,

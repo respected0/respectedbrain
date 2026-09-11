@@ -172,14 +172,14 @@ class NamingContractTest(unittest.TestCase):
             "." + old_namespace + "/schedule-backups",
         )
 
-    def test_current_manifest_targets_1_4_5_and_accepts_every_stamped_predecessor(self):
+    def test_current_manifest_targets_0_0_1_and_accepts_every_stamped_predecessor(self):
         manifest = load_manifest()
 
         self.assertIsNotNone(manifest, "scripts/respected_manifest.py is missing")
-        self.assertEqual(manifest.MULTI_VERSION, "1.4.6")
+        self.assertEqual(manifest.MULTI_VERSION, "0.0.1")
         self.assertEqual(
             manifest.UPDATABLE_MULTI_VERSIONS,
-            ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2", "1.4.0", "1.4.1", "1.4.2", "1.4.3", "1.4.4", "1.4.5", "1.4.6"),
+            ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2", "1.4.0", "1.4.1", "1.4.2", "1.4.3", "1.4.4", "1.4.5", "1.4.6", "0.0.1"),
         )
         self.assertNotIn("scripts/update_respot.py", manifest.RUNTIME)
         self.assertNotIn("scripts/respot_manifest.py", manifest.RUNTIME)

@@ -224,7 +224,7 @@ python3 scripts/update_respected.py "/mutlak/vault/yolu" --apply
 
 (İsteğe bağlı `--force` bayrağı ile aynı sürümdeki dosyalar da yeniden eşitlenebilir).
 
-Eğer daha önceden çekirdek `2.0.0` kurulmuş ancak çoklu-AI katmanı eksik kalmış bir vault varsa `scripts/enable_multiai.py "/mutlak/vault/yolu" --apply` ile tamamlanır. Tarihsel v1 geçiş scripti (`upgrade.sh`) v1.4.5 mimari sadeleştirmesinde tekil kaynak kuralı gereğince emekliye ayrılmıştır; damgasız eski v1 vault'larının hafıza klasörleri (`🔮 850-Companion`) yeni template üzerine aktarılabilir. Native Windows, sıfırdan kurulum ve damgalı Respected `1.0.0/1.1.0/1.2.0/1.3.0/1.3.1/1.3.2/1.4.0/1.4.1/1.4.2/1.4.3/1.4.4/1.4.5 → 1.4.6` güncellemesi için tam desteklenir.
+Eğer daha önceden çekirdek `2.0.0` kurulmuş ancak çoklu-AI katmanı eksik kalmış bir vault varsa `scripts/enable_multiai.py "/mutlak/vault/yolu" --apply` ile tamamlanır. Tarihsel v1 geçiş scripti (`upgrade.sh`) v1.4.5 mimari sadeleştirmesinde tekil kaynak kuralı gereğince emekliye ayrılmıştır; damgasız eski v1 vault'larının hafıza klasörleri (`🔮 850-Companion`) yeni template üzerine aktarılabilir. Native Windows, sıfırdan kurulum ve damgalı Respected `1.0.0/1.1.0/1.2.0/1.3.0/1.3.1/1.3.2/1.4.0/1.4.1/1.4.2/1.4.3/1.4.4/1.4.5/1.4.6 → 0.0.1` güncellemesi için tam desteklenir.
 
 Damgalı bir kurulumda önce salt okunur önizleme, sonra açık uygulama adımı kullanılır:
 
@@ -430,7 +430,7 @@ the selected local CLI (`claude`, `codex`, `agy`, or `cursor-agent`) compiles th
 Install: `git clone https://github.com/respected0/respectedbrain.git && cd respectedbrain`, then ask
 your coding agent to read and follow `SETUP.md`. Already running Respected Brain?
 Use `python3 scripts/update_respected.py "/path/to/vault" --apply` to update an existing stamped vault
-(`1.0.0` - `1.4.5` -> `1.4.6`). If an older vault only has core `2.0.0` stamped, run `scripts/enable_multiai.py`
+(`1.0.0` - `1.4.6` -> `0.0.1`). If an older vault only has core `2.0.0` stamped, run `scripts/enable_multiai.py`
 to configure the multi-AI layer. The historical v1 migration script (`upgrade.sh`) was retired in v1.4.5;
 fresh vaults are initialized directly from `template/` or via `scripts/install-windows.ps1`.
 Updates are additive only, your memory files are never touched, the settings merge is idempotent, and

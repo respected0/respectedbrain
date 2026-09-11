@@ -3,7 +3,7 @@
 Durum: **Yetkili Teknik Sözleşme (Golden Standard)**<br>
 Kaynak: `https://github.com/respected0/respectedbrain`<br>
 Çekirdek Sürümü: `2.0.0` (`.beyin-version`)<br>
-Multi-AI Sürümü: `1.4.6` (`.beyin-multi-version`)
+Multi-AI Sürümü: `0.0.1` (`.beyin-multi-version`)
 
 Bu belge, Respected Brain sisteminin bileşen mülkiyetini, yaşam döngüsü kurallarını, platform çalışma profillerini ve doğrulama kapılarını belirleyen yetkili sözleşmedir (SSOT specification).
 
@@ -23,8 +23,8 @@ Bu belge, Respected Brain sisteminin bileşen mülkiyetini, yaşam döngüsü ku
 
 ### 2.1 Sürüm Damgaları
 - `.beyin-version`: `2.0.0` (Çekirdek hafıza formatı)
-- `.beyin-multi-version`: `1.4.6` (Çoklu-AI adaptör ve runtime katmanı)
-- Desteklenen Güncelleme Aralıkları: `1.0.0`, `1.1.0`, `1.2.0`, `1.3.0`, `1.3.1`, `1.3.2`, `1.4.0`, `1.4.1`, `1.4.2`, `1.4.3`, `1.4.4`, `1.4.5` sürümlerinden doğrudan `1.4.6`'ya transactional yükseltme desteklenir. Damgasız v1 hafızaları ise taze vault şablonuna doğrudan aktarılabilir.
+- `.beyin-multi-version`: `0.0.1` (Çoklu-AI adaptör, MCP ve runtime katmanı)
+- Desteklenen Güncelleme Aralıkları: `1.0.0` – `1.4.6` sürümlerinden doğrudan `0.0.1`'e transactional yükseltme desteklenir. Damgasız v1 hafızaları ise taze vault şablonuna doğrudan aktarılabilir.
 
 ### 2.2 Yönetilen Dosya Kategorileri (`scripts/respected_manifest.py`)
 
@@ -125,7 +125,7 @@ Vault güncellemeleri `scripts/update_respected.py` tarafından transactional ol
 3. **Staging:** Tüm güncellenen dosyalar vault dışında hazırlanır.
 4. **Atomik Uygulama:** Dosyalar yerlerine taşınır.
 5. **Damgalama:** Tüm kontroller geçtikten sonra `.beyin-multi-version` ve yetkili `.beyin-version` atomik olarak güncellenir.
-6. **Onarım (`--force`):** Damga veya dosya tutarsızlığı olan vault'lar `--force` bayrağı ile tutarlı `1.4.6` durumuna getirilebilir.
+6. **Onarım (`--force`):** Damga veya dosya tutarsızlığı olan vault'lar `--force` bayrağı ile tutarlı `0.0.1` durumuna getirilebilir.
 
 ---
 

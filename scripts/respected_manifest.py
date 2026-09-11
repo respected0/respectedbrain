@@ -4,8 +4,12 @@ from __future__ import annotations
 
 
 CORE_VERSION = "2.0.0"
-MULTI_VERSION = "1.4.6"
-UPDATABLE_MULTI_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2", "1.4.0", "1.4.1", "1.4.2", "1.4.3", "1.4.4", "1.4.5", MULTI_VERSION)
+MULTI_VERSION = "0.0.1"
+UPDATABLE_MULTI_VERSIONS = (
+    "1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2",
+    "1.4.0", "1.4.1", "1.4.2", "1.4.3", "1.4.4", "1.4.5", "1.4.6",
+    MULTI_VERSION,
+)
 
 GENERATED = (
     "AGENTS.md",
