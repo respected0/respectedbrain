@@ -148,7 +148,7 @@ try {
         "-Companion", "Echo", "-OsName", "AdaOS", "-Providers", "codex"
     )
     Assert-True ($install.Code -eq 0) "Native temiz kurulum geçmeli: $($install.Output)"
-    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-version")).Trim() -eq "2.0.0") "Çekirdek damgası 2.0.0 olmalı"
+    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-version")).Trim() -eq "0.0.1") "Sürüm damgası 0.0.1 olmalı"
     Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-multi-version")).Trim() -eq "0.0.1") "Multi damgası 0.0.1 olmalı"
     Assert-True ((Test-Path -LiteralPath (Join-Path $Vault "scripts\update_respected.py") -PathType Leaf)) "Güncel updater kurulmalı"
     Assert-True ((Test-Path -LiteralPath (Join-Path $Vault "scripts\respected_manifest.py") -PathType Leaf)) "Güncel manifest kurulmalı"

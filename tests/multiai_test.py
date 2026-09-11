@@ -479,8 +479,8 @@ class MultiAITest(unittest.TestCase):
             "windows-wsl",
             "windows-native",
             "py.exe -3",
-            "1.2.0",
-            "Damgasız v1",
+            "0.0.1",
+            "0.0.1 öncesi",
             "Claude zorunlu değildir",
             "Restic",
         ):

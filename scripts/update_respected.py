@@ -221,7 +221,7 @@ def _validate_target(vault: Path) -> tuple[str, str]:
         raise UpdateError(f"geçersiz vault yolu: {vault}")
     core = _read_stamp(vault / ".beyin-version")
     multi = _read_stamp(vault / ".beyin-multi-version")
-    if core != CORE_VERSION:
+    if core not in ("2.0.0", CORE_VERSION):
         shown = core or "yok (unstamped/v1)"
         raise UpdateError(f"desteklenmeyen çekirdek sürümü: {shown}")
     if multi not in UPDATABLE_MULTI_VERSIONS:
@@ -229,7 +229,7 @@ def _validate_target(vault: Path) -> tuple[str, str]:
         raise UpdateError(f"desteklenmeyen multi-AI sürümü: {shown}")
     if not (vault / ".beyin/instructions.md").is_file():
         raise UpdateError("kanonik .beyin/instructions.md yok")
-    for relative in (*managed_files(), *LEGACY_TOOL_FILES, *LEGACY_ENGINE_FILES, ".beyin-multi-version"):
+    for relative in (*managed_files(), *LEGACY_TOOL_FILES, *LEGACY_ENGINE_FILES, ".beyin-version", ".beyin-multi-version"):
         _safe_target(vault, relative)
     return core, multi
 
@@ -552,7 +552,7 @@ def update(vault: Path, requested_profile: str, apply: bool, force: bool = False
         return 3
 
     stage_container, stage = _create_stage(vault, profile, requested_profile)
-    targets = tuple(dict.fromkeys((*relatives, *legacy_removals, ".beyin-multi-version")))
+    targets = tuple(dict.fromkeys((*relatives, *legacy_removals, ".beyin-version", ".beyin-multi-version")))
     original_directories = _directory_relatives(vault)
     backup: Path | None = None
     try:
@@ -566,6 +566,7 @@ def update(vault: Path, requested_profile: str, apply: bool, force: bool = False
         _gate(vault, relatives)
         ensure_bytecode_cleanup(vault)
         _atomic_write(vault / ".beyin-multi-version", f"{MULTI_VERSION}\n")
+        _atomic_write(vault / ".beyin-version", f"{CORE_VERSION}\n")
     except (OSError, UnicodeError, ValueError, UpdateError) as error:
         if backup is None:
             raise UpdateError(f"update başlamadan durduruldu: {error}") from error
@@ -579,7 +580,7 @@ def update(vault: Path, requested_profile: str, apply: bool, force: bool = False
     finally:
         shutil.rmtree(stage_container, ignore_errors=True)
 
-    print(f"Respected Brain güncellendi: multi-AI {MULTI_VERSION}; yedek: {backup}")
+    print(f"Respected Brain güncellendi: sürüm {MULTI_VERSION}; yedek: {backup}")
     _print_external_refresh_guidance()
     return 0
 

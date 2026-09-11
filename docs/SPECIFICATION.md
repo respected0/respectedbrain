@@ -2,8 +2,7 @@
 
 Durum: **Yetkili Teknik Sözleşme (Golden Standard)**<br>
 Kaynak: `https://github.com/respected0/respectedbrain`<br>
-Çekirdek Sürümü: `2.0.0` (`.beyin-version`)<br>
-Multi-AI Sürümü: `0.0.1` (`.beyin-multi-version`)
+Sürüm: `0.0.1` (`.beyin-version`, `.beyin-multi-version`)
 
 Bu belge, Respected Brain sisteminin bileşen mülkiyetini, yaşam döngüsü kurallarını, platform çalışma profillerini ve doğrulama kapılarını belirleyen yetkili sözleşmedir (SSOT specification).
 
@@ -21,10 +20,10 @@ Bu belge, Respected Brain sisteminin bileşen mülkiyetini, yaşam döngüsü ku
 
 ## 2. Sürüm ve Dosya Mülkiyeti Sözleşmesi
 
-### 2.1 Sürüm Damgaları
-- `.beyin-version`: `2.0.0` (Çekirdek hafıza formatı)
-- `.beyin-multi-version`: `0.0.1` (Çoklu-AI adaptör, MCP ve runtime katmanı)
-- Desteklenen Güncelleme Aralıkları: `1.0.0` – `1.4.6` sürümlerinden doğrudan `0.0.1`'e transactional yükseltme desteklenir. Damgasız v1 hafızaları ise taze vault şablonuna doğrudan aktarılabilir.
+### 2.1 Sürüm Damgası
+- `.beyin-version`: `0.0.1` (Respected Brain birleşik sürümü)
+- `.beyin-multi-version`: `0.0.1` (Geriye dönük uyumluluk damgası)
+- Desteklenen Güncelleme Aralıkları: `0.0.1` öncesi tüm erken geliştirme sürümlerinden transactional yükseltme (`scripts/update_respected.py`) desteklenir.
 
 ### 2.2 Yönetilen Dosya Kategorileri (`scripts/respected_manifest.py`)
 

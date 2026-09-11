@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 
-CORE_VERSION = "2.0.0"
+VERSION = "0.0.1"
+CORE_VERSION = "0.0.1"
 MULTI_VERSION = "0.0.1"
 UPDATABLE_MULTI_VERSIONS = (
     "1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2",

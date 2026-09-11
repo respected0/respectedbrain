@@ -6,9 +6,7 @@ Markdown hafızasını, kuralları, skill'leri ve günlük/knowledge hattını p
 Kurulu platform profili tam olarak üç değerden biridir: macOS/Linux için `portable`, Windows
 uygulamaları ile WSL motoru için `windows-wsl`, WSL/Bash olmadan Windows Python için
 `windows-native`. Native sıfırdan kurulum [SETUP-WINDOWS.md](SETUP-WINDOWS.md) ile yapılır.
-Damgalı `2.0.0` / `1.0.0` – `1.4.5` Respected Brain vault'u native güncellenebilir (`scripts/update_respected.py`).
-Tarihsel v1 geçiş scripti (`upgrade.sh`) v1.4.5 sürümünde emekliye ayrılmıştır; v1 hafıza klasörleri
-yeni vault'a aktarılabilir.
+0.0.1 öncesi erken sürümlerden kalma Respected Brain kasaları `scripts/update_respected.py` ile doğrudan güncellenebilir.
 
 ## Tek kaynak ilkesi
 
@@ -32,11 +30,10 @@ python3 scripts/render_integrations.py
 python3 scripts/render_integrations.py --check
 ```
 
-## Mevcut v2 vault'u taşımak
+## 0.0.1 Öncesi Kasalarda Çoklu-AI Katmanını Tamamlamak
 
-Bu bölüm yalnız daha önce çekirdek v2'ye yükseltilmiş harici/eski bir vault'u elle tamamlamak veya
-onarım yapmak içindir. Mevcut damgalı Respected Brain vault'larını (`1.0.0` – `1.4.5`) güncellemek için
-doğrudan `scripts/update_respected.py` kullanılır.
+Bu bölüm yalnız daha önce kurulmuş eski bir kasayı elle tamamlamak veya onarım yapmak içindir.
+0.0.1 öncesi kasaları güncellemek için doğrudan `scripts/update_respected.py` kullanılır.
 
 Komut önce yalnızca nelerin yönetileceğini gösterir:
 
@@ -163,19 +160,13 @@ ve Zero-Trust güvenlik sınırları `docs/` altındaki yaşayan teknik döküma
 - Antigravity masaüstü uygulaması ile Antigravity CLI ayrı parçalardır. Arka plan özetlerinin
   Antigravity kotasını kullanması için `agy` CLI kurulu ve oturum açmış olmalıdır; yalnız IDE
   kuruluysa sistem kullanılabilir başka CLI'a geçer.
-- Multi-AI `1.4.2`, yerel BM25/FTS5 arama motoru, harici projeler için güvenli Kasa MCP sunucusu (`vault_mcp_server`), epistemik hafıza sözleşmesi (`scope`, `confidence`, `supersedes`), PreCompact transkript yedeği, 1.200 karakterlik `read_head` I/O optimizasyonu, sabah brifingi açık döngü sensörü (`open_loops`), Defuddle web içerik temizleyicisi, akıcı otonom araştırma becerisi, wiki-lint kasa bağlantı/yetim sayfa denetleyicisi, tiling-check benzer not dedektörü, compilation-value gate (not enflasyonu kapısı), untrusted source kalkanı, SSRF yerel ağ güvenlik filtresi, Obsidian Bases (.base) şablonu, çoklu ajan çakışma önleme protokolü ve Golden Standard & Adversarial Review kalite güvencesi kurallarını kapsar.
-- Multi-AI `1.4.4`, 11 yeni dayanıklı özellik ekler:
-  1. **Bounded Recall (`bounded_recall.py`)**: Kullanıcı her mesaj attığında kasadan en alakalı 2-3 nottan max 900 karakterlik hafif bir hafıza fısıltısı üretir; kısa/selamlama mesajlarında fail-closed olarak tamamen susar.
-  2. **PostCompact & Session-End Guard**: `post-compact.sh` ve bridge ile compact sonrası kritik hafıza durumunu anında canlandırır.
-  3. **Bi-Temporal Zaman Çizelgesi (`timeline:`)**: Notlarda ve şablonda gerçeğin geçerlilik aralığı (`from`/`until`) ile öğrenilme anını (`learned`) ve kaynağını (`source`) birbirinden ayıran çift zamanlı yapı.
-  4. **OKM & Freshness Linter**: `vault_linter.py` içinde tarihsiz sayaç veya hızlı gerçek iddialarını yakalayan tazelik denetimi.
-  5. **`## For future agent` Başlığı**: `Note.md` şablonuna ve kurallara eklenen 2-3 cümlelik ajan odaklı filtre özeti.
-  6. **Codebase Architect Scanner (`architect_scan.py`)**: Herhangi bir kod reposunun mimari hiyerarşisini, dillerini, giriş noktalarını ve git karar geçmişini otomatik tarayıp kasaya uygun mimari notu üreten araç.
-  7. **Meydan Okuma Becerisi (`beyin-meydan-oku`)**: Karar madenciliği ve zaman çizelgesi tutarlılık denetimi eklenmiş adversarial red-team skill'i.
-  8. **Akıllı Not Birleştirme (`smart_merge.py`)**: İki notu birleştirirken metadata union yapan, kaynak notu ASLA silmeyip `redirect: [[Hedef]]` ile emekliye ayıran ve kasa genelindeki tüm wikilink'leri güncelleyen araç.
-  9. **Kanonik İçerik Özeti (`canonical_content_hash`)**: HTML ve boşlukları normalize edip mükerrer kaydı önleyen 16 karakterlik SHA-256 kalkanı.
-  10. **ASCII Tire Kuralı (`--fix-dashes`)**: Dosya adlarındaki link bozan En/Em tirelerini (`—`, `–`) standart ASCII tireye (`-`) çeviren linter yeteneği.
-  11. **5 Aşamalı Gece Derleme Mimarisi (`compile.py`)**: Gece derleyicisini Parse, Cluster, Synthesize, Challenge, Distill aşamalarıyla yapılandıran zihinsel model.
-- Multi-AI `1.4.5`, tekil kaynak (single source of truth) mimarisini kurar: tüm betikler doğrudan `scripts/` altında birleştirilmiş, kopya `template/scripts/` arşivi ve tarihsel v1 geçiş araçları temizlenmiş, derleme motorları `.beyin/engine/` (`flush.py`, `compile.py`) altına taşınmıştır.
-- Multi-AI `1.4.6`, `update_respected.py` için `--force` bayrağını, çapraz platform CI matrisini, Windows UTF-8/OEM konsol dayanıklılığını ve güvenli kilit mekanizmalarını tamamlar.
-- Multi-AI `0.0.1`, ilk genel sürüm (Public Release) standardıdır: Tüm AI editörlerine (Antigravity, Claude Code, Codex, Cursor, Windsurf, Cline, Roo-Code) tek komutla bağlanan global MCP sunucusu (`respected-vault`), dinamik kasa/companion kimlik çözücüsü, tek tık kurulum sihirbazları (`install.py`, `install.ps1`, `install.sh`), prompt öncesi sessiz hafıza fısıltısı (`bounded_recall.py`) ve sıfır-güven (zero-trust) dosya güvenliği bu sürümle resmileşmiştir.
+- **Respected Brain (v0.0.1) Temel Mimari Yetenekleri**:
+  1. **Global Model Context Protocol (MCP) Sunucusu (`scripts/vault_mcp_server.py`)**: SQLite FTS5 tabanlı arama, karar madenciliği ve kasanın 7 temel aracını Claude Desktop, Cursor, Antigravity, Windsurf ve Cline editörlerine tek komutla sunar.
+  2. **Bounded Recall (`bounded_recall.py`)**: Kullanıcı her mesaj attığında kasadan en alakalı 2-3 nottan max 900 karakterlik hafif bir hafıza fısıltısı üretir; kısa/selamlama mesajlarında fail-closed olarak tamamen susar.
+  3. **Yaşam Döngüsü ve Compact Güvencesi**: `session-start`, `user-prompt`, `pre-compact` ve `session-end` kancalarıyla konuşma sıkışmadan önce yakalanır, `flush.py` ile özetlenir.
+  4. **Bi-Temporal Zaman Çizelgesi (`timeline:`)**: Notlarda gerçeğin geçerlilik aralığı (`from`/`until`) ile öğrenilme anını (`learned`) ve kaynağını (`source`) ayıran çift zamanlı yapı.
+  5. **5 Aşamalı Gece Derleme Mimarisi (`compile.py`)**: Gece derleyicisini Parse, Cluster, Synthesize, Challenge, Distill aşamalarıyla yapılandıran Karpathy LLM hattı.
+  6. **Codebase Architect Scanner (`architect_scan.py`)**: Herhangi bir kod reposunun mimari hiyerarşisini, dillerini ve kararlarını tarayıp kasaya uygun mimari notu üreten araç.
+  7. **Akıllı Not Birleştirme (`smart_merge.py`)**: İki notu birleştirirken metadata union yapan, kaynak notu silmeyip `redirect: [[Hedef]]` ile emekliye ayıran ve wikilink'leri güncelleyen araç.
+  8. **Tek Kaynak (Single Source of Truth)**: Tüm ajan kuralları ve hook tanımları `.beyin/instructions.md` kaynağından otomatik türetilir.
+  9. **Çoklu Kurulum Kanalları**: `BOOTSTRAP.md` (AI-Native tek tık), `install.ps1` (Windows tek satır), `install.sh` (Linux/macOS) ve `install.py` (interaktif TUI/CLI sihirbazı).

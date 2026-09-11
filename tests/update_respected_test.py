@@ -172,7 +172,7 @@ class UpdateRespectedTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "0.0.1")
-        self.assertEqual((self.vault / ".beyin-version").read_text().strip(), "2.0.0")
+        self.assertEqual((self.vault / ".beyin-version").read_text().strip(), "0.0.1")
         self.assertEqual((self.vault / ".beyin/instructions.md").read_bytes(), instruction_before)
         self.assertEqual(self.note.read_bytes(), note_before)
         config = json.loads((self.vault / ".beyin/config.json").read_text(encoding="utf-8"))

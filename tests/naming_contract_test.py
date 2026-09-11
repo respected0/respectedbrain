@@ -96,12 +96,11 @@ class NamingContractTest(unittest.TestCase):
         self.assertIn("https://github.com/respected0/respectedbrain.git", guides["README.md"])
         self.assertIn("cd respectedbrain", guides["README.md"])
         self.assertIn("scripts/update_respected.py", combined)
-        self.assertIn("1.3.1", combined)
+        self.assertIn("0.0.1", combined)
         self.assertIn(".respected/schedule-backups", combined)
-        self.assertIn(".respected-brain-yedek", combined)
+        self.assertIn(".respected/update-backups", combined)
         self.assertIn("önizleme", combined.casefold())
         self.assertIn("--apply", combined)
-        self.assertIn("Avenox Beyin", guides["README.md"])
         self.assertIn("MIT", guides["README.md"])
 
         for fragment in FORBIDDEN_BRAND_FRAGMENTS:

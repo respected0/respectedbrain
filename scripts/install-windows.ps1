@@ -308,7 +308,7 @@ try {
     if (@($Remaining).Count -gt 0) {
         throw "çözülmemiş placeholder: $($Remaining[0].FullName)"
     }
-    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-version"))).Trim() -ne "2.0.0") {
+    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-version"))).Trim() -ne "0.0.1") {
         throw ".beyin-version gate başarısız"
     }
     if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-multi-version"))).Trim() -ne "0.0.1") {

@@ -14,10 +14,10 @@
 açık kaynak bir **ikinci beyin**. Yerel bir Markdown vault, kalıcı hafıza, sıfır bağımlılık,
 sıfır ekstra ücret. Dosya yönetmezsin, konuşursun.
 
-Bu dalın temel farkı araç bağımsızlığıdır: ortak talimatlar `.beyin/instructions.md` içinde,
+Respected Brain'in temel farkı araç bağımsızlığıdır: ortak talimatlar `.beyin/instructions.md` içinde,
 skill'ler `.beyin/skills/` altında tek kez tutulur; `CLAUDE.md`, `AGENTS.md`, Cursor rules ve
-Antigravity rules/hook dosyaları buradan üretilir. Ayrıntılar ve mevcut v2 vault'u güvenli taşıma
-komutu için [MULTI_AI.md](MULTI_AI.md) dosyasına bak.
+Antigravity rules/hook dosyaları buradan üretilir. Ayrıntılar için [MULTI_AI.md](MULTI_AI.md)
+dosyasına bak.
 
 Vault'un adı kullanıcıya aittir; `respectedOS` veya başka sabit bir ad zorunlu değildir. İsteğe bağlı
 global kurulum, seçilen vault'u Claude, Codex, Cursor ve Antigravity'ye kullanıcı düzeyinde
@@ -79,13 +79,12 @@ sohbet ekranını veya bütün ham geçmişini devralmaz; bunun yerine ortak vau
 aktif konular, kararlar, kurallar, günlük özetleri ve bilgi indeksini alır. Araç değiştirirken
 taşınabilir olan şey **iş bağlamıdır**, sağlayıcının kendi sohbet arayüzü değildir.
 
-**v1'in tezi devamlılıktı: oturum açılınca geçen oturum bağlama giriyordu.** İşe yarıyordu ama tek
-bir kırılgan varsayıma dayanıyordu: modelin oturum biterken hafıza dosyalarını güncellemeyi
-hatırlaması. Hatırlamadığı her seferde o gün kayboluyordu. **v2'nin tezi şu: hafıza rica değil,
-mekanizmadır.** Artık oturum kapanışını bir kanca yakalıyor, konuşmayı arka planda özetleyip
-`daily/` altına günlük log olarak yazıyor, akşamları günde bir kez bir derleyici o logları
-`knowledge/` altında birbirine bağlanan makalelere dönüştürüyor. Ertesi sabah bu bilgi tabanının
-indeksi kendiliğinden bağlama giriyor. Kimsenin bir şey yazmayı hatırlaması gerekmiyor.
+**Respected Brain'in temel tezi şudur: hafıza rica değil, mekanizmadır.** Bir yapay zekanın
+oturum biterken hafıza dosyalarını güncellemeyi hatırlamasını beklemek kırılgandır. Hatırlanmadığı her
+seferde o gün kaybolur. Respected Brain'de oturum kapanışını bir kanca yakalar, konuşmayı arka planda
+özetleyip `daily/` altına günlük log olarak yazar; akşamları günde bir kez bir derleyici o logları
+`knowledge/` altında birbirine bağlanan makalelere dönüştürür. Ertesi sabah bu bilgi tabanının
+indeksi kendiliğinden bağlama girer. Kimsenin bir şey yazmayı hatırlaması gerekmez.
 
 Video izlemene gerek yok. Kurulum ve günlük kullanım bu README'de; ayrıntılı davranış ve bakım
 notları [MULTI_AI.md](MULTI_AI.md), coding agentın uygulayacağı kurulum runbook'u [SETUP.md](SETUP.md)
@@ -291,66 +290,45 @@ python3 scripts/set_summary_provider.py cursor
 Bu seçim kod yazdığın ana agentı değiştirmez; yalnız kapanış özeti ve bilgi derlemesinde önce hangi
 yerel CLI'ın çağrılacağını belirler. Seçilen sağlayıcı geçici olarak kullanılamazsa fallback devam eder.
 
-### Zaten beynin varsa
+### 0.0.1 Öncesi Sürümlerden Güncelleme
 
-Mevcut bir Respected Brain vault'u (sürüm `2.0.0` / `1.0.0` – `1.4.5`), repo kökünden doğrudan `scripts/update_respected.py` ile güncellenir:
+Daha önceki (0.0.1 öncesi erken sürümlerden) bir Respected Brain kasanız varsa, repo kökünden doğrudan `scripts/update_respected.py` ile güncelleyebilirsiniz:
 
 ```bash
+# 1. Önce güvenli salt-okunur önizleme:
 python3 scripts/update_respected.py "/mutlak/vault/yolu"
+
+# 2. Önizleme doğruysa uygulayın:
 python3 scripts/update_respected.py "/mutlak/vault/yolu" --apply
 ```
 
 (İsteğe bağlı `--force` bayrağı ile aynı sürümdeki dosyalar da yeniden eşitlenebilir).
 
-Eğer daha önceden çekirdek `2.0.0` kurulmuş ancak çoklu-AI katmanı eksik kalmış bir vault varsa `scripts/enable_multiai.py "/mutlak/vault/yolu" --apply` ile tamamlanır. Tarihsel v1 geçiş scripti (`upgrade.sh`) v1.4.5 mimari sadeleştirmesinde tekil kaynak kuralı gereğince emekliye ayrılmıştır; damgasız eski v1 vault'larının hafıza klasörleri (`🔮 850-Companion`) yeni template üzerine aktarılabilir. Native Windows, sıfırdan kurulum ve damgalı Respected `1.0.0/1.1.0/1.2.0/1.3.0/1.3.1/1.3.2/1.4.0/1.4.1/1.4.2/1.4.3/1.4.4/1.4.5/1.4.6 → 0.0.1` güncellemesi için tam desteklenir.
+Updater yalnız vault içindeki motor dosyalarını transaction güvenliğiyle yönetir; kişisel notlarınıza (`🔮 850-Companion`, `🧠 500-Knowledge` vb.) asla dokunmaz. Yönetilen dosyaların transaction yedeği `~/.respected/update-backups/` altında kalır.
 
-Damgalı bir kurulumda önce salt okunur önizleme, sonra açık uygulama adımı kullanılır:
+Daha önce global bağlantı veya sabah zamanlayıcısı kurduysanız, güncellemeden sonra bunların kurucularını da (`scripts/install_global.py`, `scripts/install_briefing_schedule.py`) önce önizleme, ardından `--apply` ile yeniden çalıştırın. Böylece global kurallar ve zamanlayıcı tanımları güncellenir. Codex hook tanımı değiştiyse Desktop'ta **Ayarlar > Hooks** veya CLI'da `/hooks` üzerinden yeniden güven verin.
 
-```bash
-python3 scripts/update_respected.py "/mutlak/vault/yolu"
-python3 scripts/update_respected.py "/mutlak/vault/yolu" --apply
-```
-
-Updater yalnız vault içindeki transaction'ı yönetir. Daha önce global bağlantı veya sabah
-zamanlayıcısı kurduysan güncellemeden sonra bunların kurucularını da önce önizleme, ardından
-`--apply` ile yeniden çalıştır. Böylece global rules/skills güncellenir, eski zamanlayıcı adı
-yeni ada taşınır. Codex hook tanımı değiştiyse Desktop'ta **Ayarlar > Hooks** veya CLI'da
-`/hooks` üzerinden yeniden güven.
-
-Updater staging alanını sistemin geçici dizininde ve vault dışında açar; kişisel notları işlem
-listesine almaz. Yönetilen dosyaların transaction yedeği `~/.respected/update-backups/` altında
-kalır. Damgasız v1 shell yükseltmesinin doğrulanmış harici yedek kökü ise
-`~/.respected-brain-yedek` olur. Eski global ayar ve zamanlayıcı adları kendi kurucularının
-önizlemesinde görülür; yalnız `--apply` sonrasında, yeni karşılık doğrulandıktan sonra taşınır.
-
-Üç şeyi peşinen bilmen iyi olur:
-
-- **Hafıza klasörünün adı `🔮 850-Companion` olmak zorunda.** Kancalar ve scriptler bu sabit yolu
-  okuyor. Klasörün adı ortağının adıysa (`🔮 850-Echo` gibi) script bunu `git mv` ile değiştirmeyi
-  teklif eder. İçerik hiç değişmez, sadece klasör adı değişir. Hayır dersen yükseltme hiç
-  başlamaz ve vault'a Respected damgaları vurulmaz; yarım kurulmuş bir sistemden dürüst bir v1 iyidir.
-- **İlk iş git anlık görüntüsü.** Alınamazsa yükseltme durur, devam etmez. Geri dönüş her zaman
-  açık.
-- **İki sürüm damgası en sona yazılır.** Kancalar, scriptler, adapter drift'i, placeholder'lar,
-  kanca sayısı ve `.gitignore` koruması tek tek doğrulandıktan sonra önce multi-AI, ardından
-  yetkili çekirdek damgası yazılır. Bir kapı bile geçilmezse ikisi de yazılmaz.
+Bilmeniz gerekenler:
+- **Hafıza klasörünün adı `🔮 850-Companion` olmak zorundadır.** Kancalar ve scriptler bu sabit yolu okur.
+- **Güvenlik:** Güncelleme öncesinde git anlık görüntüsü ve transaction yedeği alınır. Herhangi bir kapı doğrulaması başarısız olursa vault eski haline geri döndürülür.
+- **Sürüm damgası:** Tüm adaptör doğrulamaları ve kontroller geçtikten sonra en son `.beyin-version` tek sürüm olarak yazılır.
 
 ---
 
-## v1 → Respected Brain
+## Geleneksel Yöntemler vs Respected Brain
 
-| | v1 | Respected Brain |
+| | Geleneksel Sohbet / Ham Agent | Respected Brain (v0.0.1) |
 | --- | --- | --- |
 | Günlük hafıza | model hatırlarsa yazar | oturum kapanışında **otomatik** yazılır |
-| Kanca sayısı | 3 | 4 (`PreCompact` eklendi) |
+| Kanca sayısı | 0 | 4 (`session-start`, `user-prompt`, `pre-compact`, `session-end`) |
 | Compaction | konuşma sıkıştırılınca kaybolur | sıkıştırma öncesi yakalanır |
 | Bilgi tabanı | yok | `knowledge/` altında derlenmiş, birbirine bağlı makaleler |
-| Oturum başı bağlam | son oturum + threadler | + kurallar, son journal, bilgi indeksi, bugünün logu |
+| Oturum başı bağlam | son sohbet penceresi | son oturum, kurallar, son journal, bilgi indeksi, bugünün logu |
 | Kalıcı kurallar | yok | `Kurallar.md`, "bunu böyle yapma" dediğinde oraya yazılır |
 | Sağlık kontrolü | yok | `beyin doktor` skill'i, tek tabloda tanı |
 | Eski geçmiş | yok | `geçmiş import`: ChatGPT, Claude, Gemini dışa aktarımları |
-| Yükseltme | yok | yerinde, ekleme yapan, tekrar çalıştırılabilir |
-| Bağımlılık | bash | Python 3; POSIX'te ince Bash uyumluluk launcherları, native Windows'ta Bash yok |
+| Yükseltme | yok | yerinde, ekleme yapan, transaction korumalı |
+| Bağımlılık | harici servisler | Standart Python 3; sıfır harici pip bağımlılığı |
 
 ---
 
@@ -546,11 +524,9 @@ the selected local CLI (`claude`, `codex`, `agy`, or `cursor-agent`) compiles th
 `knowledge/`. The next session starts with that knowledge index already in context.
 
 Install: `git clone https://github.com/respected0/respectedbrain.git && cd respectedbrain`, then ask
-your coding agent to read and follow `SETUP.md`. Already running Respected Brain?
-Use `python3 scripts/update_respected.py "/path/to/vault" --apply` to update an existing stamped vault
-(`1.0.0` - `1.4.6` -> `0.0.1`). If an older vault only has core `2.0.0` stamped, run `scripts/enable_multiai.py`
-to configure the multi-AI layer. The historical v1 migration script (`upgrade.sh`) was retired in v1.4.5;
-fresh vaults are initialized directly from `template/` or via `scripts/install-windows.ps1`.
+your coding agent to read and follow `SETUP.md`. Already running a pre-0.0.1 vault?
+Use `python3 scripts/update_respected.py "/path/to/vault" --apply` to update to `v0.0.1`.
+Fresh vaults are initialized directly from `template/` or via `install.py` / `install.ps1` / `install.sh`.
 Updates are additive only, your memory files are never touched, the settings merge is idempotent, and
 updater actions are verified before execution. Two things to keep in mind: the memory folder uses the
 fixed `🔮 850-Companion` path, and version stamps are written only after every validation gate passes.

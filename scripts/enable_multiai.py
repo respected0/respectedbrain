@@ -21,7 +21,7 @@ def _configure_console_output() -> None:
 
 _configure_console_output()
 
-from respected_manifest import GENERATED, MULTI_VERSION, RUNTIME
+from respected_manifest import CORE_VERSION, GENERATED, MULTI_VERSION, RUNTIME
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -150,7 +150,8 @@ def main() -> int:
         return result.returncode
     if not args.defer_version_stamp:
         (vault / ".beyin-multi-version").write_text(f"{MULTI_VERSION}\n", encoding="utf-8")
-        version_message = f"multi sürüm: {MULTI_VERSION}"
+        (vault / ".beyin-version").write_text(f"{CORE_VERSION}\n", encoding="utf-8")
+        version_message = f"sürüm: {MULTI_VERSION}"
     else:
         version_message = "multi sürüm damgası finalize aşamasına bırakıldı"
     print(

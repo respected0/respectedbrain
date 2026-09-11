@@ -113,11 +113,9 @@ Decide:
 | Bulgu | Mod |
 | --- | --- |
 | `TARAMA TAMAM: 0 aday` | **MODE A, sıfırdan kurulum** (PHASE 0'a git) |
-| Aday var, `.beyin-version` yok | **Damgasız v1**: Hafıza klasörünü (`🔮 850-Companion`) MODE A ile yeni vault'a aktar |
-| Aday var, `.beyin-version` = `2.0.0`, `.beyin-multi-version` yok | **v2 tamamla**: `scripts/enable_multiai.py` ile çoklu-AI katmanını kur |
-| Damgalar `2.0.0` / `1.0.0` – `1.4.6` | **MODE C**, `0.0.1` sürümüne güncelle: `scripts/update_respected.py` kullan |
-| Damgalar `2.0.0` / `0.0.1` | Zaten güncel Respected Brain. Sadece `beyin-doktor` çalıştır (zorlamak için `--force`) |
-| Aday var, `.beyin-version` başka bir değer | Kullanıcıya göster, ne yapılacağını sor |
+| Aday var, sürüm `0.0.1` öncesi | **MODE C, güncelleme**: `scripts/update_respected.py` ile `0.0.1` sürümüne güncelle |
+| Aday var, sürüm `0.0.1` | Zaten güncel Respected Brain. `beyin-doktor` çalıştır (gerekirse `--force`) |
+| Aday var, bilinmeyen durum | Kullanıcıya göster, ne yapılacağını sor |
 
 Tell the user which mode you picked and why, in one Turkish sentence. Never guess silently.
 
@@ -256,7 +254,7 @@ ls .claude/hooks/          # session-start.sh prompt-counter.sh session-end.sh p
 ls .beyin/engine/          # flush.py compile.py
 ls .claude/skills/         # beyin-doktor gecmis-import
 ls -d daily knowledge/concepts knowledge/connections
-cat .beyin-version         # 2.0.0
+cat .beyin-version         # 0.0.1
 cat .beyin-multi-version   # 0.0.1
 ```
 
@@ -682,9 +680,8 @@ bash scripts/upgrade.sh --vault "/kullanicinin/mutlak/vault/yolu" --stage finali
 Only if all twelve pass does it commit with an **explicit path allow-list** (never `git add -A`),
 abort if any staged path looks like local settings or a backup, verify that `HEAD` really moved,
 and only then write `.beyin-multi-version = 0.0.1` followed by the authoritative final
-`.beyin-version = 2.0.0` write. If any gate fails it prints the failing rows, writes no stamp, and
-the vault stays honestly unfinished. A vault that already has only the old v2 core stamp is not
-treated as complete; the same upgrade finishes its Respected layer.
+`.beyin-version = 0.0.1` write. If any gate fails it prints the failing rows, writes no stamp, and
+the vault stays honestly unfinished.
 
 Then offer this in one Turkish line, do not push it: **"Eski ChatGPT, Claude veya Gemini geçmişini
 de bu beyne aktarmak ister misin? `geçmiş import` yeter."** The `gecmis-import` skill does
@@ -700,10 +697,10 @@ user explicitly requests another first choice.
 
 ---
 
-# MODE C: Update an existing stamped Respected Brain
+# MODE C: Update an existing pre-0.0.1 Respected Brain
 
-Use this only when `.beyin-version` is `2.0.0` and `.beyin-multi-version` is `1.0.0` – `1.4.6`.
-Do not run `enable_multiai.py` as a routine updater (it is for onboarding v2 core vaults).
+Use this for any pre-0.0.1 vault.
+Do not run `enable_multiai.py` as a routine updater.
 
 Preview first; this validates and prints managed paths without changing the vault:
 
