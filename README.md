@@ -144,44 +144,31 @@ Sihirbaz; algılanan AI modellerini listeler, model öncelik sırasını, çalı
 
 ---
 
-## 💻 Çalışma Ortamı Seçenekleri: Windows Native vs WSL vs Hibrit
+## 💻 Desteklenen Çalışma Ortamları: macOS, Linux, Windows Native, WSL ve Hibrit
 
-Kurulum sihirbazı veya `BOOTSTRAP.md` ortam tercihinizi sorar. Bu üç seçeneğin mimarisi ve sınırları şöyledir:
+Respected Brain, kişisel çalışma alışkanlıklarınıza ve işletim sisteminize göre 5 farklı çalışma ortamını birinci sınıf vatandaş olarak destekler:
 
 ```mermaid
 graph TD
-    subgraph S1 ["1. Windows Native (Tam Yerel Windows)"]
-        W1["Windows OS"] --> OBS1["Obsidian Desktop"]
-        W1 --> PY1["Windows Python (py.exe -3)"]
-        W1 --> SCH1["Windows Görev Zamanlayıcısı (schtasks)"]
-        OBS1 & PY1 & SCH1 --> V1["📁 C:\\Users\\...\\Documents\\Vault"]
+    subgraph Posix ["🍎 macOS & 🐧 Linux (POSIX)"]
+        M1["macOS<br/>(python3 + LaunchAgent + .url)"]
+        L1["Linux<br/>(python3 + systemd user timer + .desktop)"]
     end
 
-    subgraph S2 ["2. Windows WSL (İzole Linux Alt Sistemi)"]
-        L2["WSL2 / Linux"] --> OBS2["Terminal / WSLg"]
-        L2 --> PY2["Linux Python (/usr/bin/python3)"]
-        L2 --> SCH2["Linux systemd user timer / cron"]
-        OBS2 & PY2 & SCH2 --> V2["📁 /home/user/Vault"]
-    end
-
-    subgraph S3 ["3. Hibrit / Hybrid (Köprü Modu — En Esnek)"]
-        W3["Windows Katmanı"] --> OBS3["Obsidian Desktop (Hızlı GUI)"]
-        W3 --> KS3["Masaüstü Kısayolu (.url)"]
-        L3["WSL2 Katmanı"] --> AI3["AI CLI & Geliştirme Araçları"]
-        L3 --> PY3["WSL Python + bridge.py"]
-        OBS3 & KS3 --> V3["📁 C:\\Users\\...\\Documents\\Vault<br/>(WSL: /mnt/c/Users/.../Vault)"]
-        AI3 & PY3 -->|runtime_platform köprüsü| V3
+    subgraph WindowsOnly ["🪟 Windows Çalışma Seçenekleri"]
+        W1["1. Windows Native<br/>(py.exe -3 + Windows Görev Zamanlayıcısı)"]
+        W2["2. Windows WSL<br/>(WSL2 sanal diski /home/... + Linux python3)"]
+        W3["3. Windows Hibrit (Native + WSL Köprüsü)<br/>(Obsidian Windows'ta + Kod/AI WSL'de + Kasa C:\\... /mnt/c/...)"]
     end
 ```
 
-| Karşılaştırma Ölçütü | 1. Windows Native | 2. Windows WSL (Saf Linux) | 3. Hibrit / Hybrid (Önerilen Köprü) |
-| :--- | :--- | :--- | :--- |
-| **Kasa Nerede Yaşar?** | Windows diskinde (`C:\Users\<ad>\...`) | WSL2 sanal diskinde (`/home/<user>/...`) | Windows diskinde (`C:\Users\<ad>\...` ↔ `/mnt/c/...`) |
-| **Obsidian Arayüzü** | Doğrudan Windows Obsidian uygulaması | WSLg Linux arayüzü veya ağ köprüsü | Doğrudan yerel Windows Obsidian (Maksimum hız) |
-| **Python Çalıştırıcı** | Windows Python (`py.exe -3` / `python.exe`) | Linux Python (`/usr/bin/python3`) | Windows Python veya WSL Python (Otomatik köprü) |
-| **Hook & Lifecycle** | PowerShell / Windows komut satırı | POSIX Bash scriptleri (`.sh`) | `wslpath` ve `runtime_platform` otomatik yol köprüsü |
-| **Sabah Brifingi** | Windows Görev Zamanlayıcısı (XML Task) | Linux `systemd` user timer / `cron` | Windows Task Scheduler veya Linux systemd |
-| **Kimin İçin İdeal?** | WSL kullanmayan, her işini Windows'ta görenler | Tüm geliştirme ortamı ve terminali WSL'de olanlar | **Kodları WSL'de koşan, Obsidian'ı Windows'ta kullananlar** |
+| Çalışma Ortamı | Kasa Nerede Yaşar? | Obsidian Arayüzü | Python & Runtime | Görev Zamanlayıcı | Öne Çıkan Özellik / Kullanım Senaryosu |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **macOS** | `$HOME/Documents/<kasa>` | Yerel macOS Obsidian | `python3` (Sistem/Brew) | `launchd` (LaunchAgents) | Apple ekosistemi, sıfır yapılandırma, `.url` başlatıcı |
+| **Linux** | `$HOME/Documents/<kasa>` | Yerel Linux Obsidian | `python3` (Sistem) | `systemd --user` / `cron` | Saf Linux dağıtımları, XDG `.desktop` menü kısayolu |
+| **Windows Native** | `C:\Users\<ad>\Documents\<kasa>` | Yerel Windows Obsidian | `py.exe -3` (Windows) | Windows Görev Zamanlayıcısı | WSL kurmak istemeyen, her işini doğrudan Windows'ta yapanlar |
+| **Windows WSL** | `/home/<user>/<kasa>` | WSLg veya terminal | `python3` (Linux/WSL) | Linux `systemd` / `cron` | Tüm geliştirme ortamı ve projeleri WSL2 sanal diskinde olanlar |
+| **Windows Hibrit (Native + WSL)** | **Windows diskinde**<br/>(`C:\Users\<ad>\...` ↔ `/mnt/c/...`) | **Yerel Windows Obsidian**<br/>(Maksimum GUI hızı) | **WSL ve/veya Windows Python**<br/>(`runtime_platform` köprüsü) | Windows Task Scheduler / WSL | **En güçlü köprü modu:** Kasa Windows belgelerinde, Obsidian Windows'ta pürüzsüz çalışır; projeler ve AI CLI araçları ise WSL2 Linux terminalinde koşturulur. |
 
 ---
 
