@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shutil
+import sys
 import tempfile
 from types import ModuleType
 import unittest
@@ -182,7 +184,12 @@ class WizardTest(unittest.TestCase):
 
         self.assertIsNotNone(shortcut_file)
         self.assertTrue(shortcut_file.is_file())
-        self.assertEqual(shortcut_file.name, "ShortcutVault.url")
+        expected_name = (
+            "ShortcutVault.url"
+            if (os.name == "nt" or sys.platform == "darwin" or str(desktop_dir).startswith("/mnt/c/"))
+            else "ShortcutVault.desktop"
+        )
+        self.assertEqual(shortcut_file.name, expected_name)
         content = shortcut_file.read_text(encoding="utf-8")
         self.assertIn("obsidian://open?vault=ShortcutVault", content)
 

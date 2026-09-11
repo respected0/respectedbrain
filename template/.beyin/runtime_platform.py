@@ -30,12 +30,13 @@ def _acquire_windows(handle: IO[str], *, blocking: bool, timeout: float) -> bool
     deadline = time.monotonic() + max(timeout, 0.0)
     while True:
         try:
+            handle.seek(0)
             msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
             return True
         except OSError:
             if not blocking or time.monotonic() >= deadline:
                 return False
-            time.sleep(0.05)
+            time.sleep(0.005)
 
 
 def _acquire_posix(handle: IO[str], *, blocking: bool, timeout: float = 300.0) -> bool:
@@ -56,7 +57,7 @@ def _acquire_posix(handle: IO[str], *, blocking: bool, timeout: float = 300.0) -
         except (BlockingIOError, OSError):
             if time.monotonic() >= deadline:
                 return False
-            time.sleep(0.05)
+            time.sleep(0.005)
 
 
 def _release(handle: IO[str]) -> None:

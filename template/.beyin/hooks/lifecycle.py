@@ -357,7 +357,7 @@ def count_prompt(state_dir: Path, session_id: str) -> str:
     counter = state_dir / f"prompt_count.{key}"
     lock_path = state_dir / f"prompt_count.{key}.lock"
     with lock_path.open("a+", encoding="utf-8") as lock_handle:
-        with runtime_platform.exclusive_lock(lock_handle, blocking=True, timeout=2.0) as held:
+        with runtime_platform.exclusive_lock(lock_handle, blocking=True, timeout=30.0) as held:
             if not held:
                 return ""
             count = _read_integer(counter) + 1
