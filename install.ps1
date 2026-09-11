@@ -16,6 +16,8 @@ param(
     [string]$ScheduleTime = "08:00",
     [switch]$Defaults,
     [switch]$InstallGlobal,
+    [switch]$InstallMcp,
+    [switch]$NoInstallMcp,
     [switch]$Quiet
 )
 
@@ -103,6 +105,8 @@ if ($NoInstallSchedule) { $Arguments += "--no-install-schedule" }
 if ($ScheduleTime) { $Arguments += @("--schedule-time", $ScheduleTime) }
 if ($Defaults) { $Arguments += "--defaults" }
 if ($InstallGlobal) { $Arguments += "--install-global" }
+if ($InstallMcp) { $Arguments += "--install-mcp" }
+if ($NoInstallMcp) { $Arguments += "--no-install-mcp" }
 if ($Quiet) { $Arguments += "--quiet" }
 
 # 4. Çalıştır

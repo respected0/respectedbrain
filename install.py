@@ -195,6 +195,7 @@ def install_vault(
     schedule_time: str = "08:00",
     desktop_shortcut: bool = False,
     desktop_dir_override: Path | None = None,
+    install_mcp: bool = False,
     environment: str | None = None,
     quiet: bool = False,
 ) -> int:
@@ -339,6 +340,20 @@ def install_vault(
                 ]
                 subprocess.run(schedule_cmd, check=False, capture_output=True)
 
+        # 10. Optional MCP Server Registration
+        if install_mcp:
+            log(f"{Colors.DIM}• Editörlere (Claude Desktop, Cursor, Antigravity, Windsurf vb.) MCP sunucusu kaydediliyor...{Colors.RESET}")
+            mcp_script = target_scripts / "vault_mcp_server.py"
+            if mcp_script.is_file():
+                mcp_cmd = [sys.executable, str(mcp_script), "--vault", str(vault_path), "--register"]
+                mcp_res = subprocess.run(mcp_cmd, capture_output=True, text=True, check=False)
+                if mcp_res.returncode == 0:
+                    for line in mcp_res.stdout.splitlines():
+                        if line.startswith("✓"):
+                            log(f"  {Colors.GREEN}{line}{Colors.RESET}")
+                else:
+                    log(f"  {Colors.YELLOW}Uyarı: MCP kaydı tamamlanamadı: {mcp_res.stderr.strip()}{Colors.RESET}")
+
         log(f"\n{Colors.GREEN}{Colors.BOLD}✔ Tebrikler! {os_name} başarıyla kuruldu!{Colors.RESET}")
         log(f"  {Colors.BOLD}Konum:{Colors.RESET} {vault_path}")
         log(f"  {Colors.BOLD}Düşünme Ortağı:{Colors.RESET} {companion}")
@@ -351,6 +366,8 @@ def install_vault(
             log(f"  {Colors.BOLD}Masaüstü Kısayolu:{Colors.RESET} {created_shortcut}")
         if install_schedule:
             log(f"  {Colors.BOLD}Sabah Brifingi & Bilgi Derlemesi:{Colors.RESET} Aktif ({schedule_time})")
+        if install_mcp:
+            log(f"  {Colors.BOLD}MCP Sunucusu:{Colors.RESET} AI Editörlerine Kaydedildi (respected-vault)")
         log(f"\n{Colors.CYAN}Obsidian ile Başlayın:{Colors.RESET}")
         log(f"  1. Obsidian'ı açın.")
         log(f"  2. 'Open folder as vault' seçeneğine tıklayın.")
@@ -472,6 +489,13 @@ def _interactive_wizard() -> int:
             "08:00",
         )
 
+    # 11. MCP Server Registration
+    mcp_choice = _prompt_user(
+        "11. Dış projelerden kasaya erişmek için MCP sunucusu editörlere (Claude Desktop, Cursor, Antigravity vb.) kaydedilsin mi? [E/h]",
+        "E",
+    ).lower()
+    install_mcp = mcp_choice in ("e", "evet", "y", "yes")
+
     return install_vault(
         vault_path=vault_path,
         user_name=user_name,
@@ -484,6 +508,7 @@ def _interactive_wizard() -> int:
         install_schedule=install_schedule,
         schedule_time=schedule_time,
         desktop_shortcut=desktop_shortcut,
+        install_mcp=install_mcp,
         environment=environment,
         quiet=False,
     )
@@ -507,6 +532,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--schedule-time", default="08:00", help="Sabah brifingi çalışma saati (HH:MM)")
     parser.add_argument("--desktop-shortcut", dest="desktop_shortcut", action="store_true", default=False, help="Masaüstüne Obsidian kısayolu oluştur")
     parser.add_argument("--no-desktop-shortcut", dest="desktop_shortcut", action="store_false", help="Masaüstü kısayolu oluşturma")
+    parser.add_argument("--install-mcp", dest="install_mcp", action="store_true", default=False, help="Editörlere MCP sunucusunu kaydet")
+    parser.add_argument("--no-install-mcp", dest="install_mcp", action="store_false", help="MCP sunucusunu kaydetme")
     parser.add_argument("--quiet", action="store_true", help="Sessiz kurulum")
 
     args = parser.parse_args(argv)
@@ -532,6 +559,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         install_schedule=args.install_schedule,
         schedule_time=args.schedule_time,
         desktop_shortcut=args.desktop_shortcut,
+        install_mcp=args.install_mcp,
         environment=args.environment,
         quiet=args.quiet,
     )

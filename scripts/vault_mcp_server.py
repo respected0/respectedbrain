@@ -500,53 +500,156 @@ class RespectedMcpServer:
         sys.stdout.flush()
 
 
-def register_mcp(vault_root: Path) -> list[str]:
-    """Antigravity IDE ve Claude Code için MCP sunucusunu otomatik kaydeder."""
-    actions = []
-    # 1. Antigravity IDE
-    antigravity_mcp_dir = Path.home() / ".gemini" / "antigravity-ide" / "mcp" / "respected-vault"
-    if antigravity_mcp_dir.parent.is_dir():
-        antigravity_mcp_dir.mkdir(parents=True, exist_ok=True)
-        instructions_file = antigravity_mcp_dir / "instructions.md"
-        instructions_file.write_text(
-            "# Respected Brain MCP Server\n\n"
-            f"Bu sunucu, kalıcı ikinci beyin vault'una ({vault_root.name}) doğrudan erişim sağlar.\n"
-            "Başka projelerde çalışırken mimari kararları, kuralları veya geçmiş bilgileri sorgulamak için bu araçları kullan.\n",
-            encoding="utf-8",
-        )
-        server = RespectedMcpServer(vault_root)
-        for tool in server.get_tools_manifest():
-            schema_file = antigravity_mcp_dir / f"{tool['name']}.json"
-            schema_data = {
-                "name": tool["name"],
-                "description": tool["description"],
-                "parameters": tool["inputSchema"],
-            }
-            schema_file.write_text(json.dumps(schema_data, indent=2, ensure_ascii=False), encoding="utf-8")
-        actions.append(f"Antigravity IDE MCP kayıt edildi: {antigravity_mcp_dir}")
-
-    # 2. Claude Code global config (~/.claude.json)
-    claude_json_path = Path.home() / ".claude.json"
-    claude_cfg: dict[str, Any] = {}
-    if claude_json_path.is_file():
+def _update_mcp_json_file(file_path: Path, server_entry: dict[str, Any], server_key: str = "respected-vault") -> bool:
+    """Belirtilen JSON dosyasındaki mcpServers bloğuna güvenli ve atomik ekleme/güncelleme yapar."""
+    cfg: dict[str, Any] = {}
+    if file_path.is_file():
         try:
-            claude_cfg = json.loads(claude_json_path.read_text(encoding="utf-8"))
+            cfg = json.loads(file_path.read_text(encoding="utf-8"))
         except Exception:
-            claude_cfg = {}
-    servers = claude_cfg.setdefault("mcpServers", {})
+            cfg = {}
+    servers = cfg.setdefault("mcpServers", {})
+    servers[server_key] = server_entry
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return True
+
+
+def register_mcp(
+    vault_root: Path,
+    home_dir: Path | None = None,
+    appdata_dir: Path | None = None,
+    clients: list[str] | None = None,
+) -> list[str]:
+    """Popüler AI editörleri ve CLI araçları için MCP sunucusunu otomatik kaydeder.
+
+    Desteklenen İstemciler:
+    - antigravity: Google Antigravity IDE (~/.gemini/antigravity-ide/mcp/respected-vault)
+    - claude_code: Claude Code CLI (~/.claude.json)
+    - claude_desktop: Claude Desktop (APPDATA/Claude veya Library/Application Support/Claude veya ~/.config/Claude)
+    - cursor: Cursor IDE (~/.cursor/mcp.json)
+    - windsurf: Windsurf IDE (~/.codeium/windsurf/mcp_config.json)
+    - cline: VS Code Cline eklentisi (kuruluysa)
+    - roo_code: VS Code Roo-Code eklentisi (kuruluysa)
+    """
+    actions: list[str] = []
+    home = (home_dir or Path.home()).resolve()
+    target_clients = set(clients) if clients else None
+
+    # Server script ve komut tanımı
     server_script = vault_root / "scripts" / "vault_mcp_server.py"
     if not server_script.is_file():
         server_script = SCRIPT_DIR / "vault_mcp_server.py"
 
-    servers["respected-vault"] = {
+    server_entry = {
         "command": sys.executable,
         "args": [str(server_script.resolve()), "--vault", str(vault_root.resolve())],
     }
-    try:
-        claude_json_path.write_text(json.dumps(claude_cfg, indent=2, ensure_ascii=False), encoding="utf-8")
-        actions.append(f"Claude Code global MCP kayıt edildi: {claude_json_path}")
-    except Exception as e:
-        actions.append(f"Claude Code kayıt uyarısı: {e}")
+
+    # 1. Google Antigravity IDE
+    if target_clients is None or "antigravity" in target_clients:
+        antigravity_dir = home / ".gemini" / "antigravity-ide" / "mcp" / "respected-vault"
+        # Eğer Antigravity yüklüyse ya da açıkça istenmişse
+        if target_clients is not None or antigravity_dir.parent.is_dir() or (home / ".gemini").is_dir():
+            try:
+                antigravity_dir.mkdir(parents=True, exist_ok=True)
+                instructions_file = antigravity_dir / "instructions.md"
+                instructions_file.write_text(
+                    "# Respected Brain MCP Server\n\n"
+                    f"Bu sunucu, kalıcı ikinci beyin vault'una ({vault_root.name}) doğrudan erişim sağlar.\n"
+                    "Başka projelerde çalışırken mimari kararları, kuralları veya geçmiş bilgileri sorgulamak için bu araçları kullan.\n",
+                    encoding="utf-8",
+                )
+                server = RespectedMcpServer(vault_root)
+                for tool in server.get_tools_manifest():
+                    schema_file = antigravity_dir / f"{tool['name']}.json"
+                    schema_data = {
+                        "name": tool["name"],
+                        "description": tool["description"],
+                        "parameters": tool["inputSchema"],
+                    }
+                    schema_file.write_text(json.dumps(schema_data, indent=2, ensure_ascii=False), encoding="utf-8")
+                actions.append(f"Antigravity IDE MCP kaydedildi: {antigravity_dir}")
+            except Exception as e:
+                actions.append(f"Antigravity IDE kayıt uyarısı: {e}")
+
+    # 2. Claude Code CLI (~/.claude.json)
+    if target_clients is None or "claude_code" in target_clients:
+        claude_json_path = home / ".claude.json"
+        try:
+            _update_mcp_json_file(claude_json_path, server_entry)
+            actions.append(f"Claude Code global MCP kaydedildi: {claude_json_path}")
+        except Exception as e:
+            actions.append(f"Claude Code kayıt uyarısı: {e}")
+
+    # 3. Claude Desktop
+    if target_clients is None or "claude_desktop" in target_clients:
+        desktop_cfg_path: Path | None = None
+        if os.name == "nt" or appdata_dir is not None:
+            appdata = appdata_dir or (Path(os.environ.get("APPDATA", "")) if os.environ.get("APPDATA") else home / "AppData" / "Roaming")
+            desktop_cfg_path = appdata / "Claude" / "claude_desktop_config.json"
+        elif sys.platform == "darwin":
+            desktop_cfg_path = home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+        else:
+            desktop_cfg_path = home / ".config" / "Claude" / "claude_desktop_config.json"
+
+        if desktop_cfg_path:
+            try:
+                _update_mcp_json_file(desktop_cfg_path, server_entry)
+                actions.append(f"Claude Desktop MCP kaydedildi: {desktop_cfg_path}")
+            except Exception as e:
+                actions.append(f"Claude Desktop kayıt uyarısı: {e}")
+
+    # 4. Cursor IDE (~/.cursor/mcp.json)
+    if target_clients is None or "cursor" in target_clients:
+        cursor_mcp_path = home / ".cursor" / "mcp.json"
+        try:
+            _update_mcp_json_file(cursor_mcp_path, server_entry)
+            actions.append(f"Cursor IDE MCP kaydedildi: {cursor_mcp_path}")
+        except Exception as e:
+            actions.append(f"Cursor IDE kayıt uyarısı: {e}")
+
+    # 5. Windsurf IDE (~/.codeium/windsurf/mcp_config.json)
+    if target_clients is None or "windsurf" in target_clients:
+        windsurf_mcp_path = home / ".codeium" / "windsurf" / "mcp_config.json"
+        try:
+            _update_mcp_json_file(windsurf_mcp_path, server_entry)
+            actions.append(f"Windsurf IDE MCP kaydedildi: {windsurf_mcp_path}")
+        except Exception as e:
+            actions.append(f"Windsurf IDE kayıt uyarısı: {e}")
+
+    # 6. VS Code / Cline & Roo-Code eklentileri
+    code_storage_dirs = []
+    if os.name == "nt" or appdata_dir is not None:
+        appdata = appdata_dir or (Path(os.environ.get("APPDATA", "")) if os.environ.get("APPDATA") else home / "AppData" / "Roaming")
+        code_storage_dirs.append(appdata / "Code" / "User" / "globalStorage")
+    elif sys.platform == "darwin":
+        code_storage_dirs.append(home / "Library" / "Application Support" / "Code" / "User" / "globalStorage")
+    else:
+        code_storage_dirs.append(home / ".config" / "Code" / "User" / "globalStorage")
+
+    for storage in code_storage_dirs:
+        # Cline
+        if target_clients is None or "cline" in target_clients:
+            cline_dir = storage / "saoudrizwan.claude-dev"
+            if cline_dir.is_dir() or (target_clients and "cline" in target_clients):
+                cline_cfg = cline_dir / "settings" / "cline_mcp_settings.json"
+                try:
+                    _update_mcp_json_file(cline_cfg, server_entry)
+                    actions.append(f"Cline MCP kaydedildi: {cline_cfg}")
+                except Exception as e:
+                    actions.append(f"Cline kayıt uyarısı: {e}")
+
+        # Roo-Code
+        if target_clients is None or "roo_code" in target_clients:
+            roo_dir = storage / "rooveterinaryinc.roo-cline"
+            if roo_dir.is_dir() or (target_clients and "roo_code" in target_clients):
+                roo_cfg = roo_dir / "settings" / "cline_mcp_settings.json"
+                try:
+                    _update_mcp_json_file(roo_cfg, server_entry)
+                    actions.append(f"Roo-Code MCP kaydedildi: {roo_cfg}")
+                except Exception as e:
+                    actions.append(f"Roo-Code kayıt uyarısı: {e}")
 
     return actions
 
@@ -555,15 +658,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="RespectedOS Global MCP Vault Sunucusu")
     parser.add_argument("--vault", type=Path, default=None, help="Vault kök dizini")
     parser.add_argument("--test", action="store_true", help="Protokol yerine araçları test et")
-    parser.add_argument("--register", action="store_true", help="Antigravity ve Claude Code ortamına MCP sunucusunu kaydet")
+    parser.add_argument("--register", action="store_true", help="AI editörleri ve araçlarına MCP sunucusunu kaydet")
+    parser.add_argument(
+        "--clients",
+        type=str,
+        default=None,
+        help="Kayıt yapılacak istemciler (virgülle ayrılmış: antigravity,claude_code,claude_desktop,cursor,windsurf,cline,roo_code)",
+    )
 
     args = parser.parse_args()
     vault = resolve_vault_root(args.vault)
     server = RespectedMcpServer(vault)
 
     if args.register:
+        client_list = [c.strip() for c in args.clients.split(",")] if args.clients else None
         print(f"RespectedOS Vault: {vault}")
-        actions = register_mcp(vault)
+        actions = register_mcp(vault, clients=client_list)
         for a in actions:
             print(f"✓ {a}")
         print("\nKayıt tamamlandı. Artık başka projelerde çalışırken 'respected-vault' MCP araçlarını kullanabilirsiniz.")
@@ -584,3 +694,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

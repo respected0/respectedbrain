@@ -35,6 +35,7 @@ Kullanıcı aksini belirtmediyse aşağıdaki akıllı varsayılanları kullan; 
 | **ENVIRONMENT** | `native` | Çalışma ortamı (`native`, `wsl`, `hybrid`). |
 | **DESKTOP_SHORTCUT** | `True` | Masaüstüne tek tıkla Obsidian açılış kısayolu ekleme. |
 | **MORNING_BRIEFING** | `True` | Her sabah 08:00 otomatik brifing zamanlayıcısı kurma. |
+| **MCP_INTEGRATION** | `True` | Dış projelerden kasaya erişmek için editörlere (Claude Desktop, Cursor, Antigravity, Windsurf vb.) MCP kaydı yapma. |
 
 ---
 
@@ -99,8 +100,15 @@ Kullanıcı onay verdiyse:
 ### Adım 3.8: Sabah Brifingi Zamanlayıcısı (İsteğe Bağlı)
 Kullanıcı sabah 08:00 otomatik brifingini istiyorsa:
 ```bash
-python scripts/install_briefing_schedule.py "<VAULT_PATH>" --home "<KULLANICI_HOME>" --platform <windows-native | windows-wsl | linux | macos> --apply
+python scripts/install_briefing_schedule.py "<VAULT_PATH>" --home "<KULLANICI_HOME>" --platform <windows-native | windows-wsl | linux | macos> --time "08:00" --apply
 ```
+
+### Adım 3.9: Editörlere MCP Sunucusunu Kaydetme (İsteğe Bağlı)
+Kullanıcı dış projelerde kod yazarken kasadaki hafızaya, kararlara ve notlara erişmek istiyorsa:
+```bash
+python "<VAULT_PATH>/scripts/vault_mcp_server.py" --vault "<VAULT_PATH>" --register
+```
+Bu komut sistemde kurulu Claude Desktop, Cursor IDE, Windsurf, Google Antigravity ve Claude Code ortamlarına `respected-vault` MCP sunucusunu güvenle kaydeder.
 
 ---
 
@@ -113,3 +121,4 @@ Kurulum tamamlandığında ajanın kullanıcıya şu özeti sunması gerekir:
    - *"Obsidian'ı aç -> 'Open folder as vault' seçeneğine tıkla -> `<VAULT_PATH>` klasörünü seç."*
 5. Masaüstü kısayolu oluşturulduysa konumu (`obsidian://open?vault=<OS_NAME>`).
 6. Sabah brifingi zamanlayıcısının durumu (Aktif: 08:00 veya Pasif).
+7. MCP sunucusunun editörlere kaydedilme durumu (Aktif: `respected-vault` veya Pasif).

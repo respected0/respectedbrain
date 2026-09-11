@@ -101,6 +101,7 @@ class WizardTest(unittest.TestCase):
             "h",                   # 8. Global AI: Hayır
             "h",                   # 9. Masaüstü Kısayolu: Hayır
             "h",                   # 10. Sabah Brifingi: Hayır
+            "h",                   # 11. MCP Sunucusu: Hayır
         ]
 
         with mock.patch("builtins.input", side_effect=mock_inputs):
@@ -129,6 +130,7 @@ class WizardTest(unittest.TestCase):
             "h",                   # 8. Global AI: Hayır
             "h",                   # 9. Masaüstü Kısayolu: Hayır
             "h",                   # 10. Sabah Brifingi: Hayır
+            "h",                   # 11. MCP Sunucusu: Hayır
         ]
 
         with mock.patch("builtins.input", side_effect=mock_inputs):
@@ -154,6 +156,7 @@ class WizardTest(unittest.TestCase):
             "h",                   # 8. Global AI: Hayır
             "h",                   # 9. Masaüstü Kısayolu: Hayır
             "h",                   # 10. Sabah Brifingi: Hayır
+            "h",                   # 11. MCP Sunucusu: Hayır
         ]
 
         with mock.patch("builtins.input", side_effect=mock_inputs):
@@ -181,6 +184,28 @@ class WizardTest(unittest.TestCase):
         self.assertEqual(shortcut_file.name, "ShortcutVault.url")
         content = shortcut_file.read_text(encoding="utf-8")
         self.assertIn("obsidian://open?vault=ShortcutVault", content)
+
+    def test_interactive_wizard_with_mcp_registration(self) -> None:
+        target_vault = self.temp_root / "McpVault"
+        mock_inputs = [
+            str(target_vault),     # 1. Kasa yolu
+            "Furkan",              # 2. Ad
+            "Mühendis",            # 3. Bio
+            "Jarvis",              # 4. Companion
+            "RespectedOS",         # 5. OS Name
+            "1",                   # 6. Seçim: [1] Auto
+            "1",                   # 7. Ortam: [1] Native
+            "h",                   # 8. Global AI: Hayır
+            "h",                   # 9. Masaüstü Kısayolu: Hayır
+            "h",                   # 10. Sabah Brifingi: Hayır
+            "e",                   # 11. MCP Sunucusu: EVET
+        ]
+
+        with mock.patch("builtins.input", side_effect=mock_inputs):
+            code = self.installer._interactive_wizard()
+
+        self.assertEqual(code, 0)
+        self.assertTrue((target_vault / "scripts" / "vault_mcp_server.py").is_file())
 
 
 if __name__ == "__main__":
