@@ -17,7 +17,7 @@ import os
 from pathlib import Path
 import re
 import sys
-from typing import Any, List, Optional, Set
+from typing import List, Optional
 
 MAX_NOTES = 3
 MAX_CHARS = 900
@@ -65,7 +65,13 @@ def _get_search_engine(vault_root: Path):
         sys.path.insert(0, str(template_scripts))
 
     try:
-        from arama import SearchEngine
+        from arama import SearchEngine  # type: ignore
+        return SearchEngine(vault_root)
+    except Exception:
+        pass
+
+    try:
+        from scripts.arama import SearchEngine  # type: ignore
         return SearchEngine(vault_root)
     except Exception:
         return None
