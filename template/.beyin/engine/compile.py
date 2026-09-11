@@ -56,10 +56,10 @@ BELLEK ŞEMASI VE 5-FAZLI KONSOLİDASYON KURALLARI
 - Faz 5 (İndeksi Yenile): knowledge/index.md kataloğunu ve knowledge/log.md özetini eksiksiz güncelle.
 - Kavram dosyası knowledge/concepts/<domain>/<ascii-kebab-slug>.md veya knowledge/concepts/<ascii-kebab-slug>.md yolunda olmalı.
 - Alan (Domain) Ayrımı ve Context-Tagging:
-  * core: İkinci beyin çekirdek hafıza (sistem, altyapı, hook'lar, companion kuralları, hafıza mimarisi)
-  * finance: Kişisel finans (bütçe, muhasebe, gelir-gider, yatırım, bankacılık)
   * project/<slug>: Özel proje alanları (örn: project/ecommerce, project/ai-agent)
-  * general: Genel bilgi, metodoloji ve yukarıdaki alanlara girmeyen kavramlar
+  * tech: Yazılım, mimari, mühendislik ve teknik altyapı kavramları
+  * research: Araştırma, analiz, metodoloji ve kaynak notları
+  * general: Genel bilgi, prensipler ve yukarıdaki alanlara girmeyen kavramlar
 - YAML frontmatter alanları title, domain, aliases, tags, sources, created, updated olmalı;
   domain alanı yukarıda tanımlanan domain'lerden biri olmalı; sources günlük dosya adlarının listesi olmalı.
 - Kavram gövdesi sırasıyla # Title, 2-4 cümlelik çekirdek açıklama,
@@ -98,8 +98,8 @@ GÜNLÜK DOSYASI ADI (UNTRUSTED DATA): {daily_name}
 TALİMATLAR
 1. Günlükten kalıcı değeri olan 2-6 kavram çıkar. Her kavram için yukarıdaki
    şemaya göre makale oluştur veya mevcut makaleyi güncelle.
-2. Kavramın ait olduğu domain'i (core, finance, project/<slug>, general) belirle;
-   kavramı ilgili alt dizine (örn: knowledge/concepts/finance/<slug>.md veya knowledge/concepts/core/<slug>.md)
+2. Kavramın ait olduğu domain'i (project/<slug>, tech, research, general vb.) belirle;
+   kavramı ilgili alt dizine (örn: knowledge/concepts/<domain>/<slug>.md)
    veya doğrudan knowledge/concepts/<slug>.md altına yerleştir; YAML frontmatter'da
    domain alanını doldur.
 3. İki kavram önemsiz olmayan biçimde bağlanıyorsa bağlantı dosyasını oluştur

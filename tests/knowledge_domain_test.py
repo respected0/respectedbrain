@@ -52,12 +52,14 @@ class KnowledgeDomainTest(unittest.TestCase):
     def test_compile_prompt_specifies_domain_tagging_and_index_structure(self) -> None:
         prompt = self.compiler.COMPILE_PROMPT
         self.assertIn("Alan (Domain) Ayrımı ve Context-Tagging:", prompt)
-        self.assertIn("* core: İkinci beyin çekirdek hafıza", prompt)
-        self.assertIn("* finance: Kişisel finans (bütçe, muhasebe", prompt)
+        self.assertIn("* tech: Yazılım, mimari", prompt)
+        self.assertIn("* research: Araştırma, analiz", prompt)
         self.assertIn("title, domain, aliases, tags", prompt)
         self.assertIn("* project/<slug>:", prompt)
         self.assertIn("* general:", prompt)
         self.assertIn("Makale | Alan (Domain) | Özet | Kaynak |", prompt)
+        self.assertNotIn("* core:", prompt)
+        self.assertNotIn("* finance:", prompt)
 
     def test_template_index_markdown_has_domain_column(self) -> None:
         template_index = REPO_ROOT / "template" / "knowledge" / "index.md"
@@ -69,8 +71,8 @@ class KnowledgeDomainTest(unittest.TestCase):
         self.assertTrue(is_allowed("knowledge/index.md"))
         self.assertTrue(is_allowed("knowledge/log.md"))
         self.assertTrue(is_allowed("knowledge/concepts/general-slug.md"))
-        self.assertTrue(is_allowed("knowledge/concepts/finance/butce-ve-muhasebe.md"))
-        self.assertTrue(is_allowed("knowledge/concepts/core/hafiza-ve-hooklar.md"))
+        self.assertTrue(is_allowed("knowledge/concepts/tech/sistem-mimarisi.md"))
+        self.assertTrue(is_allowed("knowledge/concepts/research/veri-analizi.md"))
         self.assertTrue(is_allowed("knowledge/concepts/project/ecommerce/sepet.md"))
         self.assertTrue(is_allowed("knowledge/connections/a--b.md"))
 
@@ -83,8 +85,8 @@ class KnowledgeDomainTest(unittest.TestCase):
     def test_allowed_output_directory_permits_domain_subdirectories(self) -> None:
         is_allowed_dir = self.compiler._is_allowed_output_directory
         self.assertTrue(is_allowed_dir("knowledge/concepts"))
-        self.assertTrue(is_allowed_dir("knowledge/concepts/finance"))
-        self.assertTrue(is_allowed_dir("knowledge/concepts/core"))
+        self.assertTrue(is_allowed_dir("knowledge/concepts/tech"))
+        self.assertTrue(is_allowed_dir("knowledge/concepts/research"))
         self.assertTrue(is_allowed_dir("knowledge/connections"))
 
         self.assertFalse(is_allowed_dir("knowledge"))
@@ -94,45 +96,45 @@ class KnowledgeDomainTest(unittest.TestCase):
     def test_atomic_promotion_creates_domain_subdirectories_in_live_vault(self) -> None:
         stage_dir = Path(tempfile.mkdtemp(prefix="stage-test-"))
         try:
-            finance_concept_content = (
+            tech_concept_content = (
                 "---\n"
-                "title: Çift Taraflı Muhasebe\n"
-                "domain: finance\n"
+                "title: Sistem Mimarisi\n"
+                "domain: tech\n"
                 "sources: [2026-09-11.md]\n"
                 "---\n"
-                "# Çift Taraflı Muhasebe\n"
-                "Varlık ve borç eşitliği.\n"
+                "# Sistem Mimarisi\n"
+                "Modüler mimari prensipleri.\n"
             )
-            core_concept_content = (
+            research_concept_content = (
                 "---\n"
-                "title: Event Rotasyon Mimarisi\n"
-                "domain: core\n"
+                "title: Veri Analizi\n"
+                "domain: research\n"
                 "sources: [2026-09-11.md]\n"
                 "---\n"
-                "# Event Rotasyon Mimarisi\n"
-                "20 event rotasyon kuralı.\n"
+                "# Veri Analizi\n"
+                "Sistematik araştırma ve veri analizi metodolojisi.\n"
             )
 
             stage_knowledge = stage_dir / "knowledge"
-            stage_finance = stage_knowledge / "concepts" / "finance"
-            stage_core = stage_knowledge / "concepts" / "core"
-            stage_finance.mkdir(parents=True)
-            stage_core.mkdir(parents=True)
+            stage_tech = stage_knowledge / "concepts" / "tech"
+            stage_research = stage_knowledge / "concepts" / "research"
+            stage_tech.mkdir(parents=True)
+            stage_research.mkdir(parents=True)
 
-            (stage_finance / "cift-tarafli-muhasebe.md").write_text(
-                finance_concept_content, encoding="utf-8"
+            (stage_tech / "sistem-mimarisi.md").write_text(
+                tech_concept_content, encoding="utf-8"
             )
-            (stage_core / "event-rotasyon-mimarisi.md").write_text(
-                core_concept_content, encoding="utf-8"
+            (stage_research / "veri-analizi.md").write_text(
+                research_concept_content, encoding="utf-8"
             )
 
             changed_files = [
-                "knowledge/concepts/finance/cift-tarafli-muhasebe.md",
-                "knowledge/concepts/core/event-rotasyon-mimarisi.md",
+                "knowledge/concepts/tech/sistem-mimarisi.md",
+                "knowledge/concepts/research/veri-analizi.md",
             ]
             live_baseline: dict[str, str | None] = {
-                "knowledge/concepts/finance/cift-tarafli-muhasebe.md": None,
-                "knowledge/concepts/core/event-rotasyon-mimarisi.md": None,
+                "knowledge/concepts/tech/sistem-mimarisi.md": None,
+                "knowledge/concepts/research/veri-analizi.md": None,
             }
 
             # Promotes from stage into self.vault
@@ -140,21 +142,21 @@ class KnowledgeDomainTest(unittest.TestCase):
                 stage_dir, self.vault, changed_files, live_baseline
             )
 
-            live_finance = (
-                self.vault / "knowledge/concepts/finance/cift-tarafli-muhasebe.md"
+            live_tech = (
+                self.vault / "knowledge/concepts/tech/sistem-mimarisi.md"
             )
-            live_core = (
-                self.vault / "knowledge/concepts/core/event-rotasyon-mimarisi.md"
-            )
-
-            self.assertTrue(live_finance.is_file())
-            self.assertEqual(
-                live_finance.read_text(encoding="utf-8"), finance_concept_content
+            live_research = (
+                self.vault / "knowledge/concepts/research/veri-analizi.md"
             )
 
-            self.assertTrue(live_core.is_file())
+            self.assertTrue(live_tech.is_file())
             self.assertEqual(
-                live_core.read_text(encoding="utf-8"), core_concept_content
+                live_tech.read_text(encoding="utf-8"), tech_concept_content
+            )
+
+            self.assertTrue(live_research.is_file())
+            self.assertEqual(
+                live_research.read_text(encoding="utf-8"), research_concept_content
             )
         finally:
             shutil.rmtree(stage_dir, ignore_errors=True)

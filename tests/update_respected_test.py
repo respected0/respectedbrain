@@ -51,6 +51,7 @@ class UpdateRespectedTest(unittest.TestCase):
         (self.vault / "scripts").mkdir(parents=True, exist_ok=True)
         for p in (ROOT / "scripts").glob("*.py"):
             shutil.copy2(p, self.vault / "scripts" / p.name)
+        (self.vault / ".respectedbrain-version").unlink(missing_ok=True)
         (self.vault / ".beyin-version").write_text("2.0.0\n", encoding="utf-8")
         (self.vault / ".beyin-multi-version").write_text("1.1.0\n", encoding="utf-8")
         self.instructions = "# Ada Brain\n\nKişisel ve kalıcı talimat.\n"
@@ -171,8 +172,9 @@ class UpdateRespectedTest(unittest.TestCase):
         result = self.run_update("--apply")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((self.vault / ".beyin-multi-version").read_text().strip(), "0.0.1")
-        self.assertEqual((self.vault / ".beyin-version").read_text().strip(), "0.0.1")
+        self.assertEqual((self.vault / ".respectedbrain-version").read_text().strip(), "0.0.1")
+        self.assertFalse((self.vault / ".beyin-version").exists())
+        self.assertFalse((self.vault / ".beyin-multi-version").exists())
         self.assertEqual((self.vault / ".beyin/instructions.md").read_bytes(), instruction_before)
         self.assertEqual(self.note.read_bytes(), note_before)
         config = json.loads((self.vault / ".beyin/config.json").read_text(encoding="utf-8"))
@@ -282,7 +284,9 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertIn("geçersiz vault yolu", result.stdout + result.stderr)
 
     def test_already_current_vault_returns_three_without_mutation(self):
-        (self.vault / ".beyin-multi-version").write_text("0.0.1\n", encoding="utf-8")
+        (self.vault / ".beyin-version").unlink(missing_ok=True)
+        (self.vault / ".beyin-multi-version").unlink(missing_ok=True)
+        (self.vault / ".respectedbrain-version").write_text("0.0.1\n", encoding="utf-8")
         before = tree_digest(self.vault)
 
         result = self.run_update("--apply")
@@ -296,7 +300,9 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertIn("install_briefing_schedule.py", result.stdout)
 
     def test_post_update_guidance_survives_a_cp1252_windows_console(self):
-        (self.vault / ".beyin-multi-version").write_text("0.0.1\n", encoding="utf-8")
+        (self.vault / ".beyin-version").unlink(missing_ok=True)
+        (self.vault / ".beyin-multi-version").unlink(missing_ok=True)
+        (self.vault / ".respectedbrain-version").write_text("0.0.1\n", encoding="utf-8")
         environment = os.environ.copy()
         environment["HOME"] = str(self.home)
         environment["USERPROFILE"] = str(self.home)
@@ -320,154 +326,54 @@ class UpdateRespectedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertIn(b"install_global.py", result.stdout)
 
-    def test_1_3_0_vault_receives_the_patch_release(self):
-        (self.vault / ".beyin-multi-version").write_text("1.3.0\n", encoding="utf-8")
-
+    def test_legacy_vault_receives_the_release(self):
         result = self.run_update("--apply")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
-            (self.vault / ".beyin-multi-version").read_text().strip(),
+            (self.vault / ".respectedbrain-version").read_text().strip(),
             "0.0.1",
         )
-
-    def test_1_3_1_vault_receives_the_patch_release(self):
-        (self.vault / ".beyin-multi-version").write_text("1.3.1\n", encoding="utf-8")
-
-        result = self.run_update("--apply")
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            (self.vault / ".beyin-multi-version").read_text().strip(),
-            "0.0.1",
-        )
-
-    def test_1_3_2_vault_receives_the_minor_release(self):
-        (self.vault / ".beyin-multi-version").write_text("1.3.2\n", encoding="utf-8")
-
-        result = self.run_update("--apply")
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            (self.vault / ".beyin-multi-version").read_text().strip(),
-            "0.0.1",
-        )
-
-    def test_1_4_0_vault_receives_the_patch_release(self):
-        (self.vault / ".beyin-multi-version").write_text("1.4.0\n", encoding="utf-8")
-
-        result = self.run_update("--apply")
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            (self.vault / ".beyin-multi-version").read_text().strip(),
-            "0.0.1",
-        )
+        self.assertFalse((self.vault / ".beyin-version").exists())
+        self.assertFalse((self.vault / ".beyin-multi-version").exists())
         self.assertTrue((self.vault / ".cursor/rules/software-quality-1.mdc").is_file())
         self.assertTrue((self.vault / ".cursor/rules/software-quality-2.mdc").is_file())
         self.assertTrue((self.vault / ".agents/rules/software-quality-1.md").is_file())
         self.assertTrue((self.vault / ".agents/rules/software-quality-2.md").is_file())
         self.assertTrue((self.vault / "📋 Templates/Base.base").is_file())
-
-    def test_1_4_1_vault_receives_the_patch_release(self):
-        (self.vault / ".beyin-multi-version").write_text("1.4.1\n", encoding="utf-8")
-
-        result = self.run_update("--apply")
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            (self.vault / ".beyin-multi-version").read_text().strip(),
-            "0.0.1",
-        )
-        self.assertTrue((self.vault / ".cursor/rules/software-quality-1.mdc").is_file())
-        self.assertTrue((self.vault / ".cursor/rules/software-quality-2.mdc").is_file())
-        self.assertTrue((self.vault / ".agents/rules/software-quality-1.md").is_file())
-        self.assertTrue((self.vault / ".agents/rules/software-quality-2.md").is_file())
-        self.assertTrue((self.vault / "📋 Templates/Base.base").is_file())
-
-    def test_1_4_2_vault_receives_the_patch_release(self):
-        (self.vault / ".beyin-multi-version").write_text("1.4.2\n", encoding="utf-8")
-
-        result = self.run_update("--apply")
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            (self.vault / ".beyin-multi-version").read_text().strip(),
-            "0.0.1",
-        )
-
-    def test_1_4_3_vault_receives_the_patch_release(self):
-        (self.vault / ".beyin-multi-version").write_text("1.4.3\n", encoding="utf-8")
-
-        result = self.run_update("--apply")
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            (self.vault / ".beyin-multi-version").read_text().strip(),
-            "0.0.1",
-        )
-
-    def test_1_4_5_vault_receives_the_patch_release(self):
-        (self.vault / ".beyin-multi-version").write_text("1.4.5\n", encoding="utf-8")
-
-        result = self.run_update("--apply")
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            (self.vault / ".beyin-multi-version").read_text().strip(),
-            "0.0.1",
-        )
 
     def test_already_current_vault_with_force_applies_successfully(self):
-        (self.vault / ".beyin-multi-version").write_text("0.0.1\n", encoding="utf-8")
+        (self.vault / ".beyin-version").unlink(missing_ok=True)
+        (self.vault / ".beyin-multi-version").unlink(missing_ok=True)
+        (self.vault / ".respectedbrain-version").write_text("0.0.1\n", encoding="utf-8")
 
         result = self.run_update("--apply", "--force")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
-            (self.vault / ".beyin-multi-version").read_text().strip(),
+            (self.vault / ".respectedbrain-version").read_text().strip(),
             "0.0.1",
         )
 
-    def test_1_4_4_vault_receives_the_patch_release(self):
-        (self.vault / ".beyin-multi-version").write_text("1.4.4\n", encoding="utf-8")
+    def test_unstamped_vault_is_rejected_without_mutation(self):
+        vault = Path(self.temporary.name) / "invalid-unstamped"
+        shutil.copytree(self.vault, vault)
+        (vault / ".respectedbrain-version").unlink(missing_ok=True)
+        (vault / ".beyin-version").unlink(missing_ok=True)
+        (vault / ".beyin-multi-version").unlink(missing_ok=True)
+        before = tree_digest(vault)
 
-        result = self.run_update("--apply")
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            (self.vault / ".beyin-multi-version").read_text().strip(),
-            "0.0.1",
+        result = subprocess.run(
+            [sys.executable, str(UPDATER), str(vault), "--apply"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
         )
 
-    def test_unstamped_v1_and_unknown_versions_are_rejected_without_mutation(self):
-        cases = (
-            (None, "1.0.0"),
-            ("9.9.9", "1.0.0"),
-            ("2.0.0", "9.9.9"),
-        )
-        for index, (core, multi) in enumerate(cases):
-            vault = Path(self.temporary.name) / f"invalid-{index}"
-            shutil.copytree(self.vault, vault)
-            core_path = vault / ".beyin-version"
-            if core is None:
-                core_path.unlink()
-            else:
-                core_path.write_text(f"{core}\n", encoding="utf-8")
-            (vault / ".beyin-multi-version").write_text(f"{multi}\n", encoding="utf-8")
-            before = tree_digest(vault)
-
-            result = subprocess.run(
-                [sys.executable, str(UPDATER), str(vault), "--apply"],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-
-            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(tree_digest(vault), before)
-            self.assertIn("sürüm", (result.stdout + result.stderr).casefold())
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(tree_digest(vault), before)
+        self.assertIn("sürüm", (result.stdout + result.stderr).casefold())
     def test_legacy_claude_scripts_migrated_and_user_custom_scripts_preserved(self):
         claude_scripts = self.vault / ".claude" / "scripts"
         claude_scripts.mkdir(parents=True, exist_ok=True)

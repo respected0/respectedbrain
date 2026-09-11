@@ -19,12 +19,12 @@ import uuid
 
 from legacy_names import LEGACY_MANIFEST_SCRIPT, LEGACY_NAMESPACE, LEGACY_UPDATE_SCRIPT
 from respected_manifest import (
-    CORE_VERSION,
     GENERATED,
-    MULTI_VERSION,
+    LEGACY_VERSION_FILES,
     RUNTIME,
     SKILL_DESTINATIONS,
-    UPDATABLE_MULTI_VERSIONS,
+    VERSION,
+    VERSION_FILE,
 )
 
 
@@ -216,22 +216,33 @@ def _validated_legacy_removals(vault: Path) -> tuple[str, ...]:
     return tuple(removals)
 
 
-def _validate_target(vault: Path) -> tuple[str, str]:
+def _read_target_version(vault: Path) -> tuple[str, bool]:
+    has_legacy_files = any((vault / leg).is_file() for leg in LEGACY_VERSION_FILES)
+    primary = vault / VERSION_FILE
+    if primary.is_file():
+        ver = _read_stamp(primary)
+        if ver:
+            return ver, has_legacy_files or (ver != VERSION)
+    for leg in LEGACY_VERSION_FILES:
+        leg_file = vault / leg
+        if leg_file.is_file():
+            ver = _read_stamp(leg_file)
+            if ver:
+                return ver, True
+    return "", True
+
+
+def _validate_target(vault: Path) -> tuple[str, bool]:
     if not vault.is_dir() or vault == Path(vault.anchor):
         raise UpdateError(f"geçersiz vault yolu: {vault}")
-    core = _read_stamp(vault / ".beyin-version")
-    multi = _read_stamp(vault / ".beyin-multi-version")
-    if core not in ("2.0.0", CORE_VERSION):
-        shown = core or "yok (unstamped/v1)"
-        raise UpdateError(f"desteklenmeyen çekirdek sürümü: {shown}")
-    if multi not in UPDATABLE_MULTI_VERSIONS:
-        shown = multi or "yok"
-        raise UpdateError(f"desteklenmeyen multi-AI sürümü: {shown}")
+    version, is_legacy = _read_target_version(vault)
+    if not version:
+        raise UpdateError("hedefte geçerli bir sürüm damgası bulunamadı")
     if not (vault / ".beyin/instructions.md").is_file():
         raise UpdateError("kanonik .beyin/instructions.md yok")
-    for relative in (*managed_files(), *LEGACY_TOOL_FILES, *LEGACY_ENGINE_FILES, ".beyin-version", ".beyin-multi-version"):
+    for relative in (*managed_files(), *LEGACY_TOOL_FILES, *LEGACY_ENGINE_FILES, VERSION_FILE, *LEGACY_VERSION_FILES):
         _safe_target(vault, relative)
-    return core, multi
+    return version, is_legacy
 
 
 def _infer_profile(vault: Path, requested: str, config: dict[str, Any]) -> str:
@@ -529,12 +540,12 @@ def _cleanup_legacy_claude_scripts(vault: Path) -> None:
 
 def update(vault: Path, requested_profile: str, apply: bool, force: bool = False) -> int:
     _validate_source()
-    _core, current_multi = _validate_target(vault)
+    current_version, is_legacy = _validate_target(vault)
     config = _load_object(vault / ".beyin/config.json")
     profile = _infer_profile(vault, requested_profile, config)
     relatives = managed_files()
     legacy_removals = _validated_legacy_removals(vault)
-    print(f"Respected Brain: {current_multi} -> {MULTI_VERSION}")
+    print(f"Respected Brain: {current_version or 'eski sürüm'} -> {VERSION}")
     print(f"platform: {profile}")
     print("yönetilen dosyalar:")
     for relative in relatives:
@@ -546,13 +557,13 @@ def update(vault: Path, requested_profile: str, apply: bool, force: bool = False
     if not apply:
         print("ÖNİZLEME: hiçbir dosya değişmedi. Uygulamak için --apply ekle.")
         return 0
-    if current_multi == MULTI_VERSION and not force:
+    if not is_legacy and current_version == VERSION and not force:
         print("Bu vault zaten güncel. Zorlamak için --force kullanın.")
         _print_external_refresh_guidance()
         return 3
 
     stage_container, stage = _create_stage(vault, profile, requested_profile)
-    targets = tuple(dict.fromkeys((*relatives, *legacy_removals, ".beyin-version", ".beyin-multi-version")))
+    targets = tuple(dict.fromkeys((*relatives, *legacy_removals, VERSION_FILE, *LEGACY_VERSION_FILES)))
     original_directories = _directory_relatives(vault)
     backup: Path | None = None
     try:
@@ -565,8 +576,14 @@ def update(vault: Path, requested_profile: str, apply: bool, force: bool = False
         _cleanup_legacy_claude_scripts(vault)
         _gate(vault, relatives)
         ensure_bytecode_cleanup(vault)
-        _atomic_write(vault / ".beyin-multi-version", f"{MULTI_VERSION}\n")
-        _atomic_write(vault / ".beyin-version", f"{CORE_VERSION}\n")
+        for leg in LEGACY_VERSION_FILES:
+            leg_path = vault / leg
+            if leg_path.is_file():
+                try:
+                    leg_path.unlink()
+                except OSError:
+                    pass
+        _atomic_write(vault / VERSION_FILE, f"{VERSION}\n")
     except (OSError, UnicodeError, ValueError, UpdateError) as error:
         if backup is None:
             raise UpdateError(f"update başlamadan durduruldu: {error}") from error
@@ -580,7 +597,7 @@ def update(vault: Path, requested_profile: str, apply: bool, force: bool = False
     finally:
         shutil.rmtree(stage_container, ignore_errors=True)
 
-    print(f"Respected Brain güncellendi: sürüm {MULTI_VERSION}; yedek: {backup}")
+    print(f"Respected Brain güncellendi: sürüm {VERSION}; yedek: {backup}")
     _print_external_refresh_guidance()
     return 0
 

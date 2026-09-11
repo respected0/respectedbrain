@@ -139,7 +139,33 @@ Sihirbaz; algılanan AI modellerini listeler, model öncelik sırasını, çalı
 
 ---
 
-### 4. Kurulumdan Sonra: Obsidian ile Açın ve Başlayın
+## 3 Farklı Yoldan Güncelleme (Update)
+
+Mevcut bir kasanızı en güncel kararlı sürüme (`0.0.1`) yükseltmek için 3 pratik yol vardır (kişisel notlarınız ve kimlik dosyalarınız asla silinmez):
+
+1. **AI-Native Güncelleme:** Ajanınıza doğrudan söyleyin:
+   > *"Kasamı en son kararlı Respected Brain sürümüne güncelle."* (Ayrıntılar: [UPDATE.md](UPDATE.md))
+2. **Tek Satır (One-Liner) Güncelleme:**
+   - **Windows:** `irm https://raw.githubusercontent.com/respected0/secondbrain/main/update.ps1 | iex`
+   - **Linux / macOS:** `curl -fsSL https://raw.githubusercontent.com/respected0/secondbrain/main/update.sh | bash`
+3. **CLI Terminal:** `python update.py` (veya `python update.py --vault-path "/kasa/yolu" --apply`)
+
+---
+
+## Temiz Kaldırma (Uninstall)
+
+Sistem entegrasyonlarını (global AI kancaları, zamanlanmış sabah brifingi görevi, kısayollar ve MCP sunucusu) temizlemek için:
+
+- **Tek Satır (One-Liner):**
+  - **Windows:** `irm https://raw.githubusercontent.com/respected0/secondbrain/main/uninstall.ps1 | iex`
+  - **Linux / macOS:** `curl -fsSL https://raw.githubusercontent.com/respected0/secondbrain/main/uninstall.sh | bash`
+- **CLI Terminal:** `python uninstall.py`
+
+*(Varsayılan olarak ikinci beyin kasanız ve notlarınız kesinlikle silinmez, güvendedir. Ayrıntılar: [UNINSTALL.md](UNINSTALL.md)).*
+
+---
+
+### Kurulumdan Sonra: Obsidian ile Açın ve Başlayın
 
 Global bağlantıyı seçtiysen vault klasöründe çalışmak zorunda değilsin. Herhangi bir kod reposunu
 desteklenen agentlardan biriyle aç; ilk oturumda ortak hafıza bağlama girer, kapanışta özet merkezi
@@ -430,7 +456,7 @@ aynı değildir, fakat verdikleri hafıza davranışı ortaktır.
 ├── 📦 900-Archive/
 ├── 📋 Templates/
 ├── .beyin/                   # tek kaynak: talimatlar, skill'ler, ortak adaptör
-├── .claude/                  # ortak çekirdek runtime + Claude adapteri (v2 uyumluluk yolu)
+├── .claude/                  # ortak çekirdek runtime + Claude adapteri (uyumluluk yolu)
 ├── .codex/                   # Codex hook'ları
 ├── .cursor/                  # Cursor rules ve hook'ları
 └── .agents/                  # Antigravity rules, skill ve hook'ları
@@ -463,7 +489,7 @@ Windows komutu `py.exe -3` olur. Python opsiyonel değil: günlük log da bilgi 
 | macOS | **orijinal akış test edildi** | ortak runtime, `daily/`, `knowledge/`, 🧠 masaüstü kısayolu; multi-AI adaptörleri otomatik testlidir. |
 | Linux | **test edilmedi** | kurulum `uname` ile dallanır: Homebrew, Obsidian cask ve macOS `.app` adımları atlanır, yerine XDG `.desktop` kısayolu yazılır. Vault, kancalar ve scriptler taşınabilir yazıldı ama gerçek bir Linux masaüstünde doğrulanmadı. Denersen sorun aç. |
 | Windows + WSL | **doğrulandı** | Windows Antigravity/Cursor hook'ları `wsl.exe` ile WSL'deki Python motoruna bağlanır; Obsidian aynı vault'u Windows yolundan açar. |
-| Windows native | **Windows CI doğrulandı; gerçek iki-provider smoke bekliyor** | `py.exe -3` ile ortak Python lifecycle doğrudan çalışır; WSL/Bash gerekmez. Taze kurulum ve damgalı Respected güncellemesi desteklenir, damgasız v1 dönüşümü henüz WSL ister. |
+| Windows native | **Windows CI doğrulandı; gerçek iki-provider smoke bekliyor** | `py.exe -3` ile ortak Python lifecycle doğrudan çalışır; WSL/Bash gerekmez. Taze kurulum ve Respected güncellemesi doğrudan desteklenir. |
 
 Masaüstü kısayolu macOS'ta `osacompile` ve AppKit kullanır, ikisi de Linux'ta yoktur. Vault'un
 kendisi düz Markdown, yani her yerde açılır. Windows + WSL global multi-agent köprüsü doğrulandı;

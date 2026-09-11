@@ -4,7 +4,7 @@ Covers:
 1. Bounded Recall (bounded_recall.py): Abstention gate, token bounding, FTS fallback.
 2. Smart Note Merge (smart_merge.py): Metadata union, redirect callout, wikilink rewriting.
 3. Codebase Architect Scanner (architect_scan.py): Architecture extraction, module discovery, markdown/json output.
-4. Vault Linter v1.4.4 (vault_linter.py): En/Em-dash filename rule and freshness claim linting.
+4. Vault Linter (vault_linter.py): En/Em-dash filename rule and freshness claim linting.
 5. URL Safety Canonical Hashing (url_safety.py): Content normalization and hashing.
 6. Note Template & Rules: Bi-temporal timeline schema and future agent preamble.
 """
@@ -37,7 +37,7 @@ from scripts import smart_merge
 import bounded_recall  # type: ignore
 
 
-class TestV144BoundedRecall(unittest.TestCase):
+class TestBoundedRecall(unittest.TestCase):
     """Bounded Recall & Abstention Gate tests."""
 
     def test_abstention_gate_on_short_or_conversational_prompts(self):
@@ -114,7 +114,7 @@ class TestV144BoundedRecall(unittest.TestCase):
         self.assertEqual(result, "")
 
 
-class TestV144SmartMerge(unittest.TestCase):
+class TestSmartMerge(unittest.TestCase):
     """Smart Note Merge tests."""
 
     def setUp(self):
@@ -203,7 +203,7 @@ class TestV144SmartMerge(unittest.TestCase):
             smart_merge.smart_merge(non_existent, self.target, vault_root=self.vault)
 
 
-class TestV144ArchitectScan(unittest.TestCase):
+class TestArchitectScan(unittest.TestCase):
     """Codebase Architect Scanner tests."""
 
     def test_scan_codebase_detects_structure_and_modules(self):
@@ -240,7 +240,7 @@ class TestV144ArchitectScan(unittest.TestCase):
             self.assertEqual(report_corrupt["name"], proj.name)
 
 
-class TestV144VaultLinter(unittest.TestCase):
+class TestVaultLinter(unittest.TestCase):
     """Vault Linter En/Em-dash and Freshness claim linting tests."""
 
     def test_dash_checker_detects_and_fixes_en_em_dashes(self):
@@ -279,7 +279,7 @@ class TestV144VaultLinter(unittest.TestCase):
             self.assertIn("500-Knowledge/Pipeline.md:2", report["freshness_warnings"][0]["file"])
 
 
-class TestV144UrlSafety(unittest.TestCase):
+class TestUrlSafety(unittest.TestCase):
     """Canonical text normalization and content hashing tests."""
 
     def test_normalize_canonical_text_strips_volatile_elements(self):
@@ -298,7 +298,7 @@ class TestV144UrlSafety(unittest.TestCase):
         self.assertEqual(len(h1), 16)
 
 
-class TestV144TemplatesAndRules(unittest.TestCase):
+class TestTemplatesAndRules(unittest.TestCase):
     """Timeline schema and future agent preamble in templates & companion rules."""
 
     def test_note_template_contains_timeline_and_preamble(self):
@@ -309,7 +309,7 @@ class TestV144TemplatesAndRules(unittest.TestCase):
         self.assertIn("learned:", note_template)
         self.assertIn("## For future agent", note_template)
 
-    def test_kurallar_contains_v144_directives(self):
+    def test_kurallar_contains_smart_tool_directives(self):
         kurallar = (ROOT / "template" / "🔮 850-Companion" / "Kurallar.md").read_text(encoding="utf-8")
         self.assertIn("timeline:", kurallar)
         self.assertIn("## For future agent", kurallar)

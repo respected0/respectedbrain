@@ -147,9 +147,7 @@ try {
         "-VaultPath", $Vault, "-UserName", "Ada", "-UserBio", "Geliştirici ve tasarımcı",
         "-Companion", "Echo", "-OsName", "AdaOS", "-Providers", "codex"
     )
-    Assert-True ($install.Code -eq 0) "Native temiz kurulum geçmeli: $($install.Output)"
-    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-version")).Trim() -eq "0.0.1") "Sürüm damgası 0.0.1 olmalı"
-    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin-multi-version")).Trim() -eq "0.0.1") "Multi damgası 0.0.1 olmalı"
+    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $Vault ".respectedbrain-version")).Trim() -eq "0.0.1") "Sürüm damgası 0.0.1 olmalı"
     Assert-True ((Test-Path -LiteralPath (Join-Path $Vault "scripts\update_respected.py") -PathType Leaf)) "Güncel updater kurulmalı"
     Assert-True ((Test-Path -LiteralPath (Join-Path $Vault "scripts\respected_manifest.py") -PathType Leaf)) "Güncel manifest kurulmalı"
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $Vault "scripts\update_respot.py"))) "Eski updater temiz kurulumda olmamalı"

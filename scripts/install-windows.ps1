@@ -308,11 +308,8 @@ try {
     if (@($Remaining).Count -gt 0) {
         throw "çözülmemiş placeholder: $($Remaining[0].FullName)"
     }
-    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-version"))).Trim() -ne "0.0.1") {
-        throw ".beyin-version gate başarısız"
-    }
-    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".beyin-multi-version"))).Trim() -ne "0.0.1") {
-        throw ".beyin-multi-version gate başarısız"
+    if (([IO.File]::ReadAllText((Join-Path $ResolvedVault ".respectedbrain-version"))).Trim() -ne "0.0.1") {
+        throw ".respectedbrain-version gate başarısız"
     }
     $AdapterPaths = @(
         (Join-Path $ResolvedVault ".claude\settings.json"),
@@ -337,6 +334,6 @@ catch {
 }
 
 Write-Host "Respected Brain kuruldu: $ResolvedVault"
-Write-Host "Sürüm: core 2.0.0 / multi-AI 0.0.1"
+Write-Host "Sürüm: 0.0.1"
 Write-Host "Global bağlantı ayrı ve seçicidir; SETUP-WINDOWS.md içindeki install_global.py adımını kullan."
 exit 0

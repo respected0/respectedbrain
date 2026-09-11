@@ -221,7 +221,7 @@ Respected Brain üç ana platform profilini birinci sınıf vatandaş olarak des
 ## 8. Güvenlik ve Doğrulama Standartları
 
 - **Claude zorunlu değildir:** Tüm sistem tamamen bağımsız çalışır; geliştirici dilediği AI aracı kombinasyonunu kullanabilir.
-- **Damgasız v1 ve Geçmiş Vault Uyumluluğu:** 1.0.0 ile 1.4.5 arasındaki tüm damgalı vault'lar `scripts/update_respected.py` ile transactional olarak güncellenebilir.
+- **Geçmiş Vault Uyumluluğu:** 0.0.1 öncesi tüm önceki vault'lar `scripts/update_respected.py` ile transactional olarak güncellenebilir.
 - **Yedekleme Güvencesi:** Yükseltme öncesinde doğrulanmış Git snapshot'ları ve Restic entegrasyonu (`scripts/backup_restic.py`) ile tam geri dönülebilirlik sağlanır.
 - **Zero-Trust Güvenlik:** Ayrıntılı güvenlik politikaları, SSRF filtreleri ve staging izolasyonu için [docs/SECURITY.md](file:///c:/Users/Furkan/Documents/ChatGPT/secondbrain/docs/SECURITY.md) belgesine bakın.
 - **Teknik Sözleşmeler:** Kesin manifest ve davranış kuralları için [docs/SPECIFICATION.md](file:///c:/Users/Furkan/Documents/ChatGPT/secondbrain/docs/SPECIFICATION.md) belgesine bakın.

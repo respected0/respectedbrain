@@ -238,8 +238,7 @@ def install_vault(
 
         # 3. Create required runtime dirs
         (vault_path / "daily").mkdir(exist_ok=True)
-        (vault_path / "knowledge" / "concepts" / "core").mkdir(parents=True, exist_ok=True)
-        (vault_path / "knowledge" / "concepts" / "finance").mkdir(parents=True, exist_ok=True)
+        (vault_path / "knowledge" / "concepts").mkdir(parents=True, exist_ok=True)
         (vault_path / "knowledge" / "connections").mkdir(parents=True, exist_ok=True)
 
         # 4. Resolve placeholders

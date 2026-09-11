@@ -60,7 +60,7 @@ class RespectedMcpServer:
     """Respected Brain Vault MCP stdio Sunucusu."""
 
     SERVER_NAME = "respected-vault-mcp"
-    SERVER_VERSION = "1.0.0"
+    SERVER_VERSION = "0.0.1"
     PROTOCOL_VERSION = "2024-11-05"
 
     def __init__(self, vault_root: Path) -> None:

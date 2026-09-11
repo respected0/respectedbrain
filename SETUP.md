@@ -2,9 +2,8 @@
 
 > Respected Brain Claude Code, Codex, Cursor ve Antigravity ile kullanılabilir. Kurulum sonunda
 > `python3 scripts/render_integrations.py` çalıştır. Mevcut bir Respected Brain vault'unu güncellemek
-> için `scripts/update_respected.py` kullan; eksik multi-AI katmanını tamamlamak için `enable_multiai.py`
-> kullanılır. Tarihsel v1 geçiş scripti (`upgrade.sh`) v1.4.5 sürümünde emekliye ayrılmıştır. Ayrıntı:
-> `MULTI_AI.md`.
+> için `scripts/update_respected.py` (veya `python update.py`) kullan; eksik multi-AI katmanını tamamlamak için `enable_multiai.py`
+> kullanılır. Ayrıntı: `MULTI_AI.md`.
 
 ## Platform profiles
 
@@ -17,9 +16,8 @@ Respected has exactly three installed runtime profiles:
 | `windows-native` | `py.exe -3` | Windows without WSL/Bash |
 
 If this checkout is running directly in Windows and the user wants a fresh native vault, stop this
-POSIX-oriented runbook and follow `SETUP-WINDOWS.md`. For an already stamped Respected Brain
-`2.0.0` / `1.0.0` – `1.4.6` vault, `scripts/update_respected.py --platform windows-native`
-is supported (updating to `0.0.1`). Unstamped legacy v1 vaults should have their memory folders transferred to a fresh template vault.
+POSIX-oriented runbook and follow `SETUP-WINDOWS.md`. 0.0.1 öncesi veya önceki sürümlerden kalan mevcut bir vault için,
+`scripts/update_respected.py --platform windows-native` (veya `python update.py`) desteklenir.
 Claude is never mandatory when another selected provider CLI is installed and authenticated.
 
 > You are a coding agent, run from inside a freshly cloned `respectedbrain` repo. The user wants their
@@ -90,15 +88,10 @@ while IFS= read -r BEYIN_D; do
   BEYIN_HITS=$((BEYIN_HITS + 1))
   echo "ADAY: $BEYIN_D"
   echo "  hafıza klasörü: $(basename "$BEYIN_MEM")"
-  if [ -f "$BEYIN_D/.beyin-version" ]; then
-    echo "  sürüm: $(sed -n '1p' "$BEYIN_D/.beyin-version")"
+  if [ -f "$BEYIN_D/.respectedbrain-version" ]; then
+    echo "  sürüm: $(sed -n '1p' "$BEYIN_D/.respectedbrain-version")"
   else
-    echo "  sürüm: v1 (.beyin-version yok)"
-  fi
-  if [ -f "$BEYIN_D/.beyin-multi-version" ]; then
-    echo "  Respected multi-AI: $(sed -n '1p' "$BEYIN_D/.beyin-multi-version")"
-  else
-    echo "  Respected multi-AI: yok"
+    echo "  sürüm: 0.0.1 öncesi (eski sürüm)"
   fi
 done < "$BEYIN_LIST"
 rm -f "$BEYIN_LIST"
@@ -194,7 +187,7 @@ else
 fi
 ```
 
-**v2 hard requirement:** `python3` and at least one supported authenticated local AI CLI must be
+**Hard requirement:** `python3` and at least one supported authenticated local AI CLI must be
 present. Claude is not mandatory.
 
 ```bash
@@ -220,7 +213,7 @@ echo "ONKOSUL SONUC: $BEYIN_MISSING eksik"
 ```
 
 `ONKOSUL SONUC: 0` is the only line that lets you continue. `python3` is what the background
-summarizer and the compiler run on, and it is the entire v2 thesis. If it is missing:
+summarizer and the compiler run on, and it is the entire architecture thesis. If it is missing:
 
 - macOS: `xcode-select --install`, then run the block again.
 - Linux: install `python3` with your package manager, then run the block again.
@@ -246,16 +239,15 @@ No globs in the chmod. Under zsh an unmatched `*.sh` aborts the whole command wi
 Create only the optional scope folders the user picked in `{{SCOPE}}`:
 `⚔️ 200-Goals` · `🔐 400-Vault` · `💪 700-Body` · `🧘 800-Mind`
 
-Verify the v2 pieces landed:
+Verify the runtime pieces landed:
 
 ```bash
 cd "{{VAULT_PATH}}"
-ls .claude/hooks/          # session-start.sh prompt-counter.sh session-end.sh pre-compact.sh lib.sh
-ls .beyin/engine/          # flush.py compile.py
-ls .claude/skills/         # beyin-doktor gecmis-import
+ls .claude/hooks/             # session-start.sh prompt-counter.sh session-end.sh pre-compact.sh lib.sh
+ls .beyin/engine/             # flush.py compile.py
+ls .claude/skills/            # beyin-doktor gecmis-import
 ls -d daily knowledge/concepts knowledge/connections
-cat .beyin-version         # 0.0.1
-cat .beyin-multi-version   # 0.0.1
+cat .respectedbrain-version   # 0.0.1
 ```
 
 ## PHASE 3: Personalize (substitute placeholders)
@@ -348,7 +340,7 @@ python3 "{{VAULT_PATH}}/scripts/install_briefing_schedule.py" "{{VAULT_PATH}}" \
 Windows native uses the equivalent command from `SETUP-WINDOWS.md`. Declining this step leaves the
 worker available for manual use and does not install a task.
 
-## PHASE 4: Git (new in v2)
+## PHASE 4: Git
 
 The vault is the user's memory. Version it from day one, so an upgrade or a bad edit is always
 reversible.
@@ -459,7 +451,7 @@ the folder in Obsidian by hand always works.
 1. `command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh`
 2. Free API key from https://mem0.ai, stored in `{{VAULT_PATH}}/.claude/settings.local.json`:
    `{ "env": { "MEM0_API_KEY": "..." } }`. That file is already gitignored. Never commit it.
-3. Tell the user it is an upgrade layer. The file-based memory and the whole v2 pipeline work
+3. Tell the user it is an upgrade layer. The file-based memory and the whole pipeline work
    without it, with no key at all.
 
 ## PHASE 7: First doctor run
@@ -495,261 +487,50 @@ Then jump to **THE DEMO** at the bottom of this file.
 
 ---
 
-# MODE B: Upgrade an existing v1 vault directly to Respected Brain
+# MODE B: Update an existing vault directly to Respected Brain
 
-> The user already has a working brain. Their memory files are the whole point of it. This mode is
-> **additive only**, with exactly one exception that v2 makes mandatory: the memory folder must be
-> named `🔮 850-Companion`, because the hooks and the scripts read that fixed path.
+Use this mode for any existing vault created prior to the current `0.0.1` release.
+Existing memory files are the whole point of the system; this update is strictly **additive and safe**:
+- Personal notes and identity files (`🔮 850-Companion/Core.md`, `Journal.md`, `Threads.md`, `Last-Session.md`) are never overwritten.
+- Managed runtime engines, hook adapters, skills, and templates are brought up to date atomically.
+- Legacy version markers (`.beyin-version`, `.beyin-multi-version`) are cleanly consolidated into a single `.respectedbrain-version`.
 
-## Run the script. Do not hand-roll the upgrade in fenced blocks.
-
-Every Bash call you make is a **separate process**. A variable you set in one fenced block
-(`V="..."`, `R="$(pwd)"`) is gone in the next one. The old runbook did exactly that, and the
-result was real: `"$V/daily"` expanded to `/daily`, `"$V/.beyin-version"` to `/.beyin-version`,
-and the version stamp was written before the checks that were supposed to justify it.
-
-So the entire upgrade lived in one committed, versioned script (retired in v1.4.5):
-
-```
-scripts/upgrade.sh
-```
-
-> [!NOTE]
-> **Tarihsel Not / Mimari Durum:** `scripts/upgrade.sh` betiği v1.4.5 sürümünde kod tabanından emekliye ayrılmıştır (v1 purge). Mevcut damgalı Respected Brain vault'larını (`1.0.0` - `1.4.5`) güncellemek için **MODE C (`scripts/update_respected.py`)**, eksik çoklu-AI katmanını kurmak için ise `scripts/enable_multiai.py` kullanılır. Eski damgasız bir v1 vault'u aktarılırken `🔮 850-Companion` klasörü taze bir Respected Brain vault'una taşınmalıdır. Aşağıdaki MODE B akışı bu mimari geçişin tarihsel sözleşmesini belgeler.
-
-Every call carries the vault path as an argument, so there is nothing to lose between calls. The
-script runs `set -euo pipefail`, derives the repo path from its own location, canonicalizes both
-paths, and refuses an empty path, `/`, `$HOME`, the repo itself, a path that contains the repo or
-sits inside it, and any directory without the v1 markers (`CLAUDE.md` plus a `🔮 850-*` folder).
-
-## The upgrade contract (read it out loud to yourself before you type)
-
-**NEVER touch:**
-- `🔮 850-Companion/*.md` (whatever the folder was called before): Core, Last-Session, Threads,
-  Journal. Not a rewrite, not a reformat, not a "small cleanup". Kurallar.md is seeded **only if
-  it does not exist**.
-- `🎯 100-Command-Center/Dashboard.md` and every other note the user or the companion wrote.
-- `CLAUDE.md`. It carries the user's personalization. You may *append* a short v2 section at the
-  end if the user says yes, and only then.
-- Secrets in `.claude/settings.local.json` (`env`, API keys), unrelated hooks, permissions, and
-  every other key in that file.
-
-**UNTRACKED FROM GIT (file stays on disk, contents untouched):**
-- `.claude/settings.local.json`, `.env`, and any leftover `*.yedek` / `*.bak` / `*.orig`, if the
-  v1 vault had them committed. Adding a `.gitignore` rule does not untrack an already-tracked
-  path, so the upgrade runs `git rm --cached` on them before taking its snapshot. Without this
-  the run dies at the final commit gate with every check green and no way forward.
-- Tell the user plainly: **the secret is still in the repository history.** If that file held an
-  API key, they should revoke and reissue it at the provider. Rewriting history is a separate
-  job (`git filter-repo` or BFG) and the upgrade will not attempt it.
-
-**ADD (only if absent):**
-- `daily/`, `knowledge/`, `knowledge/concepts/`, `knowledge/connections/` with their `.gitkeep`s
-- `knowledge/index.md`, `knowledge/log.md`
-- `.beyin/engine/` (flush.py, compile.py, `.state/`)
-- `.claude/skills/beyin-doktor/`, `.claude/skills/gecmis-import/`
-- `🔮 850-Companion/Kurallar.md`
-- `.beyin/` canonical instructions, provider config, bridge, model runner and shared skills
-- `AGENTS.md`, `.agents/`, `.codex/`, `.cursor/` provider-native adapters
-- `.beyin-multi-version`, written only after every gate passed
-- `.beyin-version`, the authoritative stamp written **last of all**
-- missing `.gitignore` entries
-
-**REPLACE:**
-- `.claude/hooks/*.sh` and `.claude/hooks/lib.sh`. These are code, not memory. The v2 versions are
-  strict supersets of v1 behavior. The pre-upgrade snapshot holds any local edits.
-
-**RENAME (mandatory in v2, with the user's explicit yes):**
-- A memory folder named after the companion (`🔮 850-Echo`) becomes `🔮 850-Companion`, with
-  `git mv`. Contents are never copied and never deleted; a rename is a rename. If the user says
-  no, the upgrade does not happen at all and `.beyin-version` is not written.
-
-**MERGE, idempotently:**
-- `.claude/settings.json` hook wiring. An event already wired to the same hook file is skipped,
-  never duplicated. Running the upgrade twice produces the exact same file.
-- `.claude/settings.local.json`: only the exact v1 beyin hook commands are removed. Unrelated
-  matchers, unrelated events and every other key survive untouched.
-
-## PHASE U1: Plan (read only, changes nothing)
-
-```bash
-bash scripts/upgrade.sh --vault "/kullanicinin/mutlak/vault/yolu" --stage check
-```
-
-Use the absolute path you confirmed in PHASE M, in double quotes: it has spaces and emoji in it.
-The command prints the plan, the current memory folder name, how many v1 hooks live in
-`settings.local.json`, and an `ONAY GEREKLİ` list when confirmations are needed. It touches
-nothing. Read it back to the user in Turkish.
-
-## PHASE U2: Get the confirmations, in Turkish, out loud
-
-Ask only what `--stage check` actually asked for.
-
-1. **Hafıza klasörü adı.** If it is not `🔮 850-Companion`:
-   > "Hafıza klasörünün adı `🔮 850-Echo`. v2'nin kancaları ve scriptleri sabit
-   > `🔮 850-Companion` yolunu okuyor, bu yüzden bu yeniden adlandırma v2 için zorunlu. İçerik hiç
-   > değişmiyor, sadece klasörün adı değişiyor; ortağının ismi zaten dosyaların içinde yazıyor.
-   > Onaylıyor musun?"
-
-   Yes → pass `--confirm-rename`.
-   No → **stop the upgrade here.** Say in Turkish that the vault stays on v1, nothing was changed
-   and no version was stamped. Do not run `apply`. Do not write `.beyin-version`. A vault stamped
-   `2.0.0` whose memory injection cannot find the folder is worse than an honest v1 vault.
-
-2. **`settings.local.json` içindeki v1 kancaları.** If the check found any:
-   > "Eski kurulumda kancalar `settings.local.json` içine yazılmış. v2 bunları `settings.json`
-   > içine alıyor. Eskiler silinmezse her olayda kancalar iki kez çalışır ve aynı gün iki kez
-   > loglanır. Sadece bu dört kanca girdisi siliniyor; API anahtarın, izinlerin ve kendi yazdığın
-   > diğer kancalar aynen kalıyor. Silmeden önce yedeği repo ve vault dışına, sadece senin
-   > okuyabileceğin izinle alıyorum. Onaylıyor musun?"
-
-   Yes → pass `--confirm-local-hooks`.
-   No → **stop the upgrade here**, same rule. Never stamp a version on a vault that fires every
-   hook twice.
-
-## PHASE U3: Apply
-
-```bash
-bash scripts/upgrade.sh --vault "/kullanicinin/mutlak/vault/yolu" --stage apply --confirm-rename --confirm-local-hooks
-```
-
-Pass only the confirmation flags the check asked for. Read the numbered output back to the user.
-
-| Çıkış kodu | Anlamı | Ne yapacaksın |
-| --- | --- | --- |
-| `0` | Respected çekirdeği ve adapterları hazır, iki sürüm damgası da HENÜZ yazılmadı | PHASE U4'e geç |
-| `3` | vault zaten çekirdek `2.0.0` + Respected multi-AI `0.0.1` | güncelleme gerekmez, sadece `beyin doktor` çalıştır |
-| `10` | yeniden adlandırma onayı eksik | PHASE U2'ye dön |
-| `11` | yerel kanca temizliği onayı eksik | PHASE U2'ye dön |
-| `1` | sert hata, ekranda `HATA:` satırı var | DUR. Kullanıcıya oku, düzelt, tekrar çalıştır |
-
-On exit `1` nothing is stamped and the pre-upgrade snapshot is already in the vault's git history,
-so `git reset --hard <anlık görüntü>` inside the vault puts everything back. Say that out loud
-instead of improvising a repair.
-
-## PHASE U4: Resolve the placeholders in the newly added files
-
-`apply` prints the files that still contain `{{...}}`. Read `CLAUDE.md` and the existing memory
-files to recover the user's name and the companion's name, and fill them in. Do not ask the user
-to repeat what the vault already knows; confirm your reading in one line instead:
-"Ortağının adı X, senin adın Y, doğru mu?"
-
-```bash
-grep -rl "{{" "/kullanicinin/mutlak/vault/yolu/knowledge" \
-              "/kullanicinin/mutlak/vault/yolu/.claude/skills" \
-              "/kullanicinin/mutlak/vault/yolu/.beyin" \
-              "/kullanicinin/mutlak/vault/yolu/.agents" \
-              "/kullanicinin/mutlak/vault/yolu/.cursor" \
-              "/kullanicinin/mutlak/vault/yolu/AGENTS.md" \
-              "/kullanicinin/mutlak/vault/yolu/CLAUDE.md" \
-              "/kullanicinin/mutlak/vault/yolu/🔮 850-Companion" 2>/dev/null \
-  || echo "✓ çözülmemiş placeholder yok"
-```
-
-## PHASE U5: Doctor
-
-Ask the agent currently performing the setup to run the `beyin-doktor` skill against the vault.
-The same canonical skill is available to Claude, Codex, Cursor and Antigravity after the multi-AI
-layer is enabled. If skill discovery is not yet active, run the manual checks from PHASE 7.
-
-Close every 🔴 row before you go on. The version has not been stamped yet, so the doctor is
-looking at an honest half-upgraded vault. That is the point.
-
-## PHASE U6: Finalize (the only step that writes both Respected version stamps)
-
-```bash
-bash scripts/upgrade.sh --vault "/kullanicinin/mutlak/vault/yolu" --stage finalize
-```
-
-`finalize` re-runs every gate from scratch, in this order:
-
-1. memory folder is exactly `🔮 850-Companion`
-2. all five hooks present, executable, `bash -n` clean, recursion guard line present
-3. both scripts present and byte-compilable
-4. both skills present
-5. every added folder and seed file present
-6. no `{{...}}` left in any file the upgrade added
-7. across `settings.json` **and** `settings.local.json` together, exactly one effective handler per
-   event: SessionStart, UserPromptSubmit, SessionEnd, PreCompact
-8. no secret-bearing backup left anywhere inside the vault
-9. `.gitignore` actually protects `.claude/settings.local.json`
-10. canonical `.beyin/` sources, provider config and four agent adapter families are present
-11. generated rules/hooks have no drift from `.beyin/`
-12. neither `.beyin-version` nor `.beyin-multi-version` was written early
-
-Only if all twelve pass does it commit with an **explicit path allow-list** (never `git add -A`),
-abort if any staged path looks like local settings or a backup, verify that `HEAD` really moved,
-and only then write `.beyin-multi-version = 0.0.1` followed by the authoritative final
-`.beyin-version = 0.0.1` write. If any gate fails it prints the failing rows, writes no stamp, and
-the vault stays honestly unfinished.
-
-Then offer this in one Turkish line, do not push it: **"Eski ChatGPT, Claude veya Gemini geçmişini
-de bu beyne aktarmak ister misin? `geçmiş import` yeter."** The `gecmis-import` skill does
-everything locally; nothing is uploaded anywhere. Large exports take several evenings to compile,
-and that is fine.
-
-## PHASE U7: Optional global access
-
-The upgrade itself already installed the full provider-neutral Respected workspace layer. Do **not**
-run a second `enable_multiai.py` migration. Follow PHASE 3B only if the user wants the same vault
-available automatically in unrelated code repositories. Keep summary provider `auto` unless the
-user explicitly requests another first choice.
-
----
-
-# MODE C: Update an existing pre-0.0.1 Respected Brain
-
-Use this for any pre-0.0.1 vault.
-Do not run `enable_multiai.py` as a routine updater.
-
-Preview first; this validates and prints managed paths without changing the vault:
+## Preview first
 
 ```bash
 python3 scripts/update_respected.py "/absolute/path/to/vault"
 ```
 
-Then apply (optionally add `--force` to re-sync managed files even if already on 0.0.1):
+On native Windows:
+```powershell
+py -3 scripts/update_respected.py "$HOME\Documents\RespectedOS" --platform windows-native
+```
+
+This validates and prints managed paths without touching any file in the vault.
+
+## Apply the update
 
 ```bash
 python3 scripts/update_respected.py "/absolute/path/to/vault" --apply
 ```
 
-The updater preserves `.beyin/instructions.md`, `summary_provider`, extra config keys and every
-non-managed note. It stages outside the vault in a mode-`0700` system temporary directory and
-backs up every mutation target under `~/.respected/update-backups/<vault-id>/<timestamp>/`. It
-then promotes runtime files atomically, renders the explicit platform profile, runs syntax/JSON/drift and
-placeholder gates, and writes `.beyin-multi-version = 0.0.1` last. If a gate fails it restores the
-managed files from that backup and leaves the old stamp intact.
+(Optionally add `--force` to re-sync managed files even if already on `0.0.1`).
 
-The updater intentionally does not mutate user-level tool configuration or the operating-system
-scheduler inside the vault transaction. If global access or the morning schedule was installed,
-rerun the corresponding PHASE 3B and scheduler preview/apply commands after the update. On
-`windows-wsl`, shared Codex skills are synchronized to the active WSL user's
-`~/.agents/skills/`. After changed Codex hooks are installed, trust them in Desktop under
-**Settings > Hooks** or in the CLI with `/hooks`.
+## The update guarantees
 
-`--platform auto` is the default and keeps an already explicit profile. An old config without a
-profile is inferred once as `portable`, `windows-wsl`, or `windows-native` and then persisted. An
-unstamped v1 vault is intentionally refused. On POSIX/WSL use MODE B for it; on native Windows use
-WSL for that migration rather than partially stamping the vault.
+- **Atomic promotion:** Managed files stage outside the vault in a secure temporary directory.
+- **External backup:** Target files are backed up to `~/.respected/update-backups/<vault-id>/<timestamp>/`.
+- **Single version stamp:** Writes `.respectedbrain-version = 0.0.1` only after all integrity checks pass.
+- **Clean migration:** If old version markers exist, they are safely retired.
+- **No secret leaks:** Local credentials and untracked configs are preserved and kept out of version control.
+- **Never destroy:** Personal notes, identity files, and custom notes are strictly preserved.
+- **Idempotent:** Running `apply` multiple times is safe and skips already current components.
 
-## What the script guarantees, so you do not have to promise it yourself
+## PHASE U7: Optional global access
 
-- **One process.** No variable survives between your Bash calls, so none is used across them.
-- **Verified snapshot.** `git init` when needed, always with an explicit `-c user.name` and
-  `-c user.email`, so an unset git identity cannot turn a failed commit into "değişiklik yok".
-  It compares `HEAD` before and after and refuses to continue if the commit did not actually
-  happen. With no git at all it takes a copy outside the vault and verifies the item count.
-- **Secrets stay out of git.** The `.gitignore` entries are installed **before** the first
-  snapshot, the `settings.local.json` backup is written outside both the repo and the vault with
-  mode `0600`, and every staging step aborts if a path matching local settings, `.yedek`, `.bak`,
-  `.env`, `.pem` or `.key` reaches the index.
-- **Never destroy.** Every copy is checked, the rename compares the item count before and after,
-  seed files are skipped when they already exist, and the `settings.local.json` rewrite drops only
-  the four exact v1 beyin commands.
-- **Idempotent.** Running `apply` twice prints `eklenen kanca girdisi: 0`, skips every seed and
-  reports the memory folder as already correct. A fully stamped Respected vault exits `3`; a vault
-  with only the old v2 core stamp is completed instead of being falsely reported as finished.
+Follow PHASE 3B only if the user wants the same vault available automatically in unrelated code repositories.
+Do **not**
+run a second `enable_multiai.py` migration.
 
 # THE DEMO (both modes end here)
 

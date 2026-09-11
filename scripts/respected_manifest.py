@@ -4,13 +4,12 @@ from __future__ import annotations
 
 
 VERSION = "0.0.1"
-CORE_VERSION = "0.0.1"
-MULTI_VERSION = "0.0.1"
-UPDATABLE_MULTI_VERSIONS = (
-    "1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.3.1", "1.3.2",
-    "1.4.0", "1.4.1", "1.4.2", "1.4.3", "1.4.4", "1.4.5", "1.4.6",
-    MULTI_VERSION,
-)
+VERSION_FILE = ".respectedbrain-version"
+LEGACY_VERSION_FILES = (".beyin-version", ".beyin-multi-version")
+
+# Tek sürüm takma adları
+CORE_VERSION = VERSION
+MULTI_VERSION = VERSION
 
 GENERATED = (
     "AGENTS.md",

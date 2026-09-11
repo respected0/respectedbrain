@@ -53,9 +53,10 @@ class WizardTest(unittest.TestCase):
         )
         self.assertEqual(code, 0)
         self.assertTrue(target_vault.is_dir())
-        self.assertTrue((target_vault / "knowledge" / "index.md").is_file())
-        self.assertTrue((target_vault / "knowledge" / "concepts" / "core").is_dir())
-        self.assertTrue((target_vault / "knowledge" / "concepts" / "finance").is_dir())
+        self.assertTrue((target_vault / "knowledge" / "concepts").is_dir())
+        self.assertTrue((target_vault / "knowledge" / "connections").is_dir())
+        self.assertFalse((target_vault / "knowledge" / "concepts" / "core").exists())
+        self.assertFalse((target_vault / "knowledge" / "concepts" / "finance").exists())
 
         # Check config.json
         config_path = target_vault / ".beyin" / "config.json"

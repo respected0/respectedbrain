@@ -63,7 +63,7 @@ yeniden denenir. Provider adı göreve gömülmez; değiştirilen mevcut görev 
 
 ## Mevcut Respected Brain'i güncellemek
 
-Damgaları `2.0.0` / `1.0.0` – `1.4.5` olan mevcut Respected Brain vault'unu repo
+0.0.1 öncesi veya önceki sürümlerden kalan mevcut Respected Brain vault'unu repo
 kökünden güncelle:
 
 ```powershell
@@ -76,5 +76,4 @@ py -3 scripts/update_respected.py "$HOME\Documents\RespectedOS" --platform windo
 İlk komut önizlemedir ve hiçbir dosya değiştirmez. Transaction staging alanı vault dışında sistem
 geçici dizininde oluşturulur; yedekler `$HOME\.respected\update-backups\` altında tutulur.
 
-Tarihsel v1 geçiş scripti (`upgrade.sh`) v1.4.5 sürümünde emekliye ayrılmıştır; damgasız eski v1 vault'larının
-hafıza klasörleri (`🔮 850-Companion`) taze bir Respected Brain vault'una aktarılabilir.
+Önceki sürümlerden kalan hafıza klasörleri (`🔮 850-Companion`) güvenle korunur ve taze bir Respected Brain vault'una aktarılabilir.

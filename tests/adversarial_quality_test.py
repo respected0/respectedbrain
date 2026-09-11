@@ -152,8 +152,8 @@ class AdversarialQualityTest(unittest.TestCase):
         """Adversarial paths (directory traversal, non-md, root escape) must be rejected."""
         is_allowed = self.compiler._is_allowed_output_file
         # Legitimate domain paths
-        self.assertTrue(is_allowed("knowledge/concepts/core/ark.md"))
-        self.assertTrue(is_allowed("knowledge/concepts/finance/vergi.md"))
+        self.assertTrue(is_allowed("knowledge/concepts/tech/ark.md"))
+        self.assertTrue(is_allowed("knowledge/concepts/research/vergi.md"))
         self.assertTrue(is_allowed("knowledge/concepts/project/p1/arch.md"))
         self.assertTrue(is_allowed("knowledge/concepts/genel.md"))
         self.assertTrue(is_allowed("knowledge/connections/c1--c2.md"))
@@ -161,14 +161,14 @@ class AdversarialQualityTest(unittest.TestCase):
         self.assertTrue(is_allowed("knowledge/log.md"))
 
         # Adversarial / forbidden paths
-        self.assertFalse(is_allowed("knowledge/concepts/core/malicious.exe"))
-        self.assertFalse(is_allowed("knowledge/concepts/core/script.py"))
-        self.assertFalse(is_allowed("knowledge/concepts/core/hook.sh"))
-        self.assertFalse(is_allowed("knowledge/concepts/finance/data.json"))
-        self.assertFalse(is_allowed("knowledge/concepts/finance/"))
+        self.assertFalse(is_allowed("knowledge/concepts/tech/malicious.exe"))
+        self.assertFalse(is_allowed("knowledge/concepts/tech/script.py"))
+        self.assertFalse(is_allowed("knowledge/concepts/tech/hook.sh"))
+        self.assertFalse(is_allowed("knowledge/concepts/research/data.json"))
+        self.assertFalse(is_allowed("knowledge/concepts/research/"))
         self.assertFalse(is_allowed("knowledge/concepts/"))
-        self.assertFalse(is_allowed("knowledge/core.md"))
-        self.assertFalse(is_allowed("knowledge/finance.md"))
+        self.assertFalse(is_allowed("knowledge/tech.md"))
+        self.assertFalse(is_allowed("knowledge/research.md"))
         self.assertFalse(is_allowed("daily/2026-09-11.md"))
         self.assertFalse(is_allowed("SETUP.md"))
         self.assertFalse(is_allowed("CLAUDE.md"))
@@ -180,26 +180,26 @@ class AdversarialQualityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             vault = Path(temporary)
             knowledge = vault / "knowledge"
-            concepts = knowledge / "concepts" / "finance"
+            concepts = knowledge / "concepts" / "research"
             concepts.mkdir(parents=True)
-            live_file = concepts / "butce.md"
+            live_file = concepts / "analiz.md"
             live_file.write_text("initial user content", encoding="utf-8")
 
             stage_dir = vault / "temp_stage"
-            stage_concepts = stage_dir / "knowledge" / "concepts" / "finance"
+            stage_concepts = stage_dir / "knowledge" / "concepts" / "research"
             stage_concepts.mkdir(parents=True)
-            staged_file = stage_concepts / "butce.md"
+            staged_file = stage_concepts / "analiz.md"
             staged_file.write_text("compiled content", encoding="utf-8")
 
             # live_baseline recorded digest from 'initial user content', but user modified it to 'concurrent change'
             live_file.write_text("concurrent change by user", encoding="utf-8")
             live_baseline = {
-                "knowledge/concepts/finance/butce.md": "fake-stale-hash",
+                "knowledge/concepts/research/analiz.md": "fake-stale-hash",
             }
 
             with self.assertRaises(self.compiler.PolicyError) as context:
                 self.compiler._promote_changes(
-                    stage_dir, vault, ["knowledge/concepts/finance/butce.md"], live_baseline
+                    stage_dir, vault, ["knowledge/concepts/research/analiz.md"], live_baseline
                 )
             self.assertIn("live-target-changed", str(context.exception))
             # Verify live file was not overwritten by stale compiled content
