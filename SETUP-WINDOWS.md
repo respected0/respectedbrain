@@ -15,11 +15,11 @@ durur. PowerShell'de önce yalnız ön kontrol yap:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.ps1 `
-  -VaultPath "$HOME\Documents\AdaOS" `
-  -UserName "Ada" `
+  -VaultPath "$HOME\Documents\RespectedOS" `
+  -UserName "Furkan" `
   -UserBio "Kodlama ve araştırma için kullanıyor" `
-  -Companion "Echo" `
-  -OsName "AdaOS" `
+  -Companion "Jarvis" `
+  -OsName "RespectedOS" `
   -Providers codex,cursor `
   -PreflightOnly
 ```
@@ -38,7 +38,7 @@ Yalnız kullandığın agentların kullanıcı düzeyi bağlantılarını kur:
 
 ```powershell
 py -3 scripts/install_global.py `
-  "$HOME\Documents\AdaOS" `
+  "$HOME\Documents\RespectedOS" `
   --home "$HOME" `
   --platform windows-native `
   --providers codex,cursor
@@ -52,7 +52,7 @@ py -3 scripts/install_global.py `
 Önce Task Scheduler planını salt okunur önizle:
 
 ```powershell
-py -3 scripts/install_briefing_schedule.py "$HOME\Documents\AdaOS" `
+py -3 scripts/install_briefing_schedule.py "$HOME\Documents\RespectedOS" `
   --home "$HOME" --platform windows-native
 ```
 
@@ -67,8 +67,8 @@ Damgaları `2.0.0` / `1.0.0` – `1.4.5` olan mevcut Respected Brain vault'unu r
 kökünden güncelle:
 
 ```powershell
-py -3 scripts/update_respected.py "$HOME\Documents\AdaOS" --platform windows-native
-py -3 scripts/update_respected.py "$HOME\Documents\AdaOS" --platform windows-native --apply
+py -3 scripts/update_respected.py "$HOME\Documents\RespectedOS" --platform windows-native
+py -3 scripts/update_respected.py "$HOME\Documents\RespectedOS" --platform windows-native --apply
 ```
 
 (İsteğe bağlı `--force` bayrağı ile aynı sürümdeki dosyalar da yeniden eşitlenebilir).

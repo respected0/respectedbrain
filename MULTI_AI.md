@@ -69,7 +69,7 @@ Antigravity proje hook dosyalarını kendi standart konumlarından yükler.
 
 ## Her AI aracını bütün kod projelerinde vault'a bağlamak
 
-Vault'un adı serbesttir: `respectedOS`, `Ada Brain`, `Notlarım` veya başka bir ad olabilir.
+Vault'un adı serbesttir: `RespectedOS`, `Respected Brain`, `Notlarım` veya başka bir ad olabilir.
 Araçların başka kod repolarında çalışırken de merkezi vault'u bulması için kullanıcı düzeyi
 bağlantıyı kur:
 
