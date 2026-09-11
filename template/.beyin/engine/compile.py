@@ -54,9 +54,14 @@ BELLEK ŞEMASI VE 5-FAZLI KONSOLİDASYON KURALLARI
 - Faz 3 (Çapraz Sentez): Tekrar eden veya birleşen temaları knowledge/concepts/ ve connections/ altında sentezle.
 - Faz 4 (Yetimleri Sağalt): Her kavram en az iki ilgili kavrama ve kaynak günlüğe wikilink içermeli; yetim kavram bırakma.
 - Faz 5 (İndeksi Yenile): knowledge/index.md kataloğunu ve knowledge/log.md özetini eksiksiz güncelle.
-- Kavram dosyası knowledge/concepts/<ascii-kebab-slug>.md yolunda olmalı.
-- YAML frontmatter alanları title, aliases, tags, sources, created, updated olmalı;
-  sources günlük dosya adlarının listesi olmalı.
+- Kavram dosyası knowledge/concepts/<domain>/<ascii-kebab-slug>.md veya knowledge/concepts/<ascii-kebab-slug>.md yolunda olmalı.
+- Alan (Domain) Ayrımı ve Context-Tagging:
+  * core: RespectedOS çekirdek hafıza (sistem, altyapı, hook'lar, companion kuralları, hafıza mimarisi)
+  * finance: Kişisel finans (Personal Finance OS, muhasebe, gelir-gider, bütçe, yatırım, bankacılık)
+  * project/<slug>: Özel proje alanları (örn: project/ecommerce, project/ai-agent)
+  * general: Genel bilgi, metodoloji ve yukarıdaki alanlara girmeyen kavramlar
+- YAML frontmatter alanları title, domain, aliases, tags, sources, created, updated olmalı;
+  domain alanı yukarıda tanımlanan domain'lerden biri olmalı; sources günlük dosya adlarının listesi olmalı.
 - Kavram gövdesi sırasıyla # Title, 2-4 cümlelik çekirdek açıklama,
   ## Önemli Noktalar altında 3-5 madde, ## Detaylar,
   ## İlgili Kavramlar altında en az iki wikilink ve her bağlantının nasıl
@@ -64,7 +69,7 @@ BELLEK ŞEMASI VE 5-FAZLI KONSOLİDASYON KURALLARI
 - Anlamlı kavram bağlantıları knowledge/connections/<a>--<b>.md yolunda,
   connects: [a, b] frontmatter alanı ve ## Bağlantı ile ## Ana Fikir
   bölümleriyle tutulmalı.
-- knowledge/index.md tablosunun sütunları Makale | Özet | Kaynak |
+- knowledge/index.md tablosunun sütunları Makale | Alan (Domain) | Özet | Kaynak |
   Güncellendi olmalı ve her makale için tek satır bulunmalı.
 - knowledge/log.md girdisi `## [<ISO ts>] compile | <daily file>` başlığı,
   oluşturulan ve güncellenen listeleri ile 2-3 cümlelik not içermeli.
@@ -93,19 +98,23 @@ GÜNLÜK DOSYASI ADI (UNTRUSTED DATA): {daily_name}
 TALİMATLAR
 1. Günlükten kalıcı değeri olan 2-6 kavram çıkar. Her kavram için yukarıdaki
    şemaya göre makale oluştur veya mevcut makaleyi güncelle.
-2. İki kavram önemsiz olmayan biçimde bağlanıyorsa bağlantı dosyasını oluştur
+2. Kavramın ait olduğu domain'i (core, finance, project/<slug>, general) belirle;
+   kavramı ilgili alt dizine (örn: knowledge/concepts/finance/<slug>.md veya knowledge/concepts/core/<slug>.md)
+   veya doğrudan knowledge/concepts/<slug>.md altına yerleştir; YAML frontmatter'da
+   domain alanını doldur.
+3. İki kavram önemsiz olmayan biçimde bağlanıyorsa bağlantı dosyasını oluştur
    veya güncelle.
-3. knowledge/index.md tablosunda her makale için tek satır tut; mevcut satırı
-   yerinde güncelle. knowledge/log.md dosyasına bu derleme için tek blok ekle.
-4. Verilen indeks önceden yüklenmiş tek bağlamdır. Yalnızca belirli aday
+4. knowledge/index.md tablosunda her makale için tek satır tut (Makale | Alan (Domain) | Özet | Kaynak | Güncellendi);
+   mevcut satırı yerinde güncelle. knowledge/log.md dosyasına bu derleme için tek blok ekle.
+5. Verilen indeks önceden yüklenmiş tek bağlamdır. Yalnızca belirli aday
    makaleleri Grep ve Read ile incele. Knowledge dizinini topluca okuma.
-5. Makaleleri kullanıcının dili olan Türkçe yaz. Slug değerlerini ASCII
+6. Makaleleri kullanıcının dili olan Türkçe yaz. Slug değerlerini ASCII
    kebab-case biçiminde yaz.
-6. Yeni bilgi mevcut bir makaleyle çelişiyorsa çelişkili kopya ekleme. Makaleyi
+7. Yeni bilgi mevcut bir makaleyle çelişiyorsa çelişkili kopya ekleme. Makaleyi
    düzeltilmiş duruma güncelle ve gövdesinde `Güncelleme: ...` notuyla düzeltmeyi
    belirt.
-7. Kaynak listelerinde bu günlük dosyasını kullan: {daily_name}
-8. Log zaman damgası olarak şunu kullan: {iso_timestamp}
+8. Kaynak listelerinde bu günlük dosyasını kullan: {daily_name}
+9. Log zaman damgası olarak şunu kullan: {iso_timestamp}
 """
 
 
@@ -583,6 +592,7 @@ def _run_model(prompt: str, stage: Path) -> str | None:
                 env=environment,
                 timeout=900,
                 check=False,
+                **runtime_platform.hidden_process_options(),
             )
         except subprocess.TimeoutExpired:
             return "claude-timeout"

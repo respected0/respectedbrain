@@ -93,10 +93,21 @@ def _task_signature(content: str) -> tuple[str, str, str]:
     )
 
 
-def _windows_xml(command: str, arguments: str) -> str:
+def _parse_time(time_str: str) -> tuple[int, int]:
+    parts = time_str.split(":")
+    if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+        h, m = int(parts[0]), int(parts[1])
+        if 0 <= h <= 23 and 0 <= m <= 59:
+            return h, m
+    return 8, 0
+
+
+def _windows_xml(command: str, arguments: str, time_str: str = "08:00") -> str:
+    h, m = _parse_time(time_str)
+    formatted_time = f"{h:02d}:{m:02d}"
     return f'''<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <Triggers><CalendarTrigger><StartBoundary>2026-01-01T08:00:00</StartBoundary><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay><Enabled>true</Enabled></CalendarTrigger></Triggers>
+  <Triggers><CalendarTrigger><StartBoundary>2026-01-01T{formatted_time}:00</StartBoundary><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay><Enabled>true</Enabled></CalendarTrigger></Triggers>
   <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><StartWhenAvailable>true</StartWhenAvailable><ExecutionTimeLimit>PT30M</ExecutionTimeLimit></Settings>
   <Actions Context="Author"><Exec><Command>{escape(command)}</Command><Arguments>{escape(arguments)}</Arguments></Exec></Actions>
 </Task>
@@ -109,8 +120,11 @@ def build_plan(
     home: PurePath,
     python_executable: str | None = None,
     provider_path: str | None = None,
+    time_str: str = "08:00",
 ) -> SchedulePlan:
     name = _identifier(vault)
+    h, m = _parse_time(time_str)
+    formatted_time = f"{h:02d}:{m:02d}"
     worker_arguments = ["--if-due", "--vault-root", str(vault)]
     if provider_path:
         worker_arguments.extend(("--provider-path", provider_path))
@@ -121,7 +135,7 @@ def build_plan(
         arguments = subprocess.list2cmdline(
             ["--headless", executable, *prefix, str(worker), *worker_arguments]
         )
-        return SchedulePlan("windows-task", name, _windows_xml("conhost.exe", arguments))
+        return SchedulePlan("windows-task", name, _windows_xml("conhost.exe", arguments, time_str=formatted_time))
     if platform == "windows-wsl":
         executable = python_executable or sys.executable
         arguments = subprocess.list2cmdline(
@@ -138,7 +152,7 @@ def build_plan(
                 *(["--provider-path", provider_path] if provider_path else []),
             ]
         )
-        return SchedulePlan("windows-task", name, _windows_xml("conhost.exe", arguments))
+        return SchedulePlan("windows-task", name, _windows_xml("conhost.exe", arguments, time_str=formatted_time))
     if platform == "linux":
         executable = python_executable or sys.executable
         command = shlex.join(
@@ -151,11 +165,11 @@ Description=Respected morning briefing
 Type=oneshot
 ExecStart={command}
 """
-        timer = """[Unit]
-Description=Run Respected morning briefing at 08:00
+        timer = f"""[Unit]
+Description=Run Respected morning briefing at {formatted_time}
 
 [Timer]
-OnCalendar=*-*-* 08:00:00
+OnCalendar=*-*-* {formatted_time}:00
 Persistent=true
 
 [Install]
@@ -176,11 +190,12 @@ WantedBy=timers.target
 <plist version="1.0"><dict>
 <key>Label</key><string>{name}</string>
 <key>ProgramArguments</key><array>{''.join(f'<string>{escape(value)}</string>' for value in (executable, worker, *worker_arguments))}</array>
-<key>StartCalendarInterval</key><dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+<key>StartCalendarInterval</key><dict><key>Hour</key><integer>{h}</integer><key>Minute</key><integer>{m}</integer></dict>
 <key>RunAtLoad</key><true/>
 </dict></plist>
 '''
         return SchedulePlan("launch-agent", name, content, (home / "Library/LaunchAgents" / f"{name}.plist",))
+    raise ValueError(f"unsupported-platform:{platform}")
     raise ValueError(f"unsupported-platform:{platform}")
 
 
@@ -377,6 +392,7 @@ def install(
     home: Path,
     apply: bool,
     python_executable: str | None = None,
+    time_str: str = "08:00",
 ) -> int:
     plan = build_plan(
         vault,
@@ -384,6 +400,7 @@ def install(
         home,
         python_executable,
         os.environ.get("PATH"),
+        time_str=time_str,
     )
     print(f"platform: {platform}")
     print(f"schedule: {plan.name}")
@@ -588,13 +605,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("vault", type=Path)
     parser.add_argument("--home", type=Path, required=True)
     parser.add_argument("--platform", choices=("windows-native", "windows-wsl", "linux", "macos"), required=True)
+    parser.add_argument("--time", default="08:00", help="Görevin çalışacağı saat (HH:MM)")
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args(argv)
     vault = args.vault.expanduser().resolve()
     home = args.home.expanduser().resolve()
     if not (vault / ".beyin/morning_briefing.py").is_file():
         parser.error("vault içinde .beyin/morning_briefing.py bulunamadı")
-    return install(vault, args.platform, home, args.apply)
+    return install(vault, args.platform, home, args.apply, time_str=args.time)
 
 
 if __name__ == "__main__":

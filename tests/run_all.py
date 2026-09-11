@@ -44,6 +44,7 @@ def run_command(title: str, command: list[str], env: dict | None = None) -> tupl
         text=True,
         encoding="utf-8",
         errors="replace",
+        creationflags=0x08000000 if os.name == "nt" else 0,
     )
     elapsed = time.perf_counter() - start
     output = (process.stdout + process.stderr).strip()

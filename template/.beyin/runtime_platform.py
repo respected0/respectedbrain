@@ -96,7 +96,7 @@ def detached_process_options() -> dict[str, int | bool]:
         return {"start_new_session": True}
     flags = int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
     flags |= int(getattr(subprocess, "DETACHED_PROCESS", 0x00000008))
-    flags |= int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    flags |= int(getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000))
     return {"creationflags": flags}
 
 

@@ -74,7 +74,7 @@ function Invoke-ExternalProbe([string]$Command, [string[]]$Arguments) {
                 ("call " + $QuotedCommand + " " + ($ArgumentList -join " "))
             )
         }
-        $Process = Start-Process -FilePath $ProbeCommand -ArgumentList $ProbeArguments -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        $Process = Start-Process -FilePath $ProbeCommand -ArgumentList $ProbeArguments -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
         # PowerShell 5.1 can lose ExitCode for a short-lived child unless its
         # process handle is materialized before the child exits.
         $null = $Process.Handle

@@ -44,32 +44,54 @@ içindedir.
 
 ---
 
-## Hızlı başlangıç
+## Hızlı Başlangıç: 3 Farklı Kurulum Seçeneği
 
-Native Windows'ta WSL kullanmadan sıfırdan kurulum yapacaksan doğrudan
-[SETUP-WINDOWS.md](SETUP-WINDOWS.md) içindeki PowerShell akışını kullan. macOS, Linux ve
-Windows+WSL için aşağıdaki agent destekli `SETUP.md` akışı geçerlidir.
+Respected Brain'i ihtiyacınıza ve alışkanlığınıza en uygun kanaldan saniyeler içinde kurabilirsiniz:
 
-### 1. Repoyu klonla
+### 1. AI-Native Kurulum (Önerilen — Tek Satır Prompt)
 
-```bash
-git clone https://github.com/respected0/respectedbrain.git
-cd respectedbrain
-```
-
-### 2. Bu klasörü tercih ettiğin coding agentta aç
-
-Antigravity, Codex, Claude Code veya Cursor'a şunu yaz:
+Tercih ettiğiniz kodlama asistanına (**Claude Code, Cursor Agent, Codex, Antigravity, Windsurf**) aşağıdaki tek satırlık komutu vermeniz yeterlidir:
 
 ```text
-SETUP.md dosyasını tamamen oku ve ikinci beynimi kurmak için adımları uygula.
-Vault adını ve yolunu bana sor. Kullandığım agentları global bağla. Özetleyici tercihini auto bırak.
+https://raw.githubusercontent.com/respected0/secondbrain/main/BOOTSTRAP.md dosyasını oku ve yönergelerine göre bu dizinde Respected Brain kasasını kur. Kuruluma başlamadan önce benden kullanıcı adımı, kasa adımı, çalışma ortamımı (Native/WSL) ve model fallback sıramı al. Bitince kurduğun tüm bileşenleri listele.
 ```
 
-Agent; adını, kullanım amacını, AI ortağının adını, vault adını/yolunu ve hangi araçları
-kullandığını sorar. Önizlemeyi gösterir, onayından sonra kurar ve test eder.
+Asistanınız `BOOTSTRAP.md` protokolünü okur; size adınızı, kasanızın kurulacağı yeri, düşünme ortağınızın adını ve model sıralamanızı sorarak kurulumu tamamlar.
 
-### 3. Kurulumdan sonra normal projeni aç
+---
+
+### 2. Tek Satır (One-Liner) Kurulum
+
+Terminalden tek bir komutla interaktif kurulum sihirbazını başlatın:
+
+* **Windows (PowerShell):**
+  ```powershell
+  irm https://raw.githubusercontent.com/respected0/secondbrain/main/install.ps1 | iex
+  ```
+* **Linux / macOS / WSL (Bash):**
+  ```bash
+  curl -sSL https://raw.githubusercontent.com/respected0/secondbrain/main/install.sh | bash
+  ```
+
+*(Sisteminizde Python veya Git yüklü değilse, sihirbaz sizi uyarır ve tek tıkla yüklemeyi teklif eder).*
+
+---
+
+### 3. İnteraktif CLI Kurulum Sihirbazı
+
+Repoyu yerel makinenize klonlayıp renkli terminal sihirbazıyla kurmak isterseniz:
+
+```bash
+git clone https://github.com/respected0/secondbrain.git
+cd secondbrain
+python install.py
+```
+
+Sihirbaz; algılanan AI modellerini listeler, model öncelik sırasını, çalışma ortamınızı (Windows Native, WSL veya Hibrit), masaüstü Obsidian açılış kısayolunu ve sabah brifingi saatini yapılandırır.
+
+---
+
+### 4. Kurulumdan Sonra: Obsidian ile Açın ve Başlayın
 
 Global bağlantıyı seçtiysen vault klasöründe çalışmak zorunda değilsin. Herhangi bir kod reposunu
 desteklenen agentlardan biriyle aç; ilk oturumda ortak hafıza bağlama girer, kapanışta özet merkezi

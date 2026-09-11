@@ -38,7 +38,7 @@ function Invoke-Installer([string[]]$Arguments) {
     try {
         $QuotedInstaller = '"' + $Installer.Replace('"', '\"') + '"'
         $QuotedArguments = @($Arguments | ForEach-Object { '"' + $_.Replace('"', '\"') + '"' })
-        $process = Start-Process -FilePath $PowerShellHost -ArgumentList (@("-NoProfile", "-File", $QuotedInstaller) + $QuotedArguments) -Wait -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        $process = Start-Process -FilePath $PowerShellHost -ArgumentList (@("-NoProfile", "-File", $QuotedInstaller) + $QuotedArguments) -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
         $output = ([IO.File]::ReadAllText($stdout) + [IO.File]::ReadAllText($stderr))
         return @{ Code = $process.ExitCode; Output = $output }
     }
@@ -72,7 +72,7 @@ try {
     if ($WorkingPythonOverride) {
         $env:RESPECTED_TEST_PYTHON = $WorkingPythonOverride
     }
-    $null = Start-Process -FilePath $PowerShellHost -ArgumentList @("-NoProfile", "-Command", "exit 0") -Wait -PassThru
+    $null = Start-Process -FilePath $PowerShellHost -ArgumentList @("-NoProfile", "-Command", "exit 0") -WindowStyle Hidden -Wait -PassThru
 
     $PreflightVault = Join-Path $Root "preflight-vault"
     $Before = @(Get-ChildItem -LiteralPath $env:USERPROFILE -Force -Recurse | ForEach-Object FullName | Sort-Object)

@@ -45,7 +45,7 @@ function Invoke-Task([string[]]$Arguments) {
     $Stdout = [IO.Path]::GetTempFileName()
     $Stderr = [IO.Path]::GetTempFileName()
     try {
-        $Process = Start-Process -FilePath "$env:SystemRoot\System32\schtasks.exe" -ArgumentList $Arguments -Wait -PassThru -RedirectStandardOutput $Stdout -RedirectStandardError $Stderr
+        $Process = Start-Process -FilePath "$env:SystemRoot\System32\schtasks.exe" -ArgumentList $Arguments -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $Stdout -RedirectStandardError $Stderr
         return @{
             Code = $Process.ExitCode
             Output = [IO.File]::ReadAllText($Stdout) + [IO.File]::ReadAllText($Stderr)
@@ -90,7 +90,7 @@ try {
             "--home", '"' + $Root + '"',
             "--platform", "windows-native", "--apply"
         )
-        $Process = Start-Process -FilePath $PythonExecutable -ArgumentList $Arguments -Wait -PassThru -RedirectStandardOutput $Stdout -RedirectStandardError $Stderr
+        $Process = Start-Process -FilePath $PythonExecutable -ArgumentList $Arguments -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $Stdout -RedirectStandardError $Stderr
         $PythonOutput = [IO.File]::ReadAllText($Stdout) + [IO.File]::ReadAllText($Stderr)
         Assert-True ($Process.ExitCode -eq 0) ("Windows-native scheduler migration failed: " + $PythonOutput)
     }

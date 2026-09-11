@@ -465,6 +465,7 @@ def _run_model(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
                     env=environment,
                     timeout=240,
                     check=False,
+                    **runtime_platform.hidden_process_options(),
                 )
         except subprocess.TimeoutExpired:
             return None, "claude-timeout"
@@ -495,6 +496,47 @@ def _parse_summary_sections(summary: str) -> dict[str, str]:
     return sections
 
 
+def _extract_session_threads(
+    sections: dict[str, str],
+    vault_root: Path,
+) -> list[dict[str, Any]]:
+    """Extract and maintain active threads for the session event."""
+    try:
+        events_mod_path = vault_root / ".beyin"
+        if str(events_mod_path) not in sys.path:
+            sys.path.insert(0, str(events_mod_path))
+        import events
+        existing_threads = events.load_existing_threads(vault_root)
+    except Exception:
+        existing_threads = {}
+
+    threads_map: dict[str, dict[str, Any]] = dict(existing_threads)
+
+    for section_name, text in sections.items():
+        for line in text.splitlines():
+            stripped = line.strip()
+            thread_match = re.search(
+                r"(?:^[-*]\s*)?(?:\[([xX]|tamamlandı)\]\s*)?(?:Thread|Konu):\s*([^\n\r]+)",
+                stripped,
+                re.IGNORECASE,
+            )
+            if thread_match:
+                is_done = bool(thread_match.group(1))
+                thread_title = thread_match.group(2).strip()
+                if thread_title:
+                    status = "completed" if is_done else "active"
+                    if thread_title in threads_map:
+                        threads_map[thread_title]["status"] = status
+                    else:
+                        threads_map[thread_title] = {
+                            "title": thread_title,
+                            "status": status,
+                            "summary": "",
+                        }
+
+    return list(threads_map.values())
+
+
 def _record_session_event(
     vault_root: Path,
     summary: str,
@@ -512,6 +554,7 @@ def _record_session_event(
         import events
 
         sections = _parse_summary_sections(summary)
+        session_threads = _extract_session_threads(sections, vault_root)
         events.record_event(
             vault_root=vault_root,
             provider=os.environ.get("BEYIN_PROVIDER", "auto"),
@@ -521,6 +564,7 @@ def _record_session_event(
             decisions=[d.lstrip("- *").strip() for d in sections.get("Alınan Kararlar", "").splitlines() if d.strip()],
             learnings=[l.lstrip("- *").strip() for l in sections.get("Öğrenilenler", "").splitlines() if l.strip()],
             todos=[t.lstrip("- *").strip() for t in sections.get("Yapılacaklar", "").splitlines() if t.strip()],
+            threads=session_threads,
             now=event_time,
         )
         events.project_companion(vault_root)

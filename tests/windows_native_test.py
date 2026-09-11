@@ -244,6 +244,7 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
         linked = subprocess.run(
             ["cmd.exe", "/c", "mklink", "/J", str(command_center), str(outside)],
             text=True,
+            errors="replace",
             capture_output=True,
             check=False,
         )

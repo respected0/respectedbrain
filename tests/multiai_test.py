@@ -508,6 +508,23 @@ class MultiAITest(unittest.TestCase):
         self.assertEqual((output, error, provider), (None, "antigravity-exit-1", "antigravity"))
         self.assertEqual(run.call_count, 1)
 
+    def test_runner_auto_mode_falls_back_across_all_providers_on_failure(self):
+        runner = load("model_runner_auto_fallback", ROOT / "template/.beyin/model_runner.py")
+        commands = {
+            "claude": runner.Invocation(["claude"], "prompt"),
+            "codex": runner.Invocation(["codex"], "prompt"),
+        }
+        with mock.patch.object(runner, "_configured_provider", return_value="auto"), \
+             mock.patch.object(runner, "_available", return_value=["claude", "codex"]), \
+             mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode: commands[provider]), \
+             mock.patch.object(runner.subprocess, "run", side_effect=[
+                 SimpleNamespace(returncode=1, stdout="", stderr="authentication failed"),
+                 SimpleNamespace(returncode=0, stdout="auto-özet", stderr=""),
+             ]) as run:
+            output, error, provider = runner.run_model("prompt", ROOT, "text", 10, preferred=None)
+        self.assertEqual((output, error, provider), ("auto-özet", None, "codex"))
+        self.assertEqual(run.call_count, 2)
+
     def test_canonical_skills_are_identical_for_all_agents(self):
         canonical_root = ROOT / "template/.beyin/skills"
         for source in sorted(canonical_root.glob("*/SKILL.md")):

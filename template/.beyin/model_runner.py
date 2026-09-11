@@ -59,6 +59,23 @@ def _windows_vault_binary(name: str) -> str | None:
     return str(candidate) if candidate is not None and candidate.is_file() else None
 
 
+def _configured_priority() -> list[str]:
+    path = Path(__file__).with_name("config.json")
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return list(PROVIDERS)
+    custom_list = document.get("provider_priority")
+    if isinstance(custom_list, list) and custom_list:
+        valid = [p.lower() for p in custom_list if isinstance(p, str) and p.lower() in PROVIDERS]
+        if valid:
+            for p in PROVIDERS:
+                if p not in valid:
+                    valid.append(p)
+            return valid
+    return list(PROVIDERS)
+
+
 def _available(preferred: str | None) -> list[str]:
     names = []
     configured = _configured_provider()
@@ -66,7 +83,7 @@ def _available(preferred: str | None) -> list[str]:
         names.append(configured)
     if preferred:
         names.append(preferred)
-    names.extend(PROVIDERS)
+    names.extend(_configured_priority())
     return list(dict.fromkeys(names))
 
 
@@ -186,8 +203,8 @@ def _retryable_failure(stdout: str, stderr: str) -> bool:
     signals = (
         "rate limit", "rate_limit", "usage limit", "quota", "too many requests", "429",
         "overloaded", "capacity", "temporarily unavailable", "service unavailable",
-        "internal server error", "connection reset", "timed out", "timeout",
-        "bad gateway", "gateway timeout", "502", "503", "504",
+        "internal server error", "connection reset", "connection refused", "network unreachable",
+        "timed out", "timeout", "bad gateway", "gateway timeout", "502", "503", "504",
     )
     return any(signal in message for signal in signals)
 
@@ -228,6 +245,7 @@ def run_model(
     environment["BEYIN_INVOKED_BY"] = "beyin-scripts"
     environment["BEYIN_RECURSION_DEPTH"] = str(depth + 1)
 
+    is_auto = (preferred is None or preferred == "auto") and (_configured_provider() == "auto")
     last_error: tuple[str, str] | None = None
     for provider in candidates:
         if provider == "custom":
@@ -274,12 +292,15 @@ def run_model(
             continue
         if result.returncode != 0:
             error = f"{provider}-exit-{result.returncode}"
-            if _retryable_failure(result.stdout, result.stderr):
+            if is_auto or _retryable_failure(result.stdout, result.stderr):
                 last_error = (error, provider)
                 continue
             return None, error, provider
         output_text, stream_error = _extract_response(result.stdout, provider)
         if stream_error is not None:
+            if is_auto or _retryable_failure(stream_error, result.stderr):
+                last_error = (stream_error, provider)
+                continue
             return None, stream_error, provider
         return output_text, None, provider
     if last_error is not None:

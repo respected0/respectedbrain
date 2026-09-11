@@ -112,7 +112,7 @@ class BoundaryRegressionTest(unittest.TestCase):
             subprocess.run(["git", "commit", "-m", "initial with bytecode"], cwd=vault, check=True, capture_output=True)
 
             # Verify files are tracked
-            tracked_before = subprocess.run(["git", "ls-files"], cwd=vault, capture_output=True, text=True, check=True).stdout
+            tracked_before = subprocess.run(["git", "ls-files"], cwd=vault, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True).stdout
             self.assertIn("test_module.cpython-311.pyc", tracked_before)
             self.assertIn("stray.pyc", tracked_before)
 
@@ -125,7 +125,7 @@ class BoundaryRegressionTest(unittest.TestCase):
             cleanup_func(vault)
 
             # Check git index: files should NO LONGER be tracked
-            tracked_after = subprocess.run(["git", "ls-files"], cwd=vault, capture_output=True, text=True, check=True).stdout
+            tracked_after = subprocess.run(["git", "ls-files"], cwd=vault, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True).stdout
             self.assertNotIn("test_module.cpython-311.pyc", tracked_after)
             self.assertNotIn("stray.pyc", tracked_after)
 
