@@ -96,6 +96,41 @@ def resolve_antigravity_transcript(
     return ""
 
 
+def resolve_codex_transcript(
+    session_id: str,
+    home: Path | None = None,
+) -> str:
+    """Resolve a known Codex rollout transcript without scanning entire user data."""
+
+    if (
+        SESSION_COMPONENT.fullmatch(session_id) is None
+        or session_id in {".", ".."}
+        or session_id.endswith("-unknown")
+    ):
+        return ""
+    profile = home or Path.home()
+    codex_home = profile / ".codex"
+    if not codex_home.is_dir():
+        return ""
+    for folder_name in ("sessions", "archived_sessions"):
+        root = codex_home / folder_name
+        if not root.is_dir():
+            continue
+        try:
+            matches = list(root.glob(f"**/*{session_id}*.jsonl"))
+        except OSError:
+            continue
+        if matches:
+            for match in sorted(matches, key=lambda p: p.stat().st_mtime, reverse=True):
+                try:
+                    match.resolve(strict=True).relative_to(codex_home.resolve(strict=True))
+                    if match.is_file():
+                        return str(match)
+                except (OSError, RuntimeError, ValueError):
+                    continue
+    return ""
+
+
 def normalize(provider: str, payload: dict[str, Any]) -> dict[str, Any]:
     workspace_paths = payload.get("workspacePaths") or payload.get("workspace_roots") or []
     cwd = first_string(payload, "cwd")
@@ -107,8 +142,11 @@ def normalize(provider: str, payload: dict[str, Any]) -> dict[str, Any]:
     transcript_path = wsl_path(
         first_string(payload, "transcript_path", "transcriptPath")
     )
-    if not transcript_path and provider == "antigravity":
-        transcript_path = resolve_antigravity_transcript(session_id)
+    if not transcript_path:
+        if provider == "antigravity":
+            transcript_path = resolve_antigravity_transcript(session_id)
+        elif provider == "codex":
+            transcript_path = resolve_codex_transcript(session_id)
     return {
         **payload,
         "session_id": session_id,

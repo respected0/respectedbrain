@@ -162,6 +162,41 @@ class MultiAITest(unittest.TestCase):
                 "/explicit/transcript.jsonl",
             )
 
+    def test_codex_transcript_discovery_and_safety(self):
+        bridge = load(
+            "bridge_codex_transcript",
+            ROOT / "template/.beyin/hooks/bridge.py",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            rollout = (
+                home
+                / ".codex/sessions/2026/09/13/rollout-2026-09-13T00-56-51-codex-sess-123.jsonl"
+            )
+            rollout.parent.mkdir(parents=True)
+            rollout.write_text("{}\n", encoding="utf-8")
+
+            with mock.patch.object(bridge.Path, "home", return_value=home):
+                normalized = bridge.normalize(
+                    "codex",
+                    {"conversationId": "codex-sess-123"},
+                )
+                traversal = bridge.normalize(
+                    "codex",
+                    {"conversationId": "../escape"},
+                )
+                explicit = bridge.normalize(
+                    "codex",
+                    {
+                        "conversationId": "codex-sess-123",
+                        "transcriptPath": "/explicit/transcript.jsonl",
+                    },
+                )
+
+            self.assertEqual(normalized["transcript_path"], str(rollout))
+            self.assertEqual(traversal["transcript_path"], "")
+            self.assertEqual(explicit["transcript_path"], "/explicit/transcript.jsonl")
+
     def test_bridge_dispatches_to_shared_lifecycle_without_shell_hooks(self):
         bridge = load("bridge_shared_lifecycle", ROOT / "template/.beyin/hooks/bridge.py")
         with tempfile.TemporaryDirectory() as temporary:
