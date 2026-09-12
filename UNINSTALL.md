@@ -54,4 +54,12 @@ Windows PowerShell:
 py -3 uninstall.py --purge-vault --vault-path "$HOME\Documents\RespectedOS"
 ```
 
-*Not: Kasanın silinmesi için sizden açık metin onayı ("evet") istenecektir.*
+*Not: Normal kullanımda kasanın silinmesi için sizden açık metin onayı ("evet") istenir.*
+
+### Otomasyon / Script Modu (Soru Sormadan Temizleme)
+Test veya betik otomasyonlarında interaktif onay sorularını atlayıp doğrudan temizlemek için:
+```powershell
+py -3 uninstall.py --non-interactive --purge-vault
+```
+* **`--purge-vault`**: Kasa dizinini de tamamen siler (varsayılan davranış notları korumaktır).
+* **`--non-interactive`**: "Emin misiniz?" ve onay sorularını sormadan işlemi doğrudan tamamlar.
