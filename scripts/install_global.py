@@ -8,6 +8,7 @@ import datetime as dt
 import json
 import os
 from pathlib import Path, PurePath
+import re
 import sys
 
 
@@ -133,6 +134,37 @@ def bridge_command(vault: PurePath, provider: str, event: str, platform: str) ->
     return command_text(profile, vault, provider, event, global_hook=True)
 
 
+def codex_notify_argv(vault: Path, platform: str) -> list[str]:
+    profile = Profile(platform, DEFAULT_PYTHON_COMMANDS[platform])
+    script = vault / ".beyin" / "hooks" / "codex_notify.py"
+    if platform == "windows-native":
+        win = windows_path(script) or str(script)
+        return [*profile.python_command, win]
+    if platform == "windows-wsl":
+        wsl_cd = vault.as_posix()
+        if len(wsl_cd) >= 2 and wsl_cd[1] == ":":
+            drive = wsl_cd[0].lower()
+            rest = wsl_cd[2:].lstrip("/")
+            wsl_cd = f"/mnt/{drive}/{rest}"
+        return [
+            "wsl.exe",
+            "--cd",
+            wsl_cd,
+            *profile.python_command,
+            ".beyin/hooks/codex_notify.py",
+        ]
+    return [*profile.python_command, str(script)]
+
+
+def update_codex_config_toml(content: str, notify_argv: list[str]) -> str:
+    escaped_items = ", ".join(json.dumps(item) for item in notify_argv)
+    replacement = f"notify = [ {escaped_items} ]"
+    if re.search(r"(?m)^notify\s*=.*", content):
+        return re.sub(r"(?m)^notify\s*=.*", lambda _: replacement, content, count=1)
+    prefix = f"{replacement}\n\n" if content.strip() else f"{replacement}\n"
+    return prefix + content
+
+
 def managed_command(value: object, provider: str) -> bool:
     return isinstance(value, str) and "--global-hook" in value and f"--provider {provider}" in value
 
@@ -210,6 +242,7 @@ def build(vault: Path, home: Path, providers: tuple[str, ...], platform: str) ->
             "SessionStart": (bridge_command(vault, "codex", "start", platform), 15),
             "UserPromptSubmit": (bridge_command(vault, "codex", "prompt", platform), 5),
             "SessionEnd": (bridge_command(vault, "codex", "end", platform), 3),
+            "Stop": (bridge_command(vault, "codex", "end", platform), 10),
             "PreCompact": (bridge_command(vault, "codex", "precompact", platform), 10),
         }
         merge_grouped_hooks(hooks, "codex", commands)
@@ -218,6 +251,13 @@ def build(vault: Path, home: Path, providers: tuple[str, ...], platform: str) ->
         writes += [(hooks_path, hooks_path_content), (rule_path, merge_managed(rule_path.read_text(encoding="utf-8") if rule_path.exists() else "", rule))]
         writes += copy_skills(vault, [home / ".agents/skills"])
         touched += [hooks_path, rule_path]
+
+        config_toml_path = config / "config.toml"
+        notify_cmd = codex_notify_argv(vault, platform)
+        existing_toml = config_toml_path.read_text(encoding="utf-8") if config_toml_path.exists() else ""
+        updated_toml = update_codex_config_toml(existing_toml, notify_cmd)
+        writes += [(config_toml_path, updated_toml)]
+        touched += [config_toml_path]
 
     if "cursor" in providers:
         config = home / ".cursor"

@@ -130,25 +130,54 @@ def _message_parts(record: dict[str, Any]) -> tuple[str | None, Any]:
     return record.get("role") or record.get("type"), record.get("content")
 
 
+CODEX_SYSTEM_PREFIXES = (
+    "<recommended_plugins>",
+    "# AGENTS.md instructions",
+    "<permissions instructions>",
+    "<context>",
+    "The following is the Codex agent history whose request action you are assessing",
+)
+
+
+def _is_codex_system_noise(text: str) -> bool:
+    stripped = text.strip()
+    return any(stripped.startswith(prefix) for prefix in CODEX_SYSTEM_PREFIXES)
+
+
 def _codex_completed_parts(record: dict[str, Any]) -> tuple[str | None, Any]:
-    if record.get("type") != "event_msg":
-        return None, None
+    rtype = record.get("type")
     payload = record.get("payload")
-    if not isinstance(payload, dict) or payload.get("type") != "item_completed":
+    if not isinstance(payload, dict):
         return None, None
-    item = payload.get("item")
-    if not isinstance(item, dict):
+    ptype = payload.get("type")
+
+    if rtype == "response_item" and ptype == "message":
+        role = payload.get("role")
+        if role in {"user", "assistant"}:
+            return role, payload.get("content")
         return None, None
-    item_type = str(item.get("type", "")).casefold()
-    role = {"usermessage": "user", "agentmessage": "assistant"}.get(item_type)
-    return role, item.get("content")
+
+    if rtype == "event_msg":
+        if ptype == "item_completed":
+            item = payload.get("item")
+            if isinstance(item, dict):
+                item_type = str(item.get("type", "")).casefold()
+                role = {"usermessage": "user", "agentmessage": "assistant"}.get(item_type)
+                if role:
+                    return role, item.get("content")
+        elif ptype == "user_message":
+            return "user", payload.get("message")
+        elif ptype == "agent_message":
+            return "assistant", payload.get("message")
+
+    return None, None
 
 
 def _text_from_content(content: Any) -> str:
     if isinstance(content, str):
         return content
     if isinstance(content, dict):
-        if content.get("type") == "text" and isinstance(content.get("text"), str):
+        if content.get("type") in {"text", "input_text", "output_text"} and isinstance(content.get("text"), str):
             return content["text"]
         return ""
     if not isinstance(content, list):
@@ -198,8 +227,9 @@ def read_transcript(path: Path) -> list[tuple[str, str]]:
                 codex_flattened = re.sub(
                     r"\s+", " ", _clean_turn_text(codex_role, codex_text)
                 ).strip()
-                if codex_flattened:
-                    codex_turns.append((codex_role, codex_flattened))
+                if codex_flattened and not _is_codex_system_noise(codex_flattened):
+                    if not codex_turns or codex_turns[-1] != (codex_role, codex_flattened):
+                        codex_turns.append((codex_role, codex_flattened))
                 continue
             role, content = _message_parts(record)
             if role not in {"user", "assistant"}:
@@ -337,6 +367,7 @@ def _is_recent_duplicate(
     state_dir: Path,
     session_id: str,
     now_epoch: float,
+    current_turns: int | None = None,
 ) -> bool:
     session_state_path = _session_state_path(state_dir, session_id)
     state_path = (
@@ -352,6 +383,9 @@ def _is_recent_duplicate(
     timestamp = state.get("ts")
     if not isinstance(timestamp, (int, float)):
         return False
+    last_turns = state.get("turns")
+    if current_turns is not None and isinstance(last_turns, int):
+        return current_turns <= last_turns
     return abs(now_epoch - float(timestamp)) < 60
 
 
@@ -361,14 +395,17 @@ def _write_flush_state(
     now_epoch: float,
     status: str,
     detail: str = "",
+    turn_count: int | None = None,
 ) -> None:
-    payload = {
+    payload: dict[str, Any] = {
         "session_id": session_id,
         "ts": int(now_epoch),
         "status": status,
     }
     if detail:
         payload["detail"] = detail
+    if turn_count is not None:
+        payload["turns"] = turn_count
     _atomic_write_json(_session_state_path(state_dir, session_id), payload)
     try:
         _atomic_write_json(state_dir / "last-flush.json", payload)
@@ -786,11 +823,11 @@ def _flush_session_transcript(
                 )
                 return False
 
-            if _is_recent_duplicate(state_dir, session_id, now_epoch):
-                return False
-
             turns = read_transcript(transcript_path)
             transcript, turn_count = format_turns(turns)
+            if _is_recent_duplicate(state_dir, session_id, now_epoch, current_turns=turn_count):
+                return False
+
             minimum_turns = 5 if reason == "precompact" else 1
             if turn_count < minimum_turns:
                 _write_flush_state(
@@ -799,6 +836,7 @@ def _flush_session_transcript(
                     now_epoch,
                     "ok",
                     "below-minimum-turns",
+                    turn_count=turn_count,
                 )
                 return False
 
@@ -840,6 +878,7 @@ def _flush_session_transcript(
                     now_epoch,
                     "ok",
                     "flush-bos",
+                    turn_count=turn_count,
                 )
                 return True
 
@@ -863,6 +902,7 @@ def _flush_session_transcript(
                     now_epoch,
                     "ok",
                     "appended",
+                    turn_count=turn_count,
                 )
                 return True
             except OSError:

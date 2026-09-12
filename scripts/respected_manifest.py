@@ -33,6 +33,7 @@ RUNTIME = (
     ".beyin/bounded_recall.py",
     ".beyin/hooks/lifecycle.py",
     ".beyin/hooks/bridge.py",
+    ".beyin/hooks/codex_notify.py",
     ".beyin/model_runner.py",
     ".beyin/events.py",
     ".claude/hooks/lib.sh",

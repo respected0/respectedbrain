@@ -242,6 +242,7 @@ def render(check: bool, profile: Profile) -> bool:
             "SessionStart": [{"hooks": [{"type": "command", "command": codex_start, "commandWindows": codex_start_windows, "timeout": 15, "additionalContextLimit": 16000}]}],
             "UserPromptSubmit": [{"hooks": [{"type": "command", "command": codex_prompt, "commandWindows": codex_prompt_windows, "timeout": 5}]}],
             "SessionEnd": [{"hooks": [{"type": "command", "command": codex_end, "commandWindows": codex_end_windows, "timeout": 10}]}],
+            "Stop": [{"hooks": [{"type": "command", "command": codex_end, "commandWindows": codex_end_windows, "timeout": 10}]}],
             "PreCompact": [{"hooks": [{"type": "command", "command": codex_precompact, "commandWindows": codex_precompact_windows, "timeout": 10}]}],
         },
     }

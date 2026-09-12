@@ -570,7 +570,7 @@ def update(
             if install_global_script.is_file():
                 print("\nGlobal AI bağlantıları önizlemesi:")
                 subprocess.run(
-                    [sys.executable, str(install_global_script), str(vault), "--home", str(Path.home())],
+                    [sys.executable, str(install_global_script), str(vault), "--home", str(Path.home()), "--platform", profile],
                     check=False,
                 )
         return 0
@@ -582,7 +582,7 @@ def update(
             if install_global_script.is_file():
                 print("\n>> Global AI bağlantıları senkronize ediliyor...")
                 subprocess.run(
-                    [sys.executable, str(install_global_script), str(vault), "--home", str(Path.home()), "--apply"],
+                    [sys.executable, str(install_global_script), str(vault), "--home", str(Path.home()), "--platform", profile, "--apply"],
                     check=False,
                 )
         return 3
@@ -638,7 +638,7 @@ def update(
         if install_global_script.is_file():
             print("\n>> Global AI bağlantıları senkronize ediliyor...")
             subprocess.run(
-                [sys.executable, str(install_global_script), str(vault), "--home", str(Path.home()), "--apply"],
+                [sys.executable, str(install_global_script), str(vault), "--home", str(Path.home()), "--platform", profile, "--apply"],
                 check=False,
             )
     return 0
