@@ -257,10 +257,12 @@ def _infer_profile(vault: Path, requested: str, config: dict[str, Any]) -> str:
     return "windows-wsl" if in_wsl and str(vault).startswith("/mnt/") else "portable"
 
 
-def _prepare_config(vault: Path, profile: str, requested: str) -> None:
+def _prepare_config(vault: Path, profile: str, requested: str, summary_provider: str | None = None) -> None:
     path = vault / ".beyin/config.json"
     config = _load_object(path)
     config["platform"] = profile
+    if summary_provider and summary_provider in SUMMARY_PROVIDERS:
+        config["summary_provider"] = summary_provider
     command = config.get("python_command")
     valid_command = (
         isinstance(command, list)
@@ -366,7 +368,7 @@ def _install_managed(vault: Path) -> None:
         _atomic_copy(source, destination)
 
 
-def _create_stage(vault: Path, profile: str, requested_profile: str) -> tuple[Path, Path]:
+def _create_stage(vault: Path, profile: str, requested_profile: str, summary_provider: str | None = None) -> tuple[Path, Path]:
     stage_container = Path(tempfile.mkdtemp(prefix="respected-update-"))
     if os.name != "nt":
         os.chmod(stage_container, 0o700)
@@ -380,7 +382,7 @@ def _create_stage(vault: Path, profile: str, requested_profile: str) -> tuple[Pa
         for relative in (".beyin/instructions.md", ".beyin/config.json"):
             _atomic_copy(vault / relative, stage / relative)
         _install_managed(stage)
-        _prepare_config(stage, profile, requested_profile)
+        _prepare_config(stage, profile, requested_profile, summary_provider)
         _run_renderer(stage)
         _gate(stage, managed_files(), allow_test_failure=False)
     except BaseException:
@@ -538,7 +540,7 @@ def _cleanup_legacy_claude_scripts(vault: Path) -> None:
         pass
 
 
-def update(vault: Path, requested_profile: str, apply: bool, force: bool = False) -> int:
+def update(vault: Path, requested_profile: str, apply: bool, force: bool = False, summary_provider: str | None = None) -> int:
     _validate_source()
     current_version, is_legacy = _validate_target(vault)
     config = _load_object(vault / ".beyin/config.json")
@@ -562,7 +564,7 @@ def update(vault: Path, requested_profile: str, apply: bool, force: bool = False
         _print_external_refresh_guidance()
         return 3
 
-    stage_container, stage = _create_stage(vault, profile, requested_profile)
+    stage_container, stage = _create_stage(vault, profile, requested_profile, summary_provider)
     targets = tuple(dict.fromkeys((*relatives, *legacy_removals, VERSION_FILE, *LEGACY_VERSION_FILES)))
     original_directories = _directory_relatives(vault)
     backup: Path | None = None
@@ -615,12 +617,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("vault", type=Path)
     parser.add_argument("--platform", choices=("auto", *PROFILES), default="auto")
+    parser.add_argument("--summary-provider", choices=("auto", *SUMMARY_PROVIDERS), default=None)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--force", action="store_true", help="Sürüm aynı olsa bile güncelleştirmeyi yeniden uygula")
     args = parser.parse_args(argv)
     vault = args.vault.expanduser().resolve()
     try:
-        return update(vault, args.platform, args.apply, args.force)
+        return update(vault, args.platform, args.apply, args.force, args.summary_provider)
     except UpdateError as error:
         print(f"HATA: {error}", file=sys.stderr)
         return 2
