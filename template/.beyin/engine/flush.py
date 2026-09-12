@@ -764,6 +764,117 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     return parsed
 
 
+def _flush_session_transcript(
+    vault_root: Path,
+    state_dir: Path,
+    transcript_path: Path,
+    session_id: str,
+    reason: str,
+    event_time: dt.datetime,
+) -> bool:
+    now_epoch = event_time.timestamp()
+    state_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = _session_lock_path(state_dir, session_id)
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        with runtime_platform.exclusive_lock(lock_file, blocking=True) as held:
+            if not held:
+                _record_flush_failure(
+                    state_dir,
+                    session_id,
+                    now_epoch,
+                    "session-lock-busy",
+                )
+                return False
+
+            if _is_recent_duplicate(state_dir, session_id, now_epoch):
+                return False
+
+            turns = read_transcript(transcript_path)
+            transcript, turn_count = format_turns(turns)
+            minimum_turns = 5 if reason == "precompact" else 1
+            if turn_count < minimum_turns:
+                _write_flush_state(
+                    state_dir,
+                    session_id,
+                    now_epoch,
+                    "ok",
+                    "below-minimum-turns",
+                )
+                return False
+
+            summary, error = _run_model(build_flush_prompt(transcript), vault_root)
+            if error is not None:
+                _record_flush_failure(
+                    state_dir,
+                    session_id,
+                    now_epoch,
+                    error,
+                )
+                return False
+            if not summary:
+                _record_flush_failure(
+                    state_dir,
+                    session_id,
+                    now_epoch,
+                    "summary-empty",
+                )
+                return False
+
+            normalized_summary = normalize_summary(summary)
+            if normalized_summary is None:
+                normalized_summary = repair_summary_schema(summary, vault_root)
+
+            if normalized_summary is None:
+                _record_flush_failure(
+                    state_dir,
+                    session_id,
+                    now_epoch,
+                    "summary-schema-invalid",
+                )
+                return False
+
+            if normalized_summary == "FLUSH_BOS":
+                _write_flush_state(
+                    state_dir,
+                    session_id,
+                    now_epoch,
+                    "ok",
+                    "flush-bos",
+                )
+                return True
+
+            try:
+                _append_daily(
+                    vault_root,
+                    normalized_summary,
+                    reason,
+                    event_time,
+                )
+                _record_session_event(
+                    vault_root,
+                    normalized_summary,
+                    reason,
+                    event_time,
+                    session_id,
+                )
+                _write_flush_state(
+                    state_dir,
+                    session_id,
+                    now_epoch,
+                    "ok",
+                    "appended",
+                )
+                return True
+            except OSError:
+                _record_flush_failure(
+                    state_dir,
+                    session_id,
+                    now_epoch,
+                    "daily-append-failed",
+                )
+                return False
+
+
 def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
     now_epoch = event_time.timestamp()
     if args.hook_input is None:
@@ -778,105 +889,87 @@ def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
     transcript_path = Path(transcript_value).expanduser()
 
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    lock_path = _session_lock_path(STATE_DIR, session_id)
-    with lock_path.open("a+", encoding="utf-8") as lock_file:
-        with runtime_platform.exclusive_lock(lock_file, blocking=True) as held:
-            if not held:
-                _record_flush_failure(
-                    STATE_DIR,
-                    session_id,
-                    now_epoch,
-                    "session-lock-busy",
-                )
-                return 0
+    _sweep_stale_hook_inputs(STATE_DIR, args.hook_input, now_epoch)
 
-            _sweep_stale_hook_inputs(STATE_DIR, args.hook_input, now_epoch)
-            if _is_recent_duplicate(STATE_DIR, session_id, now_epoch):
-                return 0
-
-            turns = read_transcript(transcript_path)
-            transcript, turn_count = format_turns(turns)
-            minimum_turns = 5 if args.reason == "precompact" else 1
-            if turn_count < minimum_turns:
-                _write_flush_state(
-                    STATE_DIR,
-                    session_id,
-                    now_epoch,
-                    "ok",
-                    "below-minimum-turns",
-                )
-                return 0
-
-            summary, error = _run_model(build_flush_prompt(transcript), VAULT_ROOT)
-            if error is not None:
-                _record_flush_failure(
-                    STATE_DIR,
-                    session_id,
-                    now_epoch,
-                    error,
-                )
-                return 0
-            if not summary:
-                _record_flush_failure(
-                    STATE_DIR,
-                    session_id,
-                    now_epoch,
-                    "summary-empty",
-                )
-                return 0
-
-            normalized_summary = normalize_summary(summary)
-            if normalized_summary is None:
-                normalized_summary = repair_summary_schema(summary, VAULT_ROOT)
-
-            if normalized_summary is None:
-                _record_flush_failure(
-                    STATE_DIR,
-                    session_id,
-                    now_epoch,
-                    "summary-schema-invalid",
-                )
-                return 0
-
-            if normalized_summary == "FLUSH_BOS":
-                _write_flush_state(
-                    STATE_DIR,
-                    session_id,
-                    now_epoch,
-                    "ok",
-                    "flush-bos",
-                )
-                return 0
-
-            try:
-                _append_daily(
-                    VAULT_ROOT,
-                    normalized_summary,
-                    args.reason,
-                    event_time,
-                )
-                _record_session_event(
-                    VAULT_ROOT,
-                    normalized_summary,
-                    args.reason,
-                    event_time,
-                    session_id,
-                )
-                _write_flush_state(
-                    STATE_DIR,
-                    session_id,
-                    now_epoch,
-                    "ok",
-                    "appended",
-                )
-            except OSError:
-                _record_flush_failure(
-                    STATE_DIR,
-                    session_id,
-                    now_epoch,
-                    "daily-append-failed",
-                )
+    _flush_session_transcript(
+        vault_root=VAULT_ROOT,
+        state_dir=STATE_DIR,
+        transcript_path=transcript_path,
+        session_id=session_id,
+        reason=args.reason,
+        event_time=event_time,
+    )
     return 0
+
+
+def catch_up_unflushed_sessions(
+    vault_root: Path = VAULT_ROOT,
+    state_dir: Path = STATE_DIR,
+    now: dt.datetime | None = None,
+    home: Path | None = None,
+) -> int:
+    """Scan provider transcript directories and flush any completed unflushed sessions."""
+    current = now or _event_now()
+    now_epoch = current.timestamp()
+    profile = home or Path.home()
+    flushed_count = 0
+
+    # 1. Codex rollout sessions
+    codex_sessions = profile / ".codex" / "sessions"
+    codex_archived = profile / ".codex" / "archived_sessions"
+
+    candidates: list[Path] = []
+    for root in (codex_sessions, codex_archived):
+        if not root.is_dir():
+            continue
+        try:
+            candidates.extend(root.glob("**/*.jsonl"))
+        except OSError:
+            continue
+
+    recent_candidates: list[tuple[float, Path]] = []
+    for p in candidates:
+        try:
+            mtime = p.stat().st_mtime
+            age = now_epoch - mtime
+            # Between 15 seconds (avoid racing active turn) and 48 hours
+            if 15.0 <= age <= 172800.0:
+                recent_candidates.append((mtime, p))
+        except OSError:
+            continue
+
+    recent_candidates.sort(key=lambda item: item[0])
+
+    uuid_pattern = re.compile(
+        r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+        re.IGNORECASE,
+    )
+    for mtime, transcript_path in recent_candidates:
+        match = uuid_pattern.search(transcript_path.name)
+        if not match:
+            continue
+        session_id = match.group(1)
+
+        state_file = _session_state_path(state_dir, session_id)
+        if state_file.is_file():
+            continue
+
+        try:
+            t_event_time = dt.datetime.fromtimestamp(mtime, tz=current.tzinfo)
+            flushed = _flush_session_transcript(
+                vault_root=vault_root,
+                state_dir=state_dir,
+                transcript_path=transcript_path,
+                session_id=session_id,
+                reason="catch-up",
+                event_time=t_event_time,
+            )
+            if flushed:
+                flushed_count += 1
+        except Exception:
+            continue
+
+    return flushed_count
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -901,6 +994,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             write_health(STATE_DIR, "compile-catchup-failed")
         except Exception as exc:  # Hook boundary: never fail session start.
             write_health(STATE_DIR, f"unexpected:{exc.__class__.__name__}")
+        try:
+            catch_up_unflushed_sessions(VAULT_ROOT, STATE_DIR, _event_now())
+        except Exception:
+            pass
         return 0
 
     managed_input = _managed_hook_input(args.hook_input, STATE_DIR)

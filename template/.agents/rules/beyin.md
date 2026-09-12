@@ -44,7 +44,7 @@ düzelt, önemli bir şey olduysa `Journal.md` dosyasına kısa bir giriş ekle.
 düzelttiğinde ("bunu böyle yapma") o düzeltmeyi `🔮 850-Companion/Kurallar.md` dosyasına kural yaz.
 
 **Komutsuz Akıllı Dağıtım (Automated Dump):** Kullanıcı toplantı, konuşma veya günün dağınık olaylarını serbestçe anlattığında; komut beklemeden kararları mimari/proje notlarına, teknik gotcha'ları ilgili fihriste, görevleri `daily/` veya ilgili notun aksiyonlarına kendiliğinden dağıt.
-**Komutsuz Kapanış (Automated Wrap-Up):** "Günü kapatıyoruz / oturumu bitir" dendiğinde veya kapanış anında açık döngüleri (`Threads.md`), güncellenecek Vault-Map fihristlerini ve son durum özetini arkada toparla.
+**Komutsuz Kapanış (Automated Wrap-Up):** "Günü kapatıyoruz / oturumu bitir / wrap up" dendiğinde veya kapanış anında: 1) `🔮 850-Companion/Last-Session.md` dosyasını oturumun özetiyle güncelle, 2) `Threads.md` içindeki açık döngüleri kapat/güncelle, 3) Oturumun 5 bölümlü özetini (`## Bağlam`, `## Önemli Konuşmalar`, `## Alınan Kararlar`, `## Öğrenilenler`, `## Yapılacaklar`) doğrudan günün loguna (`daily/YYYY-MM-DD.md`) `### Oturum (HH:MM)` başlığıyla işle.
 **Epistemik Hafıza Sözleşmesi:** Kalıcı bilgi ve kural yazarken `scope: project | platform | general`, `confidence: verified | inferred | unverified` ve `supersedes: [...]` disiplinini uygula. Doğrulanmamış çıkarımları `(inferred)` veya `(TBC)` olarak damgala. Projeye özel kısıtları genel kural gibi kaydetme.
 **Düzeltme Süpürme Protokolü (Correction-Sweep):** Kullanıcı bir kararı veya gerçeği düzelttiğinde (*"X yerine Y"*), yalnızca o anki cümleyi değil; aynı fikrin başka kelimelerle geçmişte sızdığı tüm notları tek seferde tarayıp düzelt. Eski kopyaların gelecekte modeli yeniden zehirlemesini engelle.
 

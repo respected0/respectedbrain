@@ -612,6 +612,60 @@ print("loaded")
         )
         self.assertEqual(state["status"], "ok")
 
+    def test_catch_up_unflushed_codex_sessions(self) -> None:
+        fake_home = self.root / "fake_home"
+        sessions_dir = fake_home / ".codex" / "sessions" / "2026" / "09" / "13"
+        sessions_dir.mkdir(parents=True, exist_ok=True)
+        session_uuid = "12345678-1234-1234-1234-123456789abc"
+        transcript_file = sessions_dir / f"rollout-2026-09-13T00-00-00-{session_uuid}.jsonl"
+        user_line = {
+            "type": "event_msg",
+            "payload": {
+                "type": "item_completed",
+                "item": {
+                    "type": "UserMessage",
+                    "content": [{"type": "text", "text": "test message"}],
+                },
+            },
+        }
+        with transcript_file.open("w", encoding="utf-8") as f:
+            f.write(json.dumps(user_line) + "\n")
+
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        os.utime(transcript_file, (now.timestamp() - 60, now.timestamp() - 60))
+
+        count = FLUSH.catch_up_unflushed_sessions(
+            vault_root=self.vault,
+            state_dir=self.state,
+            now=now,
+            home=fake_home,
+        )
+        self.assertEqual(count, 1)
+
+        # Idempotency check: already flushed sessions must not be processed again
+        count_again = FLUSH.catch_up_unflushed_sessions(
+            vault_root=self.vault,
+            state_dir=self.state,
+            now=now,
+            home=fake_home,
+        )
+        self.assertEqual(count_again, 0)
+
+        # Active turn protection: file modified less than 15s ago is ignored
+        active_uuid = "87654321-4321-4321-4321-cba987654321"
+        active_file = sessions_dir / f"rollout-2026-09-13T00-00-00-{active_uuid}.jsonl"
+        with active_file.open("w", encoding="utf-8") as f:
+            f.write(json.dumps(user_line) + "\n")
+        os.utime(active_file, (now.timestamp() - 5, now.timestamp() - 5))
+
+        count_active = FLUSH.catch_up_unflushed_sessions(
+            vault_root=self.vault,
+            state_dir=self.state,
+            now=now,
+            home=fake_home,
+        )
+        self.assertEqual(count_active, 0)
+
     def test_trigger_gates_single_claim_and_spawn_failure_rollback(self) -> None:
         daily_path = self.daily / "2026-08-22.md"
         daily_path.write_text("ilk sürüm", encoding="utf-8")
