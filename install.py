@@ -302,13 +302,23 @@ def install_vault(
         # 7. Optional global install
         if install_global:
             log(f"{Colors.DIM}• Global AI kural bağlantıları kuruluyor...{Colors.RESET}")
-            if shutil.which("agy") or shutil.which("agy.exe"):
-                agy_global = target_scripts / "install_antigravity_global.py"
-                if agy_global.is_file():
-                    subprocess.run([sys.executable, str(agy_global)], check=False, capture_output=True)
             global_installer = target_scripts / "install_global.py"
             if global_installer.is_file():
-                subprocess.run([sys.executable, str(global_installer)], check=False, capture_output=True)
+                global_cmd = [
+                    sys.executable,
+                    str(global_installer),
+                    str(vault_path),
+                    "--home",
+                    str(Path.home()),
+                    "--platform",
+                    platform_name,
+                    "--apply",
+                ]
+                res_global = subprocess.run(global_cmd, check=False, capture_output=True, text=True)
+                if res_global.returncode == 0:
+                    log(f"  {Colors.GREEN}✔ Global AI kural ve kanca bağlantıları başarıyla kuruldu.{Colors.RESET}")
+                else:
+                    log(f"  {Colors.YELLOW}Uyarı: Global bağlantı tamamlanamadı: {res_global.stderr.strip()}{Colors.RESET}")
 
         # 8. Optional Desktop shortcut
         created_shortcut = None
