@@ -540,7 +540,14 @@ def _cleanup_legacy_claude_scripts(vault: Path) -> None:
         pass
 
 
-def update(vault: Path, requested_profile: str, apply: bool, force: bool = False, summary_provider: str | None = None) -> int:
+def update(
+    vault: Path,
+    requested_profile: str,
+    apply: bool,
+    force: bool = False,
+    summary_provider: str | None = None,
+    sync_global: bool = False,
+) -> int:
     _validate_source()
     current_version, is_legacy = _validate_target(vault)
     config = _load_object(vault / ".beyin/config.json")
@@ -558,10 +565,26 @@ def update(vault: Path, requested_profile: str, apply: bool, force: bool = False
             print(f"  {relative}")
     if not apply:
         print("ÖNİZLEME: hiçbir dosya değişmedi. Uygulamak için --apply ekle.")
+        if sync_global:
+            install_global_script = REPO / "scripts" / "install_global.py"
+            if install_global_script.is_file():
+                print("\nGlobal AI bağlantıları önizlemesi:")
+                subprocess.run(
+                    [sys.executable, str(install_global_script), str(vault), "--home", str(Path.home())],
+                    check=False,
+                )
         return 0
     if not is_legacy and current_version == VERSION and not force:
         print("Bu vault zaten güncel. Zorlamak için --force kullanın.")
         _print_external_refresh_guidance()
+        if sync_global:
+            install_global_script = REPO / "scripts" / "install_global.py"
+            if install_global_script.is_file():
+                print("\n>> Global AI bağlantıları senkronize ediliyor...")
+                subprocess.run(
+                    [sys.executable, str(install_global_script), str(vault), "--home", str(Path.home()), "--apply"],
+                    check=False,
+                )
         return 3
 
     stage_container, stage = _create_stage(vault, profile, requested_profile, summary_provider)
@@ -610,6 +633,14 @@ def update(vault: Path, requested_profile: str, apply: bool, force: bool = False
 
     print(f"Respected Brain güncellendi: sürüm {VERSION}; yedek: {backup}")
     _print_external_refresh_guidance()
+    if sync_global:
+        install_global_script = REPO / "scripts" / "install_global.py"
+        if install_global_script.is_file():
+            print("\n>> Global AI bağlantıları senkronize ediliyor...")
+            subprocess.run(
+                [sys.executable, str(install_global_script), str(vault), "--home", str(Path.home()), "--apply"],
+                check=False,
+            )
     return 0
 
 
@@ -620,10 +651,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--summary-provider", choices=("auto", *SUMMARY_PROVIDERS), default=None)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--force", action="store_true", help="Sürüm aynı olsa bile güncelleştirmeyi yeniden uygula")
+    parser.add_argument(
+        "--global",
+        "--all",
+        dest="sync_global",
+        action="store_true",
+        help="Kasa güncellendikten sonra global AI bağlantılarını da (install_global.py) tek adımda senkronize et",
+    )
     args = parser.parse_args(argv)
     vault = args.vault.expanduser().resolve()
     try:
-        return update(vault, args.platform, args.apply, args.force, args.summary_provider)
+        return update(vault, args.platform, args.apply, args.force, args.summary_provider, args.sync_global)
     except UpdateError as error:
         print(f"HATA: {error}", file=sys.stderr)
         return 2
