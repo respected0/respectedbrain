@@ -584,6 +584,15 @@ def update(vault: Path, requested_profile: str, apply: bool, force: bool = False
                 except OSError:
                     pass
         _atomic_write(vault / VERSION_FILE, f"{VERSION}\n")
+        git_bin = shutil.which("git")
+        if git_bin and not (vault / ".git").is_dir():
+            try:
+                subprocess.run([git_bin, "init", "-q"], cwd=str(vault), check=False, capture_output=True)
+                subprocess.run([git_bin, "add", "."], cwd=str(vault), check=False, capture_output=True)
+                subprocess.run([git_bin, "commit", "-q", "-m", "feat: genesis vault initialization"], cwd=str(vault), check=False, capture_output=True)
+                print("  Git deposu bulunamadı; vault otomatik olarak Git versiyon kontrolüne alındı.")
+            except Exception:
+                pass
     except (OSError, UnicodeError, ValueError, UpdateError) as error:
         if backup is None:
             raise UpdateError(f"update başlamadan durduruldu: {error}") from error

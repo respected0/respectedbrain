@@ -371,6 +371,18 @@ def install_vault(
                 else:
                     log(f"  {Colors.YELLOW}Uyarı: MCP kaydı tamamlanamadı: {mcp_res.stderr.strip()}{Colors.RESET}")
 
+        # 11. Git Repository Initialization
+        git_bin = shutil.which("git")
+        if git_bin and not (vault_path / ".git").is_dir():
+            log(f"{Colors.DIM}• Git versiyon kontrolü başlatılıyor...{Colors.RESET}")
+            try:
+                subprocess.run([git_bin, "init", "-q"], cwd=str(vault_path), check=False, capture_output=True)
+                subprocess.run([git_bin, "add", "."], cwd=str(vault_path), check=False, capture_output=True)
+                subprocess.run([git_bin, "commit", "-q", "-m", f"feat: genesis {os_name} vault"], cwd=str(vault_path), check=False, capture_output=True)
+                log(f"  {Colors.GREEN}✔ Kasa Git deposu olarak başlatıldı ve ilk commit oluşturuldu.{Colors.RESET}")
+            except Exception:
+                pass
+
         log(f"\n{Colors.GREEN}{Colors.BOLD}✔ Tebrikler! {os_name} başarıyla kuruldu!{Colors.RESET}")
         log(f"  {Colors.BOLD}Konum:{Colors.RESET} {vault_path}")
         log(f"  {Colors.BOLD}Düşünme Ortağı:{Colors.RESET} {companion}")

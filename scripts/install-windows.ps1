@@ -322,6 +322,12 @@ try {
     if (-not $AdapterText.Contains("py.exe") -or $LowerAdapters.Contains("wsl.exe") -or $LowerAdapters.Contains("bash") -or $LowerAdapters.Contains(".sh")) {
         throw "windows-native adapter gate başarısız"
     }
+
+    if (-not (Test-Path -LiteralPath (Join-Path $ResolvedVault ".git"))) {
+        & $Git -C $ResolvedVault init -q
+        & $Git -C $ResolvedVault add .
+        & $Git -C $ResolvedVault commit -q -m "feat: genesis $OsName vault"
+    }
 }
 catch {
     if ($CreatedTarget -and (Test-Path -LiteralPath $ResolvedVault)) {

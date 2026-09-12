@@ -173,6 +173,12 @@ def lint_vault(vault_root: Path) -> dict[str, Any]:
                     if p.relative_to(vault_root).as_posix().lower() == target_rel_with_ext:
                         incoming_links_count[p] = incoming_links_count.get(p, 0) + 1
                         break
+            # 3. Kasa içi fiziksel dosya, script veya dizin eşleşmesi (Vault-Map vb.)
+            elif (vault_root / target_clean).exists():
+                resolved = True
+            # 4. Kural ve dokümantasyon şablon yer tutucuları
+            elif target_clean in {"O Not", "Alt Not"}:
+                resolved = True
 
             if not resolved:
                 dead_links.append({

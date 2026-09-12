@@ -708,27 +708,29 @@ def maybe_trigger_compile(
     return True
 
 
-def _managed_hook_input(path: Path, state_dir: Path) -> bool:
+def _managed_hook_input(path: Path | None, state_dir: Path) -> bool:
+    if path is None:
+        return False
     try:
         same_parent = (
             runtime_platform.path_within_vault(path, state_dir)
             and path.absolute().parent.resolve() == state_dir.resolve()
         )
-    except OSError:
+    except (OSError, AttributeError):
         return False
     return same_parent and HOOK_INPUT_NAME.fullmatch(path.name) is not None
 
 
 def _sweep_stale_hook_inputs(
     state_dir: Path,
-    current_input: Path,
+    current_input: Path | None,
     now_epoch: float,
 ) -> None:
     if not state_dir.exists():
         return
-    current_absolute = current_input.absolute()
+    current_absolute = current_input.absolute() if current_input is not None else None
     for candidate in state_dir.glob("hookin-*.json"):
-        if candidate.absolute() == current_absolute:
+        if current_absolute is not None and candidate.absolute() == current_absolute:
             continue
         try:
             age = now_epoch - candidate.lstat().st_mtime
@@ -762,6 +764,8 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
 
 def _flush_once(args: argparse.Namespace, event_time: dt.datetime) -> int:
     now_epoch = event_time.timestamp()
+    if args.hook_input is None:
+        raise ValueError("hook-input-missing")
     hook_input = load_hook_input(args.hook_input)
     session_id = hook_input.get("session_id")
     transcript_value = hook_input.get("transcript_path")
@@ -914,7 +918,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         write_health(STATE_DIR, f"unexpected:{exc.__class__.__name__}")
         return 0
     finally:
-        if managed_input:
+        if managed_input and args.hook_input is not None:
             try:
                 args.hook_input.unlink()
             except FileNotFoundError:

@@ -100,6 +100,8 @@ def build_graph(vault_path: Path) -> Dict[str, Any]:
                 if target_slug != src_slug:
                     adj[src_slug].add(target_slug)
                     in_edges[target_slug].add(src_slug)
+            elif (vault / target.strip()).exists() or target.strip() in {"O Not", "Alt Not"}:
+                continue
             else:
                 broken_links[src_slug].append(target)
                 
