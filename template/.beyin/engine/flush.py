@@ -460,6 +460,8 @@ def _run_model(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
                     [legacy_claude, "-p", "--model", "haiku", "--output-format", "text", "--safe-mode", "--tools", ""],
                     input=prompt,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     capture_output=True,
                     cwd=temporary,
                     env=environment,

@@ -265,6 +265,8 @@ def run_model(
             if invocation is None:
                 continue
         process_environment = environment.copy()
+        process_environment["PYTHONIOENCODING"] = "utf-8"
+        process_environment["PYTHONUTF8"] = "1"
         run_cwd = cwd
         if invocation.windows_executable:
             _windows_user_environment(process_environment, cwd)
@@ -277,6 +279,8 @@ def run_model(
                 invocation.argv,
                 input=invocation.stdin,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 capture_output=True,
                 cwd=run_cwd,
                 env=process_environment,

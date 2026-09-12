@@ -271,6 +271,8 @@ def _launch_flush(
 
     environment = os.environ.copy()
     environment["BEYIN_PROVIDER"] = provider
+    environment["PYTHONIOENCODING"] = "utf-8"
+    environment["PYTHONUTF8"] = "1"
     try:
         process = subprocess.Popen(
             command,
