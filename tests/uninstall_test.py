@@ -123,5 +123,17 @@ class TestUninstall(unittest.TestCase):
         self.assertIn("other-server", data["mcpServers"])
 
 
+    def test_main_non_interactive_purge(self):
+        vault_to_purge = self.tmp_dir / "PurgeVault"
+        vault_to_purge.mkdir(parents=True, exist_ok=True)
+        (vault_to_purge / "note.md").write_text("hello", encoding="utf-8")
+
+        with patch("pathlib.Path.home", return_value=self.fake_home):
+            code = uninstall.main(["--non-interactive", "--purge-vault", "--vault-path", str(vault_to_purge)])
+
+        self.assertEqual(code, 0)
+        self.assertFalse(vault_to_purge.exists())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

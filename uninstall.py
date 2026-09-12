@@ -288,7 +288,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         print(f"{Colors.RED}{Colors.BOLD}UYARI:{Colors.RESET} --purge-vault seçeneği belirtildi. Kasa dizini de silinecek!\n")
 
-    if not args.non-interactive:
+    if not args.non_interactive:
         confirm = _prompt_user("Kaldırma işlemine devam etmek istiyor musunuz? [e/H]", "h")
         if confirm.lower() not in ("e", "evet", "y", "yes"):
             print(f"{Colors.YELLOW}Kaldırma işlemi iptal edildi.{Colors.RESET}")
@@ -311,7 +311,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 vault_path = default_path
 
         if vault_path and vault_path.is_dir():
-            if not args.non-interactive:
+            if not args.non_interactive:
                 confirm_purge = _prompt_user(f"'{vault_path}' kasası ve tüm notlar TAMAMEN SİLİNECEK. Emin misiniz? [evet/HAYIR]", "hayir")
                 if confirm_purge.lower() in ("evet", "yes"):
                     shutil.rmtree(vault_path, ignore_errors=True)
