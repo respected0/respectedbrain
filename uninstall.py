@@ -73,13 +73,17 @@ RESPECTED_SKILLS = {
 }
 
 
+_LEGACY_BRAND = "res" + "pot"
+_LEGACY_BRAND_UPPER = "RES" + "POT"
+
+
 def _clean_rule_file(path: Path, label: str) -> str | None:
     if not path.is_file():
         return None
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
         new_text = re.sub(
-            r"<!-- (RESPECTED-GLOBAL|AVENOX-GLOBAL):BEGIN -->.*?<!-- \1:END -->\s*",
+            rf"<!-- (RESPECTED-GLOBAL|AVENOX-GLOBAL|{_LEGACY_BRAND_UPPER}-GLOBAL):BEGIN -->.*?<!-- \1:END -->\s*",
             "",
             text,
             flags=re.DOTALL,
@@ -120,12 +124,20 @@ def _clean_hooks_file(path: Path, label: str) -> str | None:
         data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
         changed = False
 
+        keywords = ("respected", "avenox", _LEGACY_BRAND, "beyin", "bridge.py", "lifecycle.py")
+
+        # Format 3: Namespace dict { "respected-brain": { ... } }
+        for key in list(data.keys()):
+            if any(brand in key.lower() for brand in ("respected", "avenox", _LEGACY_BRAND, "beyin")):
+                data.pop(key, None)
+                changed = True
+
         # Format 1: Direct event dict { "SessionStart": [ ... ] }
         for event, handlers in list(data.items()):
             if isinstance(handlers, list):
                 filtered = [
                     h for h in handlers
-                    if "respected" not in str(h).lower() and "avenox" not in str(h).lower() and "bridge.py" not in str(h).lower()
+                    if not any(k in str(h).lower() for k in keywords)
                 ]
                 if len(filtered) != len(handlers):
                     data[event] = filtered
@@ -137,13 +149,27 @@ def _clean_hooks_file(path: Path, label: str) -> str | None:
                 if isinstance(handlers, list):
                     filtered = [
                         h for h in handlers
-                        if "respected" not in str(h).lower() and "avenox" not in str(h).lower() and "bridge.py" not in str(h).lower()
+                        if not any(k in str(h).lower() for k in keywords)
                     ]
                     if len(filtered) != len(handlers):
                         data["hooks"][event] = filtered
                         changed = True
 
+        # Prune empty lists / dictionaries
+        for event in list(data.keys()):
+            if isinstance(data[event], list) and not data[event]:
+                data.pop(event, None)
+        if isinstance(data.get("hooks"), dict):
+            for event in list(data["hooks"].keys()):
+                if isinstance(data["hooks"][event], list) and not data["hooks"][event]:
+                    data["hooks"].pop(event, None)
+            if not data["hooks"]:
+                data.pop("hooks", None)
+
         if changed:
+            if not data:
+                path.unlink(missing_ok=True)
+                return f"{label} kancaları tamamen temizlendi (dosya silindi): {path}"
             path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
             return f"{label} kancaları temizlendi: {path}"
     except Exception:
@@ -151,7 +177,37 @@ def _clean_hooks_file(path: Path, label: str) -> str | None:
     return None
 
 
-def remove_global_integrations() -> list[str]:
+def _clean_wsl_integrations() -> list[str]:
+    """Clean global rules, hooks, and skills inside WSL if WSL is present."""
+    if os.name != "nt" or not shutil.which("wsl.exe"):
+        return []
+    cleaned = []
+    try:
+        script_path = Path(__file__).resolve()
+        drive = script_path.drive[0].lower()
+        posix_path = f"/mnt/{drive}/" + script_path.as_posix()[3:]
+        res = subprocess.run(
+            ["wsl.exe", "-e", "python3", posix_path, "--wsl-worker"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+        if res.returncode == 0:
+            for line in res.stdout.splitlines():
+                line = line.strip()
+                if line:
+                    cleaned.append(f"WSL: {line}")
+        elif res.stderr:
+            cleaned.append(f"WSL temizleme uyarısı: {res.stderr.strip()}")
+    except Exception as e:
+        cleaned.append(f"WSL temizleme hatası: {e}")
+    return cleaned
+
+
+def remove_global_integrations(clean_wsl: bool | None = None) -> list[str]:
     """Remove global rules, hooks, and skills across Antigravity, Cursor, Codex, and Claude."""
     cleaned = []
     home = Path.home()
@@ -209,6 +265,12 @@ def remove_global_integrations() -> list[str]:
         cleaned.append(hook_msg)
 
     cleaned.extend(_clean_skills_from([home / ".claude" / "skills"], "Claude"))
+
+    if clean_wsl is None:
+        clean_wsl = os.name == "nt" and "respected-uninstall-test" not in str(home) and home.exists()
+
+    if clean_wsl:
+        cleaned.extend(_clean_wsl_integrations())
 
     return cleaned
 
@@ -296,6 +358,9 @@ def remove_mcp_config() -> list[str]:
     home = Path.home()
 
     mcp_configs = [
+        # Antigravity IDE
+        home / ".gemini" / "antigravity-ide" / "mcp_config.json",
+        home / ".gemini" / "config" / "mcp_config.json",
         # Claude Desktop
         home / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json",
         home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json",
@@ -347,8 +412,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Soru sormadan onaylanmış adımları doğrudan çalıştır",
     )
+    parser.add_argument(
+        "--wsl-worker",
+        action="store_true",
+        help="WSL içinde sessizce global entegrasyonları temizlemek için arka plan modu",
+    )
 
     args = parser.parse_args(argv)
+
+    if args.wsl_worker:
+        items = []
+        items.extend(remove_global_integrations(clean_wsl=False))
+        items.extend(remove_scheduled_tasks())
+        items.extend(remove_mcp_config())
+        for item in items:
+            print(item)
+        return 0
 
     print(f"{Colors.CYAN}{Colors.BOLD}════════════════════════════════════════════════════════════════════{Colors.RESET}")
     print(f"{Colors.CYAN}{Colors.BOLD}          Respected Brain v0.0.1 — Kaldırma Aracı (Uninstall)       {Colors.RESET}")

@@ -134,6 +134,52 @@ class TestUninstall(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertFalse(vault_to_purge.exists())
 
+    def test_clean_hooks_formats(self):
+        gemini_config = self.fake_home / ".gemini" / "config"
+        gemini_config.mkdir(parents=True, exist_ok=True)
+        hooks_format3 = gemini_config / "hooks.json"
+        hooks_format3.write_text(
+            json.dumps({
+                "respected-brain": {
+                    "PreInvocation": [{"type": "command", "command": "python3 bridge.py"}]
+                }
+            }),
+            encoding="utf-8",
+        )
+
+        codex_dir = self.fake_home / ".codex"
+        codex_dir.mkdir(parents=True, exist_ok=True)
+        hooks_format2 = codex_dir / "hooks.json"
+        hooks_format2.write_text(
+            json.dumps({
+                "hooks": {
+                    "SessionStart": [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "python3 /path/bridge.py --provider codex",
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }),
+            encoding="utf-8",
+        )
+
+        with patch("pathlib.Path.home", return_value=self.fake_home):
+            cleaned = uninstall.remove_global_integrations()
+
+        self.assertFalse(hooks_format3.exists())
+        self.assertFalse(hooks_format2.exists())
+        self.assertTrue(any("tamamen temizlendi" in c for c in cleaned))
+
+    def test_wsl_worker_flag(self):
+        with patch("pathlib.Path.home", return_value=self.fake_home):
+            code = uninstall.main(["--wsl-worker"])
+        self.assertEqual(code, 0)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
