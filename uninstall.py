@@ -60,42 +60,112 @@ def _prompt_user(prompt: str, default: str = "") -> str:
     return val if val else default
 
 
-def remove_global_integrations() -> list[str]:
-    """Remove global rules, hooks, and skills across Antigravity, Cursor, Codex, and Claude."""
-    cleaned = []
-    home = Path.home()
+RESPECTED_SKILLS = {
+    "ajan-gecmis-tara",
+    "beyin-doktor",
+    "beyin-meydan-oku",
+    "beyin-oruntu",
+    "gecmis-import",
+    "inbox-duzenle",
+    "obsidian-layout",
+    "otonom-arastirma",
+    "yazilim-kalite",
+}
 
-    # 1. Antigravity (~/.gemini)
-    gemini_dir = home / ".gemini"
-    gemini_md = gemini_dir / "GEMINI.md"
-    if gemini_md.is_file():
-        text = gemini_md.read_text(encoding="utf-8", errors="replace")
+
+def _clean_rule_file(path: Path, label: str) -> str | None:
+    if not path.is_file():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
         new_text = re.sub(
             r"<!-- (RESPECTED-GLOBAL|AVENOX-GLOBAL):BEGIN -->.*?<!-- \1:END -->\s*",
             "",
             text,
             flags=re.DOTALL,
         )
-        if new_text != text:
-            gemini_md.write_text(new_text, encoding="utf-8")
-            cleaned.append(f"Antigravity global kuralı temizlendi: {gemini_md}")
+        if new_text.strip() == "":
+            path.unlink(missing_ok=True)
+            return f"{label} kural dosyası silindi: {path}"
+        elif new_text != text:
+            path.write_text(new_text, encoding="utf-8")
+            return f"{label} kuralı temizlendi: {path}"
+    except Exception:
+        pass
+    return None
 
-    gemini_hooks = gemini_dir / "config" / "hooks.json"
-    if gemini_hooks.is_file():
+
+def _clean_skills_from(roots: list[Path], label: str) -> list[str]:
+    removed = []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for skill_name in RESPECTED_SKILLS:
+            skill_dir = root / skill_name
+            if skill_dir.is_dir():
+                shutil.rmtree(skill_dir, ignore_errors=True)
+                removed.append(f"{label} skill silindi: {skill_dir}")
         try:
-            data = json.loads(gemini_hooks.read_text(encoding="utf-8", errors="replace"))
-            changed = False
-            for event, handlers in list(data.items()):
-                if isinstance(handlers, list):
-                    filtered = [h for h in handlers if "respected" not in str(h).lower() and "avenox" not in str(h).lower()]
-                    if len(filtered) != len(handlers):
-                        data[event] = filtered
-                        changed = True
-            if changed:
-                gemini_hooks.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-                cleaned.append(f"Antigravity kancaları temizlendi: {gemini_hooks}")
-        except Exception:
+            if root.is_dir() and not any(root.iterdir()):
+                root.rmdir()
+        except OSError:
             pass
+    return removed
+
+
+def _clean_hooks_file(path: Path, label: str) -> str | None:
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+        changed = False
+
+        # Format 1: Direct event dict { "SessionStart": [ ... ] }
+        for event, handlers in list(data.items()):
+            if isinstance(handlers, list):
+                filtered = [
+                    h for h in handlers
+                    if "respected" not in str(h).lower() and "avenox" not in str(h).lower() and "bridge.py" not in str(h).lower()
+                ]
+                if len(filtered) != len(handlers):
+                    data[event] = filtered
+                    changed = True
+
+        # Format 2: Nested under "hooks" { "hooks": { "SessionStart": [ ... ] } }
+        if isinstance(data.get("hooks"), dict):
+            for event, handlers in list(data["hooks"].items()):
+                if isinstance(handlers, list):
+                    filtered = [
+                        h for h in handlers
+                        if "respected" not in str(h).lower() and "avenox" not in str(h).lower() and "bridge.py" not in str(h).lower()
+                    ]
+                    if len(filtered) != len(handlers):
+                        data["hooks"][event] = filtered
+                        changed = True
+
+        if changed:
+            path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            return f"{label} kancaları temizlendi: {path}"
+    except Exception:
+        pass
+    return None
+
+
+def remove_global_integrations() -> list[str]:
+    """Remove global rules, hooks, and skills across Antigravity, Cursor, Codex, and Claude."""
+    cleaned = []
+    home = Path.home()
+
+    # 1. Antigravity (~/.gemini)
+    rule_msg = _clean_rule_file(home / ".gemini" / "GEMINI.md", "Antigravity global")
+    if rule_msg:
+        cleaned.append(rule_msg)
+
+    hook_msg = _clean_hooks_file(home / ".gemini" / "config" / "hooks.json", "Antigravity")
+    if hook_msg:
+        cleaned.append(hook_msg)
+
+    cleaned.extend(_clean_skills_from([home / ".gemini" / "config" / "skills"], "Antigravity"))
 
     # 2. Cursor (~/.cursor)
     cursor_rule = home / ".cursor" / "rules" / "respected-brain.mdc"
@@ -108,40 +178,37 @@ def remove_global_integrations() -> list[str]:
         cursor_rule_legacy.unlink(missing_ok=True)
         cleaned.append(f"Cursor eski global kuralı silindi: {cursor_rule_legacy}")
 
-    cursor_hooks = home / ".cursor" / "hooks.json"
-    if cursor_hooks.is_file():
-        try:
-            data = json.loads(cursor_hooks.read_text(encoding="utf-8", errors="replace"))
-            changed = False
-            for event, handlers in list(data.items()):
-                if isinstance(handlers, list):
-                    filtered = [h for h in handlers if "respected" not in str(h).lower() and "avenox" not in str(h).lower()]
-                    if len(filtered) != len(handlers):
-                        data[event] = filtered
-                        changed = True
-            if changed:
-                cursor_hooks.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-                cleaned.append(f"Cursor kancaları temizlendi: {cursor_hooks}")
-        except Exception:
-            pass
+    hook_msg = _clean_hooks_file(home / ".cursor" / "hooks.json", "Cursor")
+    if hook_msg:
+        cleaned.append(hook_msg)
 
-    # 3. Codex (~/.codex)
-    codex_hooks = home / ".codex" / "hooks.json"
-    if codex_hooks.is_file():
-        try:
-            data = json.loads(codex_hooks.read_text(encoding="utf-8", errors="replace"))
-            changed = False
-            for event, handlers in list(data.items()):
-                if isinstance(handlers, list):
-                    filtered = [h for h in handlers if "respected" not in str(h).lower() and "avenox" not in str(h).lower()]
-                    if len(filtered) != len(handlers):
-                        data[event] = filtered
-                        changed = True
-            if changed:
-                codex_hooks.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-                cleaned.append(f"Codex kancaları temizlendi: {codex_hooks}")
-        except Exception:
-            pass
+    cleaned.extend(_clean_skills_from([home / ".cursor" / "skills"], "Cursor"))
+
+    # 3. Codex (~/.codex & ~/.agents)
+    rule_msg = _clean_rule_file(home / ".codex" / "AGENTS.md", "Codex global")
+    if rule_msg:
+        cleaned.append(rule_msg)
+
+    rule_msg_agents = _clean_rule_file(home / ".agents" / "AGENTS.md", "Agents global")
+    if rule_msg_agents:
+        cleaned.append(rule_msg_agents)
+
+    hook_msg = _clean_hooks_file(home / ".codex" / "hooks.json", "Codex")
+    if hook_msg:
+        cleaned.append(hook_msg)
+
+    cleaned.extend(_clean_skills_from([home / ".agents" / "skills", home / ".codex" / "skills"], "Codex"))
+
+    # 4. Claude (~/.claude)
+    rule_msg = _clean_rule_file(home / ".claude" / "CLAUDE.md", "Claude global")
+    if rule_msg:
+        cleaned.append(rule_msg)
+
+    hook_msg = _clean_hooks_file(home / ".claude" / "settings.json", "Claude")
+    if hook_msg:
+        cleaned.append(hook_msg)
+
+    cleaned.extend(_clean_skills_from([home / ".claude" / "skills"], "Claude"))
 
     return cleaned
 
@@ -150,7 +217,6 @@ def remove_scheduled_tasks() -> list[str]:
     """Remove Windows scheduled tasks or cron jobs for morning briefings."""
     cleaned = []
     if os.name == "nt" or shutil.which("schtasks.exe"):
-        # Query and delete Respected tasks
         try:
             out = subprocess.run(
                 ["schtasks.exe", "/Query", "/FO", "LIST"],
@@ -225,26 +291,37 @@ def remove_desktop_shortcuts(vault_name: str = "RespectedOS") -> list[str]:
 
 
 def remove_mcp_config() -> list[str]:
-    """Remove Respected Vault MCP server registration from Claude Desktop and Cursor."""
+    """Remove Respected Vault MCP server registration from all known editors."""
     cleaned = []
     home = Path.home()
 
-    # Claude Desktop
-    claude_configs = [
+    mcp_configs = [
+        # Claude Desktop
         home / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json",
         home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json",
+        home / ".config" / "Claude" / "claude_desktop_config.json",
+        # Claude Code
+        home / ".claude.json",
+        # Cursor IDE
+        home / ".cursor" / "mcp.json",
+        # Windsurf IDE
+        home / ".codeium" / "windsurf" / "mcp_config.json",
     ]
-    for cfg in claude_configs:
+
+    for cfg in mcp_configs:
         if cfg.is_file():
             try:
                 data = json.loads(cfg.read_text(encoding="utf-8", errors="replace"))
                 servers = data.get("mcpServers", {})
-                if "respected-vault" in servers or "respected-vault-mcp" in servers:
-                    servers.pop("respected-vault", None)
-                    servers.pop("respected-vault-mcp", None)
+                changed = False
+                for s_name in ("respected-vault", "respected-vault-mcp", "respected_vault"):
+                    if s_name in servers:
+                        servers.pop(s_name, None)
+                        changed = True
+                if changed:
                     data["mcpServers"] = servers
                     cfg.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-                    cleaned.append(f"Claude Desktop MCP kaydı kaldırıldı: {cfg}")
+                    cleaned.append(f"MCP kaydı kaldırıldı: {cfg}")
             except Exception:
                 pass
 
