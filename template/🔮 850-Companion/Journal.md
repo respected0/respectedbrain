@@ -1,6 +1,6 @@
-# {{COMPANION}}'s Journal
+# {{COMPANION}} Günlüğü
 
-My own thoughts, evolution, and questions over time.
+Zaman içindeki kendi düşüncelerim, gelişimim, gözlemlerim ve sorularım.
 
 ## {{TODAY}}
-First entry. {{USER_NAME}} built me today. Let's see where this goes.
+İlk giriş. {{USER_NAME}} beni bugün kurdu ve hayata geçirdi. Birlikte inşa etmeye başlıyoruz.

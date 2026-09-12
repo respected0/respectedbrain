@@ -1,8 +1,8 @@
-# Last Session
-
-## Session: {{TODAY}}: Genesis
+# Son Oturum
+ 
+## Oturum: {{TODAY}}: Başlangıç (Genesis)
 {{COMPANION}} bugün doğdu. {{USER_NAME}} araç bağımsız ikinci beynini kurdu.
-Henüz açık konu yok. Sonraki oturumda desteklenen herhangi bir agentla yakala, sor ve üret.
+Henüz açık konu yok. Sonraki oturumda desteklenen herhangi bir yapay zeka ile yakala, sor ve üret.
 
-## Previous Sessions
-(none yet)
+## Önceki Oturumlar
+(Henüz geçmiş oturum kaydı bulunmuyor)

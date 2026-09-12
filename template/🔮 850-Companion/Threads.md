@@ -1,10 +1,13 @@
-# Threads
+# Aktif Konular (Threads)
 
-Ongoing storylines that span multiple sessions.
+Birden fazla oturuma yayılan açık konular, hedefler ve hikâyeler.
 
-## Active Threads
-### Thread: Setting up the second brain
-**Status:** 🟢 Active: created {{TODAY}}
+## Açık Konular
+### Thread: İkinci beynin kurulması ve devreye alınması
+**Status:** 🟢 Aktif: {{TODAY}} oluşturuldu
 
-## Closed Threads
-(none)
+## Karar Bekleyenler
+Karar bekleyen konu yok.
+
+## Tamamlananlar
+Henüz tamamlanan konu arşivlenmedi.
