@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import Any
+from typing import Any, Sequence
 
 
 for _stream in (sys.stdout, sys.stderr):
@@ -147,6 +147,7 @@ def normalize(provider: str, payload: dict[str, Any]) -> dict[str, Any]:
             transcript_path = resolve_antigravity_transcript(session_id)
         elif provider == "codex":
             transcript_path = resolve_codex_transcript(session_id)
+    transcript_path = wsl_path(transcript_path)
     return {
         **payload,
         "session_id": session_id,
@@ -155,22 +156,6 @@ def normalize(provider: str, payload: dict[str, Any]) -> dict[str, Any]:
         "model": first_string(payload, "model", "modelName"),
         "beyin_provider": provider,
     }
-
-
-def extract_context(stdout: str) -> str:
-    for line in reversed(stdout.splitlines()):
-        try:
-            value = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(value, dict):
-            continue
-        specific = value.get("hookSpecificOutput")
-        if isinstance(specific, dict):
-            context = specific.get("additionalContext")
-            if isinstance(context, str):
-                return context
-    return ""
 
 
 def output(provider: str, event: str, context: str) -> None:
