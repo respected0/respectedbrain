@@ -20,6 +20,7 @@ GENERATED = (
     ".cursor/rules/beyin.mdc",
     ".agents/hooks.json",
     ".agents/rules/beyin.md",
+    ".opencode/agents/beyin.md",
 )
 
 RUNTIME = (
