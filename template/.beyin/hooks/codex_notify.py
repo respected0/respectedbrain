@@ -24,23 +24,25 @@ import sys
 
 def _parse_payload(argv: list[str]) -> dict:
     for arg in argv:
-        if not arg or not (arg.startswith("{") and arg.endswith("}")):
+        if not arg:
             continue
-        try:
-            val = json.loads(arg)
-            if isinstance(val, dict):
-                return val
-        except (json.JSONDecodeError, ValueError):
-            continue
-    try:
-        if not sys.stdin.isatty():
-            content = sys.stdin.read().strip()
-            if content.startswith("{") and content.endswith("}"):
-                val = json.loads(content)
+        trimmed = arg.strip()
+        if trimmed.startswith("{") and trimmed.endswith("}"):
+            try:
+                val = json.loads(trimmed)
                 if isinstance(val, dict):
                     return val
-    except Exception:
-        pass
+            except (json.JSONDecodeError, ValueError):
+                continue
+    if argv:
+        joined = " ".join(argv).strip()
+        if joined.startswith("{") and joined.endswith("}"):
+            try:
+                val = json.loads(joined)
+                if isinstance(val, dict):
+                    return val
+            except (json.JSONDecodeError, ValueError):
+                pass
     return {}
 
 
@@ -70,6 +72,7 @@ def _forward_chained(argv: list[str]) -> None:
         if default_cua.is_file():
             candidates.append(str(default_cua))
 
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
     for target in candidates:
         if os.path.isfile(target):
             try:
@@ -78,6 +81,8 @@ def _forward_chained(argv: list[str]) -> None:
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     stdin=subprocess.DEVNULL,
+                    creationflags=flags,
+                    close_fds=True,
                 )
                 break
             except Exception:
@@ -85,10 +90,22 @@ def _forward_chained(argv: list[str]) -> None:
 
 
 def main() -> int:
+    if os.environ.get("BEYIN_INVOKED_BY"):
+        return 0
+    try:
+        depth = int(os.environ.get("BEYIN_RECURSION_DEPTH", "0"))
+        if depth >= 1:
+            return 0
+    except ValueError:
+        return 0
+
     args = sys.argv[1:]
     _forward_chained(args)
 
     payload = _parse_payload(args)
+    if payload.get("client") == "codex_exec":
+        return 0
+
     thread_id = (
         payload.get("thread-id")
         or payload.get("thread_id")
@@ -97,36 +114,62 @@ def main() -> int:
     if not thread_id:
         return 0
 
-    cwd = payload.get("cwd") or ""
     hook_dir = Path(__file__).resolve().parent
-    bridge = hook_dir / "bridge.py"
-    if not bridge.is_file():
+    vault_root = hook_dir.parents[1]
+    flush_script = vault_root / ".beyin" / "engine" / "flush.py"
+    if not flush_script.is_file():
         return 0
 
-    hook_input = json.dumps({
-        "session_id": str(thread_id),
-        "cwd": str(cwd),
-        "hook_event_name": "Stop",
-    })
+    if str(hook_dir) not in sys.path:
+        sys.path.insert(0, str(hook_dir))
+    try:
+        import bridge
+        transcript_path = bridge.resolve_codex_transcript(str(thread_id))
+    except Exception:
+        transcript_path = ""
 
-    cmd = [sys.executable, str(bridge), "--provider", "codex", "--event", "end"]
+    if not transcript_path:
+        return 0
+
+    state_dir = vault_root / ".beyin" / "engine" / ".state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    hook_input_file = state_dir / f"hookin-{os.getpid()}-{uuid.uuid4().hex}.json"
+    hook_data = {
+        "session_id": str(thread_id),
+        "transcript_path": str(transcript_path),
+        "cwd": str(payload.get("cwd") or vault_root),
+    }
+    hook_input_file.write_text(json.dumps(hook_data, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    cmd = [
+        sys.executable,
+        str(flush_script),
+        "--hook-input",
+        str(hook_input_file),
+    ]
+
     flags = 0
     if os.name == "nt":
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) | getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
+    env["BEYIN_PROVIDER"] = "codex"
 
     try:
-        proc = subprocess.Popen(
+        subprocess.Popen(
             cmd,
-            stdin=subprocess.PIPE,
+            cwd=vault_root,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             creationflags=flags,
-            text=True,
-            encoding="utf-8",
+            close_fds=True,
+            env=env,
         )
-        proc.communicate(input=hook_input, timeout=3)
     except Exception:
-        pass
+        hook_input_file.unlink(missing_ok=True)
 
     return 0
 

@@ -479,7 +479,7 @@ def _run_model(prompt: str, vault_root: Path) -> tuple[str | None, str | None]:
                 temporary_path,
                 "text",
                 240,
-                os.environ.get("BEYIN_PROVIDER"),
+                os.environ.get("BEYIN_MODEL_PROVIDER"),
             )
     except ImportError:
         # v2 vault compatibility: upgrades may briefly have scripts before .beyin.
