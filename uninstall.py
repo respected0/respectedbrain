@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Respected Brain v0.0.1 — Cross-Platform Uninstaller.
-
-Safely removes global integrations, hooks, scheduled tasks, MCP registrations,
-and desktop shortcuts. By default, user vault notes are strictly preserved.
-"""
+"""Remove global rules, hooks, and skills across Antigravity, Cursor, Codex, Claude, and OpenCode."""
 
 from __future__ import annotations
 
@@ -265,6 +261,18 @@ def remove_global_integrations(clean_wsl: bool | None = None) -> list[str]:
         cleaned.append(hook_msg)
 
     cleaned.extend(_clean_skills_from([home / ".claude" / "skills"], "Claude"))
+
+    # 5. OpenCode (~/.config/opencode)
+    opencode_root = home / ".config" / "opencode"
+    opencode_plugin = opencode_root / "plugins" / "respected-brain.ts"
+    if opencode_plugin.is_file():
+        opencode_plugin.unlink(missing_ok=True)
+        cleaned.append(f"OpenCode plugin silindi: {opencode_plugin}")
+    opencode_agent = opencode_root / "agents" / "beyin.md"
+    if opencode_agent.is_file():
+        opencode_agent.unlink(missing_ok=True)
+        cleaned.append(f"OpenCode agent silindi: {opencode_agent}")
+    cleaned.extend(_clean_skills_from([opencode_root / "skills"], "OpenCode"))
 
     if clean_wsl is None:
         clean_wsl = os.name == "nt" and "respected-uninstall-test" not in str(home) and home.exists()
