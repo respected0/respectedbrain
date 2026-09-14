@@ -268,12 +268,27 @@ def render(check: bool, profile: Profile) -> bool:
     }
     changed |= write_json(TEMPLATE / ".agents" / "hooks.json", antigravity_hooks, check)
 
-    opencode_plugin = TEMPLATE / ".opencode" / "plugins" / "respected-brain.ts"
-    opencode_agent = TEMPLATE / ".opencode" / "agents" / "beyin.md"
-    if opencode_plugin.is_file():
-        changed |= write_text(opencode_plugin, opencode_plugin.read_text(encoding="utf-8"), check)
-    if opencode_agent.is_file():
-        changed |= write_text(opencode_agent, opencode_agent.read_text(encoding="utf-8"), check)
+    # OpenCode agent: SSOT instructions.md (Claude/AGENTS ile aynı gövde)
+    opencode_agent_header = (
+        "---\n"
+        "description: Respected Brain ortak hafıza ve çalışma kuralları\n"
+        "mode: primary\n"
+        "---\n\n"
+    )
+    changed |= write_text(
+        TEMPLATE / ".opencode" / "agents" / "beyin.md",
+        opencode_agent_header + generated,
+        check,
+    )
+
+    # Plugin: repo template kaynağından vault'a kopyala (self no-op yok)
+    src_plugin = REPO / "template" / ".opencode" / "plugins" / "respected-brain.ts"
+    dst_plugin = TEMPLATE / ".opencode" / "plugins" / "respected-brain.ts"
+    if src_plugin.is_file() and src_plugin.resolve() != dst_plugin.resolve():
+        changed |= write_text(dst_plugin, src_plugin.read_text(encoding="utf-8"), check)
+    elif TEMPLATE.resolve() == (REPO / "template").resolve() and src_plugin.is_file():
+        # Repo template üzerinde çalışırken kaynak zaten hedef; drift yok
+        pass
 
     return changed
 
