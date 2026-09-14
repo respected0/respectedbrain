@@ -1,6 +1,6 @@
 # Respected Brain — çoklu AI kullanımı
 
-Bu dalda vault tek bir AI aracına ait değildir. Claude Code, Codex, Cursor ve Antigravity aynı
+Bu dalda vault tek bir AI aracına ait değildir. Claude Code, Codex, Cursor, Antigravity ve OpenCode aynı
 Markdown hafızasını, kuralları, skill'leri ve günlük/knowledge hattını paylaşır.
 
 Kurulu platform profili tam olarak üç değerden biridir: macOS/Linux için `portable`, Windows
@@ -22,6 +22,7 @@ Araçlara özel dosyalar üretilir; elle düzenlenmez:
 - `.cursor/rules/` (`beyin.mdc`, `software-quality-1.mdc`, `software-quality-2.mdc`) ve `.cursor/hooks.json` — Cursor
 - `.agents/rules/` (`beyin.md`, `software-quality-1.md`, `software-quality-2.md`), `.agents/skills/` ve `.agents/hooks.json` — Antigravity
 - `.claude/skills/` — Claude Code
+- `.opencode/agents/beyin.md`, `.opencode/plugins/respected-brain.ts` ve `.opencode/skills/` — OpenCode (V1+V2 dual plugin; dinamik hafıza plugin ile)
 
 Kaynaktan tekrar üretmek ve drift kontrolü yapmak için:
 
