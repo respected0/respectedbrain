@@ -813,7 +813,7 @@ class MultiAITest(unittest.TestCase):
 
     def test_global_codex_installer_writes_valid_toml_for_non_bmp_vault_name(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             vault = root / "Codex Gerçek Ajan 🔮 Vault"
             shutil.copytree(ROOT / "template", vault)
             home = root / "user"
@@ -834,8 +834,8 @@ class MultiAITest(unittest.TestCase):
             except tomllib.TOMLDecodeError as error:
                 self.fail(f"Codex config must remain valid TOML for an emoji vault path: {error}")
             self.assertEqual(
-                parsed["notify"][-1],
-                str(vault / ".beyin/hooks/codex_notify.py"),
+                Path(parsed["notify"][-1]).resolve(),
+                (vault / ".beyin/hooks/codex_notify.py").resolve(),
             )
 
     def test_global_native_hooks_reuse_vaults_verified_python_command(self):

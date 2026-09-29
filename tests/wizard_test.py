@@ -35,7 +35,7 @@ def load_module(name: str, path: Path) -> ModuleType:
 class WizardTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
-        self.temp_root = Path(self.temporary.name)
+        self.temp_root = Path(self.temporary.name).resolve()
         self.home_patch = mock.patch.dict(
             os.environ,
             {
@@ -112,7 +112,10 @@ class WizardTest(unittest.TestCase):
         ]
         self.assertEqual(len(commands), 5)
         for command in commands:
-            self.assertIn(str(target_vault), command)
+            self.assertTrue(
+                str(target_vault) in command or str(target_vault.resolve()) in command,
+                f"{target_vault} not in {command}",
+            )
             self.assertNotIn(".respected-stage-", command)
 
     def test_install_refuses_non_empty_directory(self) -> None:

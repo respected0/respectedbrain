@@ -159,7 +159,7 @@ class ConfigurationTest(unittest.TestCase):
     def test_load_policy_and_resolve_expanded_executable_candidate(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             executable = root / "agy" / "bin" / "agy.exe"
             executable.parent.mkdir(parents=True)
             executable.write_bytes(b"fake")
@@ -251,7 +251,7 @@ class WriterLockTest(unittest.TestCase):
     def test_active_writer_lock_blocks_a_second_writer(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            state_root = Path(temporary)
+            state_root = Path(temporary).resolve()
             lock = orchestrator.WriterLock.acquire(
                 state_root, "run-one", "write", Path("C:/worker-one")
             )
@@ -265,7 +265,7 @@ class WriterLockTest(unittest.TestCase):
     def test_stale_writer_lock_is_reported_and_preserved(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            state_root = Path(temporary)
+            state_root = Path(temporary).resolve()
             state_root.mkdir(exist_ok=True)
             lock_path = state_root / ".write-worker.lock.json"
             lock_path.write_text(
@@ -317,7 +317,7 @@ class GitLaneTest(unittest.TestCase):
     def test_creates_sibling_lane_without_changing_master(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             repo = init_repo(root)
             before = run_git(repo, "status", "--porcelain=v1", "--branch").stdout
 
@@ -326,7 +326,7 @@ class GitLaneTest(unittest.TestCase):
                 self.make_paths(orchestrator, root, repo),
             )
 
-            self.assertEqual(lane.worktree.parent, root / "repo-worktrees")
+            self.assertEqual(lane.worktree.parent.resolve(), (root / "repo-worktrees").resolve())
             self.assertEqual(lane.branch, "agy/fix-owned")
             self.assertEqual(run_git(lane.worktree, "branch", "--show-current").stdout.strip(), lane.branch)
             self.assertEqual(run_git(repo, "status", "--porcelain=v1", "--branch").stdout, before)
@@ -334,7 +334,7 @@ class GitLaneTest(unittest.TestCase):
     def test_overlays_only_owned_dirty_inputs_and_commits_lane_baseline(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             repo = init_repo(root)
             owned = repo / "src" / "owned.txt"
             other = repo / "other.txt"
@@ -375,7 +375,7 @@ class GitLaneTest(unittest.TestCase):
     def test_rejects_ignored_input_and_lane_collision(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             repo = init_repo(root)
             (repo / ".env").write_text("SECRET=value\n", encoding="utf-8")
             request = self.make_request(orchestrator, include_untracked=(".env",))
@@ -392,7 +392,7 @@ class GitLaneTest(unittest.TestCase):
     def test_rejects_ownership_outside_repository(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             repo = init_repo(root)
             request = self.make_request(orchestrator, ownership=("../outside",))
             lane = orchestrator.create_lane(
@@ -407,12 +407,12 @@ class GitLaneTest(unittest.TestCase):
 
 class WorkerInvocationTest(unittest.TestCase):
     def make_worker(self, orchestrator, root: Path, kind=None):
-        worktree = root / "lane"
+        worktree = (root / "lane").resolve()
         (worktree / "src").mkdir(parents=True)
         (worktree / "src" / "owned.txt").write_text("base\n", encoding="utf-8")
-        run_root = root / "state" / "run-001"
+        run_root = (root / "state" / "run-001").resolve()
         lane = orchestrator.Lane(
-            repo_root=ROOT,
+            repo_root=ROOT.resolve(),
             worktree=worktree,
             branch="agy/test-worker",
             run_root=run_root,
@@ -434,7 +434,7 @@ class WorkerInvocationTest(unittest.TestCase):
     def test_runs_once_inside_lane_with_required_flags(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             fake_agy, record = make_fake_agy(root)
             request, lane = self.make_worker(orchestrator, root)
             with mock.patch.dict(
@@ -444,7 +444,7 @@ class WorkerInvocationTest(unittest.TestCase):
                 result = orchestrator.run_worker(request, lane, fake_agy)
 
             invocation = json.loads(record.read_text(encoding="utf-8").splitlines()[0])
-            self.assertEqual(Path(invocation["cwd"]), lane.worktree)
+            self.assertEqual(Path(invocation["cwd"]).resolve(), lane.worktree.resolve())
             self.assertIn("--dangerously-skip-permissions", invocation["argv"])
             self.assertIn("--output-format", invocation["argv"])
             self.assertIn("json", invocation["argv"])
@@ -462,7 +462,7 @@ class WorkerInvocationTest(unittest.TestCase):
     def test_malformed_success_is_rejected(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             fake_agy, record = make_fake_agy(root)
             request, lane = self.make_worker(orchestrator, root)
             with mock.patch.dict(
@@ -477,7 +477,7 @@ class WorkerInvocationTest(unittest.TestCase):
     def test_zero_exit_failure_payload_is_rejected(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             fake_agy, record = make_fake_agy(root)
             request, lane = self.make_worker(orchestrator, root)
             with mock.patch.dict(
@@ -505,7 +505,7 @@ class CircuitBreakerTest(unittest.TestCase):
     def test_limit_result_is_persisted_after_one_process(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             fake_agy, record = make_fake_agy(root)
             request, lane = WorkerInvocationTest().make_worker(orchestrator, root)
             with mock.patch.dict(
@@ -526,7 +526,7 @@ class ScopeEnforcementTest(unittest.TestCase):
     def test_read_lane_requires_zero_diff_and_write_lane_rejects_forbidden_path(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             repo = init_repo(root)
             request = GitLaneTest().make_request(orchestrator)
             paths = GitLaneTest().make_paths(orchestrator, root, repo)
@@ -562,7 +562,7 @@ class AcceptanceTest(unittest.TestCase):
     def test_records_redacted_output_and_stops_after_first_failure(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             lane = orchestrator.Lane(
                 repo_root=root,
                 worktree=root,
@@ -588,7 +588,7 @@ class AcceptanceTest(unittest.TestCase):
     def test_acceptance_timeout_is_terminal_and_stops_later_commands(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             lane = orchestrator.Lane(
                 repo_root=root,
                 worktree=root,
@@ -614,7 +614,7 @@ class PatchTest(unittest.TestCase):
     def test_exports_only_worker_delta_and_checks_dirty_master_without_mutation(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             repo = init_repo(root)
             owned = repo / "src" / "owned.txt"
             owned.write_text("dirty-owned\n", encoding="utf-8")
@@ -667,7 +667,7 @@ class CLIWorkflowTest(unittest.TestCase):
     def test_write_workflow_preserves_master_until_explicit_apply(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             repo = init_repo(root)
             fake_agy, record = make_fake_agy(root)
             workspace = root / "worker lanes 🚀"
@@ -722,7 +722,7 @@ class CLIWorkflowTest(unittest.TestCase):
     def test_scope_violation_preserves_lane_and_never_applies(self) -> None:
         orchestrator = load_orchestrator()
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             repo = init_repo(root)
             fake_agy, record = make_fake_agy(root)
             workspace = root / "workers"
