@@ -1,1 +1,0 @@
-{"commands":[{"id":"install","published_launcher":"install.ps1","exit_code":0},{"id":"update-1","published_launcher":"update.ps1","exit_code":0},{"id":"update-2","published_launcher":"update.ps1","exit_code":0},{"id":"uninstall-1","published_launcher":"uninstall.ps1","exit_code":0},{"id":"uninstall-2","published_launcher":"uninstall.ps1","exit_code":0}]}

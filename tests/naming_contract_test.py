@@ -69,6 +69,8 @@ class NamingContractTest(unittest.TestCase):
             Path(line)
             for line in result.stdout.decode("utf-8", errors="replace").split("\0")
             if line
+            and not Path(line).is_relative_to("qa-evidence")
+            and not Path(line).is_relative_to("qa-workspaces")
         )
         allowlist = {
             Path("tests/install_windows_test.ps1"),

@@ -34,11 +34,20 @@ def load_module(name: str, path: Path) -> ModuleType:
 
 class WizardTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.installer = load_module("install_test_module", INSTALL_PY)
         self.temporary = tempfile.TemporaryDirectory()
         self.temp_root = Path(self.temporary.name)
+        self.home_patch = mock.patch.dict(
+            os.environ,
+            {
+                "HOME": str(self.temp_root / "home"),
+                "USERPROFILE": str(self.temp_root / "home"),
+            },
+        )
+        self.home_patch.start()
+        self.installer = load_module("install_test_module", INSTALL_PY)
 
     def tearDown(self) -> None:
+        self.home_patch.stop()
         self.temporary.cleanup()
 
     def test_automated_install_creates_complete_vault_and_resolves_placeholders(self) -> None:
@@ -76,6 +85,35 @@ class WizardTest(unittest.TestCase):
             self.assertIn("Ada Lovelace", content)
             self.assertNotIn("{{USER_NAME}}", content)
             self.assertNotIn("{{COMPANION}}", content)
+
+    @unittest.skipUnless(os.name == "nt", "native Windows hook paths")
+    def test_fresh_native_install_renders_hooks_for_promoted_vault_path(self) -> None:
+        target_vault = self.temp_root / "Final Türkçe 🚀 Vault"
+
+        code = self.installer.install_vault(
+            vault_path=target_vault,
+            user_name="Ada",
+            user_bio="Engineer",
+            companion="Babbage",
+            os_name="FinalOS",
+            summary_provider="codex",
+            python_command=[sys.executable],
+            environment="native",
+            quiet=True,
+        )
+
+        self.assertEqual(code, 0)
+        hooks = json.loads((target_vault / ".codex/hooks.json").read_text(encoding="utf-8"))
+        commands = [
+            hook["commandWindows"]
+            for groups in hooks["hooks"].values()
+            for group in groups
+            for hook in group["hooks"]
+        ]
+        self.assertEqual(len(commands), 5)
+        for command in commands:
+            self.assertIn(str(target_vault), command)
+            self.assertNotIn(".respected-stage-", command)
 
     def test_install_refuses_non_empty_directory(self) -> None:
         target_vault = self.temp_root / "BusyVault"
@@ -298,6 +336,7 @@ class WizardTest(unittest.TestCase):
         config_data = json.loads((target_vault / ".beyin" / "config.json").read_text(encoding="utf-8"))
         self.assertEqual(config_data.get("summary_provider"), "codex")
         self.assertEqual(config_data.get("provider_priority"), ["codex"])
+        self.assertIs(config_data.get("provider_fallback"), False)
 
     def test_create_desktop_shortcut_generates_obsidian_uri(self) -> None:
         desktop_dir = self.temp_root / "Desktop"

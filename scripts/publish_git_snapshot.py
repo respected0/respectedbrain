@@ -77,6 +77,20 @@ def check_secret_guard(vault_root: Path) -> tuple[bool, list[str]]:
 def _branch_divergence_status(vault_root: Path, remote: str, branch: str) -> str:
     """Determine if local branch has diverged from remote without pulling."""
     try:
+        top_proc = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=vault_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if top_proc.returncode != 0:
+            return "unknown"
+        try:
+            if not os.path.samefile(top_proc.stdout.strip(), vault_root):
+                return "unknown"
+        except (OSError, ValueError):
+            return "unknown"
         # Fetch remote updates cleanly
         subprocess.run(
             ["git", "fetch", remote, branch],

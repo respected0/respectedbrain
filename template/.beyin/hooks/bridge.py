@@ -96,6 +96,32 @@ def resolve_antigravity_transcript(
     return ""
 
 
+def antigravity_session_from_transcript(transcript_path: str) -> str:
+    """Derive the stable CLI conversation key from a validated transcript path."""
+
+    if not transcript_path:
+        return ""
+    try:
+        resolved = Path(transcript_path).expanduser().resolve(strict=True)
+    except (OSError, RuntimeError, ValueError):
+        return ""
+    parts = resolved.parts
+    products = {"antigravity-ide", "antigravity-cli", "antigravity"}
+    for index in range(len(parts) - 6):
+        if (
+            parts[index].casefold() == ".gemini"
+            and parts[index + 1].casefold() in products
+            and parts[index + 2].casefold() == "brain"
+            and parts[index + 4].casefold() == ".system_generated"
+            and parts[index + 5].casefold() == "logs"
+            and parts[index + 6].casefold() == "transcript.jsonl"
+        ):
+            session_id = parts[index + 3]
+            if SESSION_COMPONENT.fullmatch(session_id) and session_id not in {".", ".."}:
+                return session_id
+    return ""
+
+
 def resolve_codex_transcript(
     session_id: str,
     home: Path | None = None,
@@ -148,6 +174,10 @@ def normalize(provider: str, payload: dict[str, Any]) -> dict[str, Any]:
         elif provider == "codex":
             transcript_path = resolve_codex_transcript(session_id)
     transcript_path = wsl_path(transcript_path)
+    if provider == "antigravity":
+        stable_session_id = antigravity_session_from_transcript(transcript_path)
+        if stable_session_id:
+            session_id = stable_session_id
     return {
         **payload,
         "session_id": session_id,

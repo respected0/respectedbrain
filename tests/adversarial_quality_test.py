@@ -148,8 +148,58 @@ class AdversarialQualityTest(unittest.TestCase):
              )) as run_mock:
             output, error, provider = self.runner.run_model("prompt", REPO_ROOT, "text", 10, preferred="codex")
 
-        self.assertEqual((output, error, provider), (None, "codex-exit-1", "codex"))
+        self.assertEqual((output, error, provider), (None, "codex-exit-1:auth", "codex"))
         self.assertEqual(run_mock.call_count, 1)
+
+    def test_locked_provider_reports_safe_auth_failure_category_without_raw_stderr(self) -> None:
+        commands = {"codex": self.runner.Invocation(["codex"], "prompt")}
+        secret_stderr = "Unauthorized bearer sk-secret-value for account person@example.test"
+        with mock.patch.object(self.runner, "_available", return_value=["codex"]), \
+             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m: commands[p]), \
+             mock.patch.object(self.runner.subprocess, "run", return_value=SimpleNamespace(
+                 returncode=1, stdout="", stderr=secret_stderr
+             )):
+            output, error, provider = self.runner.run_model(
+                "prompt", REPO_ROOT, "text", 10, preferred="codex"
+            )
+
+        self.assertEqual((output, error, provider), (None, "codex-exit-1:auth", "codex"))
+        self.assertNotIn("secret", error)
+        self.assertNotIn("example.test", error)
+
+    def test_locked_provider_reports_hook_trust_category(self) -> None:
+        commands = {"codex": self.runner.Invocation(["codex"], "prompt")}
+        with mock.patch.object(self.runner, "_available", return_value=["codex"]), \
+             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m: commands[p]), \
+             mock.patch.object(self.runner.subprocess, "run", return_value=SimpleNamespace(
+                 returncode=1,
+                 stdout="",
+                 stderr="Project hooks require trust before non-interactive execution",
+             )):
+            output, error, provider = self.runner.run_model(
+                "prompt", REPO_ROOT, "text", 10, preferred="codex"
+            )
+
+        self.assertEqual(
+            (output, error, provider),
+            (None, "codex-exit-1:hook-trust", "codex"),
+        )
+
+    def test_failure_categories_are_bounded_and_do_not_echo_provider_output(self) -> None:
+        cases = (
+            ("Permission denied by sandbox policy", "sandbox"),
+            ("network unreachable while connecting", "network"),
+            ("database is locked by another process", "busy"),
+            ("invalid config.toml", "config"),
+            ("unclassified secret payload", None),
+        )
+        for provider_output, expected in cases:
+            with self.subTest(expected=expected):
+                category = self.runner._safe_failure_category("", provider_output)
+                self.assertEqual(category, expected)
+                if category is not None:
+                    self.assertNotIn("payload", category)
+                    self.assertNotIn("config.toml", category)
 
     def test_zero_pixel_flags_on_windows(self) -> None:
         """Ensure CREATE_NO_WINDOW flag is guaranteed on Windows for hidden and detached runners."""

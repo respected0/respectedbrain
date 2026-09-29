@@ -1,1 +1,0 @@
-{"status":"VERIFIED","checks":{"platform":"windows-native","environment":"native","priority":"codex,gemini,antigravity,claude,cursor","update_idempotent":true,"uninstall_idempotent":true,"vault_retained":true,"new_temp_clone_count":0}}

@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from unittest import mock
 from types import SimpleNamespace
@@ -133,6 +134,40 @@ class MultiAITest(unittest.TestCase):
                     {"conversationId": "session-2"},
                 )
             self.assertEqual(normalized_cli["transcript_path"], str(cli))
+
+    def test_antigravity_normalize_uses_stable_transcript_session_when_invocation_ids_change(self):
+        """Agy 1.2.11 changes conversationId per invocation inside one CLI conversation."""
+        bridge = load(
+            "bridge_antigravity_stable_session",
+            ROOT / "template/.beyin/hooks/bridge.py",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            transcript = (
+                home
+                / ".gemini/antigravity-cli/brain/stable-session/.system_generated/logs/transcript.jsonl"
+            )
+            transcript.parent.mkdir(parents=True)
+            transcript.write_text("{}\n", encoding="utf-8")
+
+            with mock.patch.object(bridge.Path, "home", return_value=home):
+                first = bridge.normalize(
+                    "antigravity",
+                    {
+                        "conversationId": "invocation-one",
+                        "transcriptPath": str(transcript),
+                    },
+                )
+                second = bridge.normalize(
+                    "antigravity",
+                    {
+                        "conversationId": "invocation-two",
+                        "transcriptPath": str(transcript),
+                    },
+                )
+
+            self.assertEqual(first["session_id"], "stable-session")
+            self.assertEqual(second["session_id"], "stable-session")
 
     def test_antigravity_transcript_discovery_is_safe_and_explicit_wins(self):
         bridge = load(
@@ -287,6 +322,7 @@ class MultiAITest(unittest.TestCase):
         self.assertNotIn(prompt, codex.argv)
         self.assertEqual(codex.stdin, prompt)
         self.assertEqual(codex.argv[-1], "-")
+        self.assertIn("--skip-git-repo-check", codex.argv)
 
         # Antigravity MUST keep prompt on stdin to prevent Windows 32K command-line limit (lpCommandLine)
         self.assertNotIn(prompt, agy_text.argv)
@@ -414,6 +450,36 @@ class MultiAITest(unittest.TestCase):
         self.assertIn("LOCALAPPDATA/p", entries)
         self.assertIn("APPDATA/p", entries)
         self.assertIn("KEEP", entries)
+
+    @unittest.skipUnless(os.name == "nt", "native Windows only")
+    def test_native_codex_child_receives_profile_codex_home_without_parent_stat(self):
+        runner = load("model_runner_native_codex_home", ROOT / "template/.beyin/model_runner.py")
+        invocation = runner.Invocation(["codex.exe", "exec", "-"], "prompt", True)
+        completed = SimpleNamespace(returncode=0, stdout="özet", stderr="")
+        with tempfile.TemporaryDirectory() as temporary:
+            profile = Path(temporary) / "profile"
+            codex_home = profile / ".codex"
+            with mock.patch.dict(
+                runner.os.environ,
+                {"USERPROFILE": str(profile)},
+                clear=True,
+            ), mock.patch.object(
+                runner,
+                "_command",
+                return_value=invocation,
+            ), mock.patch.object(
+                runner,
+                "_available",
+                return_value=["codex"],
+            ), mock.patch.object(
+                runner.subprocess,
+                "run",
+                return_value=completed,
+            ) as called:
+                result = runner.run_model("prompt", ROOT, "text", 10, preferred="codex")
+
+        self.assertEqual(result, ("özet", None, "codex"))
+        self.assertEqual(called.call_args.kwargs["env"].get("CODEX_HOME"), str(codex_home))
 
     def test_wsl_windows_cli_falls_back_to_windows_temp_when_cwd_is_linux_path(self):
         runner = load("model_runner_fallback_cwd", ROOT / "template/.beyin/model_runner.py")
@@ -572,8 +638,24 @@ class MultiAITest(unittest.TestCase):
              mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode: commands[provider]), \
              mock.patch.object(runner.subprocess, "run", return_value=SimpleNamespace(returncode=1, stdout="", stderr="authentication failed")) as run:
             output, error, provider = runner.run_model("prompt", ROOT, "text", 10, preferred="antigravity")
-        self.assertEqual((output, error, provider), (None, "antigravity-exit-1", "antigravity"))
+            self.assertEqual((output, error, provider), (None, "antigravity-exit-1:auth", "antigravity"))
         self.assertEqual(run.call_count, 1)
+
+    def test_locked_summary_provider_does_not_append_fallback_candidates(self):
+        """A non-auto provider is the wizard's fail-fast single-model contract."""
+        with tempfile.TemporaryDirectory() as temporary:
+            brain = Path(temporary) / ".beyin"
+            shutil.copytree(ROOT / "template/.beyin", brain)
+            config = json.loads((brain / "config.json").read_text(encoding="utf-8"))
+            config["summary_provider"] = "codex"
+            config["provider_priority"] = ["codex"]
+            config["provider_fallback"] = False
+            (brain / "config.json").write_text(
+                json.dumps(config), encoding="utf-8"
+            )
+            runner = load("model_runner_locked_candidates", brain / "model_runner.py")
+
+            self.assertEqual(runner._available(None), ["codex"])
 
     def test_runner_auto_mode_falls_back_across_all_providers_on_failure(self):
         runner = load("model_runner_auto_fallback", ROOT / "template/.beyin/model_runner.py")
@@ -727,6 +809,33 @@ class MultiAITest(unittest.TestCase):
             self.assertEqual(
                 json.loads((codex / "respected-notify-chain.json").read_text(encoding="utf-8")),
                 {"argv": original},
+            )
+
+    def test_global_codex_installer_writes_valid_toml_for_non_bmp_vault_name(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            vault = root / "Codex Gerçek Ajan 🔮 Vault"
+            shutil.copytree(ROOT / "template", vault)
+            home = root / "user"
+            home.mkdir()
+            result = subprocess.run(
+                [
+                    sys.executable, str(ROOT / "scripts/install_global.py"), str(vault),
+                    "--home", str(home), "--platform", "windows-native",
+                    "--providers", "codex", "--apply",
+                ],
+                capture_output=True, text=True, check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            config_text = (home / ".codex/config.toml").read_text(encoding="utf-8")
+            try:
+                parsed = tomllib.loads(config_text)
+            except tomllib.TOMLDecodeError as error:
+                self.fail(f"Codex config must remain valid TOML for an emoji vault path: {error}")
+            self.assertEqual(
+                parsed["notify"][-1],
+                str(vault / ".beyin/hooks/codex_notify.py"),
             )
 
     def test_global_native_hooks_reuse_vaults_verified_python_command(self):

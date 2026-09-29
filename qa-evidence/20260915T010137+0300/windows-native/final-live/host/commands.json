@@ -1,1 +1,0 @@
-{"commands":["update.py --apply --force --platform windows-native","render_integrations.py --root <vault> --python-command <absolute-python>","install_global.py <vault> --providers all --platform windows-native --apply","vault_mcp_server.py --vault <vault> --register","create_desktop_shortcut(testOS)","remove_scheduled_tasks()"],"secrets_stored":false}

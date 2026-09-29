@@ -1,3 +1,0 @@
-# Failures
-
-The first isolation wrapper reused PowerShell's read-only `$HOME` variable, so the intended isolated profile was not selected. The managed temporary integration was immediately removed, the live `testOS` integration was restored, and the cycle was rerun with an isolated profile. That rerun exposed a product bug: existing-vault install skipped requested integration repair and swallowed integration failures. RED tests reproduced both behaviors; commit `9625a3a8f6043379b28625e425c019ffd1b63663` made them GREEN. No active MCP, task, shortcut, or temporary global config remained after the isolated final uninstall.

@@ -76,10 +76,21 @@ def _configured_priority() -> list[str]:
     return list(PROVIDERS)
 
 
+def _fallback_enabled() -> bool:
+    path = Path(__file__).with_name("config.json")
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return True
+    return not isinstance(document, dict) or document.get("provider_fallback") is not False
+
+
 def _available(preferred: str | None) -> list[str]:
     names = []
     configured = _configured_provider()
     if configured and configured != "auto":
+        if not _fallback_enabled():
+            return [configured]
         names.append(configured)
     if preferred:
         names.append(preferred)
@@ -113,7 +124,15 @@ def _command(provider: str, prompt: str, mode: Mode) -> Invocation | None:
         if executable is None:
             return None
         return Invocation(
-            [executable, "exec", "--ephemeral", "--sandbox", sandbox, "-"],
+            [
+                executable,
+                "exec",
+                "--ephemeral",
+                "--skip-git-repo-check",
+                "--sandbox",
+                sandbox,
+                "-",
+            ],
             prompt,
             _windows_executable(executable),
         )
@@ -206,6 +225,16 @@ def _windows_user_environment(environment: dict[str, str], cwd: Path) -> None:
     )
 
 
+def _native_codex_home_environment(environment: dict[str, str], provider: str) -> None:
+    """Let a native Windows Codex child find the existing authenticated profile."""
+    if os.name != "nt" or provider != "codex" or environment.get("CODEX_HOME"):
+        return
+    profile = environment.get("USERPROFILE")
+    if not profile:
+        return
+    environment["CODEX_HOME"] = str(Path(profile) / ".codex")
+
+
 def _retryable_failure(stdout: str, stderr: str) -> bool:
     message = f"{stdout}\n{stderr}".casefold()
     signals = (
@@ -215,6 +244,37 @@ def _retryable_failure(stdout: str, stderr: str) -> bool:
         "timed out", "timeout", "bad gateway", "gateway timeout", "502", "503", "504",
     )
     return any(signal in message for signal in signals)
+
+
+def _safe_failure_category(stdout: str, stderr: str) -> str | None:
+    """Return a bounded diagnostic tag without persisting provider output."""
+    message = f"{stdout}\n{stderr}".casefold()
+    if "hook" in message and "trust" in message:
+        return "hook-trust"
+    if any(signal in message for signal in (
+        "unauthorized", "forbidden", "not logged in", "login required",
+        "authentication", "api key", "401", "403",
+    )):
+        return "auth"
+    if any(signal in message for signal in (
+        "sandbox", "permission denied", "access denied", "operation not permitted",
+        "network disabled",
+    )):
+        return "sandbox"
+    if any(signal in message for signal in (
+        "network unreachable", "connection reset", "connection refused",
+        "timed out", "timeout", "bad gateway", "gateway timeout", "502", "503", "504",
+    )):
+        return "network"
+    if any(signal in message for signal in (
+        "database is locked", "resource busy", "already running", "writer lock",
+    )):
+        return "busy"
+    if any(signal in message for signal in (
+        "config.toml", "invalid configuration", "config parse", "configuration parse",
+    )):
+        return "config"
+    return None
 
 
 def _extract_response(stdout: str, provider: str) -> tuple[str, str | None]:
@@ -292,6 +352,7 @@ def run_model(
         run_cwd = cwd
         if invocation.windows_executable:
             _windows_user_environment(process_environment, cwd)
+            _native_codex_home_environment(process_environment, provider)
             if runtime_platform.windows_user_root(cwd) is None:
                 fallback_parent = runtime_platform.external_temp_parent(Path(__file__).resolve())
                 if fallback_parent is not None and fallback_parent.is_dir():
@@ -318,6 +379,9 @@ def run_model(
             continue
         if result.returncode != 0:
             error = f"{provider}-exit-{result.returncode}"
+            category = _safe_failure_category(result.stdout, result.stderr)
+            if category is not None:
+                error = f"{error}:{category}"
             if is_auto or _retryable_failure(result.stdout, result.stderr):
                 last_error = (error, provider)
                 continue
@@ -328,7 +392,7 @@ def run_model(
                 last_error = (stream_error, provider)
                 continue
             return None, stream_error, provider
-        if not output_text.strip():
+        if mode == "text" and not output_text.strip():
             error = f"{provider}-empty-output"
             if is_auto:
                 last_error = (error, provider)

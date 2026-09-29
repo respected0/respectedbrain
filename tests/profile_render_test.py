@@ -54,6 +54,17 @@ class ProfileRenderTest(unittest.TestCase):
             ],
         )
 
+    def test_native_antigravity_project_hook_avoids_quoted_spaced_vault_path(self):
+        profile = RENDER.Profile("windows-native", ("py.exe", "-3"))
+
+        command = RENDER.antigravity_project_command(profile, "turn")
+
+        self.assertEqual(
+            command,
+            r"py.exe -3 ..\.beyin\hooks\bridge.py --provider antigravity --event turn",
+        )
+        self.assertNotIn('"', command)
+
     def test_portable_global_bridge_uses_the_absolute_vault_path(self):
         profile = RENDER.Profile("portable", ("python3",))
 

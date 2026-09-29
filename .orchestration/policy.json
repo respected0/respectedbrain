@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "worker_executable_candidates": [
+    "agy",
+    "%LOCALAPPDATA%/agy/bin/agy.exe"
+  ],
+  "workspace_root": "../secondbrain-worktrees",
+  "max_active_write_workers": 1,
+  "read_timeout_seconds": 900,
+  "write_timeout_seconds": 1800,
+  "dangerously_skip_permissions": true
+}
+

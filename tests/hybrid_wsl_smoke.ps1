@@ -32,11 +32,26 @@ try {
         [Text.UTF8Encoding]::new($false)
     )
     $Model = Join-Path $Root "model.py"
-    [IO.File]::WriteAllText(
-        $Model,
-        "print('## Bağlam\nHybrid fiziksel WSL\n\n## Önemli Konuşmalar\nWindows ve WSL köprüsü\n\n## Alınan Kararlar\nProfil doğrulandı\n\n## Öğrenilenler\nMount yazımı çalıştı\n\n## Yapılacaklar\n- Yok')`n",
-        [Text.UTF8Encoding]::new($false)
-    )
+    $ModelCode = @'
+lines = [
+    "## Ba\u011flam",
+    "Hybrid fiziksel WSL",
+    "",
+    "## \u00d6nemli Konu\u015fmalar",
+    "Windows ve WSL k\u00f6pr\u00fcs\u00fc",
+    "",
+    "## Al\u0131nan Kararlar",
+    "Profil do\u011fruland\u0131",
+    "",
+    "## \u00d6\u011frenilenler",
+    "Mount yaz\u0131m\u0131 \u00e7al\u0131\u015ft\u0131",
+    "",
+    "## Yap\u0131lacaklar",
+    "- Yok",
+]
+print("\n".join(lines))
+'@
+    [IO.File]::WriteAllText($Model, $ModelCode + "`n", [Text.Encoding]::ASCII)
 
     $WslVault = Convert-ToWslPath $Vault
     $WslTranscript = Convert-ToWslPath $Transcript

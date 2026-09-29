@@ -7,7 +7,7 @@ import argparse
 from dataclasses import dataclass
 import json
 import os
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PureWindowsPath
 import shlex
 import subprocess
 import sys
@@ -147,6 +147,36 @@ def command_text(
     if profile.name.startswith("windows-"):
         return subprocess.list2cmdline(argv)
     return shlex.join(argv)
+
+
+def antigravity_project_command(profile: Profile, event: str) -> str:
+    """Render a workspace hook relative to the ``.agents`` config directory.
+
+    Antigravity executes JSON hook commands without Windows shell quote parsing and
+    resolves script arguments relative to ``.agents``.  Keeping the bridge path
+    relative avoids turning a quoted, spaced vault path into multiple arguments.
+    """
+    suffix = ["--provider", "antigravity", "--event", event]
+    if profile.name == "windows-native":
+        argv = [
+            *profile.python_command,
+            str(PureWindowsPath("..") / ".beyin" / "hooks" / "bridge.py"),
+            *suffix,
+        ]
+        return subprocess.list2cmdline(argv)
+    if profile.name == "windows-wsl":
+        argv = [
+            "wsl.exe",
+            "--cd",
+            "..",
+            *profile.python_command,
+            ".beyin/hooks/bridge.py",
+            *suffix,
+        ]
+        return subprocess.list2cmdline(argv)
+    return shlex.join(
+        [*profile.python_command, "../.beyin/hooks/bridge.py", *suffix]
+    )
 
 
 def _load_config() -> dict[str, Any]:
@@ -303,8 +333,8 @@ def render(check: bool, profile: Profile) -> bool:
 
     antigravity_hooks = {
         "respected-brain": {
-            "PreInvocation": [{"type": "command", "command": command_text(profile, TEMPLATE, "antigravity", "start"), "timeout": 15}],
-            "Stop": [{"type": "command", "command": command_text(profile, TEMPLATE, "antigravity", "turn"), "timeout": 10}],
+            "PreInvocation": [{"type": "command", "command": antigravity_project_command(profile, "start"), "timeout": 15}],
+            "Stop": [{"type": "command", "command": antigravity_project_command(profile, "turn"), "timeout": 10}],
         }
     }
     changed |= write_json(TEMPLATE / ".agents" / "hooks.json", antigravity_hooks, check)

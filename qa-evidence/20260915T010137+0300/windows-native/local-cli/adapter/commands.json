@@ -1,1 +1,0 @@
-{"commands":["QA Python tests/run_all.py","PowerShell tests/smoke/windows-native.ps1 --output <evidence>","QA Python install.py <redacted disposable args>","QA Python update.py --apply --force (twice)","QA Python uninstall.py --non-interactive (twice)"],"redaction":"Paths retained; no prompts, transcripts, tokens, credentials, or note bodies."}

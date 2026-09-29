@@ -209,7 +209,7 @@ def _codex_notify_assignment(content: str) -> tuple[int, int, str] | None:
 
 
 def update_codex_config_toml(content: str, notify_argv: list[str]) -> str:
-    escaped_items = ", ".join(json.dumps(item) for item in notify_argv)
+    escaped_items = ", ".join(json.dumps(item, ensure_ascii=False) for item in notify_argv)
     replacement = f"notify = [ {escaped_items} ]"
     assignment = _codex_notify_assignment(content)
     if assignment is not None:

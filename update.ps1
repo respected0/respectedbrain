@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$VaultPath,
     [ValidateSet("auto", "portable", "windows-wsl", "windows-native")]

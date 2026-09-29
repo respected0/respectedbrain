@@ -1,5 +1,0 @@
-{
-  "capturedAt": "2026-09-15T01:01:37+03:00",
-  "backupVerifiedAt": "2026-09-15T01:04:32+03:00",
-  "baseline": {"pythonSuiteSeconds": 65.91, "hostSmokeSeconds": 6.67, "windowsInstallerDiagnosticSeconds": 19.77, "windowsLaunchersSeconds": 10.61, "windowsSchedulerSeconds": 3.10, "hybridDiagnosticSeconds": 3.44}
-}

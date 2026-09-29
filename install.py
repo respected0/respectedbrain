@@ -451,6 +451,7 @@ def install_vault(
         default_python_command = [sys.executable] if platform_name == "windows-native" else ["python3"]
         config_data = {
             "summary_provider": summary_provider,
+            "provider_fallback": summary_provider == "auto",
             "platform": platform_name,
             "python_command": list(python_command or default_python_command),
         }
@@ -512,6 +513,45 @@ def install_vault(
                 except OSError:
                     pass
             raise
+
+        # The staged render proves the generated integrations are valid, but native
+        # hook commands contain absolute vault paths. Render once more from the
+        # promoted vault so persistent commands never retain the disposable stage.
+        final_render_cmd = [
+            sys.executable,
+            str(vault_path / "scripts" / "render_integrations.py"),
+            "--root",
+            str(vault_path),
+            "--platform",
+            platform_name,
+        ]
+        if python_command:
+            final_render_cmd += ["--python-command", *python_command]
+        final_render = subprocess.run(
+            final_render_cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if final_render.returncode != 0:
+            for destination in reversed(promoted):
+                try:
+                    os.replace(destination, working_path / destination.name)
+                except OSError:
+                    pass
+            if not target_existed:
+                try:
+                    vault_path.rmdir()
+                except OSError:
+                    pass
+            shutil.rmtree(stage_container, ignore_errors=True)
+            print(
+                f"{Colors.RED}HATA: Final entegrasyon render başarısız:{Colors.RESET}\n"
+                f"{final_render.stderr}",
+                file=sys.stderr,
+            )
+            return final_render.returncode
+
         shutil.rmtree(stage_container, ignore_errors=True)
         integration_code, created_shortcut = _apply_optional_integrations(
             vault_path=vault_path,

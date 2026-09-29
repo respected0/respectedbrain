@@ -1,1 +1,0 @@
-{"checks":[{"id":"clean-install","status":"VERIFIED"},{"id":"repeat-routes-safe-update","status":"VERIFIED"},{"id":"journal-byte-preserved","status":"VERIFIED"},{"id":"renderer-no-drift","status":"VERIFIED"},{"id":"profile-windows-native","status":"VERIFIED"},{"id":"full-regression-377","status":"VERIFIED"}]}
