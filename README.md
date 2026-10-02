@@ -21,7 +21,7 @@ sıfır ekstra ücret. Dosya yönetmezsin, konuşursun.
 
 Respected Brain'in temel farkı araç bağımsızlığıdır: ortak talimatlar `.beyin/instructions.md` içinde,
 skill'ler `.beyin/skills/` altında tek kez tutulur; `CLAUDE.md`, `AGENTS.md`, Cursor rules ve
-Antigravity rules/hook dosyaları buradan üretilir. Ayrıntılar için [MULTI_AI.md](MULTI_AI.md)
+Antigravity rules/hook dosyaları buradan üretilir. Ayrıntılar için [MULTI_AI.md](docs/guides/MULTI_AI.md)
 dosyasına bak.
 
 Vault'un adı kullanıcıya aittir; `respectedOS` veya başka sabit bir ad zorunlu değildir. İsteğe bağlı
@@ -94,7 +94,7 @@ planda atomik olarak güncellenir; kapanış ve pre-compact olayları catch-up g
 indeksi kendiliğinden bağlama girer. Kimsenin bir şey yazmayı hatırlaması gerekmez.
 
 Video izlemene gerek yok. Kurulum ve günlük kullanım bu README'de; ayrıntılı davranış ve bakım
-notları [MULTI_AI.md](MULTI_AI.md), coding agentın uygulayacağı kurulum runbook'u [SETUP.md](SETUP.md)
+notları [MULTI_AI.md](docs/guides/MULTI_AI.md), coding agentın uygulayacağı kurulum runbook'u [SETUP.md](docs/guides/SETUP.md)
 içindedir.
 
 ---
@@ -108,41 +108,34 @@ Respected Brain'i ihtiyacınıza ve alışkanlığınıza en uygun kanaldan sani
 Tercih ettiğiniz kodlama asistanına (**Claude Code, Cursor Agent, Codex, Antigravity, Windsurf**) aşağıdaki tek satırlık komutu vermeniz yeterlidir:
 
 ```text
-https://raw.githubusercontent.com/respected0/respectedbrain/main/BOOTSTRAP.md dosyasını oku ve yönergelerine göre bu dizinde Respected Brain kasasını kur. Kuruluma başlamadan önce benden kullanıcı adımı, kasa adımı, çalışma ortamımı (Native/WSL/Hibrit) ve model fallback sıramı al. Bitince kurduğun tüm bileşenleri listele.
+https://raw.githubusercontent.com/respected0/respectedbrain/main/docs/guides/BOOTSTRAP.md dosyasını oku ve yönergelerine göre bu dizinde Respected Brain kasasını kur. Kuruluma başlamadan önce benden kullanıcı adımı, kasa adımı, çalışma ortamımı (Native/WSL/Hibrit) ve model fallback sıramı al. Bitince kurduğun tüm bileşenleri listele.
 ```
 
 Asistanınız `BOOTSTRAP.md` protokolünü okur; size adınızı, kasanızın kurulacağı yeri, düşünme ortağınızın adını ve model sıralamanızı sorarak kurulumu tamamlar.
 
 ---
 
-### 2. Tek Satır (One-Liner) Kurulum
+### 2. Evrensel Kurulum (Her Platformda & AI Uyumlu)
 
-Terminalden tek bir komutla interaktif kurulum sihirbazını başlatın:
-
-* **Windows (PowerShell):**
-  ```powershell
-  irm https://raw.githubusercontent.com/respected0/respectedbrain/main/install.ps1 | iex
-  ```
-* **Linux / macOS / WSL (Bash):**
-  ```bash
-  curl -sSL https://raw.githubusercontent.com/respected0/respectedbrain/main/install.sh | bash
-  ```
-
-*(Sisteminizde Python veya Git yüklü değilse, sihirbaz sizi uyarır ve tek tıkla yüklemeyi teklif eder).*
-
----
-
-### 3. İnteraktif CLI Kurulum Sihirbazı
-
-Repoyu yerel makinenize klonlayıp renkli terminal sihirbazıyla kurmak isterseniz:
+Windows, macOS ve Linux üzerinde tek ve standart yöntem:
 
 ```bash
 git clone https://github.com/respected0/respectedbrain.git
 cd respectedbrain
-python install.py
+python setup.py
 ```
 
-Sihirbaz; algılanan AI modellerini listeler, model öncelik sırasını, çalışma ortamınızı (Windows Native, WSL veya Hibrit), masaüstü Obsidian açılış kısayolunu ve sabah brifingi saatini yapılandırır.
+Bu 3 satır her işletim sisteminde ve AI terminalinde aynı şekilde çalışır. Mevcut bir kasanız varsa **Güncelle**, **Onar**, **Değiştir**, **Kaldır** veya **Web Kontrol Paneli** menüsünü açar; ilk kez çalışıyorsa akıllı kurulum sihirbazını başlatır.
+
+---
+
+### 3. İşletim Sistemine Özel Tek Tık Başlatıcılar
+
+Her platform için aynı isim standardında hazır başlatıcılar:
+
+* **🪟 Windows:** `setup.exe` çift tıklayın (Inno Setup GUI sihirbazı, otomatik güncelleme ve Windows Program Ekle/Kaldır entegrasyonu sağlar).
+* **🍏 macOS:** `setup.command` çift tıklayın (Finder üzerinden çift tıklandığında menülü terminal arayüzünü açar).
+* **🐧 Linux:** `./setup` çalıştırın (Menülü terminal arayüzünü açar).
 
 ---
 
@@ -174,29 +167,33 @@ graph TD
 
 ---
 
-## 3 Farklı Yoldan Güncelleme (Update)
+## 🔄 Güncelleme (Update) ve Bakım
 
-Mevcut bir kasanızı en güncel kararlı sürüme (`0.0.1`) yükseltmek için 3 pratik yol vardır (kişisel notlarınız ve kimlik dosyalarınız asla silinmez):
+Mevcut bir kasanızı en güncel kararlı sürüme (`0.0.1`) yükseltmek veya onarmak için:
 
-1. **AI-Native Güncelleme:** Ajanınıza doğrudan söyleyin:
-   > *"Kasamı en son kararlı Respected Brain sürümüne güncelle."* (Ayrıntılar: [UPDATE.md](UPDATE.md))
-2. **Tek Satır (One-Liner) Güncelleme:**
-   - **Windows:** `irm https://raw.githubusercontent.com/respected0/respectedbrain/main/update.ps1 | iex`
-   - **Linux / macOS:** `curl -fsSL https://raw.githubusercontent.com/respected0/respectedbrain/main/update.sh | bash`
-3. **CLI Terminal:** `python update.py` (veya `python update.py --vault-path "/kasa/yolu" --apply`)
+1. **Evrensel / Platform Başlatıcısı (Önerilen):**
+   - Hangi platformda olursanız olun `setup` dosyasını çalıştırın (`setup.exe`, `setup.command`, `./setup` veya `python setup.py`).
+   - Sistem kasanızı otomatik algılar ve doğrudan **`[1] 🔄 Güncelle`** veya **`[2] 🛠️ Onar`** seçeneğini sunar (kişisel notlarınız ve kimlik dosyalarınız asla silinmez).
+2. **Doğrudan Komut Satırı:**
+   ```bash
+   python setup.py --update
+   ```
+3. **AI-Native Güncelleme:** Ajanınıza doğrudan söyleyin:
+   > *"Kasamı en son kararlı Respected Brain sürümüne güncelle."* (Ayrıntılar: [UPDATE.md](docs/guides/UPDATE.md))
 
 ---
 
-## Temiz Kaldırma (Uninstall)
+## 🗑️ Temiz Kaldırma (Uninstall)
 
 Sistem entegrasyonlarını (global AI kancaları, zamanlanmış sabah brifingi görevi, kısayollar ve MCP sunucusu) temizlemek için:
 
-- **Tek Satır (One-Liner):**
-  - **Windows:** `irm https://raw.githubusercontent.com/respected0/respectedbrain/main/uninstall.ps1 | iex`
-  - **Linux / macOS:** `curl -fsSL https://raw.githubusercontent.com/respected0/respectedbrain/main/uninstall.sh | bash`
-- **CLI Terminal:** `python uninstall.py`
+1. **Windows:** Ayarlar / Denetim Masası "Program Ekle veya Kaldır" -> Respected Brain -> Kaldır.
+2. **Evrensel / Menü:** `setup` çalıştırıp **`[4] 🗑️ Kaldır`** seçin veya doğrudan:
+   ```bash
+   python setup.py --uninstall
+   ```
 
-*(Varsayılan olarak ikinci beyin kasanız ve notlarınız kesinlikle silinmez, güvendedir. Ayrıntılar: [UNINSTALL.md](UNINSTALL.md)).*
+*(Varsayılan olarak ikinci beyin kasanız ve notlarınız kesinlikle silinmez, güvendedir. Ayrıntılar: [UNINSTALL.md](docs/guides/UNINSTALL.md)).*
 
 ---
 
@@ -590,9 +587,9 @@ the selected local CLI (`claude`, `codex`, `agy`, `gemini`, or `cursor-agent`) c
 `knowledge/`. The next session starts with that knowledge index already in context.
 
 Install: `git clone https://github.com/respected0/respectedbrain.git && cd respectedbrain`, then ask
-your coding agent to read and follow `SETUP.md`. Already running a pre-0.0.1 vault?
+your coding agent to read and follow `docs/guides/SETUP.md`. Already running a pre-0.0.1 vault?
 Use `python3 scripts/update_respected.py "/path/to/vault" --apply` to update to `v0.0.1`.
-Fresh vaults are initialized directly from `template/` or via `install.py` / `install.ps1` / `install.sh`.
+Fresh vaults are initialized directly from `template/` or via `setup` (`setup.exe` / `setup` / `setup.py`).
 Updates are additive only, your memory files are never touched, the settings merge is idempotent, and
 updater actions are verified before execution. Two things to keep in mind: the memory folder uses the
 fixed `🔮 850-Companion` path, and version stamps are written only after every validation gate passes.

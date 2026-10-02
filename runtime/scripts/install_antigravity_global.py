@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""Connect explicit Antigravity homes to one Respected Brain vault through WSL."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+from pathlib import Path
+import sys
+
+
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting on non-ASCII output."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from install_global import apply_plan, build  # noqa: E402
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("vault", type=Path, help="WSL'den görülen, adı serbest vault yolu")
+    parser.add_argument(
+        "--antigravity-home",
+        required=True,
+        action="append",
+        type=Path,
+        help="Antigravity kullanıcı kökü; birden fazla verilebilir",
+    )
+    parser.add_argument("--apply", action="store_true", help="önizleme yerine değişiklikleri uygula")
+    args = parser.parse_args()
+
+    vault = args.vault.expanduser().resolve()
+    homes: list[Path] = []
+    seen_homes: set[Path] = set()
+    for candidate in args.antigravity_home:
+        home = candidate.expanduser().resolve()
+        if home not in seen_homes:
+            homes.append(home)
+    repo_dir = SCRIPT_DIR.parent.parent if SCRIPT_DIR.parent.name == "runtime" else SCRIPT_DIR.parent
+    has_instructions = (vault / ".beyin/instructions.md").is_file() or (repo_dir / "runtime/instructions.md").is_file()
+    if not has_instructions:
+        parser.error("vault içinde .beyin/instructions.md bulunamadı")
+    has_skills = (vault / ".beyin/skills").is_dir() or (repo_dir / "runtime/skills").is_dir()
+    if not has_skills:
+        parser.error("vault içinde .beyin/skills bulunamadı")
+    for home in homes:
+        if not home.is_dir():
+            parser.error(f"Antigravity kullanıcı kökü bulunamadı: {home}")
+
+    plans: list[tuple[Path, list[tuple[Path, str | None]]]] = []
+    try:
+        for home in homes:
+            writes, _touched = build(vault, home, ("antigravity",), "windows-wsl")
+            plans.append((home, writes))
+    except (OSError, ValueError) as error:
+        print(f"hata: {error}", file=sys.stderr)
+        return 2
+
+    for home, writes in plans:
+        print(f"kullanıcı kökü: {home}")
+        for path, _content in writes:
+            print(f"yönetilecek: {path}")
+    if not args.apply:
+        print("ÖNİZLEME: hiçbir dosya değişmedi. Uygulamak için --apply ekle.")
+        return 0
+
+    for home, writes in plans:
+        backup = home / ".respected-backups" / dt.datetime.now().strftime(
+            "%Y%m%d-%H%M%S-%f"
+        )
+        try:
+            changed = apply_plan(writes, home, backup)
+        except (OSError, ValueError) as error:
+            print(
+                f"yazma başarısız ({home}): {error}; yedek: {backup}",
+                file=sys.stderr,
+            )
+            return 3
+        if changed:
+            print(f"Respected global Antigravity bağlantısı kuruldu ({home}); yedek: {backup}")
+        else:
+            print(f"Respected global Antigravity bağlantısı zaten güncel ({home}).")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

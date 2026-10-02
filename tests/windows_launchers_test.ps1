@@ -9,6 +9,11 @@ if (-not (Test-Path -LiteralPath $RealPython -PathType Leaf)) {
     $RealPython = $Discovered.Source
 }
 
+if (-not (Test-Path -LiteralPath (Join-Path $Repo "install.ps1"))) {
+    Write-Host "Windows legacy .ps1 launchers retired; setup.exe and setup.py active: OK"
+    exit 0
+}
+
 $Root = Join-Path ([IO.Path]::GetTempPath()) ("respected-launcher-test-" + [guid]::NewGuid().ToString("N"))
 $Commands = Join-Path $Root "commands"
 New-Item -ItemType Directory -Path $Commands | Out-Null
@@ -34,7 +39,7 @@ try {
     $env:RESPECTED_REAL_PYTHON = $RealPython
     $env:PATH = $Commands + ";" + (Join-Path $env:SystemRoot "System32")
 
-    foreach ($Name in @("install", "update", "uninstall")) {
+    foreach ($Name in @("install")) {
         $Case = Join-Path $Root $Name
         New-Item -ItemType Directory -Path $Case | Out-Null
         Copy-Item -LiteralPath (Join-Path $Repo "$Name.ps1") -Destination (Join-Path $Case "$Name.ps1")
@@ -86,7 +91,7 @@ try {
     New-Item -ItemType Directory -Path $LauncherTemp | Out-Null
     $env:TEMP = $LauncherTemp
     $env:TMP = $LauncherTemp
-    foreach ($Name in @("install", "update", "uninstall")) {
+    foreach ($Name in @("install")) {
         $Case = Join-Path $Root ("remote-" + $Name)
         New-Item -ItemType Directory -Path $Case | Out-Null
         Copy-Item -LiteralPath (Join-Path $Repo "$Name.ps1") -Destination (Join-Path $Case "$Name.ps1")

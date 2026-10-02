@@ -61,8 +61,9 @@ sys.exit(0)
         (vault / ".beyin" / "config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
 
         # Run render_integrations
+        render_script = (ROOT / "runtime" / "scripts" / "render_integrations.py") if (ROOT / "runtime" / "scripts" / "render_integrations.py").is_file() else (ROOT / "scripts" / "render_integrations.py")
         subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / "render_integrations.py")],
+            [sys.executable, str(render_script)],
             cwd=vault,
             check=True,
             capture_output=True,

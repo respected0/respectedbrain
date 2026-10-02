@@ -66,13 +66,24 @@ Farklı yapay zeka araçlarıyla çalışırken en büyük problem **bağlam kop
 ```text
 respectedbrain/
 ├── README.md                       # Kullanıcı genel tanıtımı ve hızlı başlangıç
-├── SETUP.md                        # Adım adım kurulum ve operasyon runbook'u
-├── SETUP-WINDOWS.md                # Native Windows PowerShell kurulum kılavuzu
-├── MULTI_AI.md                     # Çoklu-AI operasyonları, model ve CLI yönetimi
-├── docs/                           # Canlı teknik dökümantasyon
+├── LICENSE                         # Açık kaynak lisansı
+├── setup.exe / setup / setup.py    # Çapraz platform kurulum ve bakım başlatıcıları
+├── docs/                           # Canlı teknik dökümantasyon ve kılavuzlar
 │   ├── ARCHITECTURE.md             # Bu mimari ve sistem tasarımı kılavuzu
 │   ├── SPECIFICATION.md            # Teknik spesifikasyon ve davranış sözleşmesi
-│   └── SECURITY.md                 # Zero-Trust güvenlik ve tehdit modeli
+│   ├── SECURITY.md                 # Zero-Trust güvenlik ve tehdit modeli
+│   └── guides/                     # Adım adım kullanım ve operasyon kılavuzları
+│       ├── BOOTSTRAP.md            # AI-Native tek satır kurulum protokolü
+│       ├── SETUP.md                # Adım adım kurulum ve operasyon runbook'u
+│       ├── SETUP-WINDOWS.md        # Native Windows PowerShell kurulum kılavuzu
+│       ├── MULTI_AI.md             # Çoklu-AI operasyonları, model ve CLI yönetimi
+│       ├── UPDATE.md               # Sürüm güncelleme rehberi
+│       └── UNINSTALL.md            # Temiz kaldırma kılavuzu
+├── installer/                      # Kurulum, güncelleme ve kaldırma motorları
+│   ├── install.py                  # Çekirdek kurulum yöneticisi
+│   ├── update.py                   # Çekirdek güncelleme yöneticisi
+│   ├── uninstall.py                # Entegrasyon temizleme yöneticisi
+│   └── respected_setup.iss         # Inno Setup Windows derleyici betiği
 ├── scripts/                        # Yönetim, güncelleme ve CLI araçları
 │   ├── update_respected.py         # Transactional vault güncelleme motoru
 │   ├── enable_multiai.py           # Çoklu-AI katmanı onarım/entegrasyon aracı

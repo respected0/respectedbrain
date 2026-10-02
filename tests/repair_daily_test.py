@@ -13,7 +13,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = ROOT / "scripts/repair_daily.py"
+SCRIPT_PATH = (ROOT / "runtime/scripts/repair_daily.py") if (ROOT / "runtime/scripts/repair_daily.py").is_file() else (ROOT / "scripts/repair_daily.py")
 
 
 def load_module(name: str, path: Path):

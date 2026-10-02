@@ -11,7 +11,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parent.parent
-EVENTS_PATH = ROOT / "template/.beyin/events.py"
+EVENTS_PATH = ROOT / "runtime/events.py" if (ROOT / "runtime/events.py").is_file() else ROOT / "template/.beyin/events.py"
 
 
 def load_events_module():
@@ -326,7 +326,7 @@ Bu bir koddur ve thread olarak algılanmamalıdır.
             self.assertEqual(len(archived), 2)
 
 
-FLUSH_PATH = ROOT / "template/.beyin/engine/flush.py"
+FLUSH_PATH = ROOT / "runtime/engine/flush.py" if (ROOT / "runtime/engine/flush.py").is_file() else ROOT / "template/.beyin/engine/flush.py"
 
 
 def load_flush_module():

@@ -1,0 +1,174 @@
+# Respected Brain — çoklu AI kullanımı
+
+Bu dalda vault tek bir AI aracına ait değildir. Claude Code, Codex, Cursor, Antigravity ve Gemini CLI aynı
+Markdown hafızasını, kuralları, skill'leri ve günlük/knowledge hattını paylaşır.
+
+Kurulu platform profili tam olarak üç değerden biridir: macOS/Linux için `portable`, Windows
+uygulamaları ile WSL motoru için `windows-wsl`, WSL/Bash olmadan Windows Python için
+`windows-native`. Native sıfırdan kurulum [SETUP-WINDOWS.md](SETUP-WINDOWS.md) ile yapılır.
+0.0.1 öncesi erken sürümlerden kalma Respected Brain kasaları `scripts/update_respected.py` ile doğrudan güncellenebilir.
+
+## Tek kaynak ilkesi
+
+Elle düzenlenecek ana dosyalar şunlardır:
+
+- `.beyin/instructions.md`: ortak ajan talimatları
+- `.beyin/skills/*/SKILL.md`: ortak skill'ler
+
+Araçlara özel dosyalar üretilir; elle düzenlenmez:
+
+- `CLAUDE.md` — Claude Code
+- `AGENTS.md` ve `.codex/hooks.json` — Codex
+- `.cursor/rules/` (`beyin.mdc`, `software-quality-1.mdc`, `software-quality-2.mdc`) ve `.cursor/hooks.json` — Cursor
+- `.agents/rules/` (`beyin.md`, `software-quality-1.md`, `software-quality-2.md`), `.agents/skills/` ve `.agents/hooks.json` — Antigravity
+- `.gemini/GEMINI.md` ve `.gemini/settings.json` — Gemini CLI
+- `.claude/skills/` — Claude Code
+
+Kaynaktan tekrar üretmek ve drift kontrolü yapmak için:
+
+```bash
+python3 scripts/render_integrations.py
+python3 scripts/render_integrations.py --check
+```
+
+## 0.0.1 Öncesi Kasalarda Çoklu-AI Katmanını Tamamlamak
+
+Bu bölüm yalnız daha önce kurulmuş eski bir kasayı elle tamamlamak veya onarım yapmak içindir.
+0.0.1 öncesi kasaları güncellemek için doğrudan `scripts/update_respected.py` kullanılır.
+
+Komut önce yalnızca nelerin yönetileceğini gösterir:
+
+```bash
+python3 scripts/enable_multiai.py "/mutlak/yol/Vault"
+```
+
+Çıktıyı kontrol ettikten sonra uygula:
+
+```bash
+python3 scripts/enable_multiai.py "/mutlak/yol/Vault" --apply
+```
+
+Windows uygulamaları + WSL kullanıyorsan ve otomatik algılama mümkün değilse profili açıkça ver:
+
+```bash
+python3 scripts/enable_multiai.py "/mnt/c/Users/<ad>/Documents/<vault-adı>" --platform windows-wsl --apply
+```
+
+Bu profil Cursor ve Antigravity'nin Windows hook komutlarını `wsl.exe --cd <vault>` üzerinden
+çalıştırır; Windows uygulamasının başlangıç klasörüne güvenmez;
+hafıza motoru WSL'deki Python/Bash ortamında kalır, Obsidian aynı klasörü `C:\...` yolundan açar.
+
+İlk geçişte kişiselleştirilmiş `CLAUDE.md`, `.beyin/instructions.md` için kaynak alınır; böylece
+isim, biyografi ve davranış ayarları kaybolmaz. Üzerine yazılacak üretilmiş adaptörler
+`.beyin/backups/<tarih-saat>/` altında yedeklenir.
+
+Codex proje hook'larını ilk kez gördüğünde `/hooks` ekranından güvenmeni ister. Cursor ve
+Antigravity proje hook dosyalarını kendi standart konumlarından yükler.
+
+## Her AI aracını bütün kod projelerinde vault'a bağlamak
+
+Vault'un adı serbesttir: `RespectedOS`, `Respected Brain`, `Notlarım` veya başka bir ad olabilir.
+Araçların başka kod repolarında çalışırken de merkezi vault'u bulması için kullanıcı düzeyi
+bağlantıyı kur:
+
+```bash
+python3 scripts/install_global.py \
+  "/mnt/c/Users/<ad>/Documents/<vault-adı>" \
+  --home "/mnt/c/Users/<ad>" \
+  --antigravity-home "/home/<wsl-adı>" \
+  --platform windows-wsl \
+  --providers all
+```
+
+Önizlemeyi kontrol ettikten sonra `--apply` ekle. `all` yerine virgülle `antigravity,codex`,
+`codex,cursor` gibi seçim yapılabilir. Kurucu mevcut kullanıcı kurallarını, hook'larını ve ayarlarını
+korur; yönettiği Respected bloklarını birleştirir, yedek alır ve ortak skill'leri her aracın kullanıcı
+düzeyi konumuna kopyalar. Global hook, vault kendi workspace'i olarak açıksa proje hook'unu
+çift çalıştırmaz. Böylece aktif kod reposu başka yerde olsa da konuşma özeti seçilen vault'a yazılır.
+`--antigravity-home` yalnız Antigravity IDE'yi **Connect to WSL** modunda da kullananlar içindir.
+Linux profilindeki `.gemini` kökünü ayrıca kurar; seçenek tekrarlanabilir ve diğer provider'ları bu
+ek köklere taşımaz. Yalnız Windows profilini kullananlar seçeneği atlayabilir.
+
+Windows uygulamalarını WSL olmadan doğrudan kullanmak için aynı kurucuyu PowerShell'de native
+profille çalıştır:
+
+```powershell
+py -3 scripts/install_global.py `
+  "C:\Users\<ad>\Documents\<vault-adı>" `
+  --home "C:\Users\<ad>" `
+  --platform windows-native `
+  --providers codex,cursor
+```
+
+Bu profil hook'larda kurulum sırasında gerçekten çalıştırılıp doğrulanan mutlak Python executable'ını ve vault içindeki `bridge.py` dosyasının mutlak Windows yolunu
+kullanır; WSL, Bash veya `.sh` dosyası gerektirmez. `--providers` seçimi ana agent tercihi
+değildir: yalnız kurulu araçların hangilerine global bağlantı yazılacağını belirler. Bugün Codex ve
+Cursor ile başlayıp daha sonra `antigravity` veya `claude` ekleyebilirsin; mevcut kişisel kurallar
+ve diğer provider ayarları korunur. Herkesin vault adı da kendine aittir, `respectedOS` zorunlu
+değildir.
+
+## Arka plan modeli nasıl seçilir?
+
+Hook hangi araçtan geldiyse önce onun yerel CLI'ı denenir. Antigravity için `agy`, Gemini için
+`gemini`, Codex için `codex`, Claude için `claude`, Cursor için `cursor-agent` kullanılır. Tercih edilen CLI kurulu
+değilse diğerleri denenir. Kota, rate-limit, geçici kapasite, timeout veya 5xx servis hatasında
+otomatik olarak sıradaki kullanılabilir CLI'a geçilir; kimlik doğrulama ve kalıcı yapılandırma
+hataları gizlenmez.
+
+Varsayılan `auto` ayarını değiştirmek gerekmez. Kullanıcı özellikle başka bir özetleyiciyi ilk
+tercih yapmak isterse vault içinde kalıcı seçim yapılabilir:
+
+```bash
+python3 scripts/set_summary_provider.py auto
+python3 scripts/set_summary_provider.py codex   # claude | codex | gemini | antigravity | cursor
+```
+
+Bu ayar coding agentı sabitlemez; yalnız arka plan özeti ve bilgi derlemesinde denenecek ilk CLI'ı
+seçer. Seçilen CLI geçici kota/servis hatası verirse fallback devam eder. Geçici shell oturumları
+için `BEYIN_MODEL_PROVIDER` ortam değişkeni dosyadaki seçimin önüne geçebilir.
+
+Başka bir yerel model komutu kullanmak istersen komut prompt'u stdin'den almalıdır:
+
+```bash
+export BEYIN_LLM_COMMAND="yerel-model-komutum --text"
+```
+
+Dosyalar yerelde kalır; özetlenecek konuşma seçilen CLI'ın modeline gider. Derleme yine izole
+staging klasöründe yapılır ve yalnızca izin verilen `knowledge/` dosyaları vault'a taşınır.
+
+### “Bilgi derleme” gerçekte ne zaman çalışır?
+
+Sistem pencere veya alarm açmaz. Her tamamlanan agent yanıtında konuşmanın aynı session bloğu
+`daily/YYYY-MM-DD.md` içinde atomik olarak güncellenir. Oturum kapanışı ve pre-compact kaçırılan
+turnler için catch-up güvenlik ağıdır. Bilgi derlemesi (`compile.py`) sabah 08:00 zamanlayıcısında sabah brifingi
+öncesinde dünün ve önceki günlerin loglarını işler. Kaçırılan günler varsa sonraki agent
+başlangıcı tamamlanmış önceki günleri catch-up olarak derler; içinde bulunulan günün hâlâ değişen
+daily dosyasını erken derlemez.
+
+## Bağımsız geliştirme ve mimari sözleşmeler
+
+Respected Brain bağımsız ve kendine yeten (self-contained) bir mimaride geliştirilir;
+dış upstream sync bağımlılığı veya fork takibi yoktur. Sistem mimarisi, teknik spesifikasyonlar
+ve Zero-Trust güvenlik sınırları `docs/` altındaki yaşayan teknik dökümanlarda
+(`ARCHITECTURE.md`, `SPECIFICATION.md`, `SECURITY.md`) tanımlanmıştır.
+
+## Bilinen sınırlar
+
+- Antigravity'de tam bir SessionStart olayı olmadığı için ilk `PreInvocation` başlangıç olarak
+  kullanılır; `Stop` kapanış özetini başlatır.
+- Cursor `preCompact` olayı transkript yolu vermeyebilir. Böyle durumda flush güvenli biçimde
+  atlanır; `sessionEnd` normal kapanış hattıdır.
+- Codex proje hook'ları değiştiğinde güven kaydı hash'e bağlı olduğundan yeniden inceleme ister.
+- Antigravity masaüstü uygulaması ile Antigravity CLI ayrı parçalardır. Arka plan özetlerinin
+  Antigravity kotasını kullanması için `agy` CLI kurulu ve oturum açmış olmalıdır; yalnız IDE
+  kuruluysa sistem kullanılabilir başka CLI'a geçer.
+- **Respected Brain (v0.0.1) Temel Mimari Yetenekleri**:
+  1. **Global Model Context Protocol (MCP) Sunucusu (`scripts/vault_mcp_server.py`)**: SQLite FTS5 tabanlı arama, karar madenciliği ve kasanın 7 temel aracını Claude Desktop, Cursor, Antigravity, Windsurf ve Cline editörlerine tek komutla sunar.
+  2. **Bounded Recall (`bounded_recall.py`)**: Kullanıcı her mesaj attığında kasadan en alakalı 2-3 nottan max 900 karakterlik hafif bir hafıza fısıltısı üretir; kısa/selamlama mesajlarında fail-closed olarak tamamen susar.
+  3. **Turn Bazlı Yaşam Döngüsü ve Compact Güvencesi**: native turn-complete olayı her tamamlanan yanıtı `flush.py` ile günceller; `session-start`, `user-prompt`, `pre-compact` ve `session-end` kancaları bağlam ve catch-up güvencesi sağlar.
+  4. **Bi-Temporal Zaman Çizelgesi (`timeline:`)**: Notlarda gerçeğin geçerlilik aralığı (`from`/`until`) ile öğrenilme anını (`learned`) ve kaynağını (`source`) ayıran çift zamanlı yapı.
+  5. **5 Aşamalı Gece Derleme Mimarisi (`compile.py`)**: Gece derleyicisini Parse, Cluster, Synthesize, Challenge, Distill aşamalarıyla yapılandıran Karpathy LLM hattı.
+  6. **Codebase Architect Scanner (`architect_scan.py`)**: Herhangi bir kod reposunun mimari hiyerarşisini, dillerini ve kararlarını tarayıp kasaya uygun mimari notu üreten araç.
+  7. **Akıllı Not Birleştirme (`smart_merge.py`)**: İki notu birleştirirken metadata union yapan, kaynak notu silmeyip `redirect: [[Hedef]]` ile emekliye ayıran ve wikilink'leri güncelleyen araç.
+  8. **Tek Kaynak (Single Source of Truth)**: Tüm ajan kuralları ve hook tanımları `.beyin/instructions.md` kaynağından otomatik türetilir.
+  9. **Çoklu Kurulum Kanalları**: `BOOTSTRAP.md` (AI-Native tek tık), `setup.exe` (Windows GUI), `setup` (Linux/macOS) ve `setup.py` (evrensel çapraz platform sihirbazı).

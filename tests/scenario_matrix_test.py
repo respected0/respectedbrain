@@ -15,8 +15,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
-RENDER = ROOT / "scripts/render_integrations.py"
-GLOBAL_INSTALL = ROOT / "scripts/install_global.py"
+RENDER = (ROOT / "runtime/scripts/render_integrations.py") if (ROOT / "runtime/scripts/render_integrations.py").is_file() else (ROOT / "scripts/render_integrations.py")
+GLOBAL_INSTALL = (ROOT / "runtime/scripts/install_global.py") if (ROOT / "runtime/scripts/install_global.py").is_file() else (ROOT / "scripts/install_global.py")
 
 
 def load_renderer():
@@ -127,7 +127,7 @@ class ScenarioMatrixTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             vault = Path(temporary) / "vault"
             shutil.copytree(ROOT / "template", vault)
-            script = ROOT / "scripts/install_global.py"
+            script = GLOBAL_INSTALL
             spec = importlib.util.spec_from_file_location("scenario_global", script)
             assert spec and spec.loader
             module = importlib.util.module_from_spec(spec)

@@ -106,7 +106,7 @@ with open(sys.argv[1], encoding="utf-8") as handle:
     context = json.load(handle)["hookSpecificOutput"]["additionalContext"]
 headers = [
     line for line in context.splitlines()
-    if line.startswith("[") and line.endswith("]")
+    if line.startswith("[") and line.endswith("]") and not line.startswith("[not:")
 ]
 assert headers == [
     "[Hafıza: Son Oturum]",

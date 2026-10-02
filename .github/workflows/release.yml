@@ -1,0 +1,160 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ============================================================================
+  # 1. WINDOWS BUILD -> RespectedBrain-v0.0.1-Windows-Setup.exe
+  # ============================================================================
+  build-windows:
+    name: Build Windows (.exe)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Compile Windows Installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\respected_setup.iss
+
+      - name: Rename Artifact with Version
+        shell: pwsh
+        run: |
+          $ver = if ("${{ github.ref_name }}" -match "^v") { "${{ github.ref_name }}" } else { "v0.0.1" }
+          $filename = "RespectedBrain-$ver-Windows-Setup.exe"
+          Move-Item setup.exe $filename
+          echo "OUT_NAME=$filename" >> $env:GITHUB_ENV
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: RespectedBrain-*-Windows-Setup.exe
+
+  # ============================================================================
+  # 2. MACOS BUILD -> RespectedBrain-v0.0.1-macOS-Setup.dmg
+  # ============================================================================
+  build-macos:
+    name: Build macOS (.dmg)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Prepare macOS Package Directory
+        run: |
+          mkdir -p dist_mac/RespectedBrain
+          cp -r template scripts install.py update.py uninstall.py setup.command setup.sh README.md dist_mac/RespectedBrain/
+          chmod +x dist_mac/RespectedBrain/setup.command
+          chmod +x dist_mac/RespectedBrain/setup.sh
+          # Add root double-click launcher
+          cp setup.command dist_mac/Kurulumu-Baslat.command
+          chmod +x dist_mac/Kurulumu-Baslat.command
+
+      - name: Create Native macOS DMG with Version
+        run: |
+          VER="${{ github.ref_name }}"
+          [[ "$VER" == v* ]] || VER="v0.0.1"
+          OUT_NAME="RespectedBrain-${VER}-macOS-Setup.dmg"
+          hdiutil create -volname "Respected Brain" -srcfolder dist_mac -ov -format UDZO "${OUT_NAME}"
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer
+          path: RespectedBrain-*-macOS-Setup.dmg
+
+  # ============================================================================
+  # 3. LINUX BUILD -> RespectedBrain-v0.0.1-Linux-Setup.run
+  # ============================================================================
+  build-linux:
+    name: Build Linux (.run)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Makeself
+        run: sudo apt-get update && sudo apt-get install -y makeself
+
+      - name: Prepare Linux Package Directory
+        run: |
+          mkdir -p dist_linux
+          cp -r template scripts install.py update.py uninstall.py setup setup.sh README.md dist_linux/
+          chmod +x dist_linux/setup
+          chmod +x dist_linux/setup.sh
+
+      - name: Create Self-Extracting Linux Executable with Version
+        run: |
+          VER="${{ github.ref_name }}"
+          [[ "$VER" == v* ]] || VER="v0.0.1"
+          OUT_NAME="RespectedBrain-${VER}-Linux-Setup.run"
+          makeself ./dist_linux "${OUT_NAME}" "Respected Brain Installer Suite" ./setup
+
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-installer
+          path: RespectedBrain-*-Linux-Setup.run
+
+  # ============================================================================
+  # 4. PUBLISH GITHUB RELEASE
+  # ============================================================================
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+
+      - name: Download macOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-installer
+
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-installer
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            RespectedBrain-*-Windows-Setup.exe
+            RespectedBrain-*-macOS-Setup.dmg
+            RespectedBrain-*-Linux-Setup.run
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

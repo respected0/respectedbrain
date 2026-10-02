@@ -27,8 +27,11 @@ class WindowsNativeTest(unittest.TestCase):
         self.vault = Path(self.temporary.name) / "Ada Brain"
         shutil.copytree(ROOT / "template", self.vault)
         (self.vault / "scripts").mkdir(parents=True, exist_ok=True)
-        for p in (ROOT / "scripts").glob("*.py"):
+        scripts_src = (ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts")
+        for p in scripts_src.glob("*.py"):
             shutil.copy2(p, self.vault / "scripts" / p.name)
+        if (ROOT / "runtime").is_dir() and not (self.vault / ".beyin").is_dir():
+            shutil.copytree(ROOT / "runtime", self.vault / ".beyin")
         subprocess.run(
             [
                 sys.executable,
@@ -266,8 +269,11 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
         profile = Path(self.temporary.name) / "profile"
         shutil.copytree(ROOT / "template", vault)
         (vault / "scripts").mkdir(parents=True, exist_ok=True)
-        for p in (ROOT / "scripts").glob("*.py"):
+        scripts_src = (ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts")
+        for p in scripts_src.glob("*.py"):
             shutil.copy2(p, vault / "scripts" / p.name)
+        if (ROOT / "runtime").is_dir() and not (vault / ".beyin").is_dir():
+            shutil.copytree(ROOT / "runtime", vault / ".beyin")
         profile.mkdir()
         (vault / ".beyin-multi-version").write_text("1.2.0\n", encoding="utf-8")
         instructions = vault / ".beyin/instructions.md"
@@ -290,7 +296,7 @@ with (state / 'native-flush.jsonl').open('a', encoding='utf-8') as handle:
         result = subprocess.run(
             [
                 sys.executable,
-                str(ROOT / "scripts/update_respected.py"),
+                str((ROOT / "runtime/scripts/update_respected.py") if (ROOT / "runtime/scripts/update_respected.py").is_file() else (ROOT / "scripts/update_respected.py")),
                 str(vault),
                 "--platform",
                 "windows-native",

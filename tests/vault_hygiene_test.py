@@ -16,7 +16,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 ORIGINAL_SYS_PATH = list(sys.path)
-for p in (str(ROOT), str(ROOT / "scripts")):
+for p in (str(ROOT), str(ROOT / "runtime" / "scripts"), str(ROOT / "scripts")):
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -256,21 +256,24 @@ class TestManifestAndTemplates(unittest.TestCase):
         # Obsidian CSS Snippet
         self.assertTrue((ROOT / "template" / ".obsidian" / "snippets" / "secondbrain-layout.css").is_file())
 
+        skills_root = (ROOT / "runtime" / "skills") if (ROOT / "runtime" / "skills").is_dir() else (ROOT / "template" / ".beyin" / "skills")
+        adapters_root = (ROOT / "runtime" / "adapters") if (ROOT / "runtime" / "adapters").is_dir() else (ROOT / "template")
+
         # Otonom araştırma skill'i
-        self.assertTrue((ROOT / "template" / ".beyin" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())
-        self.assertTrue((ROOT / "template" / ".agents" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())
-        self.assertTrue((ROOT / "template" / ".claude" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())
+        self.assertTrue((skills_root / "otonom-arastirma" / "SKILL.md").is_file())
+        self.assertTrue((adapters_root / ".agents" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())
+        self.assertTrue((adapters_root / ".claude" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())
 
         # Yazılım kalite skill'i ve iki parçalı kural seti (Madde 1-13 ve Madde 14-25 + Gate)
-        self.assertTrue((ROOT / "template" / ".beyin" / "skills" / "yazilim-kalite" / "SKILL.md").is_file())
-        self.assertTrue((ROOT / "template" / ".agents" / "skills" / "yazilim-kalite" / "SKILL.md").is_file())
-        self.assertTrue((ROOT / "template" / ".claude" / "skills" / "yazilim-kalite" / "SKILL.md").is_file())
-        self.assertTrue((ROOT / "template" / ".agents" / "rules" / "software-quality-1.md").is_file())
-        self.assertTrue((ROOT / "template" / ".agents" / "rules" / "software-quality-2.md").is_file())
+        self.assertTrue((skills_root / "yazilim-kalite" / "SKILL.md").is_file())
+        self.assertTrue((adapters_root / ".agents" / "skills" / "yazilim-kalite" / "SKILL.md").is_file())
+        self.assertTrue((adapters_root / ".claude" / "skills" / "yazilim-kalite" / "SKILL.md").is_file())
+        self.assertTrue((adapters_root / ".agents" / "rules" / "software-quality-1.md").is_file())
+        self.assertTrue((adapters_root / ".agents" / "rules" / "software-quality-2.md").is_file())
 
         # Cursor MDC kalite kural setleri (Frontmatter + kurallar)
-        cursor_q1 = ROOT / "template" / ".cursor" / "rules" / "software-quality-1.mdc"
-        cursor_q2 = ROOT / "template" / ".cursor" / "rules" / "software-quality-2.mdc"
+        cursor_q1 = adapters_root / ".cursor" / "rules" / "software-quality-1.mdc"
+        cursor_q2 = adapters_root / ".cursor" / "rules" / "software-quality-2.mdc"
         self.assertTrue(cursor_q1.is_file())
         self.assertTrue(cursor_q2.is_file())
         self.assertTrue(cursor_q1.read_text(encoding="utf-8").startswith("---\ndescription:"))

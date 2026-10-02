@@ -17,7 +17,7 @@ function Convert-ToWslPath([string]$Path) {
 }
 New-Item -ItemType Directory -Path $Root | Out-Null
 try {
-    & $Python (Join-Path $Repo "install.py") --defaults --vault-path $Vault --user-name Ada --user-bio Engineer --companion Echo --os-name HybridOS --environment hybrid --no-desktop-shortcut --no-install-schedule --no-install-mcp --quiet
+    & $Python (Join-Path $Repo "installer\install.py") --defaults --vault-path $Vault --user-name Ada --user-bio Engineer --companion Echo --os-name HybridOS --environment hybrid --no-desktop-shortcut --no-install-schedule --no-install-mcp --quiet
     if ($LASTEXITCODE -ne 0) { throw "Hybrid Windows kurulumu başarısız: $LASTEXITCODE" }
 
     $Config = Get-Content -Raw -LiteralPath (Join-Path $Vault ".beyin\config.json") | ConvertFrom-Json

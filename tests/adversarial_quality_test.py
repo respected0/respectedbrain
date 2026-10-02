@@ -15,9 +15,9 @@ from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-MODEL_RUNNER_PATH = REPO_ROOT / "template" / ".beyin" / "model_runner.py"
-COMPILE_PATH = REPO_ROOT / "template" / ".beyin" / "engine" / "compile.py"
-RUNTIME_PATH = REPO_ROOT / "template" / ".beyin" / "runtime_platform.py"
+MODEL_RUNNER_PATH = REPO_ROOT / "runtime" / "model_runner.py" if (REPO_ROOT / "runtime" / "model_runner.py").is_file() else REPO_ROOT / "template" / ".beyin" / "model_runner.py"
+COMPILE_PATH = REPO_ROOT / "runtime" / "engine" / "compile.py" if (REPO_ROOT / "runtime" / "engine" / "compile.py").is_file() else REPO_ROOT / "template" / ".beyin" / "engine" / "compile.py"
+RUNTIME_PATH = REPO_ROOT / "runtime" / "runtime_platform.py" if (REPO_ROOT / "runtime" / "runtime_platform.py").is_file() else REPO_ROOT / "template" / ".beyin" / "runtime_platform.py"
 
 
 def load_module(name: str, path: Path) -> ModuleType:

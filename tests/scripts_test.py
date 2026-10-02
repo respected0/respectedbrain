@@ -25,7 +25,7 @@ import uuid
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SOURCE_SCRIPTS = REPO_ROOT / "template" / ".beyin" / "engine"
+SOURCE_SCRIPTS = REPO_ROOT / "runtime" / "engine" if (REPO_ROOT / "runtime" / "engine").is_dir() else REPO_ROOT / "template" / ".beyin" / "engine"
 VALID_SUMMARY = """## Bağlam
 Kalıcı bağlam.
 ## Önemli Konuşmalar
@@ -71,7 +71,7 @@ class ScriptsTest(unittest.TestCase):
         shutil.copy2(SOURCE_SCRIPTS / "flush.py", self.engine / "flush.py")
         shutil.copy2(SOURCE_SCRIPTS / "compile.py", self.engine / "compile.py")
         shutil.copy2(
-            REPO_ROOT / "template" / ".beyin" / "runtime_platform.py",
+            REPO_ROOT / "runtime" / "runtime_platform.py" if (REPO_ROOT / "runtime" / "runtime_platform.py").is_file() else REPO_ROOT / "template" / ".beyin" / "runtime_platform.py",
             self.beyin / "runtime_platform.py",
         )
         (self.knowledge / "index.md").write_text(
@@ -666,6 +666,49 @@ print("loaded")
                 home=fake_home,
             )
             self.assertEqual(count_active, 0)
+
+    def test_catch_up_unflushed_antigravity_sessions(self) -> None:
+        fake_home = self.root / "fake_home_agy"
+        session_uuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        transcript_dir = (
+            fake_home
+            / ".gemini"
+            / "antigravity-ide"
+            / "brain"
+            / session_uuid
+            / ".system_generated"
+            / "logs"
+        )
+        transcript_dir.mkdir(parents=True, exist_ok=True)
+        transcript_file = transcript_dir / "transcript.jsonl"
+        user_line = {
+            "source": "USER_EXPLICIT",
+            "type": "USER_INPUT",
+            "content": "antigravity test message",
+        }
+        with transcript_file.open("w", encoding="utf-8") as f:
+            f.write(json.dumps(user_line) + "\n")
+
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        os.utime(transcript_file, (now.timestamp() - 60, now.timestamp() - 60))
+
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY, None)):
+            count = FLUSH.catch_up_unflushed_sessions(
+                vault_root=self.vault,
+                state_dir=self.state,
+                now=now,
+                home=fake_home,
+            )
+            self.assertEqual(count, 1)
+
+            # Idempotency check: already flushed sessions must not be processed again
+            count_again = FLUSH.catch_up_unflushed_sessions(
+                vault_root=self.vault,
+                state_dir=self.state,
+                now=now,
+                home=fake_home,
+            )
+            self.assertEqual(count_again, 0)
 
     def test_trigger_gates_single_claim_and_spawn_failure_rollback(self) -> None:
         daily_path = self.daily / "2026-08-22.md"

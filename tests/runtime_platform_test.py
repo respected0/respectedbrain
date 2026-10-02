@@ -13,7 +13,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNTIME_PATH = ROOT / "template" / ".beyin" / "runtime_platform.py"
+RUNTIME_PATH = ROOT / "runtime" / "runtime_platform.py" if (ROOT / "runtime" / "runtime_platform.py").is_file() else ROOT / "template" / ".beyin" / "runtime_platform.py"
 
 
 def load_runtime():

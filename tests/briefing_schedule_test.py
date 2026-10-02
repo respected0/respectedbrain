@@ -14,7 +14,7 @@ from contextlib import redirect_stdout
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = ROOT / "scripts/install_briefing_schedule.py"
+MODULE_PATH = (ROOT / "runtime/scripts/install_briefing_schedule.py") if (ROOT / "runtime/scripts/install_briefing_schedule.py").is_file() else (ROOT / "scripts/install_briefing_schedule.py")
 
 
 def load_installer():

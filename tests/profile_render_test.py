@@ -14,7 +14,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RENDER_PATH = ROOT / "scripts" / "render_integrations.py"
+RENDER_PATH = (ROOT / "runtime" / "scripts" / "render_integrations.py") if (ROOT / "runtime" / "scripts" / "render_integrations.py").is_file() else (ROOT / "scripts" / "render_integrations.py")
 
 
 def load_renderer():

@@ -11,8 +11,8 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "scripts" / "respected_manifest.py"
-LEGACY_NAMES = ROOT / "scripts" / "legacy_names.py"
+MANIFEST = (ROOT / "runtime" / "scripts" / "respected_manifest.py") if (ROOT / "runtime" / "scripts" / "respected_manifest.py").is_file() else (ROOT / "scripts" / "respected_manifest.py")
+LEGACY_NAMES = (ROOT / "runtime" / "scripts" / "legacy_names.py") if (ROOT / "runtime" / "scripts" / "legacy_names.py").is_file() else (ROOT / "scripts" / "legacy_names.py")
 FORBIDDEN_BRAND_FRAGMENTS = ("Respot Brain", "RESPOT", "Respot", "respot")
 
 
@@ -85,7 +85,7 @@ class NamingContractTest(unittest.TestCase):
 
     def test_current_public_guides_use_the_respected_1_3_contract(self):
         guides = {
-            name: (ROOT / name).read_text(encoding="utf-8")
+            name: (ROOT / "docs/guides" / name if name != "README.md" else ROOT / name).read_text(encoding="utf-8")
             for name in ("README.md", "SETUP.md", "SETUP-WINDOWS.md", "MULTI_AI.md")
         }
         combined = "\n".join(guides.values())

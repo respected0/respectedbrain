@@ -15,7 +15,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str((ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts")))
 
 from scripts.vault_mcp_server import RespectedMcpServer, _update_mcp_json_file, register_mcp
 

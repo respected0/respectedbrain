@@ -12,7 +12,7 @@ import unittest
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-COMPILE_PATH = REPO_ROOT / "template" / ".beyin" / "engine" / "compile.py"
+COMPILE_PATH = REPO_ROOT / "runtime" / "engine" / "compile.py" if (REPO_ROOT / "runtime" / "engine" / "compile.py").is_file() else REPO_ROOT / "template" / ".beyin" / "engine" / "compile.py"
 
 
 def load_module(name: str, path: Path) -> ModuleType:

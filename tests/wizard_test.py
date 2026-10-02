@@ -17,8 +17,8 @@ from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-INSTALL_PY = REPO_ROOT / "install.py"
-SET_PROVIDER_PY = REPO_ROOT / "scripts" / "set_summary_provider.py"
+INSTALL_PY = REPO_ROOT / "installer" / "install.py"
+SET_PROVIDER_PY = (REPO_ROOT / "runtime" / "scripts" / "set_summary_provider.py") if (REPO_ROOT / "runtime" / "scripts" / "set_summary_provider.py").is_file() else (REPO_ROOT / "scripts" / "set_summary_provider.py")
 
 
 def load_module(name: str, path: Path) -> ModuleType:

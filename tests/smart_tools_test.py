@@ -20,7 +20,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 ORIGINAL_SYS_PATH = list(sys.path)
-for p in (str(ROOT), str(ROOT / "scripts"), str(ROOT / "template" / ".beyin")):
+for p in (str(ROOT), str(ROOT / "runtime" / "scripts"), str(ROOT / "scripts"), str(ROOT / "runtime" if (ROOT / "runtime").is_dir() else ROOT / "template" / ".beyin")):
     if p not in sys.path:
         sys.path.insert(0, p)
 

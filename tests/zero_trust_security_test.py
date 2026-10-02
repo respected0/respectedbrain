@@ -14,8 +14,11 @@ ROOT = Path(__file__).resolve().parents[1]
 ORIGINAL_SYS_PATH = list(sys.path)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-if str(ROOT / "scripts") not in sys.path:
-    sys.path.insert(0, str(ROOT / "scripts"))
+if str(ROOT / "runtime" / "scripts") not in sys.path:
+    sys.path.insert(0, str(ROOT / "runtime" / "scripts"))
+if "scripts" not in sys.modules and (ROOT / "runtime" / "scripts").is_dir():
+    import runtime.scripts
+    sys.modules["scripts"] = runtime.scripts
 
 
 def tearDownModule():

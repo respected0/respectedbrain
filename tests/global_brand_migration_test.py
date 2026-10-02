@@ -18,7 +18,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
-INSTALLER = ROOT / "scripts/install_global.py"
+INSTALLER = (ROOT / "runtime/scripts/install_global.py") if (ROOT / "runtime/scripts/install_global.py").is_file() else (ROOT / "scripts/install_global.py")
 
 
 def load(name: str, path: Path):
@@ -29,7 +29,8 @@ def load(name: str, path: Path):
     return module
 
 
-LEGACY = load("global_migration_legacy_names", ROOT / "scripts/legacy_names.py")
+LEGACY_PATH = (ROOT / "runtime/scripts/legacy_names.py") if (ROOT / "runtime/scripts/legacy_names.py").is_file() else (ROOT / "scripts/legacy_names.py")
+LEGACY = load("global_migration_legacy_names", LEGACY_PATH)
 INSTALLER_MODULE = load("global_migration_installer", INSTALLER)
 
 

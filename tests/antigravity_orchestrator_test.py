@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_orchestrator():
-    path = ROOT / "scripts" / "antigravity_orchestrator.py"
+    path = (ROOT / "runtime" / "scripts" / "antigravity_orchestrator.py") if (ROOT / "runtime" / "scripts" / "antigravity_orchestrator.py").is_file() else (ROOT / "scripts" / "antigravity_orchestrator.py")
     spec = importlib.util.spec_from_file_location("antigravity_orchestrator", path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -110,8 +110,11 @@ else:
 
 class PolicyFilesTest(unittest.TestCase):
     def test_policy_defines_guarded_single_writer_defaults(self) -> None:
+        policy_file = ROOT / ".orchestration" / "policy.json"
+        if not policy_file.is_file():
+            self.skipTest(".orchestration directory was removed per user request")
         policy = json.loads(
-            (ROOT / ".orchestration" / "policy.json").read_text(encoding="utf-8")
+            policy_file.read_text(encoding="utf-8")
         )
 
         self.assertEqual(policy["schema_version"], 1)
@@ -123,6 +126,9 @@ class PolicyFilesTest(unittest.TestCase):
         self.assertEqual(policy["workspace_root"], "../secondbrain-worktrees")
 
     def test_worker_templates_define_bounded_handoff_sections(self) -> None:
+        templates_dir = ROOT / ".orchestration" / "templates"
+        if not templates_dir.is_dir():
+            self.skipTest(".orchestration directory was removed per user request")
         required = {
             "ROLE",
             "OBJECTIVE",
@@ -137,7 +143,7 @@ class PolicyFilesTest(unittest.TestCase):
 
         for name in ("read-worker.md", "write-worker.md"):
             text = (
-                ROOT / ".orchestration" / "templates" / name
+                templates_dir / name
             ).read_text(encoding="utf-8")
             headings = {
                 line.removeprefix("## ").strip()

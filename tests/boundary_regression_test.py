@@ -16,8 +16,8 @@ from unittest import mock
 ORIGINAL_SYS_PATH = list(sys.path)
 
 ROOT = Path(__file__).resolve().parent.parent
-COMPILE_PATH = ROOT / "template/.beyin/engine/compile.py"
-UPDATE_PATH = ROOT / "scripts/update_respected.py"
+COMPILE_PATH = ROOT / "runtime/engine/compile.py" if (ROOT / "runtime/engine/compile.py").is_file() else ROOT / "template/.beyin/engine/compile.py"
+UPDATE_PATH = (ROOT / "runtime/scripts/update_respected.py") if (ROOT / "runtime/scripts/update_respected.py").is_file() else ROOT / "scripts/update_respected.py"
 
 
 def tearDownModule() -> None:
@@ -34,7 +34,7 @@ def load_compile_module():
 
 
 def load_update_module():
-    scripts_dir = str(ROOT / "scripts")
+    scripts_dir = str((ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts"))
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
     spec = importlib.util.spec_from_file_location("update_module", UPDATE_PATH)
@@ -192,7 +192,7 @@ class BoundaryRegressionTest(unittest.TestCase):
 
     def test_install_antigravity_global_accepts_non_windows_vault_path(self):
         """install_antigravity_global must not reject Linux/POSIX vault paths where windows_path is None."""
-        scripts_dir = str(ROOT / "scripts")
+        scripts_dir = str((ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts"))
         if scripts_dir not in sys.path:
             sys.path.insert(0, scripts_dir)
         import importlib

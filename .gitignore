@@ -44,6 +44,8 @@ tmp-brief/
 .respected-install-*/
 
 # Local Agent & Runtime State
+runtime/state/
+runtime/.state/
 .beyin/engine/.state/
 .claude/hooks/.state/
 .claude/scripts/.state/*

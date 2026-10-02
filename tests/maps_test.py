@@ -12,7 +12,7 @@ import unittest
 ORIGINAL_SYS_PATH = list(sys.path)
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = ROOT / "template" / ".beyin" / "map_builder.py"
+MODULE_PATH = ROOT / "runtime" / "map_builder.py" if (ROOT / "runtime" / "map_builder.py").is_file() else ROOT / "template" / ".beyin" / "map_builder.py"
 
 
 def tearDownModule() -> None:

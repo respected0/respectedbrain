@@ -13,8 +13,8 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parent.parent
-RESTIC_SCRIPT = ROOT / "scripts/backup_restic.py"
-GIT_SNAPSHOT_SCRIPT = ROOT / "scripts/publish_git_snapshot.py"
+RESTIC_SCRIPT = (ROOT / "runtime/scripts/backup_restic.py") if (ROOT / "runtime/scripts/backup_restic.py").is_file() else (ROOT / "scripts/backup_restic.py")
+GIT_SNAPSHOT_SCRIPT = (ROOT / "runtime/scripts/publish_git_snapshot.py") if (ROOT / "runtime/scripts/publish_git_snapshot.py").is_file() else (ROOT / "scripts/publish_git_snapshot.py")
 
 
 def load_restic_module():

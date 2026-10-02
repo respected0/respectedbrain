@@ -18,7 +18,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BEYIN = ROOT / "template/.beyin"
+BEYIN = ROOT / "runtime" if (ROOT / "runtime").is_dir() else ROOT / "template/.beyin"
 if str(BEYIN) not in sys.path:
     sys.path.insert(0, str(BEYIN))
 if str(BEYIN / "hooks") not in sys.path:

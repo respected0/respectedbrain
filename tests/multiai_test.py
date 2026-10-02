@@ -20,6 +20,9 @@ import io
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = (ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts")
+RUNTIME = ROOT / "runtime" if (ROOT / "runtime").is_dir() else RUNTIME
+ADAPTERS = ROOT / "runtime/adapters" if (ROOT / "runtime/adapters").is_dir() else ROOT / "template"
 
 
 LOADED_MODULE_NAMES: set[str] = set()
@@ -47,8 +50,9 @@ def tearDownModule():
 
 class MultiAITest(unittest.TestCase):
     def test_generated_files_have_no_drift(self):
+        render_script = (ROOT / "runtime" / "scripts" / "render_integrations.py") if (ROOT / "runtime" / "scripts" / "render_integrations.py").is_file() else (ROOT / "scripts" / "render_integrations.py")
         result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / "render_integrations.py"), "--check"],
+            [sys.executable, str(render_script), "--check"],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -57,19 +61,19 @@ class MultiAITest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_all_provider_configs_point_to_bridge(self):
-        codex = json.loads((ROOT / "template/.codex/hooks.json").read_text())
-        cursor = json.loads((ROOT / "template/.cursor/hooks.json").read_text())
-        antigravity = json.loads((ROOT / "template/.agents/hooks.json").read_text())
-        self.assertIn(".beyin/hooks/bridge.py", json.dumps(codex))
-        self.assertIn(".beyin/hooks/bridge.py", json.dumps(cursor))
-        self.assertIn(".beyin/hooks/bridge.py", json.dumps(antigravity))
+        codex = json.loads((ADAPTERS / ".codex/hooks.json").read_text())
+        cursor = json.loads((ADAPTERS / ".cursor/hooks.json").read_text())
+        antigravity = json.loads((ADAPTERS / ".agents/hooks.json").read_text())
+        self.assertIn(".beyin/hooks/bridge.py", json.dumps(codex).replace("\\\\", "/").replace("\\", "/"))
+        self.assertIn(".beyin/hooks/bridge.py", json.dumps(cursor).replace("\\\\", "/").replace("\\", "/"))
+        self.assertIn(".beyin/hooks/bridge.py", json.dumps(antigravity).replace("\\\\", "/").replace("\\", "/"))
 
     def test_fresh_generated_adapters_expose_only_the_current_product_identity(self):
-        codex = json.loads((ROOT / "template/.codex/hooks.json").read_text(encoding="utf-8"))
+        codex = json.loads((ADAPTERS / ".codex/hooks.json").read_text(encoding="utf-8"))
         antigravity = json.loads(
-            (ROOT / "template/.agents/hooks.json").read_text(encoding="utf-8")
+            (ADAPTERS / ".agents/hooks.json").read_text(encoding="utf-8")
         )
-        cursor_rule = (ROOT / "template/.cursor/rules/beyin.mdc").read_text(
+        cursor_rule = (ADAPTERS / ".cursor/rules/beyin.mdc").read_text(
             encoding="utf-8"
         )
 
@@ -82,7 +86,7 @@ class MultiAITest(unittest.TestCase):
         self.assertNotIn("respot", combined)
 
     def test_bridge_normalizes_provider_inputs_and_outputs(self):
-        bridge = load("bridge", ROOT / "template/.beyin/hooks/bridge.py")
+        bridge = load("bridge", RUNTIME / "hooks/bridge.py")
         normalized = bridge.normalize("antigravity", {
             "conversationId": "abc", "transcriptPath": "/tmp/t.jsonl",
             "workspacePaths": ["/tmp/project"], "modelName": "gemini-test",
@@ -103,7 +107,7 @@ class MultiAITest(unittest.TestCase):
     def test_antigravity_normalize_resolves_ide_then_cli_transcript(self):
         bridge = load(
             "bridge_transcript",
-            ROOT / "template/.beyin/hooks/bridge.py",
+            RUNTIME / "hooks/bridge.py",
         )
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary)
@@ -139,7 +143,7 @@ class MultiAITest(unittest.TestCase):
         """Agy 1.2.11 changes conversationId per invocation inside one CLI conversation."""
         bridge = load(
             "bridge_antigravity_stable_session",
-            ROOT / "template/.beyin/hooks/bridge.py",
+            RUNTIME / "hooks/bridge.py",
         )
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary)
@@ -172,7 +176,7 @@ class MultiAITest(unittest.TestCase):
     def test_antigravity_transcript_discovery_is_safe_and_explicit_wins(self):
         bridge = load(
             "bridge_transcript_safety",
-            ROOT / "template/.beyin/hooks/bridge.py",
+            RUNTIME / "hooks/bridge.py",
         )
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary)
@@ -204,7 +208,7 @@ class MultiAITest(unittest.TestCase):
     def test_codex_transcript_discovery_and_safety(self):
         bridge = load(
             "bridge_codex_transcript",
-            ROOT / "template/.beyin/hooks/bridge.py",
+            RUNTIME / "hooks/bridge.py",
         )
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary)
@@ -237,7 +241,7 @@ class MultiAITest(unittest.TestCase):
             self.assertEqual(explicit["transcript_path"], "/explicit/transcript.jsonl")
 
     def test_bridge_dispatches_to_shared_lifecycle_without_shell_hooks(self):
-        bridge = load("bridge_shared_lifecycle", ROOT / "template/.beyin/hooks/bridge.py")
+        bridge = load("bridge_shared_lifecycle", RUNTIME / "hooks/bridge.py")
         with tempfile.TemporaryDirectory() as temporary:
             vault = Path(temporary) / "Bridge Brain"
             state = vault / ".beyin/engine/.state"
@@ -264,7 +268,7 @@ class MultiAITest(unittest.TestCase):
             self.assertFalse((vault / ".claude/hooks").exists())
 
     def test_global_bridge_distinguishes_windows_vault_and_external_paths(self):
-        bridge = load("bridge_windows_paths", ROOT / "template/.beyin/hooks/bridge.py")
+        bridge = load("bridge_windows_paths", RUNTIME / "hooks/bridge.py")
         with mock.patch.object(bridge, "ROOT", Path("/mnt/c/Users/Ada/Vault")):
             self.assertTrue(bridge.inside_vault("C:\\Users\\Ada\\Vault"))
             self.assertTrue(bridge.inside_vault("C:\\Users\\Ada\\Vault\\nested"))
@@ -277,11 +281,11 @@ class MultiAITest(unittest.TestCase):
             self.assertFalse(bridge.inside_vault("relative-project"))
 
     def test_runner_has_windows_user_local_agy_discovery(self):
-        runner = (ROOT / "template/.beyin/model_runner.py").read_text(encoding="utf-8")
+        runner = (RUNTIME / "model_runner.py").read_text(encoding="utf-8")
         self.assertIn('"AppData" / "Local" / "agy" / "bin" / "agy.exe"', runner)
 
     def test_runner_supports_cursor_headless(self):
-        runner = load("model_runner_cursor", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_cursor", RUNTIME / "model_runner.py")
         with mock.patch.object(runner.shutil, "which", side_effect=lambda name: "/bin/cursor-agent" if name == "cursor-agent" else None):
             invocation = runner._command("cursor", "özetle", "text")
         self.assertEqual(
@@ -291,7 +295,7 @@ class MultiAITest(unittest.TestCase):
         self.assertIsNone(invocation.stdin)
 
     def test_runner_supports_gemini_headless_without_putting_prompt_in_argv(self):
-        runner = load("model_runner_gemini", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_gemini", RUNTIME / "model_runner.py")
         prompt = "ö" * 100_000
         with mock.patch.object(
             runner.shutil,
@@ -305,7 +309,7 @@ class MultiAITest(unittest.TestCase):
         self.assertEqual(invocation.argv, ["/bin/gemini", "--output-format", "json", "-p", ""])
 
     def test_runner_keeps_codex_and_antigravity_prompts_on_stdin(self):
-        runner = load("model_runner_stdin", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_stdin", RUNTIME / "model_runner.py")
         prompt = "ö" * 100_000
 
         def which(name):
@@ -351,7 +355,7 @@ class MultiAITest(unittest.TestCase):
         self.assertTrue(agy_workspace.windows_executable)
 
     def test_runner_extracts_stream_json_response_and_errors(self):
-        runner = load("model_runner_extract", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_extract", RUNTIME / "model_runner.py")
         stream_success = (
             '{"event":"init","init":{}}\n'
             '{"event":"step_update","step_update":{}}\n'
@@ -394,7 +398,7 @@ class MultiAITest(unittest.TestCase):
         self.assertEqual(err, "quota exceeded")
 
     def test_runner_candidate_order_contract_is_unchanged(self):
-        runner = load("model_runner_order", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_order", RUNTIME / "model_runner.py")
         with mock.patch.object(runner, "_configured_provider", return_value="auto"):
             self.assertEqual(
                 runner._available("antigravity"),
@@ -407,7 +411,7 @@ class MultiAITest(unittest.TestCase):
             )
 
     def test_wsl_windows_cli_receives_translatable_profile_environment(self):
-        runner = load("model_runner_wsl_env", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_wsl_env", RUNTIME / "model_runner.py")
         invocation = runner.Invocation(
             ["/mnt/c/bin/agy.exe", "--print"],
             "prompt",
@@ -453,7 +457,7 @@ class MultiAITest(unittest.TestCase):
 
     @unittest.skipUnless(os.name == "nt", "native Windows only")
     def test_native_codex_child_receives_profile_codex_home_without_parent_stat(self):
-        runner = load("model_runner_native_codex_home", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_native_codex_home", RUNTIME / "model_runner.py")
         invocation = runner.Invocation(["codex.exe", "exec", "-"], "prompt", True)
         completed = SimpleNamespace(returncode=0, stdout="özet", stderr="")
         with tempfile.TemporaryDirectory() as temporary:
@@ -482,7 +486,7 @@ class MultiAITest(unittest.TestCase):
         self.assertEqual(called.call_args.kwargs["env"].get("CODEX_HOME"), str(codex_home))
 
     def test_wsl_windows_cli_falls_back_to_windows_temp_when_cwd_is_linux_path(self):
-        runner = load("model_runner_fallback_cwd", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_fallback_cwd", RUNTIME / "model_runner.py")
         invocation = runner.Invocation(
             ["/mnt/c/bin/agy.exe", "--print"],
             "prompt",
@@ -516,7 +520,7 @@ class MultiAITest(unittest.TestCase):
         self.assertIs(called.call_args.kwargs["cwd"], mock_fallback)
 
     def test_wsl_windows_cli_retains_windows_cwd_when_already_under_windows_root(self):
-        runner = load("model_runner_keep_cwd", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_keep_cwd", RUNTIME / "model_runner.py")
         invocation = runner.Invocation(
             ["/mnt/c/bin/agy.exe", "--print"],
             "prompt",
@@ -548,18 +552,18 @@ class MultiAITest(unittest.TestCase):
             root = Path(temporary) / "My Vault"
             (root / ".beyin").mkdir(parents=True)
             result = subprocess.run(
-                [sys.executable, str(ROOT / "scripts/set_summary_provider.py"), "cursor", "--root", str(root)],
+                [sys.executable, str(SCRIPTS / "set_summary_provider.py"), "cursor", "--root", str(root)],
                 capture_output=True, text=True, check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(json.loads((root / ".beyin/config.json").read_text())["summary_provider"], "cursor")
-        runner = load("model_runner_config", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_config", RUNTIME / "model_runner.py")
         with mock.patch.object(runner, "_configured_provider", return_value="cursor"):
             self.assertEqual(runner._available("codex")[:2], ["cursor", "codex"])
 
     def test_public_docs_describe_provider_neutral_setup(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        setup = (ROOT / "SETUP.md").read_text(encoding="utf-8")
+        setup = (ROOT / "docs/guides/SETUP.md").read_text(encoding="utf-8")
         for required in ("Agent değiştirmek", "set_summary_provider.py", "install_global.py", "Vault'un adı"):
             self.assertIn(required, readme)
         self.assertIn("Claude is not mandatory", setup)
@@ -600,9 +604,9 @@ class MultiAITest(unittest.TestCase):
     def test_public_docs_define_all_three_profiles_and_native_limits(self):
         paths = (
             ROOT / "README.md",
-            ROOT / "SETUP.md",
-            ROOT / "MULTI_AI.md",
-            ROOT / "SETUP-WINDOWS.md",
+            ROOT / "docs/guides/SETUP.md",
+            ROOT / "docs/guides/MULTI_AI.md",
+            ROOT / "docs/guides/SETUP-WINDOWS.md",
             ROOT / "docs/SPECIFICATION.md",
             ROOT / "docs/ARCHITECTURE.md",
         )
@@ -620,7 +624,7 @@ class MultiAITest(unittest.TestCase):
             self.assertIn(required, text)
 
     def test_runner_falls_back_only_for_retryable_provider_errors(self):
-        runner = load("model_runner_fallback", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_fallback", RUNTIME / "model_runner.py")
         commands = {
             "antigravity": runner.Invocation(["agy"], None),
             "claude": runner.Invocation(["claude"], "prompt"),
@@ -645,7 +649,7 @@ class MultiAITest(unittest.TestCase):
         """A non-auto provider is the wizard's fail-fast single-model contract."""
         with tempfile.TemporaryDirectory() as temporary:
             brain = Path(temporary) / ".beyin"
-            shutil.copytree(ROOT / "template/.beyin", brain)
+            shutil.copytree(RUNTIME, brain)
             config = json.loads((brain / "config.json").read_text(encoding="utf-8"))
             config["summary_provider"] = "codex"
             config["provider_priority"] = ["codex"]
@@ -658,7 +662,7 @@ class MultiAITest(unittest.TestCase):
             self.assertEqual(runner._available(None), ["codex"])
 
     def test_runner_auto_mode_falls_back_across_all_providers_on_failure(self):
-        runner = load("model_runner_auto_fallback", ROOT / "template/.beyin/model_runner.py")
+        runner = load("model_runner_auto_fallback", RUNTIME / "model_runner.py")
         commands = {
             "claude": runner.Invocation(["claude"], "prompt"),
             "codex": runner.Invocation(["codex"], "prompt"),
@@ -675,25 +679,25 @@ class MultiAITest(unittest.TestCase):
         self.assertEqual(run.call_count, 2)
 
     def test_canonical_skills_are_identical_for_all_agents(self):
-        canonical_root = ROOT / "template/.beyin/skills"
+        canonical_root = RUNTIME / "skills"
         for source in sorted(canonical_root.glob("*/SKILL.md")):
             content = source.read_bytes()
             name = source.parent.name
             self.assertEqual(
                 content,
-                (ROOT / "template/.agents/skills" / name / "SKILL.md").read_bytes(),
+                (ADAPTERS / ".agents/skills" / name / "SKILL.md").read_bytes(),
             )
             self.assertEqual(
                 content,
-                (ROOT / "template/.claude/skills" / name / "SKILL.md").read_bytes(),
+                (ADAPTERS / ".claude/skills" / name / "SKILL.md").read_bytes(),
             )
 
     def test_maintenance_skills_are_canonical_and_discoverable(self):
-        canonical = ROOT / "template/.beyin/skills"
+        canonical = RUNTIME / "skills"
         inbox = canonical / "inbox-duzenle/SKILL.md"
         self.assertTrue(inbox.is_file())
         self.assertTrue((canonical / "beyin-doktor/SKILL.md").is_file())
-        builder = load("maintenance_skill_map", ROOT / "template/.beyin/map_builder.py")
+        builder = load("maintenance_skill_map", RUNTIME / "map_builder.py")
         rendered = builder.render_skills_map(ROOT / "template")
         self.assertIn("`inbox-duzenle`", rendered)
         self.assertIn("`beyin-doktor`", rendered)
@@ -713,7 +717,7 @@ class MultiAITest(unittest.TestCase):
             )
             command = [
                 sys.executable,
-                str(ROOT / "scripts/install_antigravity_global.py"),
+                str(SCRIPTS / "install_antigravity_global.py"),
                 str(ROOT / "template"),
                 "--antigravity-home",
                 str(home),
@@ -727,7 +731,7 @@ class MultiAITest(unittest.TestCase):
             rule = (home / ".gemini/GEMINI.md").read_text(encoding="utf-8")
             self.assertIn("# Kendi global kuralım", rule)
             self.assertEqual(rule.count("<!-- RESPECTED-GLOBAL:BEGIN -->"), 1)
-            for source in sorted((ROOT / "template/.beyin/skills").glob("*/SKILL.md")):
+            for source in sorted((RUNTIME / "skills").glob("*/SKILL.md")):
                 installed = config / "skills" / source.parent.name / "SKILL.md"
                 self.assertEqual(source.read_bytes(), installed.read_bytes())
             snapshot = {
@@ -755,7 +759,7 @@ class MultiAITest(unittest.TestCase):
             (home / ".codex/AGENTS.md").write_text("# Kendi Codex kuralım\n", encoding="utf-8")
             (home / ".cursor").mkdir()
             (home / ".cursor/hooks.json").write_text(json.dumps({"version": 1, "hooks": {"sessionStart": [{"command": "existing"}]}}), encoding="utf-8")
-            command = [sys.executable, str(ROOT / "scripts/install_global.py"), str(vault), "--home", str(home), "--providers", "all", "--apply"]
+            command = [sys.executable, str(SCRIPTS / "install_global.py"), str(vault), "--home", str(home), "--providers", "all", "--apply"]
             first = subprocess.run(command, capture_output=True, text=True, check=False)
             self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
             self.assertIn("Ayarlar > Hooks", first.stdout)
@@ -788,7 +792,7 @@ class MultiAITest(unittest.TestCase):
             )
             command = [
                 sys.executable,
-                str(ROOT / "scripts/install_global.py"),
+                str(SCRIPTS / "install_global.py"),
                 str(vault),
                 "--home", str(home),
                 "--providers", "codex",
@@ -820,7 +824,7 @@ class MultiAITest(unittest.TestCase):
             home.mkdir()
             result = subprocess.run(
                 [
-                    sys.executable, str(ROOT / "scripts/install_global.py"), str(vault),
+                    sys.executable, str(SCRIPTS / "install_global.py"), str(vault),
                     "--home", str(home), "--platform", "windows-native",
                     "--providers", "codex", "--apply",
                 ],
@@ -844,6 +848,7 @@ class MultiAITest(unittest.TestCase):
             vault = root / "Ada Brain"
             shutil.copytree(ROOT / "template", vault)
             runtime = r"C:\Users\Ada\Custom Python\python.exe"
+            (vault / ".beyin").mkdir(parents=True, exist_ok=True)
             (vault / ".beyin/config.json").write_text(
                 json.dumps({
                     "platform": "windows-native",
@@ -856,7 +861,7 @@ class MultiAITest(unittest.TestCase):
             home.mkdir()
             result = subprocess.run(
                 [
-                    sys.executable, str(ROOT / "scripts/install_global.py"), str(vault),
+                    sys.executable, str(SCRIPTS / "install_global.py"), str(vault),
                     "--home", str(home), "--platform", "windows-native",
                     "--providers", "codex", "--apply",
                 ],
@@ -880,7 +885,7 @@ class MultiAITest(unittest.TestCase):
             config.write_text(original, encoding="utf-8")
             result = subprocess.run(
                 [
-                    sys.executable, str(ROOT / "scripts/install_global.py"), str(vault),
+                    sys.executable, str(SCRIPTS / "install_global.py"), str(vault),
                     "--home", str(home), "--providers", "codex", "--apply",
                 ],
                 capture_output=True, text=True, check=False,
@@ -906,7 +911,7 @@ class MultiAITest(unittest.TestCase):
             config.write_text(original, encoding="utf-8")
             result = subprocess.run(
                 [
-                    sys.executable, str(ROOT / "scripts/install_global.py"), str(vault),
+                    sys.executable, str(SCRIPTS / "install_global.py"), str(vault),
                     "--home", str(home), "--providers", "codex", "--apply",
                 ],
                 capture_output=True, text=True, check=False,
@@ -927,7 +932,7 @@ class MultiAITest(unittest.TestCase):
             wsl.mkdir()
             command = [
                 sys.executable,
-                str(ROOT / "scripts/install_global.py"),
+                str(SCRIPTS / "install_global.py"),
                 str(vault),
                 "--home",
                 str(primary),
@@ -995,7 +1000,7 @@ class MultiAITest(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(ROOT / "scripts/install_global.py"),
+                    str(SCRIPTS / "install_global.py"),
                     str(vault),
                     "--home",
                     str(windows_home),
@@ -1025,7 +1030,7 @@ class MultiAITest(unittest.TestCase):
             home.mkdir()
             command = [
                 sys.executable,
-                str(ROOT / "scripts/install_global.py"),
+                str(SCRIPTS / "install_global.py"),
                 str(vault),
                 "--home",
                 str(home),
@@ -1061,7 +1066,7 @@ class MultiAITest(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(ROOT / "scripts/install_global.py"),
+                    str(SCRIPTS / "install_global.py"),
                     str(vault),
                     "--home",
                     str(home),
@@ -1089,7 +1094,7 @@ class MultiAITest(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(ROOT / "scripts/install_antigravity_global.py"),
+                    str(SCRIPTS / "install_antigravity_global.py"),
                     str(ROOT / "template"),
                     "--antigravity-home",
                     str(windows_home),
@@ -1108,7 +1113,7 @@ class MultiAITest(unittest.TestCase):
                 self.assertFalse((home / ".codex").exists())
 
     def test_native_windows_global_command_is_absolute_and_shell_free(self):
-        installer = load("install_global_native_command", ROOT / "scripts/install_global.py")
+        installer = load("install_global_native_command", SCRIPTS / "install_global.py")
         vault = PureWindowsPath(r"C:\Users\Ada\Ada Brain")
 
         command = installer.bridge_command(vault, "codex", "start", "windows-native")
@@ -1143,7 +1148,7 @@ class MultiAITest(unittest.TestCase):
             )
             command = [
                 sys.executable,
-                str(ROOT / "scripts/install_global.py"),
+                str(SCRIPTS / "install_global.py"),
                 str(vault),
                 "--home",
                 str(home),
@@ -1189,7 +1194,7 @@ class MultiAITest(unittest.TestCase):
             (vault / ".beyin-version").write_text("2.0.0\n", encoding="utf-8")
             (vault / "CLAUDE.md").write_text("# AdaOS\n\nKişisel talimat.\n", encoding="utf-8")
             result = subprocess.run(
-                [sys.executable, str(ROOT / "scripts/enable_multiai.py"), str(vault), "--platform", "windows-wsl", "--apply"],
+                [sys.executable, str(SCRIPTS / "enable_multiai.py"), str(vault), "--platform", "windows-wsl", "--apply"],
                 cwd=ROOT,
                 capture_output=True,
                 text=True,
@@ -1215,7 +1220,7 @@ class MultiAITest(unittest.TestCase):
             )
             self.assertEqual(selected.returncode, 0, selected.stdout + selected.stderr)
             repeated = subprocess.run(
-                [sys.executable, str(ROOT / "scripts/enable_multiai.py"), str(vault), "--platform", "windows-wsl", "--apply"],
+                [sys.executable, str(SCRIPTS / "enable_multiai.py"), str(vault), "--platform", "windows-wsl", "--apply"],
                 cwd=ROOT,
                 capture_output=True,
                 text=True,

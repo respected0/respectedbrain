@@ -16,7 +16,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LIFECYCLE_PATH = ROOT / "template" / ".beyin" / "hooks" / "lifecycle.py"
+LIFECYCLE_PATH = ROOT / "runtime" / "hooks" / "lifecycle.py" if (ROOT / "runtime" / "hooks" / "lifecycle.py").is_file() else ROOT / "template" / ".beyin" / "hooks" / "lifecycle.py"
 FIXED_NOW = datetime(2026, 8, 28, 20, 15)
 
 

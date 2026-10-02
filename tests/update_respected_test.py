@@ -16,7 +16,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-UPDATER = ROOT / "scripts" / "update_respected.py"
+UPDATER = (ROOT / "runtime" / "scripts" / "update_respected.py") if (ROOT / "runtime" / "scripts" / "update_respected.py").is_file() else (ROOT / "scripts" / "update_respected.py")
 
 
 def tree_digest(root: Path) -> str:
@@ -49,8 +49,11 @@ class UpdateRespectedTest(unittest.TestCase):
         self.vault = Path(self.temporary.name) / "Ada Brain"
         shutil.copytree(ROOT / "template", self.vault)
         (self.vault / "scripts").mkdir(parents=True, exist_ok=True)
-        for p in (ROOT / "scripts").glob("*.py"):
+        scripts_src = (ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts")
+        for p in scripts_src.glob("*.py"):
             shutil.copy2(p, self.vault / "scripts" / p.name)
+        if (ROOT / "runtime").is_dir() and not (self.vault / ".beyin").is_dir():
+            shutil.copytree(ROOT / "runtime", self.vault / ".beyin")
         (self.vault / ".respectedbrain-version").unlink(missing_ok=True)
         (self.vault / ".beyin-version").write_text("2.0.0\n", encoding="utf-8")
         (self.vault / ".beyin-multi-version").write_text("1.1.0\n", encoding="utf-8")

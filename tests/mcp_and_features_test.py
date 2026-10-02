@@ -19,7 +19,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS_DIR = ROOT / "scripts"
+SCRIPTS_DIR = (ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts")
 ORIGINAL_SYS_PATH = list(sys.path)
 for p in (ROOT, SCRIPTS_DIR):
     if str(p) not in sys.path:
@@ -299,8 +299,8 @@ class TemplateAndSkillsTest(unittest.TestCase):
     def test_new_skills_exist_and_valid(self) -> None:
         skills_to_check = ["beyin-meydan-oku", "beyin-oruntu", "ajan-gecmis-tara"]
         for s in skills_to_check:
-            for parent in [".beyin", ".agents", ".claude"]:
-                skill_file = ROOT / "template" / parent / "skills" / s / "SKILL.md"
+            for skill_dir in [ROOT / "runtime" / "skills", ROOT / "runtime" / "adapters" / ".agents" / "skills", ROOT / "runtime" / "adapters" / ".claude" / "skills"]:
+                skill_file = skill_dir / s / "SKILL.md"
                 self.assertTrue(skill_file.is_file(), f"Skill file missing: {skill_file}")
                 text = skill_file.read_text(encoding="utf-8")
                 self.assertTrue(text.startswith("---"))
@@ -345,7 +345,7 @@ class TemplateAndSkillsTest(unittest.TestCase):
             self.assertEqual(fm["tags"], ["a", "b"])
 
     def test_scan_open_loops(self) -> None:
-        p1 = str(ROOT / "template" / ".beyin")
+        p1 = str(ROOT / "runtime") if (ROOT / "runtime").is_dir() else str(ROOT / "template" / ".beyin")
         sys.path.insert(0, p1)
         self.addCleanup(lambda: sys.path.remove(p1) if p1 in sys.path else None)
         from morning_briefing import _scan_open_loops  # type: ignore
@@ -373,7 +373,7 @@ class TemplateAndSkillsTest(unittest.TestCase):
             self.assertIn("İşlenmeyi bekleyen", loops_text)
 
     def test_precompact_transcript_backup(self) -> None:
-        p2 = str(ROOT / "template" / ".beyin" / "hooks")
+        p2 = str(ROOT / "runtime" / "hooks") if (ROOT / "runtime" / "hooks").is_dir() else str(ROOT / "template" / ".beyin" / "hooks")
         sys.path.insert(0, p2)
         self.addCleanup(lambda: sys.path.remove(p2) if p2 in sys.path else None)
         import lifecycle  # type: ignore

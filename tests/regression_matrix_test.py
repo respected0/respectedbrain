@@ -17,7 +17,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "template"
-SCRIPTS_DIR = str(ROOT / "scripts")
+SCRIPTS_DIR = str((ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts"))
 ORIGINAL_SYS_PATH = list(sys.path)
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
@@ -42,14 +42,15 @@ def load_module(name: str, path: Path):
     return module
 
 
-LIFECYCLE = load_module("c9_lifecycle", TEMPLATE / ".beyin/hooks/lifecycle.py")
-BRIDGE = load_module("c9_bridge", TEMPLATE / ".beyin/hooks/bridge.py")
-MODEL_RUNNER = load_module("c9_model_runner", TEMPLATE / ".beyin/model_runner.py")
-RUNTIME = load_module("c9_runtime", TEMPLATE / ".beyin/runtime_platform.py")
-FLUSH = load_module("c9_flush", TEMPLATE / ".beyin/engine/flush.py")
-COMPILE = load_module("c9_compile", TEMPLATE / ".beyin/engine/compile.py")
-BRIEFING = load_module("c9_briefing", TEMPLATE / ".beyin/morning_briefing.py")
-REPAIR_DAILY = load_module("c9_repair_daily", ROOT / "scripts/repair_daily.py")
+RUNTIME_DIR = ROOT / "runtime" if (ROOT / "runtime").is_dir() else ROOT / "template/.beyin"
+LIFECYCLE = load_module("c9_lifecycle", RUNTIME_DIR / "hooks/lifecycle.py" if (RUNTIME_DIR / "hooks/lifecycle.py").is_file() else TEMPLATE / ".beyin/hooks/lifecycle.py")
+BRIDGE = load_module("c9_bridge", RUNTIME_DIR / "hooks/bridge.py" if (RUNTIME_DIR / "hooks/bridge.py").is_file() else TEMPLATE / ".beyin/hooks/bridge.py")
+MODEL_RUNNER = load_module("c9_model_runner", RUNTIME_DIR / "model_runner.py" if (RUNTIME_DIR / "model_runner.py").is_file() else TEMPLATE / ".beyin/model_runner.py")
+RUNTIME = load_module("c9_runtime", RUNTIME_DIR / "runtime_platform.py" if (RUNTIME_DIR / "runtime_platform.py").is_file() else TEMPLATE / ".beyin/runtime_platform.py")
+FLUSH = load_module("c9_flush", RUNTIME_DIR / "engine/flush.py" if (RUNTIME_DIR / "engine/flush.py").is_file() else TEMPLATE / ".beyin/engine/flush.py")
+COMPILE = load_module("c9_compile", RUNTIME_DIR / "engine/compile.py" if (RUNTIME_DIR / "engine/compile.py").is_file() else TEMPLATE / ".beyin/engine/compile.py")
+BRIEFING = load_module("c9_briefing", RUNTIME_DIR / "morning_briefing.py" if (RUNTIME_DIR / "morning_briefing.py").is_file() else TEMPLATE / ".beyin/morning_briefing.py")
+REPAIR_DAILY = load_module("c9_repair_daily", (ROOT / "runtime/scripts/repair_daily.py") if (ROOT / "runtime/scripts/repair_daily.py").is_file() else ROOT / "scripts/repair_daily.py")
 
 
 VALID_FLUSH_SUMMARY = """## Bağlam

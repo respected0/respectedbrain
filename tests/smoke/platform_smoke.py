@@ -22,6 +22,16 @@ ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = ("antigravity", "gemini", "codex", "cursor", "claude")
 
 
+def _configure_console_output() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+_configure_console_output()
+
+
 def _run(command: list[str], *, env: dict[str, str] | None = None) -> tuple[int, str, float]:
     started = time.perf_counter()
     merged = os.environ.copy()
@@ -47,7 +57,7 @@ def _sha256(path: Path) -> str:
 
 
 def _load_uninstaller():
-    spec = importlib.util.spec_from_file_location("smoke_uninstall", ROOT / "uninstall.py")
+    spec = importlib.util.spec_from_file_location("smoke_uninstall", ROOT / "installer" / "uninstall.py")
     if spec is None or spec.loader is None:
         raise RuntimeError("uninstall.py yüklenemedi")
     module = importlib.util.module_from_spec(spec)
@@ -82,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         install_command = [
-            sys.executable, str(ROOT / "install.py"), "--non-interactive",
+            sys.executable, str(ROOT / "installer" / "install.py"), "--non-interactive",
             "--vault-path", str(vault), "--user-name", "Smoke User",
             "--os-name", "SmokeOS", "--provider", "auto",
             "--environment", "native", "--quiet",
@@ -94,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
         record("transactional-fresh-install", passed, "" if passed else output, elapsed)
 
         code, output, elapsed = _run([
-            sys.executable, str(ROOT / "scripts/install_global.py"), str(vault),
+            sys.executable, str((ROOT / "runtime/scripts/install_global.py") if (ROOT / "runtime/scripts/install_global.py").is_file() else (ROOT / "scripts/install_global.py")), str(vault),
             "--home", str(home), "--platform", profile, "--providers", "all", "--apply",
         ])
         adapters = [
@@ -112,14 +122,14 @@ def main(argv: list[str] | None = None) -> int:
             "+ '## Yapılacaklar\\n- Smoke tamamla')\n",
             encoding="utf-8",
         )
-        state = vault / ".beyin/engine/.state"
+        state = (vault / ".beyin/engine/.state") if (vault / ".beyin/engine").is_dir() else (root / ".state")
         state.mkdir(parents=True, exist_ok=True)
         transcript = root / "synthetic-transcript.jsonl"
         env = {
             "HOME": str(home), "USERPROFILE": str(home), "BEYIN_PROVIDER": "codex",
             "BEYIN_LLM_COMMAND": f'"{Path(sys.executable).as_posix()}" "{helper.as_posix()}"',
         }
-        flush = vault / ".beyin/engine/flush.py"
+        flush = (vault / ".beyin/engine/flush.py") if (vault / ".beyin/engine/flush.py").is_file() else (ROOT / "runtime/engine/flush.py")
         total_elapsed = 0.0
         for revision in (1, 2):
             transcript.write_text(
@@ -134,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
             }), encoding="utf-8")
             code, output, elapsed = _run([
                 sys.executable, str(flush), "--hook-input", str(hook_input), "--reason", "turn",
+                "--vault", str(vault),
             ], env=env)
             total_elapsed += elapsed
             record(f"turn-flush-revision-{revision}", code == 0, "" if code == 0 else output, elapsed)
@@ -153,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
 
         for number in (1, 2):
             code, output, elapsed = _run([
-                sys.executable, str(ROOT / "update.py"), str(vault), "--apply", "--force",
+                sys.executable, str(ROOT / "installer" / "update.py"), str(vault), "--apply", "--force",
                 "--platform", profile,
             ], env={"HOME": str(home), "USERPROFILE": str(home)})
             record(f"transactional-update-{number}", code == 0, "" if code == 0 else output, elapsed)
