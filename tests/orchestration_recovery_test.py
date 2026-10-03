@@ -7,7 +7,7 @@ import sys
 import tempfile
 import unittest
 
-from antigravity_orchestrator_test import load_orchestrator
+from tests.antigravity_orchestrator_test import load_orchestrator
 
 
 class RecoveryTest(unittest.TestCase):
@@ -40,8 +40,7 @@ class RecoveryTest(unittest.TestCase):
             root = Path(directory)
             done = root / 'done'
             command = [sys.executable, '-c', 'import time,pathlib; time.sleep(1); pathlib.Path(' + repr(str(done)) + ').write_text("ok")']
-            source = ('import sys; sys.path.insert(0, ' + repr(str(Path(m.__file__).parent)) + '); '
-                      'import antigravity_orchestrator as m; from pathlib import Path; '
+            source = ('from respectedbrain.orchestration import antigravity_orchestrator as m; from pathlib import Path; '
                       'm._spawn_detached(' + repr(command) + ', Path(' + repr(str(root)) + '), Path(' + repr(str(root / 'log')) + '))')
             parent = subprocess.run([sys.executable, '-c', source], capture_output=True, timeout=10)
             self.assertEqual(parent.returncode, 0, parent.stderr.decode('utf-8', errors='replace'))

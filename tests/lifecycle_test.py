@@ -20,30 +20,26 @@ LIFECYCLE_PATH = ROOT / "runtime" / "hooks" / "lifecycle.py" if (ROOT / "runtime
 FIXED_NOW = datetime(2026, 8, 28, 20, 15)
 
 
-def load_lifecycle():
-    spec = importlib.util.spec_from_file_location("respected_lifecycle", LIFECYCLE_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load lifecycle module: {LIFECYCLE_PATH}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-LIFECYCLE = load_lifecycle()
+from types import SimpleNamespace
+from tests.foundation_memory_test import make_context
+from respectedbrain.memory import lifecycle as LIFECYCLE
 
 
 class LifecycleTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.vault = Path(self.temporary.name) / "Ada Brain"
-        self.state = self.vault / ".claude" / "scripts" / ".state"
+        self.ctx = make_context(self.vault)
+        self.state = self.ctx.paths.state_dir
         self.memory = self.vault / "🔮 850-Companion"
         self.state.mkdir(parents=True)
         self.memory.mkdir(parents=True)
         (self.vault / "knowledge").mkdir()
         (self.vault / "daily").mkdir()
         self._write_fixture_memory()
-        self._write_flush_recorder()
+        patcher = mock.patch.object(LIFECYCLE.subprocess, "Popen", side_effect=self._record_process)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -88,26 +84,23 @@ class LifecycleTest(unittest.TestCase):
             "# Daily\nBugünün girdisi.\n", encoding="utf-8"
         )
 
-    def _write_flush_recorder(self):
-        script = self.vault / ".claude" / "scripts" / "flush.py"
-        script.write_text(
-            """#!/usr/bin/env python3
-import json
-import os
-from pathlib import Path
-import sys
+    def handle(self, event, payload, vault, provider, now=FIXED_NOW):
+        return LIFECYCLE.handle_event(self.ctx, event=event, session_id=payload.get("session_id", ""),
+            transcript=Path(payload["transcript_path"]) if payload.get("transcript_path") else None,
+            payload={**payload, "provider": provider}, now=now)
 
-state = Path(__file__).parent / ".state"
-record = {"argv": sys.argv[1:], "provider": os.environ.get("BEYIN_PROVIDER")}
-if "--hook-input" in sys.argv:
-    source = Path(sys.argv[sys.argv.index("--hook-input") + 1])
-    record["payload"] = json.loads(source.read_text(encoding="utf-8"))
-    source.unlink()
-with (state / "flush-records.jsonl").open("a", encoding="utf-8") as handle:
-    handle.write(json.dumps(record) + "\\n")
-""",
-            encoding="utf-8",
-        )
+    def _record_process(self, command, **kwargs):
+        self.assertEqual(command[:4], [LIFECYCLE.sys.executable, "-m", "respectedbrain", "flush"])
+        self.assertEqual(command[4:6], ["--vault-id", self.ctx.paths.vault_id])
+        argv = command[6:]
+        record = {"argv": argv, "provider": kwargs["env"].get("BEYIN_PROVIDER")}
+        if "--hook-input" in argv:
+            source = Path(argv[argv.index("--hook-input") + 1])
+            record["payload"] = json.loads(source.read_text(encoding="utf-8"))
+            source.unlink()
+        with (self.state / "flush-records.jsonl").open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record) + "\n")
+        return SimpleNamespace(wait=lambda: 0)
 
     def _records(self, expected: int = 1):
         path = self.state / "flush-records.jsonl"
@@ -121,7 +114,7 @@ with (state / "flush-records.jsonl").open("a", encoding="utf-8") as handle:
         self.fail(f"expected {expected} detached flush record(s)")
 
     def test_start_builds_ordered_context_and_initializes_only_its_session(self):
-        context = LIFECYCLE.handle("start", {"session_id": "s1"}, self.vault, "codex", FIXED_NOW)
+        context = self.handle("start", {"session_id": "s1"}, self.vault, "codex", FIXED_NOW)
 
         self.assertEqual(
             [line for line in context.splitlines() if line.startswith("[") and line.endswith("]")],
@@ -153,7 +146,7 @@ with (state / "flush-records.jsonl").open("a", encoding="utf-8") as handle:
         (self.memory / "Kurallar.md").write_text("K" * 8_000, encoding="utf-8")
         (self.vault / "knowledge" / "index.md").write_text("I" * 20_000, encoding="utf-8")
 
-        context = LIFECYCLE.handle("start", {"session_id": "large"}, self.vault, "claude", FIXED_NOW)
+        context = self.handle("start", {"session_id": "large"}, self.vault, "claude", FIXED_NOW)
 
         self.assertLessEqual(len(context), 16_000)
         self.assertIn("[Hafıza: Son Oturum]", context)
@@ -167,19 +160,19 @@ with (state / "flush-records.jsonl").open("a", encoding="utf-8") as handle:
     def test_prompt_nudges_on_each_fifteenth_message(self):
         payload = {"session_id": "counted"}
         for _ in range(14):
-            self.assertEqual(LIFECYCLE.handle("prompt", payload, self.vault, "antigravity"), "")
+            self.assertEqual(self.handle("prompt", payload, self.vault, "antigravity"), "")
         self.assertEqual(
-            LIFECYCLE.handle("prompt", payload, self.vault, "antigravity"),
+            self.handle("prompt", payload, self.vault, "antigravity"),
             "[Hafıza] 15. mesaj. Oturum sonunda 🔮 850-Companion/Last-Session.md ve Threads.md güncellemeyi unutma.",
         )
         for _ in range(14):
-            self.assertEqual(LIFECYCLE.handle("prompt", payload, self.vault, "antigravity"), "")
-        self.assertIn("30. mesaj", LIFECYCLE.handle("prompt", payload, self.vault, "antigravity"))
+            self.assertEqual(self.handle("prompt", payload, self.vault, "antigravity"), "")
+        self.assertIn("30. mesaj", self.handle("prompt", payload, self.vault, "antigravity"))
 
     def test_concurrent_prompts_are_not_lost(self):
         payload = {"session_id": "parallel"}
         with ThreadPoolExecutor(max_workers=20) as pool:
-            list(pool.map(lambda _: LIFECYCLE.handle("prompt", payload, self.vault, "cursor"), range(100)))
+            list(pool.map(lambda _: self.handle("prompt", payload, self.vault, "cursor"), range(100)))
         key = LIFECYCLE.session_key("parallel")
         self.assertEqual((self.state / f"prompt_count.{key}").read_text().strip(), "100")
 
@@ -194,7 +187,7 @@ with (state / "flush-records.jsonl").open("a", encoding="utf-8") as handle:
         transcript.write_text('{"role":"user","content":"hello"}\n', encoding="utf-8")
         os.utime(self.memory / "Last-Session.md", (1_900_000_000, 1_900_000_000))
 
-        output = LIFECYCLE.handle(
+        output = self.handle(
             "end",
             {"session_id": "ended", "transcript_path": str(transcript)},
             self.vault,
@@ -218,7 +211,7 @@ with (state / "flush-records.jsonl").open("a", encoding="utf-8") as handle:
         (self.state / f"session_start_time.{key}").write_text("2000000000\n", encoding="utf-8")
         (self.state / f"prompt_count.{key}").write_text("9\n", encoding="utf-8")
 
-        output = LIFECYCLE.handle(
+        output = self.handle(
             "precompact", {"session_id": "live", "trigger": "manual"}, self.vault, "claude", FIXED_NOW
         )
 
@@ -230,7 +223,7 @@ with (state / "flush-records.jsonl").open("a", encoding="utf-8") as handle:
         self.assertEqual(record["payload"]["trigger"], "manual")
 
     def test_invalid_payload_records_health_and_has_no_lifecycle_effect(self):
-        output = LIFECYCLE.handle("start", {"session_id": ""}, self.vault, "codex", FIXED_NOW)
+        output = self.handle("start", {"session_id": ""}, self.vault, "codex", FIXED_NOW)
 
         self.assertEqual(output, "")
         health = json.loads((self.state / "health.json").read_text(encoding="utf-8"))

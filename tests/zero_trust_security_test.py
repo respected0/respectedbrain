@@ -25,9 +25,9 @@ def tearDownModule():
     sys.path[:] = ORIGINAL_SYS_PATH
 
 from scripts.url_safety import validate_safe_url, is_safe_url
-from scripts.publish_git_snapshot import publish_if_due
+from respectedbrain.maintenance.backup.publish_git_snapshot import publish_if_due
 from scripts.vault_mcp_server import RespectedMcpServer
-from scripts.mine_agent_history import AgentHistoryMiner
+from respectedbrain.maintenance.ingestion.mine_agent_history import AgentHistoryMiner
 from scripts.smart_merge import smart_merge, dump_frontmatter
 from scripts.tiling_check import check_tiling
 from scripts.defuddle import clean_html, MAX_HTML_STRING_LEN
@@ -36,7 +36,9 @@ from scripts.defuddle import clean_html, MAX_HTML_STRING_LEN
 class ZeroTrustSecurityTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.vault_root = Path(self.temp_dir.name)
+        self.vault_root = Path(self.temp_dir.name) / "vault"
+        from tests.foundation_memory_test import make_context
+        self.ctx = make_context(self.vault_root)
         (self.vault_root / ".beyin").mkdir(parents=True, exist_ok=True)
         (self.vault_root / ".beyin" / "instructions.md").write_text("Test Instructions", encoding="utf-8")
 
@@ -80,27 +82,27 @@ class ZeroTrustSecurityTests(unittest.TestCase):
     # --- 2. publish_git_snapshot Tests ---
     def test_publish_git_snapshot_unmocked_non_git_vault_halts_fail_closed(self):
         """Without any mocks, running publish_if_due on a non-git directory must halt fail-closed."""
-        result = publish_if_due(self.vault_root, "origin", "main", apply=True)
+        result = publish_if_due(self.vault_root, "origin", "main", apply=True, receipt_file=self.ctx.paths.state_dir / "git-snapshot-receipt.json")
         self.assertTrue(result["status"].startswith("halted:"))
         self.assertIn("fail-closed", result["detail"].lower())
 
-    @patch("scripts.publish_git_snapshot._branch_divergence_status")
-    @patch("scripts.publish_git_snapshot.check_secret_guard")
+    @patch("respectedbrain.maintenance.backup.publish_git_snapshot._branch_divergence_status")
+    @patch("respectedbrain.maintenance.backup.publish_git_snapshot.check_secret_guard")
     def test_publish_git_snapshot_fail_closed_on_divergence_error(self, mock_guard, mock_div):
         mock_guard.return_value = (True, [])
         mock_div.return_value = "error"
 
-        result = publish_if_due(self.vault_root, "origin", "main", apply=True)
+        result = publish_if_due(self.vault_root, "origin", "main", apply=True, receipt_file=self.ctx.paths.state_dir / "git-snapshot-receipt.json")
         self.assertEqual(result["status"], "halted:error")
         self.assertIn("fail-closed", result["detail"])
 
-    @patch("scripts.publish_git_snapshot._branch_divergence_status")
-    @patch("scripts.publish_git_snapshot.check_secret_guard")
+    @patch("respectedbrain.maintenance.backup.publish_git_snapshot._branch_divergence_status")
+    @patch("respectedbrain.maintenance.backup.publish_git_snapshot.check_secret_guard")
     def test_publish_git_snapshot_fail_closed_on_divergence_unknown(self, mock_guard, mock_div):
         mock_guard.return_value = (True, [])
         mock_div.return_value = "unknown"
 
-        result = publish_if_due(self.vault_root, "origin", "main", apply=True)
+        result = publish_if_due(self.vault_root, "origin", "main", apply=True, receipt_file=self.ctx.paths.state_dir / "git-snapshot-receipt.json")
         self.assertEqual(result["status"], "halted:unknown")
         self.assertIn("fail-closed", result["detail"])
 
@@ -134,7 +136,7 @@ class ZeroTrustSecurityTests(unittest.TestCase):
 
     # --- 4. mine_agent_history Tests ---
     def test_mine_agent_history_yaml_escaping(self):
-        miner = AgentHistoryMiner(self.vault_root)
+        miner = AgentHistoryMiner(self.vault_root, state_file=self.ctx.paths.state_dir / "imported_sessions.json", temp_dir=self.ctx.paths.cache_dir)
         import datetime as dt
         session_data = {
             "id": "sess-123",

@@ -35,8 +35,9 @@ def load(name: str, path: Path):
     return module
 
 
-FLUSH = load("turn_pipeline_flush", BEYIN / "engine/flush.py")
-LIFECYCLE = load("turn_pipeline_lifecycle", BEYIN / "hooks/lifecycle.py")
+from respectedbrain.memory import flush as FLUSH
+from tests.foundation_memory_test import FakeModel, make_context
+from respectedbrain.memory import lifecycle as LIFECYCLE
 CODEX_NOTIFY = load("turn_pipeline_codex_notify", BEYIN / "hooks/codex_notify.py")
 
 
@@ -44,7 +45,9 @@ class TurnLogPipelineTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory(prefix="turn-log-")
         self.vault = Path(self.temporary.name) / "Furkan'ın 🧠 Brain"
-        self.state = self.vault / ".beyin/engine/.state"
+        self.vault.mkdir(parents=True)
+        self.ctx = make_context(self.vault)
+        self.state = self.ctx.paths.state_dir
         self.state.mkdir(parents=True)
 
     def tearDown(self) -> None:
@@ -108,10 +111,7 @@ class TurnLogPipelineTest(unittest.TestCase):
     def test_twenty_four_processes_share_one_daily_without_lost_updates(self):
         worker = """
 import datetime as dt, importlib.util, pathlib, sys
-spec = importlib.util.spec_from_file_location('process_flush_' + sys.argv[4], sys.argv[1])
-module = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = module
-spec.loader.exec_module(module)
+from respectedbrain.memory import flush as module
 module._upsert_daily_session(
     pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3]),
     '## Baglam\\nProcess ' + sys.argv[4], 'turn',
@@ -173,10 +173,10 @@ module._upsert_daily_session(
 
         with mock.patch.object(FLUSH, "_run_model", side_effect=[(newer_summary, None), (older_summary, None)]):
             first = FLUSH._flush_session_transcript(
-                self.vault, self.state, newer, "same-session", "turn", base
+                self.vault, self.state, newer, "same-session", "turn", base, FakeModel(), self.ctx.paths.cache_dir
             )
             second = FLUSH._flush_session_transcript(
-                self.vault, self.state, older, "same-session", "turn", base - dt.timedelta(seconds=1)
+                self.vault, self.state, older, "same-session", "turn", base - dt.timedelta(seconds=1), FakeModel(), self.ctx.paths.cache_dir
             )
 
         content = (self.vault / "daily/2026-09-14.md").read_text(encoding="utf-8")
@@ -193,7 +193,7 @@ module._upsert_daily_session(
         prompt_file.write_text("2\n", encoding="utf-8")
 
         with mock.patch.object(LIFECYCLE, "_launch_flush", return_value=True) as launch:
-            LIFECYCLE.handle("turn", payload, self.vault, "codex")
+            LIFECYCLE.handle_event(self.ctx, event="turn", session_id=payload["session_id"], transcript=Path(payload["transcript_path"]), payload={**payload, "provider":"codex"}, now=dt.datetime.now())
 
         self.assertTrue(start_file.exists())
         self.assertTrue(prompt_file.exists())
@@ -294,8 +294,8 @@ module._upsert_daily_session(
 
         with mock.patch.object(FLUSH, "_flush_session_transcript", return_value=True) as flush:
             count = FLUSH.catch_up_unflushed_sessions(
-                self.vault,
-                self.state,
+                self.ctx,
+                model=FakeModel(),
                 now=now,
                 home=home,
             )

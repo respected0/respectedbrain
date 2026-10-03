@@ -15,10 +15,8 @@ EVENTS_PATH = ROOT / "runtime/events.py" if (ROOT / "runtime/events.py").is_file
 
 
 def load_events_module():
-    spec = importlib.util.spec_from_file_location("events_module", EVENTS_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    from respectedbrain.memory import events
+    return events
 
 
 class EventLogTest(unittest.TestCase):

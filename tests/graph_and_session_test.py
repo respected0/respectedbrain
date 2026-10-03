@@ -5,30 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ORIGINAL_SYS_PATH = None
-
-# .beyin gizli klasör olduğu için sys.path'e ekliyoruz
-BEYIN_DIR = Path(__file__).resolve().parent.parent / "template" / ".beyin"
-if str(BEYIN_DIR) not in sys.path:
-    sys.path.insert(0, str(BEYIN_DIR))
-
-
-def setUpModule() -> None:
-    global ORIGINAL_SYS_PATH
-    ORIGINAL_SYS_PATH = list(sys.path)
-    if str(BEYIN_DIR) not in sys.path:
-        sys.path.insert(0, str(BEYIN_DIR))
-
-
-def tearDownModule() -> None:
-    if ORIGINAL_SYS_PATH is not None:
-        sys.path[:] = ORIGINAL_SYS_PATH
-
-
-from graph_analysis import analyze_graph, build_graph, find_bridge_nodes, cross_link_vault  # type: ignore[import-not-found]
-from graphrag import build_index, find_path, query_vault  # type: ignore[import-not-found]
-from session_brain import SessionBrain  # type: ignore[import-not-found]
-from session_viz import render_html  # type: ignore[import-not-found]
+from respectedbrain.memory.graph.graph_analysis import analyze_graph, build_graph, find_bridge_nodes, cross_link_vault
+from respectedbrain.memory.graph.graphrag import build_index, find_path, query_vault
+from respectedbrain.memory.session_brain import SessionBrain
+from respectedbrain.memory.session_viz import render_html
 
 
 class TestGraphAnalysis(unittest.TestCase):

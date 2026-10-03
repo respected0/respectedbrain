@@ -14,11 +14,12 @@ ROOT = Path(__file__).resolve().parent.parent
 FLUSH_PATH = ROOT / "runtime/engine/flush.py" if (ROOT / "runtime/engine/flush.py").is_file() else ROOT / "template/.beyin/engine/flush.py"
 
 
+from datetime import datetime
+from tests.foundation_memory_test import FakeModel, make_context
+
 def load_flush_module():
-    spec = importlib.util.spec_from_file_location("flush_module", FLUSH_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    from respectedbrain.memory import flush
+    return flush
 
 
 VALID_SUMMARY = """## Bağlam
@@ -87,7 +88,7 @@ class OutputNormalizationTest(unittest.TestCase):
         with mock.patch.object(self.flush, "_run_model", return_value=(VALID_SUMMARY, None)) as mock_run:
             with tempfile.TemporaryDirectory() as temp_dir:
                 vault_root = Path(temp_dir)
-                repaired = repair_func(INVALID_SUMMARY_BAD_HEADINGS, vault_root)
+                repaired = repair_func(INVALID_SUMMARY_BAD_HEADINGS, vault_root, FakeModel(), Path(tempfile.gettempdir()))
                 self.assertEqual(repaired, VALID_SUMMARY.strip())
                 self.assertEqual(mock_run.call_count, 1)
 
@@ -105,7 +106,7 @@ class OutputNormalizationTest(unittest.TestCase):
         with mock.patch.object(self.flush, "_run_model", return_value=(INVALID_SUMMARY_BAD_HEADINGS, None)) as mock_run:
             with tempfile.TemporaryDirectory() as temp_dir:
                 vault_root = Path(temp_dir)
-                repaired = repair_func(INVALID_SUMMARY_BAD_HEADINGS, vault_root)
+                repaired = repair_func(INVALID_SUMMARY_BAD_HEADINGS, vault_root, FakeModel(), Path(tempfile.gettempdir()))
                 self.assertIsNone(repaired)
                 self.assertEqual(mock_run.call_count, 1)
 
@@ -113,7 +114,7 @@ class OutputNormalizationTest(unittest.TestCase):
         """When initial flush produces invalid schema, the 1-shot repair succeeds and completes the flush."""
         call_count = 0
 
-        def fake_run_model(prompt, vault_root):
+        def fake_run_model(prompt, vault_root, model, cache_dir):
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -123,8 +124,10 @@ class OutputNormalizationTest(unittest.TestCase):
             return VALID_SUMMARY, None
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            vault_root = Path(temp_dir)
-            state_dir = vault_root / ".claude" / "scripts" / ".state"
+            vault_root = Path(temp_dir) / "vault"
+            vault_root.mkdir()
+            ctx = make_context(vault_root)
+            state_dir = ctx.paths.state_dir
             state_dir.mkdir(parents=True, exist_ok=True)
             daily_dir = vault_root / "daily"
 
@@ -140,14 +143,9 @@ class OutputNormalizationTest(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with mock.patch.object(self.flush, "VAULT_ROOT", vault_root), \
-                 mock.patch.object(self.flush, "STATE_DIR", state_dir), \
-                 mock.patch.object(self.flush, "_run_model", side_effect=fake_run_model):
-
-                exit_code = self.flush.main([
-                    "--hook-input", str(hook_input),
-                    "--reason", "sessionend",
-                ])
+            with mock.patch.object(self.flush, "_run_model", side_effect=fake_run_model):
+                exit_code = self.flush.flush(ctx, session_id="repair-test-1", transcript=transcript_path,
+                                            model=FakeModel(), now=datetime(2026, 9, 11, 12, 0))
                 self.assertEqual(exit_code, 0)
                 self.assertEqual(call_count, 2)
 

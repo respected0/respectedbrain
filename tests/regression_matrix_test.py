@@ -43,13 +43,13 @@ def load_module(name: str, path: Path):
 
 
 RUNTIME_DIR = ROOT / "runtime" if (ROOT / "runtime").is_dir() else ROOT / "template/.beyin"
-LIFECYCLE = load_module("c9_lifecycle", RUNTIME_DIR / "hooks/lifecycle.py" if (RUNTIME_DIR / "hooks/lifecycle.py").is_file() else TEMPLATE / ".beyin/hooks/lifecycle.py")
+from respectedbrain.memory import lifecycle as LIFECYCLE
 BRIDGE = load_module("c9_bridge", RUNTIME_DIR / "hooks/bridge.py" if (RUNTIME_DIR / "hooks/bridge.py").is_file() else TEMPLATE / ".beyin/hooks/bridge.py")
-MODEL_RUNNER = load_module("c9_model_runner", RUNTIME_DIR / "model_runner.py" if (RUNTIME_DIR / "model_runner.py").is_file() else TEMPLATE / ".beyin/model_runner.py")
-RUNTIME = load_module("c9_runtime", RUNTIME_DIR / "runtime_platform.py" if (RUNTIME_DIR / "runtime_platform.py").is_file() else TEMPLATE / ".beyin/runtime_platform.py")
-FLUSH = load_module("c9_flush", RUNTIME_DIR / "engine/flush.py" if (RUNTIME_DIR / "engine/flush.py").is_file() else TEMPLATE / ".beyin/engine/flush.py")
-COMPILE = load_module("c9_compile", RUNTIME_DIR / "engine/compile.py" if (RUNTIME_DIR / "engine/compile.py").is_file() else TEMPLATE / ".beyin/engine/compile.py")
-BRIEFING = load_module("c9_briefing", RUNTIME_DIR / "morning_briefing.py" if (RUNTIME_DIR / "morning_briefing.py").is_file() else TEMPLATE / ".beyin/morning_briefing.py")
+from respectedbrain.providers import runner as MODEL_RUNNER
+from respectedbrain.core import platform as RUNTIME
+from respectedbrain.memory import flush as FLUSH
+from respectedbrain.memory import compile as COMPILE
+from respectedbrain.briefing import service as BRIEFING
 REPAIR_DAILY = load_module("c9_repair_daily", (ROOT / "runtime/scripts/repair_daily.py") if (ROOT / "runtime/scripts/repair_daily.py").is_file() else ROOT / "scripts/repair_daily.py")
 
 
@@ -78,11 +78,16 @@ VALID_BRIEFING_BODY = """## Dün tamamlananlar
 """
 
 
+from contextlib import nullcontext
+from tests.foundation_memory_test import FakeModel, make_context
+
+
 class RegressionMatrixTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="respected-c9-")
         self.vault = Path(self.temporary.name) / "TestBrain"
-        self.state_dir = self.vault / ".beyin" / "engine" / ".state"
+        self.ctx = make_context(self.vault)
+        self.state_dir = self.ctx.paths.state_dir
         self.daily_dir = self.vault / "daily"
         self.knowledge_dir = self.vault / "knowledge"
         self.briefings_dir = self.vault / "🎯 100-Command-Center" / "Briefings"
@@ -111,6 +116,25 @@ class RegressionMatrixTest(unittest.TestCase):
         (self.command_dir / "Skills-Map.md").write_text("# Skills Map\nBeceriler.\n", encoding="utf-8")
         (self.knowledge_dir / "index.md").write_text("# Knowledge Index\nKavramlar.\n", encoding="utf-8")
 
+    def handle_event(self, vault, provider, event, payload):
+        output = LIFECYCLE.handle_event(self.ctx, event=event, session_id=payload.get("session_id", ""),
+            transcript=None,
+            payload={**payload, "provider":provider}, now=datetime.now())
+        return 0, output
+
+    def run_briefing(self, vault, now, *, model_call, compile_call=None):
+        from respectedbrain.core.context import ModelResult
+        class Model:
+            def run(self, prompt, *, cwd, mode, timeout):
+                text, error, provider = model_call(prompt, cwd)
+                return ModelResult(text, provider, error)
+        if compile_call:
+            with mock.patch.object(BRIEFING, "compile_memory", side_effect=lambda ctx, **kw: compile_call(ctx.paths.vault_root)):
+                self.briefing_status = BRIEFING.run_if_due(self.ctx, model=Model(), now=now)
+        else:
+            self.briefing_status = BRIEFING.run_if_due(self.ctx, model=Model(), now=now)
+        return (self.briefings_dir / f"{now:%Y-%m-%d}.md").is_file()
+
     def tearDown(self):
         self.temporary.cleanup()
 
@@ -119,7 +143,7 @@ class RegressionMatrixTest(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_01_claude_normal_flow(self):
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
-            code, stdout = LIFECYCLE.handle_event(self.vault, "claude", "SessionStart", {"session_id": "claude-1"})
+            code, stdout = self.handle_event(self.vault, "claude", "SessionStart", {"session_id": "claude-1"})
             self.assertEqual(code, 0)
             self.assertIn("Furkan", stdout)
             self.assertIn("[Hafıza: Kurallar]", stdout)
@@ -131,10 +155,10 @@ class RegressionMatrixTest(unittest.TestCase):
     def test_02_claude_precompact_flow(self):
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
             payload = {"session_id": "claude-pre", "transcript_path": "/fake/transcript.json"}
-            code, _ = LIFECYCLE.handle_event(self.vault, "claude", "PreCompact", payload)
+            code, _ = self.handle_event(self.vault, "claude", "PreCompact", payload)
             self.assertEqual(code, 0)
             mock_launch.assert_called_once_with(
-                self.vault, self.state_dir, "claude", payload=payload, reason="precompact"
+                self.ctx, "claude", payload={**payload, "provider":"claude"}, reason="precompact"
             )
 
     # -------------------------------------------------------------------------
@@ -143,18 +167,18 @@ class RegressionMatrixTest(unittest.TestCase):
     def test_03_codex_normal_flow(self):
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
             start_payload = {"session_id": "codex-s1"}
-            code, stdout = LIFECYCLE.handle_event(self.vault, "codex", "SessionStart", start_payload)
+            code, stdout = self.handle_event(self.vault, "codex", "SessionStart", start_payload)
             self.assertEqual(code, 0)
             self.assertIn("Furkan", stdout)
             mock_launch.assert_called_once()
 
         prompt_payload = {"session_id": "codex-s1", "prompt": "test"}
-        code, _ = LIFECYCLE.handle_event(self.vault, "codex", "UserPromptSubmit", prompt_payload)
+        code, _ = self.handle_event(self.vault, "codex", "UserPromptSubmit", prompt_payload)
         self.assertEqual(code, 0)
 
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
             end_payload = {"session_id": "codex-s1", "transcript_path": "/fake/transcript.json"}
-            code, _ = LIFECYCLE.handle_event(self.vault, "codex", "SessionEnd", end_payload)
+            code, _ = self.handle_event(self.vault, "codex", "SessionEnd", end_payload)
             self.assertEqual(code, 0)
             mock_launch.assert_called_once()
 
@@ -164,7 +188,7 @@ class RegressionMatrixTest(unittest.TestCase):
     def test_04_codex_precompact_flow(self):
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
             payload = {"session_id": "codex-pre", "transcript_path": "/fake/transcript.json"}
-            code, _ = LIFECYCLE.handle_event(self.vault, "codex", "PreCompact", payload)
+            code, _ = self.handle_event(self.vault, "codex", "PreCompact", payload)
             self.assertEqual(code, 0)
             mock_launch.assert_called_once()
 
@@ -173,16 +197,16 @@ class RegressionMatrixTest(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_05_cursor_normal_flow(self):
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
-            code, stdout = LIFECYCLE.handle_event(self.vault, "cursor", "sessionStart", {"session_id": "cur-1"})
+            code, stdout = self.handle_event(self.vault, "cursor", "sessionStart", {"session_id": "cur-1"})
             self.assertEqual(code, 0)
             self.assertIn("Furkan", stdout)
             mock_launch.assert_called_once()
 
-        code, _ = LIFECYCLE.handle_event(self.vault, "cursor", "beforeSubmitPrompt", {"session_id": "cur-1"})
+        code, _ = self.handle_event(self.vault, "cursor", "beforeSubmitPrompt", {"session_id": "cur-1"})
         self.assertEqual(code, 0)
 
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
-            code, _ = LIFECYCLE.handle_event(self.vault, "cursor", "sessionEnd", {"session_id": "cur-1", "transcript_path": "/path"})
+            code, _ = self.handle_event(self.vault, "cursor", "sessionEnd", {"session_id": "cur-1", "transcript_path": "/path"})
             self.assertEqual(code, 0)
             mock_launch.assert_called_once()
 
@@ -192,7 +216,7 @@ class RegressionMatrixTest(unittest.TestCase):
     def test_06_cursor_precompact_empty_transcript(self):
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
             payload = {"session_id": "cur-pre-empty"}
-            code, _ = LIFECYCLE.handle_event(self.vault, "cursor", "preCompact", payload)
+            code, _ = self.handle_event(self.vault, "cursor", "preCompact", payload)
             self.assertEqual(code, 0)
             mock_launch.assert_called_once()
 
@@ -201,13 +225,13 @@ class RegressionMatrixTest(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_07_antigravity_normal_flow(self):
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
-            code, stdout = LIFECYCLE.handle_event(self.vault, "antigravity", "PreInvocation", {"session_id": "agy-1"})
+            code, stdout = self.handle_event(self.vault, "antigravity", "PreInvocation", {"session_id": "agy-1"})
             self.assertEqual(code, 0)
             self.assertIn("Furkan", stdout)
             mock_launch.assert_called_once()
 
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
-            code, _ = LIFECYCLE.handle_event(self.vault, "antigravity", "Stop", {"session_id": "agy-1", "transcript_path": "/path"})
+            code, _ = self.handle_event(self.vault, "antigravity", "Stop", {"session_id": "agy-1", "transcript_path": "/path"})
             self.assertEqual(code, 0)
             mock_launch.assert_called_once()
 
@@ -217,7 +241,7 @@ class RegressionMatrixTest(unittest.TestCase):
     def test_08_antigravity_background_agy_recursion_guard(self):
         with mock.patch.dict(os.environ, {"BEYIN_INVOKED_BY": "beyin-scripts"}):
             with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
-                code, stdout = LIFECYCLE.handle_event(self.vault, "antigravity", "Stop", {"session_id": "agy-rec"})
+                code, stdout = self.handle_event(self.vault, "antigravity", "Stop", {"session_id": "agy-rec"})
                 self.assertEqual(code, 0)
                 mock_launch.assert_not_called()
 
@@ -253,7 +277,7 @@ class RegressionMatrixTest(unittest.TestCase):
     def test_11_recursion_depth_limit_exceeded(self):
         with mock.patch.dict(os.environ, {"BEYIN_RECURSION_DEPTH": "2"}):
             with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
-                code, _ = LIFECYCLE.handle_event(self.vault, "claude", "SessionEnd", {"session_id": "s-dep"})
+                code, _ = self.handle_event(self.vault, "claude", "SessionEnd", {"session_id": "s-dep"})
                 self.assertEqual(code, 0)
                 mock_launch.assert_not_called()
 
@@ -306,18 +330,18 @@ class RegressionMatrixTest(unittest.TestCase):
 
         event_time = datetime(2026, 9, 4, 11, 0)
         with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_FLUSH_SUMMARY, None)):
-            with mock.patch.object(FLUSH, "VAULT_ROOT", self.vault):
-                with mock.patch.object(FLUSH, "STATE_DIR", self.state_dir):
-                    args = FLUSH._parse_args(["--hook-input", str(hook_input_path), "--reason", "sessionend"])
+            with nullcontext():
+                with nullcontext():
+                    hook_data = FLUSH.load_hook_input(hook_input_path)
                     # First run: should append
-                    code1 = FLUSH._flush_once(args, event_time)
+                    code1 = FLUSH.flush(self.ctx, session_id=hook_data["session_id"], transcript=Path(hook_data["transcript_path"]), model=FakeModel(), now=event_time)
                     self.assertEqual(code1, 0)
                     daily_file = self.daily_dir / "2026-09-04.md"
                     self.assertTrue(daily_file.exists())
                     self.assertEqual(daily_file.read_text(encoding="utf-8").count("### Oturum"), 1)
 
                     # Second run with same session_id: should be no-op
-                    code2 = FLUSH._flush_once(args, event_time)
+                    code2 = FLUSH.flush(self.ctx, session_id=hook_data["session_id"], transcript=Path(hook_data["transcript_path"]), model=FakeModel(), now=event_time)
                     self.assertEqual(code2, 0)
                     self.assertEqual(daily_file.read_text(encoding="utf-8").count("### Oturum"), 1)
 
@@ -356,10 +380,10 @@ class RegressionMatrixTest(unittest.TestCase):
 
         after_18 = datetime(2026, 9, 4, 19, 30)
         with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_FLUSH_SUMMARY, None)):
-            with mock.patch.object(FLUSH, "VAULT_ROOT", self.vault):
-                with mock.patch.object(FLUSH, "STATE_DIR", self.state_dir):
-                    args = FLUSH._parse_args(["--hook-input", str(hook_input_path), "--reason", "sessionend"])
-                    FLUSH._flush_once(args, after_18)
+            with nullcontext():
+                with nullcontext():
+                    hook_data = FLUSH.load_hook_input(hook_input_path)
+                    FLUSH.flush(self.ctx, session_id=hook_data["session_id"], transcript=Path(hook_data["transcript_path"]), model=FakeModel(), now=after_18)
 
                     # Trigger file must NOT be created
                     trigger = self.state_dir / "compile-trigger-2026-09-04"
@@ -376,15 +400,15 @@ class RegressionMatrixTest(unittest.TestCase):
 
         def mock_compile_stage(*args, **kwargs):
             pipeline_order.append("compile")
-            return True, None
+            return 0
 
         def mock_briefing_model(*args, **kwargs):
             pipeline_order.append("briefing")
             return VALID_BRIEFING_BODY, None, "custom"
 
         morning_time = datetime(2026, 9, 4, 8, 15)
-        with mock.patch.object(BRIEFING, "_run_morning_compile", mock_compile_stage):
-            result = BRIEFING.run_if_due(self.vault, morning_time, model_call=mock_briefing_model)
+        with mock.patch.object(BRIEFING, "compile_memory", mock_compile_stage):
+            result = self.run_briefing(self.vault, morning_time, model_call=mock_briefing_model)
             self.assertTrue(result)
             self.assertEqual(pipeline_order, ["compile", "briefing"])
             briefing_file = self.briefings_dir / "2026-09-04.md"
@@ -395,8 +419,8 @@ class RegressionMatrixTest(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_17_missed_0800_schedule_catches_up(self):
         later_time = datetime(2026, 9, 4, 11, 45)
-        with mock.patch.object(BRIEFING, "_run_morning_compile", return_value=None):
-            result = BRIEFING.run_if_due(
+        with mock.patch.object(BRIEFING, "compile_memory", return_value=None):
+            result = self.run_briefing(
                 self.vault,
                 later_time,
                 model_call=lambda p, c: (VALID_BRIEFING_BODY, None, "custom"),
@@ -417,26 +441,27 @@ class RegressionMatrixTest(unittest.TestCase):
             raise RuntimeError("compile-simulated-error")
 
         morning_time = datetime(2026, 9, 4, 8, 5)
-        result = BRIEFING.run_if_due(
+        result = self.run_briefing(
             self.vault,
             morning_time,
             model_call=lambda p, c: (VALID_BRIEFING_BODY, None, "custom"),
             compile_call=failing_compile,
         )
         self.assertTrue(result, "run_if_due must return True even if compilation raises an exception")
+        self.assertEqual(self.briefing_status, 1, "compile failure must remain visible to explicit callers")
         self.assertTrue(compile_called, "compile_call must be attempted before generating briefing")
         briefing_file = self.briefings_dir / "2026-09-04.md"
         self.assertTrue(briefing_file.is_file(), "Briefing file must be successfully generated")
 
     def test_21_briefing_model_failure_records_health(self):
         morning_time = datetime(2026, 9, 4, 8, 30)
-        result = BRIEFING.run_if_due(
+        result = self.run_briefing(
             self.vault,
             morning_time,
             model_call=lambda p, c: (None, "model-timeout-error", "custom"),
         )
         self.assertFalse(result, "run_if_due must return False when model call fails")
-        health = self.state_dir / "briefing-health.json"
+        health = self.ctx.paths.state_dir / "briefing-health.json"
         self.assertTrue(health.is_file(), "briefing-health.json must be recorded on model error")
         data = json.loads(health.read_text(encoding="utf-8"))
         self.assertEqual(data.get("error"), "model-timeout-error")
@@ -469,7 +494,7 @@ class RegressionMatrixTest(unittest.TestCase):
         )
 
         with mock.patch.object(LIFECYCLE, "_launch_flush") as mock_launch:
-            code, stdout = LIFECYCLE.handle_event(self.vault, "antigravity", "PreInvocation", {"session_id": "agy-cont"})
+            code, stdout = self.handle_event(self.vault, "antigravity", "PreInvocation", {"session_id": "agy-cont"})
             self.assertEqual(code, 0)
             self.assertIn("Furkan", stdout)
             mock_launch.assert_called_once()

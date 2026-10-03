@@ -25,12 +25,8 @@ def tearDownModule() -> None:
 
 
 def load_compile_module():
-    spec = importlib.util.spec_from_file_location("compile_module", COMPILE_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("compile module cannot be loaded")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    from respectedbrain.memory import compile
+    return compile
 
 
 def load_update_module():
@@ -72,7 +68,7 @@ class BoundaryRegressionTest(unittest.TestCase):
                  mock.patch.object(self.compile, "_run_model") as mock_model:
 
                 with self.assertRaises(self.compile.PolicyError) as cm:
-                    self.compile._prepare_stage(vault_root, state_dir, daily_file)
+                    self.compile._prepare_stage(vault_root, state_dir, daily_file, Path(tempfile.gettempdir()))
 
                 self.assertIn("staging-inside-vault", str(cm.exception))
                 self.assertEqual(mock_model.call_count, 0)

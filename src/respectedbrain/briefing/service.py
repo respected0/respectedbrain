@@ -247,10 +247,13 @@ def run_if_due(ctx: AppContext, *, model: ModelService, now: datetime) -> int:
         with exclusive_lock(lock, timeout=0):
             if final.is_file():
                 return 0
-            status = compile_memory(ctx, model=model, now=now)
-            if status:
+            try:
+                compile_status = compile_memory(ctx, model=model, now=now)
+            except Exception as error:
+                compile_status = 1
+                _record_health(state, now, "compile:" + type(error).__name__)
+            if compile_status:
                 _record_health(state, now, "compile-failed")
-                return 1
             ctx.paths.cache_dir.mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryDirectory(prefix="briefing-", dir=ctx.paths.cache_dir) as stage:
                 result = model.run(_prompt(root, now), cwd=Path(stage), mode="text", timeout=300)
@@ -263,8 +266,9 @@ def run_if_due(ctx: AppContext, *, model: ModelService, now: datetime) -> int:
             _atomic_write(final, document)
             created = True
             _update_dashboard(dashboard, day)
-            (state / "briefing-health.json").unlink(missing_ok=True)
-            return 0
+            if not compile_status:
+                (state / "briefing-health.json").unlink(missing_ok=True)
+            return 1 if compile_status else 0
     except BusyError:
         return 0
     except (OSError, UnicodeError, ValueError) as error:
