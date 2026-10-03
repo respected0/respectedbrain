@@ -4,7 +4,12 @@ created: 2026-10-03
 scope: project
 confidence: inferred
 supersedes: []
-status: written-spec-review
+status: written-spec-approved
+timeline:
+  - from: 2026-10-03
+    until: 2026-10-03
+    learned: Yazılı sözleşme kullanıcı incelemesini bekliyordu; kullanıcı onayladı.
+    source: "the human partner reviews and approves the written spec"
 ---
 
 # Kurulum ve Geçiş Sözleşmeleri
@@ -12,7 +17,8 @@ status: written-spec-review
 Bu belge [modüler temel tasarımının](2026-10-03-modular-foundation-design.md)
 parçasıdır. Program/veri/kasa konumları ve modül sınırları ana sözleşmede
 yaşar; burada komut, kurulum, veri koruma ve kabul koşulları tanımlanır.
-Yazılı ayrıntılar henüz kullanıcı incelemesindedir; canlı geçiş yapılmamıştır.
+Yazılı sözleşme 2026-10-03 tarihinde kullanıcı tarafından onaylandı; canlı
+geçiş yapılmamıştır.
 
 ## 1. Tek CLI ve entegrasyon sözleşmesi
 

@@ -4,15 +4,20 @@ created: 2026-10-03
 scope: project
 confidence: inferred
 supersedes: []
-status: written-spec-review
+status: written-spec-approved
+timeline:
+  - from: 2026-10-03
+    until: 2026-10-03
+    learned: Yazılı sözleşme kullanıcı incelemesini bekliyordu; kullanıcı onayladı.
+    source: "the human partner reviews and approves the written spec"
 ---
 
 # Respected Brain — Modüler Temel ve Kurulum Sözleşmesi
 
 Kullanıcı 2026-10-03 tarihinde önce/sonra açıklamasındaki mimari yönü kabul etti:
 “bu sistemi beğendim. bu mimariye kesinlikle geçmeliyiz”. Bu belge o yönün
-uygulanabilir sözleşmesidir. Mimari yön kabul edilmiştir; yazılı ayrıntıların
-incelemesi ve uygulama planı henüz tamamlanmamıştır. Hedef yerleşim mevcut
+uygulanabilir sözleşmesidir. Kullanıcı yazılı sözleşmeyi de 2026-10-03 tarihinde
+onayladı; uygulama planı ayrı inceleme aşamasındadır. Hedef yerleşim mevcut
 kurulumun bugün bu şekilde çalıştığı anlamına gelmez.
 
 ## Kısa okuma: ne değişecek?
@@ -123,7 +128,8 @@ RespectedBrain/
 └── vaults/
     └── <vault-id>/
         ├── state/
-        └── cache/
+        ├── cache/
+        └── overrides/             # varsa kişisel instructions/skills
 ```
 
 Bu konum yürütülebilir kod içermez. Birden fazla kasa aynı uygulamayı
@@ -348,7 +354,8 @@ kaynak olarak tanımlanır. Yapısal bölünmede içerik budanmadı.
 
 ## 8. Uygulama sırası için bağımlılıklar
 
-Yazılı uygulama planı şu sırayı somut görev/komut/testlerle açacaktır:
+[Uygulama planı](../plans/2026-10-03-modular-foundation.md) şu sırayı somut
+görev/komut/testlerle açar; planın inceleme durumu kendi belgesindedir:
 
 1. Tek paket, kaynak envanteri ve ortak AppPaths/config/UUID sözleşmesi.
 2. Feature kodunun modüllere taşınması ve ortak CLI'a bağlanması.
@@ -381,7 +388,7 @@ Vault hafızası hedef ağacı yeniden kopyalamaz; proje notu bu belgeye link ve
 ## For future agent
 
 Kullanıcı program/veri/kasa ayrımını ve modüler tek paket yönünü kabul etti.
-Yazılı spec ve ardından uygulama planının inceleme aşamalarını tamamlamadan
-kod taşıma başlatma; önceki çalışma ağacı düzeltmelerini koru. Canlı kasa
+Yazılı spec onaylandı; uygulama planının incelemesi tamamlanmadan kod taşıma
+başlatma; önceki çalışma ağacı düzeltmelerini koru. Canlı kasa
 geçişinde yalnız kanıtlanmış sahipli dosyalar üzerinde, yedek ve rollback
 ile işlem yap; kullanıcı notlarını veya bilinmeyen kodunu temizleme.
