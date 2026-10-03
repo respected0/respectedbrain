@@ -30,10 +30,10 @@ def tearDownModule():
 
 
 from scripts import respected_manifest as manifest
-from scripts import url_safety
-from scripts import vault_linter
-from scripts import architect_scan
-from scripts import smart_merge
+from respectedbrain.maintenance.ingestion import url_safety
+from respectedbrain.maintenance import vault_linter
+from respectedbrain.maintenance import architect_scan
+from respectedbrain.maintenance import smart_merge
 import bounded_recall  # type: ignore
 
 

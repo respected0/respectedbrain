@@ -1,33 +1,20 @@
-#!/usr/bin/env python3
-"""CLI Entrypoint for Respected Brain Any-to-Any Orchestrator.
-
-Usage:
-  python scripts/orchestrate.py --task "Add SQLite FTS index" --master codex --worker antigravity
-  python scripts/orchestrate.py --task "Fix edge case in parser" --master claude --worker gemini --test "pytest"
-"""
-
-from __future__ import annotations
-
-import os
-from pathlib import Path
+"""Temporary compatibility entry; product behavior lives in respectedbrain.orchestration.runner."""
+from importlib import import_module
 import sys
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent.parent if SCRIPT_DIR.parent.name == "runtime" else SCRIPT_DIR.parent
-RUNTIME_DIR = REPO_ROOT / "runtime"
-
-if str(RUNTIME_DIR) not in sys.path:
-    sys.path.insert(0, str(RUNTIME_DIR))
-
-try:
-    from orchestrator.runner import main
-except ImportError:
-    # Fallback if run in vault environment where .beyin is at vault root:
-    vault_beyin = REPO_ROOT / ".beyin"
-    if str(vault_beyin) not in sys.path:
-        sys.path.insert(0, str(vault_beyin))
-    from orchestrator.runner import main
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+_service = import_module("respectedbrain.orchestration.runner")
+globals().update({name: getattr(_service, name) for name in dir(_service) if not name.startswith("__")})
+if __name__ != "__main__":
+    sys.modules[__name__] = _service
+else:
+    from pathlib import Path
+    from respectedbrain.cli import main
+    args = sys.argv[1:]
+    project = Path.cwd()
+    for index, item in enumerate(args):
+        if item in ("--repo", "-r") and index + 1 < len(args):
+            project = Path(args[index + 1]).resolve()
+        elif item.startswith("--repo="):
+            project = Path(item.split("=", 1)[1]).resolve()
+    forward = ["antigravity", *args] if "orchestrate" == "antigravity_orchestrator" else ["--", *args]
+    raise SystemExit(main(["orchestrate", "--project-root", str(project), *forward]))

@@ -18,17 +18,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_orchestrator():
-    path = (ROOT / "runtime" / "scripts" / "antigravity_orchestrator.py") if (ROOT / "runtime" / "scripts" / "antigravity_orchestrator.py").is_file() else (ROOT / "scripts" / "antigravity_orchestrator.py")
-    spec = importlib.util.spec_from_file_location("antigravity_orchestrator", path)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    try:
-        spec.loader.exec_module(module)
-    except Exception:
-        sys.modules.pop(spec.name, None)
-        raise
-    return module
+    from respectedbrain.orchestration import antigravity_orchestrator
+    return antigravity_orchestrator
+
+
+def context_for(root: Path):
+    from respectedbrain.core.context import AppContext
+    from respectedbrain.core.paths import AppPaths
+    from respectedbrain.core.resources import ResourceCatalog
+    return AppContext(AppPaths(root / "app", root / "data", root / "vault",
+                      "46c8e5a7-1a34-423b-a211-8e714123f100"), {}, ResourceCatalog())
 
 
 def run_git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -702,9 +701,9 @@ class CLIWorkflowTest(unittest.TestCase):
                 os.environ,
                 {"FAKE_AGY_RECORD": str(record), "FAKE_AGY_MODE": "change"},
             ):
-                code = orchestrator.main(arguments)
+                code = orchestrator.main(arguments, ctx=context_for(root), project_root=repo)
 
-            run_root = workspace / ".orchestration-state" / "run-e2e"
+            run_root = context_for(root).paths.state_dir / "orchestration" / "run-e2e"
             verification = json.loads(
                 (run_root / "verification.json").read_text(encoding="utf-8")
             )
@@ -717,7 +716,7 @@ class CLIWorkflowTest(unittest.TestCase):
             self.assertEqual((repo / "src" / "owned.txt").read_bytes(), original)
 
             apply_code = orchestrator.main(
-                ["apply-patch", "--repo-root", str(repo), "--patch", str(patch)]
+                ["apply-patch", "--repo-root", str(repo), "--patch", str(patch)], ctx=context_for(root), project_root=repo
             )
             self.assertEqual(apply_code, 0)
             self.assertEqual(
@@ -755,10 +754,10 @@ class CLIWorkflowTest(unittest.TestCase):
                         "src",
                         "--forbid",
                         "other.txt",
-                    ]
+                    ], ctx=context_for(root), project_root=repo
                 )
 
-            run_root = workspace / ".orchestration-state" / "run-scope"
+            run_root = context_for(root).paths.state_dir / "orchestration" / "run-scope"
             verification = json.loads(
                 (run_root / "verification.json").read_text(encoding="utf-8")
             )

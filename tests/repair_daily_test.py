@@ -12,20 +12,7 @@ import unittest
 from unittest import mock
 
 
-ROOT = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = (ROOT / "runtime/scripts/repair_daily.py") if (ROOT / "runtime/scripts/repair_daily.py").is_file() else (ROOT / "scripts/repair_daily.py")
-
-
-def load_module(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Cannot load module {name} from {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-REPAIR_DAILY = load_module("repair_daily_module", SCRIPT_PATH)
+from respectedbrain.maintenance import repair_daily as REPAIR_DAILY
 
 
 class RepairDailyTest(unittest.TestCase):

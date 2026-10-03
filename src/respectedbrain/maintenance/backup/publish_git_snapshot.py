@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+"""Opt-in private Git snapshot publisher for Respected Brain vaults."""
+
+from __future__ import annotations
+
+from respectedbrain.core.context import AppContext
+from respectedbrain.maintenance import selected_vault, mutable_target
+
+import argparse
+import datetime as dt
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from typing import Any
+
+
+def _configure_console_output() -> None:
+    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    """Write text atomically via temporary file and replace."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+
+
+FORBIDDEN_NAME_PATTERNS = (
+    re.compile(r"^\.env(\..+)?$", re.IGNORECASE),
+    re.compile(r"^.*id_rsa.*$", re.IGNORECASE),
+    re.compile(r"^.*\.(pem|key|pfx|pkcs12)$", re.IGNORECASE),
+    re.compile(r"^.*settings\.local\.json$", re.IGNORECASE),
+    re.compile(r"^.*credentials.*$", re.IGNORECASE),
+)
+
+
+def check_secret_guard(vault_root: Path) -> tuple[bool, list[str]]:
+    """Scan vault candidate paths for potential secrets or forbidden files."""
+    forbidden = []
+    for current, dirs, files in os.walk(vault_root, topdown=True, followlinks=False):
+        dirs[:] = [d for d in dirs if d not in {".git", "node_modules", ".venv", "venv", "__pycache__"}]
+        for file_name in files:
+            for pattern in FORBIDDEN_NAME_PATTERNS:
+                if pattern.match(file_name):
+                    rel = Path(current, file_name).relative_to(vault_root).as_posix()
+                    forbidden.append(rel)
+                    break
+    return len(forbidden) == 0, forbidden
+
+
+def _branch_divergence_status(vault_root: Path, remote: str, branch: str) -> str:
+    """Determine if local branch has diverged from remote without pulling."""
+    try:
+        top_proc = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=vault_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if top_proc.returncode != 0:
+            return "unknown"
+        try:
+            if not os.path.samefile(top_proc.stdout.strip(), vault_root):
+                return "unknown"
+        except (OSError, ValueError):
+            return "unknown"
+        # Fetch remote updates cleanly
+        subprocess.run(
+            ["git", "fetch", remote, branch],
+            cwd=vault_root,
+            capture_output=True,
+            check=False,
+            timeout=30,
+        )
+        head_proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=vault_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        remote_proc = subprocess.run(
+            ["git", "rev-parse", f"{remote}/{branch}"],
+            cwd=vault_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if head_proc.returncode != 0 or remote_proc.returncode != 0:
+            return "unknown"
+        head_hash = head_proc.stdout.strip()
+        remote_hash = remote_proc.stdout.strip()
+        if head_hash == remote_hash:
+            return "clean"
+
+        base_proc = subprocess.run(
+            ["git", "merge-base", head_hash, remote_hash],
+            cwd=vault_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        base_hash = base_proc.stdout.strip()
+        if base_hash == head_hash:
+            return "behind"
+        if base_hash == remote_hash:
+            return "ahead"
+        return "diverged"
+    except (OSError, subprocess.SubprocessError):
+        return "error"
+
+
+def publish_if_due(
+    vault_root: Path,
+    remote: str = "origin",
+    branch: str = "main",
+    min_interval_seconds: int = 3600,
+    apply: bool = False,
+    *, receipt_file: Path,
+) -> dict[str, Any]:
+    """Safely commit and push a snapshot if interval has elapsed and no divergence."""
+    safe, forbidden = check_secret_guard(vault_root)
+    if not safe:
+        return {
+            "status": "aborted:secret_found",
+            "forbidden": forbidden,
+        }
+
+    div_status = _branch_divergence_status(vault_root, remote, branch)
+    if div_status == "diverged":
+        return {"status": "halted:diverged", "detail": "Uzak dal ile yerel commitler çatışıyor; fail-closed duruldu."}
+    if div_status in ("error", "unknown"):
+        return {"status": f"halted:{div_status}", "detail": f"Uzak dal durumu sorgulanamadı ({div_status}); fail-closed duruldu."}
+
+    now_epoch = time.time()
+    if receipt_file.exists():
+        try:
+            data = json.loads(receipt_file.read_text(encoding="utf-8"))
+            last_ts = float(data.get("ts", 0))
+            if now_epoch - last_ts < min_interval_seconds:
+                return {"status": "skipped:not_due", "seconds_remaining": int(min_interval_seconds - (now_epoch - last_ts))}
+        except (OSError, ValueError):
+            pass
+
+    if not apply:
+        return {
+            "status": "preview",
+            "vault": str(vault_root),
+            "remote": remote,
+            "branch": branch,
+            "divergence": div_status,
+        }
+
+    # Execute safe commit and push
+    try:
+        subprocess.run(["git", "add", "."], cwd=vault_root, check=True, capture_output=True)
+        stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+        subprocess.run(
+            ["git", "commit", "-m", f"chore(snapshot): {stamp}"],
+            cwd=vault_root,
+            check=False,
+            capture_output=True,
+        )
+        push_proc = subprocess.run(
+            ["git", "push", remote, branch],
+            cwd=vault_root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        if push_proc.returncode != 0:
+            return {"status": "push-failed", "error": push_proc.stderr}
+
+        # Write atomic receipt
+        _atomic_write(
+            receipt_file,
+            json.dumps({"ts": now_epoch, "stamp": stamp, "remote": remote, "branch": branch}, indent=2) + "\n",
+        )
+        return {"status": "ok", "stamp": stamp}
+    except subprocess.SubprocessError as exc:
+        return {"status": "error", "detail": str(exc)}
+
+
+def main(argv: list[str] | None = None, *, ctx: AppContext | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("vault", type=Path, nargs="?", help="Vault kök dizini")
+    parser.add_argument("--remote", default="origin", help="Uzak depo adı")
+    parser.add_argument("--branch", default="main", help="Hedef dal")
+    parser.add_argument("--apply", action="store_true", help="Snapshot'ı sahiden push et")
+    args = parser.parse_args(argv)
+
+    if ctx is None:
+        raise ValueError("Snapshot publication requires an explicit data context")
+    result = publish_if_due(
+        vault_root=selected_vault(ctx, args.vault),
+        remote=args.remote,
+        branch=args.branch,
+        apply=args.apply,
+        receipt_file=ctx.paths.state_dir / "git-snapshot-receipt.json",
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get("status") in {"ok", "preview", "skipped:not_due"} else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

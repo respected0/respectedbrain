@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import contextlib
+import io
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,12 +14,7 @@ import unittest
 
 import sys
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-BEYIN_DIR = REPO_ROOT / "runtime" if (REPO_ROOT / "runtime").is_dir() else REPO_ROOT / "template" / ".beyin"
-if str(BEYIN_DIR) not in sys.path:
-    sys.path.insert(0, str(BEYIN_DIR))
-
-from orchestrator.runner import OrchestrationRun, slugify, get_cli_command
+from respectedbrain.orchestration.runner import OrchestrationRun, slugify, get_cli_command
 
 
 class AnyToAnyOrchestratorTest(unittest.TestCase):
@@ -48,6 +45,7 @@ class AnyToAnyOrchestratorTest(unittest.TestCase):
             master="codex",
             worker="antigravity",
             repo_root=self.repo,
+            state_root=Path(self.temp_dir.name) / "data-state",
         )
         success = run.setup_worktree()
         self.assertTrue(success)
@@ -71,6 +69,7 @@ class AnyToAnyOrchestratorTest(unittest.TestCase):
             master="user",
             worker="user",
             repo_root=self.repo,
+            state_root=Path(self.temp_dir.name) / "data-state",
         )
         self.assertTrue(run.setup_worktree())
 
@@ -78,7 +77,8 @@ class AnyToAnyOrchestratorTest(unittest.TestCase):
         (run.worktree_dir / "README.md").write_text("# Test Repo\nModified by worker!\n", encoding="utf-8")
 
         # Collect patch
-        run.collect_patch(exit_code=0, test_passed=True, duration=1.5)
+        with contextlib.redirect_stdout(io.StringIO()):
+            run.collect_patch(exit_code=0, test_passed=True, duration=1.5)
 
         patch_file = run.run_dir / "worker.patch"
         self.assertTrue(patch_file.is_file())

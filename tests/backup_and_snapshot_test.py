@@ -12,23 +12,15 @@ import unittest
 from unittest import mock
 
 
-ROOT = Path(__file__).resolve().parent.parent
-RESTIC_SCRIPT = (ROOT / "runtime/scripts/backup_restic.py") if (ROOT / "runtime/scripts/backup_restic.py").is_file() else (ROOT / "scripts/backup_restic.py")
-GIT_SNAPSHOT_SCRIPT = (ROOT / "runtime/scripts/publish_git_snapshot.py") if (ROOT / "runtime/scripts/publish_git_snapshot.py").is_file() else (ROOT / "scripts/publish_git_snapshot.py")
+from respectedbrain.maintenance.backup import backup_restic, publish_git_snapshot
 
 
 def load_restic_module():
-    spec = importlib.util.spec_from_file_location("restic_module", RESTIC_SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return backup_restic
 
 
 def load_snapshot_module():
-    spec = importlib.util.spec_from_file_location("snapshot_module", GIT_SNAPSHOT_SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return publish_git_snapshot
 
 
 class BackupAndSnapshotTest(unittest.TestCase):
@@ -127,7 +119,7 @@ class BackupAndSnapshotTest(unittest.TestCase):
             vault = Path(temp_dir).resolve()
             (vault / "note.md").write_text("# Note", encoding="utf-8")
 
-            result = self.snapshot.publish_if_due(vault, remote="origin", branch="main")
+            result = self.snapshot.publish_if_due(vault, receipt_file=vault / "receipt.json", remote="origin", branch="main")
             self.assertTrue(result.get("status", "").startswith("halted:"))
             self.assertIn("fail-closed", result.get("detail", "").lower())
 
@@ -156,10 +148,10 @@ class BackupAndSnapshotTest(unittest.TestCase):
             subprocess.run([git, "add", "."], cwd=local_repo, check=True, capture_output=True)
             subprocess.run([git, "commit", "-m", "initial"], cwd=local_repo, check=True, capture_output=True)
             subprocess.run([git, "branch", "-M", "main"], cwd=local_repo, check=True, capture_output=True)
-            subprocess.run([git, "push", "-u", "origin", "main"], cwd=local_repo, check=True, capture_output=True)
+            subprocess.run([git, "fetch", str(local_repo), "main:main"], cwd=remote_repo, check=True, capture_output=True)
 
             # 4. In clean state, publish_if_due preview should show clean divergence
-            preview = self.snapshot.publish_if_due(local_repo, remote="origin", branch="main", apply=False)
+            preview = self.snapshot.publish_if_due(local_repo, receipt_file=temp_path / "receipt.json", remote="origin", branch="main", apply=False)
             self.assertEqual(preview.get("status"), "preview")
             self.assertEqual(preview.get("divergence"), "clean")
 
@@ -171,8 +163,8 @@ class BackupAndSnapshotTest(unittest.TestCase):
             (other_clone / "remote_change.md").write_text("# Remote", encoding="utf-8")
             subprocess.run([git, "add", "."], cwd=other_clone, check=True, capture_output=True)
             subprocess.run([git, "commit", "-m", "remote commit"], cwd=other_clone, check=True, capture_output=True)
-            push_res = subprocess.run([git, "push", "origin", "main"], cwd=other_clone, capture_output=True, text=True)
-            self.assertEqual(push_res.returncode, 0, f"git push failed: {push_res.stdout}\n{push_res.stderr}")
+            advance = subprocess.run([git, "fetch", str(other_clone), "main:main"], cwd=remote_repo, capture_output=True, text=True)
+            self.assertEqual(advance.returncode, 0, f"local remote fixture failed: {advance.stderr}")
 
             # 6. Make competing local commit in local_repo
             (local_repo / "local_change.md").write_text("# Local", encoding="utf-8")
@@ -180,7 +172,7 @@ class BackupAndSnapshotTest(unittest.TestCase):
             subprocess.run([git, "commit", "-m", "local commit"], cwd=local_repo, check=True, capture_output=True)
 
             # 7. Now local and remote have diverged!
-            result = self.snapshot.publish_if_due(local_repo, remote="origin", branch="main", apply=True)
+            result = self.snapshot.publish_if_due(local_repo, receipt_file=temp_path / "receipt.json", remote="origin", branch="main", apply=True)
             self.assertEqual(result.get("status"), "halted:diverged")
             self.assertIn("fail-closed", result.get("detail", "").lower())
 
