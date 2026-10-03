@@ -20,8 +20,9 @@ class PackageContractTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='respected-wheel-') as temporary:
             home = Path(temporary)
             wheels = home / 'wheels'
+            build_env = dict(os.environ, PYTHONUTF8='1', PYTHONIOENCODING='utf-8')
             build = subprocess.run([sys.executable, '-m', 'build', '--wheel', '--no-isolation', '--outdir', str(wheels)],
-                                   cwd=ROOT, capture_output=True, text=True, encoding='utf-8')
+                                   cwd=ROOT, env=build_env, capture_output=True, text=True, encoding='utf-8', errors='replace')
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             wheel = next(wheels.glob('*.whl'))
             with zipfile.ZipFile(wheel) as archive:

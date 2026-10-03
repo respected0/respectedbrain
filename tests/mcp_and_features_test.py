@@ -233,7 +233,9 @@ class AgentHistoryMinerTest(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.vault = Path(self.temp_dir.name)
         (self.vault / "daily").mkdir(parents=True)
-        self.miner = AgentHistoryMiner(self.vault)
+        self.technical = tempfile.TemporaryDirectory()
+        self.addCleanup(self.technical.cleanup)
+        self.miner = AgentHistoryMiner(self.vault, state_file=Path(self.technical.name) / "imported_sessions.json")
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
