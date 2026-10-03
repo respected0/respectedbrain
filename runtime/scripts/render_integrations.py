@@ -309,6 +309,37 @@ def _gemini_settings(profile: Profile) -> dict[str, Any]:
 
 def _extract_vault_identity(vault: Path) -> dict[str, str]:
     replacements: dict[str, str] = {}
+
+    # 1. Try reading identity from structured config files
+    respected_json = vault / ".respected.json"
+    if respected_json.is_file():
+        try:
+            rdata = json.loads(respected_json.read_text(encoding="utf-8"))
+            if isinstance(rdata, dict):
+                if rdata.get("user_name") and "{{" not in str(rdata["user_name"]):
+                    replacements.setdefault("{{" + "USER_NAME" + "}}", str(rdata["user_name"]).strip())
+                if rdata.get("companion") and "{{" not in str(rdata["companion"]):
+                    replacements.setdefault("{{" + "COMPANION" + "}}", str(rdata["companion"]).strip())
+                if rdata.get("os_name") and "{{" not in str(rdata["os_name"]):
+                    replacements.setdefault("{{" + "OS_NAME" + "}}", str(rdata["os_name"]).strip())
+        except Exception:
+            pass
+
+    beyin_json = vault / ".beyin" / "config.json"
+    if beyin_json.is_file():
+        try:
+            bdata = json.loads(beyin_json.read_text(encoding="utf-8"))
+            if isinstance(bdata, dict):
+                if bdata.get("user_name") and "{{" not in str(bdata["user_name"]):
+                    replacements.setdefault("{{" + "USER_NAME" + "}}", str(bdata["user_name"]).strip())
+                if bdata.get("companion") and "{{" not in str(bdata["companion"]):
+                    replacements.setdefault("{{" + "COMPANION" + "}}", str(bdata["companion"]).strip())
+                if bdata.get("companion_name") and "{{" not in str(bdata["companion_name"]):
+                    replacements.setdefault("{{" + "COMPANION" + "}}", str(bdata["companion_name"]).strip())
+        except Exception:
+            pass
+
+    # 2. Extract from markdown identity anchors
     candidates = (
         vault / "AGENTS.md",
         vault / "CLAUDE.md",

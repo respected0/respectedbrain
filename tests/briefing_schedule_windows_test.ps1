@@ -57,7 +57,10 @@ function Invoke-Task([string[]]$Arguments) {
 }
 
 $Repo = Split-Path -Parent $PSScriptRoot
-$Scripts = Join-Path $Repo "scripts"
+$Scripts = Join-Path $Repo "runtime\scripts"
+if (-not (Test-Path -LiteralPath $Scripts)) {
+    $Scripts = Join-Path $Repo "scripts"
+}
 $Root = Join-Path ([IO.Path]::GetTempPath()) ("respected-schedule-" + [guid]::NewGuid().ToString("N"))
 $Vault = Join-Path $Root "Ada Brain"
 $Beyin = Join-Path $Vault ".beyin"

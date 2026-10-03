@@ -122,7 +122,11 @@ def run_repair(vault_path: Path) -> int:
     subprocess.run(cmd1, cwd=REPO_ROOT)
     cmd2 = [sys.executable, str(SCRIPTS_DIR / "install_global.py"), str(vault_path), "--home", str(Path.home()), "--platform", platform_name, "--apply"]
     subprocess.run(cmd2, cwd=REPO_ROOT)
-    print(f"\n{Colors.GREEN}✔ Onarım tamamlandı! Kancalar ve arama motoru yenilendi.{Colors.RESET}")
+    mcp_script = SCRIPTS_DIR / "vault_mcp_server.py"
+    if mcp_script.is_file():
+        cmd3 = [sys.executable, str(mcp_script), "--vault", str(vault_path), "--register"]
+        subprocess.run(cmd3, cwd=REPO_ROOT)
+    print(f"\n{Colors.GREEN}✔ Onarım tamamlandı! Kancalar, MCP sunucusu ve arama motoru yenilendi.{Colors.RESET}")
     return 0
 
 

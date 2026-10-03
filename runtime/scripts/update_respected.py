@@ -296,7 +296,11 @@ def _infer_profile(vault: Path, requested: str, config: dict[str, Any]) -> str:
 def _prepare_config(vault: Path, profile: str, requested: str, summary_provider: str | None = None) -> None:
     path = vault / ".beyin/config.json"
     if not path.is_file():
-        return
+        source = _source_path(".beyin/config.json")
+        if source.is_file():
+            _atomic_copy(source, path)
+        else:
+            return
     config = _load_object(path)
     config["platform"] = profile
     if summary_provider and summary_provider in SUMMARY_PROVIDERS:
@@ -401,6 +405,10 @@ def _install_managed(vault: Path) -> None:
         _atomic_copy(source, vault / relative)
     for relative in CURRENT_TOOL_FILES:
         _atomic_copy(_source_path(relative), vault / relative)
+    if not (vault / ".beyin/config.json").is_file():
+        source = _source_path(".beyin/config.json")
+        if source.is_file():
+            _atomic_copy(source, vault / ".beyin/config.json")
     skills_source = (REPO / "runtime" / "skills") if (REPO / "runtime" / "skills").is_dir() else (TEMPLATE / ".beyin" / "skills")
     if (vault / ".beyin").is_dir() or not (vault / ".respected.json").is_file():
         for source in sorted(skills_source.glob("*/SKILL.md")):
@@ -410,11 +418,44 @@ def _install_managed(vault: Path) -> None:
 
 def _extract_replacements(vault: Path) -> dict[str, str]:
     replacements: dict[str, str] = {}
+
+    # 1. Try reading identity from structured config files
+    respected_json = vault / ".respected.json"
+    if respected_json.is_file():
+        try:
+            rdata = json.loads(respected_json.read_text(encoding="utf-8"))
+            if isinstance(rdata, dict):
+                if rdata.get("user_name") and "{{" not in str(rdata["user_name"]):
+                    replacements.setdefault("{{" + "USER_NAME" + "}}", str(rdata["user_name"]).strip())
+                if rdata.get("companion") and "{{" not in str(rdata["companion"]):
+                    replacements.setdefault("{{" + "COMPANION" + "}}", str(rdata["companion"]).strip())
+                if rdata.get("os_name") and "{{" not in str(rdata["os_name"]):
+                    replacements.setdefault("{{" + "OS_NAME" + "}}", str(rdata["os_name"]).strip())
+        except Exception:
+            pass
+
+    beyin_json = vault / ".beyin" / "config.json"
+    if beyin_json.is_file():
+        try:
+            bdata = json.loads(beyin_json.read_text(encoding="utf-8"))
+            if isinstance(bdata, dict):
+                if bdata.get("user_name") and "{{" not in str(bdata["user_name"]):
+                    replacements.setdefault("{{" + "USER_NAME" + "}}", str(bdata["user_name"]).strip())
+                if bdata.get("companion") and "{{" not in str(bdata["companion"]):
+                    replacements.setdefault("{{" + "COMPANION" + "}}", str(bdata["companion"]).strip())
+                if bdata.get("companion_name") and "{{" not in str(bdata["companion_name"]):
+                    replacements.setdefault("{{" + "COMPANION" + "}}", str(bdata["companion_name"]).strip())
+        except Exception:
+            pass
+
+    # 2. Extract from markdown identity anchors
     for source in (
         vault / "AGENTS.md",
         vault / "CLAUDE.md",
+        vault / ".gemini" / "GEMINI.md",
         vault / ".beyin" / "instructions.md",
         vault / "🔮 850-Companion" / "Kurallar.md",
+        vault / "🔮 850-Companion" / "Core.md",
     ):
         if source.is_file():
             try:
@@ -439,8 +480,19 @@ def _extract_replacements(vault: Path) -> dict[str, str]:
                     replacements.setdefault("{{" + "USER_BIO" + "}}", m_bio.group(1).strip())
             except OSError:
                 pass
-    replacements.setdefault("{{" + "VAULT_PATH" + "}}", str(vault))
-    replacements.setdefault("{{" + "TODAY" + "}}", time.strftime("%Y-%m-%d"))
+
+    # 3. Fallback defaults aligned with renderer
+    defaults = {
+        "{{" + "OS_NAME" + "}}": "RespectedOS",
+        "{{" + "COMPANION" + "}}": "Jarvis",
+        "{{" + "USER_NAME" + "}}": "User",
+        "{{" + "USER_BIO" + "}}": "Software Engineer & Builder",
+        "{{" + "VAULT_PATH" + "}}": str(vault),
+        "{{" + "TODAY" + "}}": time.strftime("%Y-%m-%d"),
+    }
+    for k, v in defaults.items():
+        replacements.setdefault(k, v)
+
     return replacements
 
 
@@ -469,7 +521,7 @@ def _create_stage(vault: Path, profile: str, requested_profile: str, summary_pro
                     dirs.remove("scripts")
                 for f in files:
                     fp = Path(root) / f
-                    if fp.suffix.lower() in {".md", ".mdc", ".json", ".txt", ".yml", ".yaml"}:
+                    if fp.suffix.lower() in {".md", ".mdc", ".json", ".txt", ".yml", ".yaml", ".base", ".canvas"}:
                         try:
                             content = fp.read_text(encoding="utf-8")
                             updated = content
@@ -706,13 +758,17 @@ def update(
         return 3
 
     stage_container, stage = _create_stage(vault, profile, requested_profile, summary_provider)
-    targets = tuple(dict.fromkeys((*relatives, *legacy_removals, VERSION_FILE, *LEGACY_VERSION_FILES)))
+    instructions_file = ".beyin/instructions.md"
+    extra_targets = (instructions_file,) if (vault / instructions_file).is_file() else ()
+    targets = tuple(dict.fromkeys((*relatives, *legacy_removals, *extra_targets, VERSION_FILE, *LEGACY_VERSION_FILES)))
     original_directories = _directory_relatives(vault)
     backup: Path | None = None
     try:
         backup, existed = _create_backup(vault, targets, legacy_removals)
         for relative in relatives:
             _atomic_copy(stage / relative, _safe_target(vault, relative))
+        if (stage / instructions_file).is_file() and (vault / instructions_file).is_file():
+            _atomic_copy(stage / instructions_file, vault / instructions_file)
         _run_renderer(vault)
         for relative in legacy_removals:
             _safe_target(vault, relative).unlink()
@@ -751,6 +807,20 @@ def update(
 
     print(f"Respected Brain güncellendi: sürüm {VERSION}; yedek: {backup}")
     _print_external_refresh_guidance()
+
+    mcp_script = vault / "scripts" / "vault_mcp_server.py"
+    if not mcp_script.is_file():
+        mcp_script = _source_path("scripts/vault_mcp_server.py")
+    if mcp_script.is_file():
+        try:
+            print("\n>> AI editörlerine (Antigravity, Cursor, Claude vb.) MCP sunucusu güncelleniyor...")
+            subprocess.run(
+                [sys.executable, str(mcp_script), "--vault", str(vault), "--register"],
+                check=False,
+            )
+        except Exception:
+            pass
+
     if sync_global:
         install_global_script = _install_global_script()
         if install_global_script.is_file():

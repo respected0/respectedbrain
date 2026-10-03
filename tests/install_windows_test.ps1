@@ -1,7 +1,10 @@
 $ErrorActionPreference = "Stop"
 
 $Repo = Split-Path -Parent $PSScriptRoot
-$Installer = Join-Path $Repo "scripts\install-windows.ps1"
+$Installer = Join-Path $Repo "runtime\scripts\install-windows.ps1"
+if (-not (Test-Path -LiteralPath $Installer)) {
+    $Installer = Join-Path $Repo "scripts\install-windows.ps1"
+}
 $Failures = 0
 $PowerShellHost = (Get-Process -Id $PID).Path
 $OriginalUserProfile = $env:USERPROFILE

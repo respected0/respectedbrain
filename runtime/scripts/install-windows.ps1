@@ -11,6 +11,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
+if ((Split-Path -Leaf $RepoRoot) -eq "runtime") {
+    $RepoRoot = Split-Path -Parent $RepoRoot
+}
 $TemplateRoot = Join-Path $RepoRoot "template"
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $SupportedProviders = @("antigravity", "gemini", "codex", "cursor", "claude")
@@ -270,7 +273,10 @@ try {
         Copy-Item -LiteralPath $Item.FullName -Destination $ResolvedVault -Recurse -Force
     }
 
-    $RepoScripts = Join-Path $RepoRoot "scripts"
+    $RepoScripts = Join-Path $RepoRoot "runtime\scripts"
+    if (-not (Test-Path -LiteralPath $RepoScripts)) {
+        $RepoScripts = Join-Path $RepoRoot "scripts"
+    }
     $VaultScripts = Join-Path $ResolvedVault "scripts"
     if (-not (Test-Path -LiteralPath $VaultScripts)) {
         New-Item -ItemType Directory -Path $VaultScripts | Out-Null

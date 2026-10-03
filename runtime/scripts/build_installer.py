@@ -26,7 +26,7 @@ if sys.platform == "win32":
         pass
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent
+REPO_ROOT = SCRIPT_DIR.parent.parent if SCRIPT_DIR.parent.name == "runtime" else SCRIPT_DIR.parent
 DIST_DIR = REPO_ROOT / "dist"
 
 
@@ -57,7 +57,7 @@ def build_windows_inno() -> bool:
 
     iss_file = REPO_ROOT / "installer" / "respected_setup.iss"
     print(f"[*] Inno Setup ile setup.exe derleniyor: {iscc} {iss_file}")
-    proc = subprocess.run([iscc, str(iss_file)], cwd=REPO_ROOT)
+    proc = subprocess.run([iscc, str(iss_file)], cwd=REPO_ROOT / "installer")
     return proc.returncode == 0
 
 

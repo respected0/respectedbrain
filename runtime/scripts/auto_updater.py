@@ -25,7 +25,7 @@ for _stream in (sys.stdout, sys.stderr):
             pass
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent
+REPO_ROOT = SCRIPT_DIR.parent.parent if SCRIPT_DIR.parent.name == "runtime" else SCRIPT_DIR.parent
 DEFAULT_VAULT = Path.home() / "Documents" / "RespectedOS"
 GITHUB_REPO = "respected0/respectedbrain"
 

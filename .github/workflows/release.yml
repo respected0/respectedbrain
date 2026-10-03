@@ -64,9 +64,8 @@ jobs:
       - name: Prepare macOS Package Directory
         run: |
           mkdir -p dist_mac/RespectedBrain
-          cp -r template scripts install.py update.py uninstall.py setup.command setup.sh README.md dist_mac/RespectedBrain/
+          cp -r template runtime installer setup.py setup.command README.md dist_mac/RespectedBrain/
           chmod +x dist_mac/RespectedBrain/setup.command
-          chmod +x dist_mac/RespectedBrain/setup.sh
           # Add root double-click launcher
           cp setup.command dist_mac/Kurulumu-Baslat.command
           chmod +x dist_mac/Kurulumu-Baslat.command
@@ -105,9 +104,8 @@ jobs:
       - name: Prepare Linux Package Directory
         run: |
           mkdir -p dist_linux
-          cp -r template scripts install.py update.py uninstall.py setup setup.sh README.md dist_linux/
+          cp -r template runtime installer setup.py setup README.md dist_linux/
           chmod +x dist_linux/setup
-          chmod +x dist_linux/setup.sh
 
       - name: Create Self-Extracting Linux Executable with Version
         run: |

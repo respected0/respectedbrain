@@ -13,16 +13,16 @@ from pathlib import Path
 import sys
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent
-BEYIN_DIR = REPO_ROOT / "template" / ".beyin"
+REPO_ROOT = SCRIPT_DIR.parent.parent if SCRIPT_DIR.parent.name == "runtime" else SCRIPT_DIR.parent
+RUNTIME_DIR = REPO_ROOT / "runtime"
 
-if str(BEYIN_DIR) not in sys.path:
-    sys.path.insert(0, str(BEYIN_DIR))
+if str(RUNTIME_DIR) not in sys.path:
+    sys.path.insert(0, str(RUNTIME_DIR))
 
 try:
     from orchestrator.runner import main
 except ImportError:
-    # If run in vault environment where .beyin is at vault root:
+    # Fallback if run in vault environment where .beyin is at vault root:
     vault_beyin = REPO_ROOT / ".beyin"
     if str(vault_beyin) not in sys.path:
         sys.path.insert(0, str(vault_beyin))

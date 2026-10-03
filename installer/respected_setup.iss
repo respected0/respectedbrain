@@ -41,7 +41,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "..\template\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*\__pycache__\*,*\__pycache__,*\.git\*,*.pyc,*.pyo"
 Source: "..\runtime\*"; DestDir: "{localappdata}\RespectedBrain\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*\__pycache__\*,*\__pycache__,*\.state\*,*\state\*,*.pyc,*.pyo,*.lock,session_start_time.*,prompt_count.*,flush-*.json,last-flush.json"
-Source: "..\scripts\*"; DestDir: "{localappdata}\RespectedBrain\scripts"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*\__pycache__\*,*\__pycache__,*.pyc,*.pyo"
+Source: "..\runtime\scripts\*"; DestDir: "{localappdata}\RespectedBrain\scripts"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*\__pycache__\*,*\__pycache__,*.pyc,*.pyo"
 Source: "install.py"; DestDir: "{localappdata}\RespectedBrain\installer"; Flags: ignoreversion
 Source: "update.py"; DestDir: "{localappdata}\RespectedBrain\installer"; Flags: ignoreversion
 Source: "uninstall.py"; DestDir: "{localappdata}\RespectedBrain\installer"; Flags: ignoreversion
