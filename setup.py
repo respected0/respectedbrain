@@ -240,4 +240,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # During the transition this filename serves both the legacy installer
+    # and setuptools' PEP 517 build hook. Build commands must never install a vault.
+    build_commands = {"egg_info", "dist_info", "bdist_wheel", "sdist", "build", "build_py", "editable_wheel"}
+    if len(sys.argv) > 1 and sys.argv[1] in build_commands:
+        from setuptools import setup as build_setup
+        build_setup()
+    else:
+        raise SystemExit(main())

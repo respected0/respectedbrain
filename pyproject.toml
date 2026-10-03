@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "respectedbrain"
+version = "0.0.1"
+description = "Local, provider-neutral memory for a personal Markdown vault"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["build>=1", "pyinstaller>=6"]
+
+[project.scripts]
+respectedbrain = "respectedbrain.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"respectedbrain.resources" = [
+  "defaults.json",
+  "gateway/web/index.html",
+  "instructions/default.md",
+  "integrations/.agents/hooks.json",
+  "integrations/.agents/rules/beyin.md",
+  "integrations/.agents/rules/software-quality-1.md",
+  "integrations/.agents/rules/software-quality-2.md",
+  "integrations/.claude/hooks/lib.sh",
+  "integrations/.claude/hooks/post-compact.sh",
+  "integrations/.claude/hooks/pre-compact.sh",
+  "integrations/.claude/hooks/prompt-counter.sh",
+  "integrations/.claude/hooks/session-end.sh",
+  "integrations/.claude/hooks/session-start.sh",
+  "integrations/.claude/hooks/session-stop-capture.ps1",
+  "integrations/.claude/hooks/session-stop-capture.sh",
+  "integrations/.claude/settings.json",
+  "integrations/.codex/hooks.json",
+  "integrations/.cursor/hooks.json",
+  "integrations/.cursor/rules/beyin.mdc",
+  "integrations/.cursor/rules/software-quality-1.mdc",
+  "integrations/.cursor/rules/software-quality-2.mdc",
+  "integrations/.gemini/GEMINI.md",
+  "integrations/.gemini/settings.json",
+  "integrations/AGENTS.md",
+  "integrations/CLAUDE.md",
+  "skills/ajan-gecmis-tara/SKILL.md",
+  "skills/beyin-doktor/SKILL.md",
+  "skills/beyin-meydan-oku/SKILL.md",
+  "skills/beyin-oruntu/SKILL.md",
+  "skills/gecmis-import/SKILL.md",
+  "skills/inbox-duzenle/SKILL.md",
+  "skills/kod-orkestrasyon/SKILL.md",
+  "skills/obsidian-layout/SKILL.md",
+  "skills/otonom-arastirma/SKILL.md",
+  "skills/yazilim-kalite/SKILL.md",
+  "vault-template/.gitignore",
+  "vault-template/.obsidian/snippets/secondbrain-layout.css",
+  "vault-template/.respected.json",
+  "vault-template/daily/.gitkeep",
+  "vault-template/knowledge/concepts/.gitkeep",
+  "vault-template/knowledge/connections/.gitkeep",
+  "vault-template/knowledge/index.md",
+  "vault-template/knowledge/log.md",
+  "vault-template/🎯 100-Command-Center/Briefings/.gitkeep",
+  "vault-template/🎯 100-Command-Center/Dashboard.md",
+  "vault-template/🎯 100-Command-Center/Skills-Map.md",
+  "vault-template/🎯 100-Command-Center/Vault-Map.md",
+  "vault-template/🏰 300-Projects/.gitkeep",
+  "vault-template/📋 Templates/Base.base",
+  "vault-template/📋 Templates/Canvas.canvas",
+  "vault-template/📋 Templates/Note.md",
+  "vault-template/📥 000-Inbox/Dump/.gitkeep",
+  "vault-template/📦 900-Archive/.gitkeep",
+  "vault-template/🔮 850-Companion/Core.md",
+  "vault-template/🔮 850-Companion/events/.gitkeep",
+  "vault-template/🔮 850-Companion/events/archive/.gitkeep",
+  "vault-template/🔮 850-Companion/Journal.md",
+  "vault-template/🔮 850-Companion/Kurallar.md",
+  "vault-template/🔮 850-Companion/Last-Session.md",
+  "vault-template/🔮 850-Companion/Threads.md",
+  "vault-template/🛠️ 600-Arsenal/.gitkeep",
+  "vault-template/🧠 500-Knowledge/.gitkeep",
+]

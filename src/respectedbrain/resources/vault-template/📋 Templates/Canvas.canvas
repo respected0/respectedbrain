@@ -1,0 +1,66 @@
+{
+  "nodes": [
+    {
+      "id": "node-1",
+      "type": "text",
+      "text": "## 🎯 Proje / Sistem Mimarisi\nBu zihin haritası sistem bileşenlerini ve aralarındaki akışı görselleştirir.",
+      "x": 0,
+      "y": 0,
+      "width": 300,
+      "height": 140,
+      "color": "1"
+    },
+    {
+      "id": "node-2",
+      "type": "file",
+      "file": "🎯 100-Command-Center/Dashboard.md",
+      "x": 380,
+      "y": -40,
+      "width": 320,
+      "height": 220
+    },
+    {
+      "id": "node-3",
+      "type": "text",
+      "text": "### ⚡ Kritik Bileşenler\n- Modül A (Giriş/Ingest)\n- Modül B (İşleme/Sentez)\n- Modül C (Çıktı/Hafıza)",
+      "x": 0,
+      "y": 200,
+      "width": 300,
+      "height": 180,
+      "color": "4"
+    },
+    {
+      "id": "node-4",
+      "type": "text",
+      "text": "### 🔮 Gelecek Fazlar & Notlar\n- [ ] Ölçekleme\n- [ ] Entegrasyon testleri",
+      "x": 380,
+      "y": 240,
+      "width": 320,
+      "height": 140,
+      "color": "6"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "fromNode": "node-1",
+      "fromSide": "right",
+      "toNode": "node-2",
+      "toSide": "left"
+    },
+    {
+      "id": "edge-2",
+      "fromNode": "node-1",
+      "fromSide": "bottom",
+      "toNode": "node-3",
+      "toSide": "top"
+    },
+    {
+      "id": "edge-3",
+      "fromNode": "node-3",
+      "fromSide": "right",
+      "toNode": "node-4",
+      "toSide": "left"
+    }
+  ]
+}

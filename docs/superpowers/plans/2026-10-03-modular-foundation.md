@@ -10,7 +10,17 @@
 
 **Spec:** [Ana sözleşme](../specs/2026-10-03-modular-foundation-design.md) ve [kurulum/geçiş sözleşmesi](../specs/2026-10-03-modular-foundation-operations.md), kullanıcı onayı 2026-10-03.
 
-scope: project; confidence: inferred; supersedes: []; status: plan-review (as of 2026-10-03).
+scope: project; confidence: inferred; supersedes: []; status: implementation-approved (as of 2026-10-03).
+
+timeline:
+  - from: 2026-10-03
+    until: 2026-10-03
+    learned: "Plan incelemesi ve yöntem seçimi bekleniyordu; kullanıcı karma yöntemi onayladı."
+    source: "o zaman öyle yapalım nasıl daha iyiyse bizim için"
+
+Yürütme: ortak paket/yol/config/UUID temelini ana ajan kurar; temel oturunca
+iki bağımsız iş akışı paralel ajanlara verilir; sonuçlar birleştirilip ayrı
+ajanla son inceleme yapılır. Aynı dosyada eşzamanlı düzenleme yapılmaz.
 
 ## Global Constraints
 
@@ -148,7 +158,7 @@ README'deki 3.10+ ile eşlendi, sürüm tabanı yükseltilmedi.
 
 ## For future agent
 
-Spec onaylandı, bu plan kullanıcı incelemesini ve yürütme yöntemi seçimini
-bekliyor. Görev eklerini sırayla uygula; çalışma ağacındaki onarımları koru.
+Spec ve karma yürütme yöntemi kullanıcı tarafından onaylandı. Görev eklerini
+bağımlılık sırasıyla uygula; çalışma ağacındaki onarımları koru.
 Canlı kurulum değişikliğine görev 14'ün önizleme ve geri alma kontrolleri
 tamamlanmadan geçme.

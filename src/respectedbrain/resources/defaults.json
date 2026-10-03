@@ -1,0 +1,17 @@
+{
+  "summary_provider": "auto",
+  "provider_priority": [
+    "claude",
+    "codex",
+    "antigravity",
+    "gemini",
+    "cursor"
+  ],
+  "provider_fallback": true,
+  "integrations": {
+    "global": false,
+    "mcp": false,
+    "schedule": false,
+    "shortcut": false
+  }
+}

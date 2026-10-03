@@ -1,0 +1,69 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "name": "respected-brain-sessionstart",
+            "type": "command",
+            "command": "python3 .beyin/hooks/bridge.py --provider gemini --event start",
+            "timeout": 15000,
+            "description": "Sync Respected Brain memory"
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "hooks": [
+          {
+            "name": "respected-brain-beforeagent",
+            "type": "command",
+            "command": "python3 .beyin/hooks/bridge.py --provider gemini --event prompt",
+            "timeout": 5000,
+            "description": "Sync Respected Brain memory"
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "name": "respected-brain-afteragent",
+            "type": "command",
+            "command": "python3 .beyin/hooks/bridge.py --provider gemini --event turn",
+            "timeout": 10000,
+            "description": "Sync Respected Brain memory"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "name": "respected-brain-sessionend",
+            "type": "command",
+            "command": "python3 .beyin/hooks/bridge.py --provider gemini --event end",
+            "timeout": 10000,
+            "description": "Sync Respected Brain memory"
+          }
+        ]
+      }
+    ],
+    "PreCompress": [
+      {
+        "hooks": [
+          {
+            "name": "respected-brain-precompress",
+            "type": "command",
+            "command": "python3 .beyin/hooks/bridge.py --provider gemini --event precompact",
+            "timeout": 10000,
+            "description": "Sync Respected Brain memory"
+          }
+        ]
+      }
+    ]
+  }
+}
