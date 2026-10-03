@@ -39,3 +39,17 @@ def write_json(path: Path, value: dict) -> None:
 def run_cli(argv: list[str], *, env: dict[str, str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run([sys.executable, "-m", "respectedbrain", *argv], cwd=cwd, env=env,
                           capture_output=True, text=True, encoding="utf-8", timeout=30)
+
+
+def make_context(root: Path, vault: Path | None = None):
+    """A pure, isolated context with a registered test identity."""
+    from respectedbrain.core.context import AppContext
+    from respectedbrain.core.paths import AppPaths
+    from respectedbrain.core.resources import ResourceCatalog
+    from respectedbrain.core.config import ConfigStore
+    from respectedbrain.vault.registry import VaultRegistry
+    vault = vault or root / "Türkçe 🧠 Vault"
+    vault.mkdir(parents=True, exist_ok=True)
+    store = ConfigStore(root / "data")
+    identity = VaultRegistry(store).register(vault)
+    return AppContext(AppPaths(root / "app", root / "data", vault, identity), store.read(), ResourceCatalog())

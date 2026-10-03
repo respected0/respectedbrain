@@ -20,19 +20,17 @@ def tearDownModule() -> None:
 
 
 def load_builder():
-    spec = importlib.util.spec_from_file_location("respected_map_builder", MODULE_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("map builder cannot be loaded")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    from respectedbrain.vault import maps
+    return maps
 
 
 class MapsTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="respected-maps-")
         self.vault = Path(self.temporary.name) / "Ada Brain"
-        (self.vault / ".beyin/skills/doctor").mkdir(parents=True)
+        from tests.foundation_support import make_context
+        self.ctx = make_context(Path(self.temporary.name), self.vault)
+        (self.ctx.paths.overrides_dir / "skills/doctor").mkdir(parents=True)
         (self.vault / ".agents/skills/doctor").mkdir(parents=True)
         (self.vault / ".beyin/engine/.state").mkdir(parents=True)
         (self.vault / "🎯 100-Command-Center").mkdir()
@@ -45,7 +43,7 @@ class MapsTest(unittest.TestCase):
         (self.vault / "🏰 300-Projects/Respected/README.md").write_text(
             "SECRET BODY THAT MUST NOT ENTER THE MAP\n", encoding="utf-8"
         )
-        (self.vault / ".beyin/skills/doctor/SKILL.md").write_text(
+        (self.ctx.paths.overrides_dir / "skills/doctor/SKILL.md").write_text(
             "---\nname: doctor\ndescription: Read-only health checks.\n---\n\n# Body\n",
             encoding="utf-8",
         )
@@ -64,9 +62,9 @@ class MapsTest(unittest.TestCase):
         builder = load_builder()
         core_before = (self.vault / "🔮 850-Companion/Core.md").read_bytes()
 
-        first = builder.refresh_maps(self.vault)
+        first = builder.refresh_maps(self.ctx)
         first_bytes = tuple(path.read_bytes() for path in first)
-        second = builder.refresh_maps(self.vault)
+        second = builder.refresh_maps(self.ctx)
 
         self.assertEqual(first, second)
         self.assertEqual(first_bytes, tuple(path.read_bytes() for path in second))
@@ -87,7 +85,7 @@ class MapsTest(unittest.TestCase):
     def test_skills_map_uses_only_canonical_skill_frontmatter(self):
         builder = load_builder()
 
-        _vault_map, skills_map_path = builder.refresh_maps(self.vault)
+        _vault_map, skills_map_path = builder.refresh_maps(self.ctx)
 
         skills_map = skills_map_path.read_text(encoding="utf-8")
         self.assertIn("doctor", skills_map)
@@ -97,7 +95,7 @@ class MapsTest(unittest.TestCase):
     def test_map_replacement_leaves_no_temporary_file(self):
         builder = load_builder()
 
-        builder.refresh_maps(self.vault)
+        builder.refresh_maps(self.ctx)
 
         command_center = self.vault / "🎯 100-Command-Center"
         self.assertEqual(list(command_center.glob(".*.tmp")), [])
@@ -113,7 +111,7 @@ class MapsTest(unittest.TestCase):
                 encoding="utf-8",
             )
 
-        paths = load_builder().refresh_maps(self.vault)
+        paths = load_builder().refresh_maps(self.ctx)
 
         for path in paths:
             self.assertTrue(
@@ -128,7 +126,7 @@ class MapsTest(unittest.TestCase):
         target.write_text("# Kullanıcının haritası\n", encoding="utf-8")
 
         with self.assertRaisesRegex(ValueError, "map-collision"):
-            builder.refresh_maps(self.vault)
+            builder.refresh_maps(self.ctx)
 
         self.assertEqual(target.read_text(encoding="utf-8"), "# Kullanıcının haritası\n")
 
@@ -144,7 +142,7 @@ class MapsTest(unittest.TestCase):
             self.skipTest(f"symlink unavailable: {error}")
 
         with self.assertRaisesRegex(ValueError, "unsafe-map-path"):
-            builder.refresh_maps(self.vault)
+            builder.refresh_maps(self.ctx)
 
         self.assertEqual(list(outside.iterdir()), [])
 

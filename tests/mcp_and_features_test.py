@@ -30,13 +30,15 @@ def tearDownModule():
     sys.path[:] = ORIGINAL_SYS_PATH
 
 try:
-    from scripts.arama import SearchEngine, read_head, parse_frontmatter_head
     from scripts.vault_mcp_server import RespectedMcpServer
     from scripts.mine_agent_history import AgentHistoryMiner
 except ImportError:
-    from arama import SearchEngine, read_head, parse_frontmatter_head  # type: ignore[import-not-found]
     from vault_mcp_server import RespectedMcpServer  # type: ignore[import-not-found]
     from mine_agent_history import AgentHistoryMiner  # type: ignore[import-not-found]
+
+
+from respectedbrain.search.engine import SearchEngine, read_head, parse_frontmatter_head
+from tests.foundation_support import make_context
 
 
 class SearchEngineTest(unittest.TestCase):
@@ -58,7 +60,8 @@ class SearchEngineTest(unittest.TestCase):
             encoding="utf-8",
         )
 
-        self.engine = SearchEngine(self.vault)
+        self.engine = SearchEngine(make_context(self.vault.parent / (self.vault.name + "-data"), self.vault))
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.vault.parent / (self.vault.name + "-data"), ignore_errors=True))
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()

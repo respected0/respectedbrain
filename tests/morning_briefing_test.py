@@ -38,21 +38,34 @@ VALID = """## Dün tamamlananlar
 
 
 def load_worker():
-    spec = importlib.util.spec_from_file_location("respected_morning_briefing", MODULE_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("morning briefing worker cannot be loaded")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    from respectedbrain.briefing import service
+    from respectedbrain.core.context import ModelResult
+    from tests.foundation_support import make_context
+    from types import SimpleNamespace
+
+    def run(vault, now, model_call):
+        ctx = make_context(vault.parent, vault)
+        called = []
+        class Model:
+            def run(self, prompt, *, cwd, mode, timeout):
+                called.append(True)
+                text, error, provider = model_call(prompt, cwd)
+                return ModelResult(text, provider, error)
+        return service.run_if_due(ctx, model=Model(), now=now) == 0 and bool(called)
+    return SimpleNamespace(**{**vars(service), "run_if_due": run})
 
 
 class MorningBriefingTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="respected-briefing-")
         self.vault = Path(self.temporary.name) / "Ada Brain"
+        from respectedbrain.briefing import service
+        from tests.foundation_support import make_context
+        self.ctx = make_context(Path(self.temporary.name), self.vault)
+        self.compiler = patch.object(service, "compile_memory", return_value=0)
+        self.compiler.start()
+        self.addCleanup(self.compiler.stop)
         for relative in (
-            ".beyin",
-            ".beyin/engine/.state",
             "daily",
             "knowledge",
             "🎯 100-Command-Center",
@@ -119,15 +132,12 @@ class MorningBriefingTest(unittest.TestCase):
         self.assertIn("Kullanıcı içeriği.", dashboard)
         self.assertIn("[[Briefings/2026-08-31|Bugünün Brifingi]]", dashboard)
 
-    def test_temporary_directory_uses_external_temp_parent_when_present(self):
-        worker = load_worker()
-        target = self.vault / "external-temp"
-        with patch.object(
-            worker.runtime_platform, "external_temp_parent", return_value=target
-        ):
-            kwargs = worker._temporary_directory_kwargs(self.vault)
-        self.assertEqual(kwargs, {"dir": target})
-        self.assertTrue(target.is_dir())
+    def test_model_stage_uses_selected_uuid_cache(self):
+        calls = []
+        load_worker().run_if_due(self.vault, datetime(2026, 8, 31, 9),
+                                lambda prompt, cwd: (calls.append(cwd) or VALID, None, "codex"))
+        self.assertEqual(calls[0].parent, self.ctx.paths.cache_dir)
+        self.assertFalse(calls[0].exists())
 
     def test_success_replaces_one_legacy_dashboard_block_with_current_markers(self):
         worker = load_worker()
@@ -169,7 +179,7 @@ class MorningBriefingTest(unittest.TestCase):
         self.assertTrue(
             worker.run_if_due(self.vault, now, lambda prompt, cwd: (VALID, None, "cursor"))
         )
-        self.assertFalse((self.vault / ".beyin/engine/.state/briefing-health.json").exists())
+        self.assertFalse((self.ctx.paths.state_dir / "briefing-health.json").exists())
 
     def test_concurrent_runs_make_one_model_call_and_one_final(self):
         worker = load_worker()
@@ -281,7 +291,8 @@ class MorningBriefingTest(unittest.TestCase):
         worker = load_worker()
         outside = Path(self.temporary.name) / "external-lock"
         outside.write_bytes(b"")
-        lock = self.vault / ".beyin/engine/.state/morning-briefing-2026-08-31.lock"
+        self.ctx.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        lock = self.ctx.paths.state_dir / "morning-briefing-2026-08-31.lock"
         try:
             lock.symlink_to(outside)
         except OSError as error:
