@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from importlib.resources import files
-from importlib.resources.abc import Traversable
+try:
+    from importlib.resources.abc import Traversable
+except ModuleNotFoundError:  # Python 3.10 exposes this ABC in importlib.abc.
+    from importlib.abc import Traversable
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Iterator

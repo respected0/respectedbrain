@@ -126,7 +126,7 @@
       "relationships": [
         "Atlas yapıyı anlatır; audit yürütülmüş incelemenin kanıtıdır; tarihi ve bağlamı dışında canlı platform garantisi vermez."
       ],
-      "review_sha256": "4ab78cbf506c1237152acfbbbdf66a3339344936ccc817ad69da6966ef65480c"
+      "review_sha256": "2ad678b95b3064e6cda87b44b0640fbd7471d22b0ba1fa48eaf14236dea8df32"
     },
     {
       "path": "docs/REPOSITORY_MAP.md",
@@ -387,7 +387,7 @@
       "relationships": [
         "wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır."
       ],
-      "review_sha256": "f507c03f4758acd5a062886d1b2a1dafc641067cded85d5de786bb77f9479a64"
+      "review_sha256": "0ae15d91f165bc03e3951d0c10b09aba05dfb6d4a657978927e2ea801580c6d3"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-source-cleanup.md",
@@ -617,11 +617,11 @@
     {
       "path": "src/respectedbrain/core/resources.py",
       "role": "Paylaşılan çekirdek sözleşme",
-      "purpose": "importlib.resources üzerinden salt okunur paket içeriğini okur/listeler; gerektiğinde geçici bir ağaca materialize eder ve path escape'i reddeder. Yeni tahsis ettiği OS geçici kökünü kanonikleştirerek macOS /var veya Windows kısa temp adlarının güvenli payload denetimini bozmasını önler; kullanıcı yollarının link korumasını değiştirmez.",
+      "purpose": "importlib.resources üzerinden salt okunur paket içeriğini okur/listeler; gerektiğinde geçici bir ağaca materialize eder ve path escape'i reddeder. Yeni tahsis ettiği OS geçici kökünü kanonikleştirerek macOS /var veya Windows kısa temp adlarının güvenli payload denetimini bozmasını önler; kullanıcı yollarının link korumasını değiştirmez. Traversable türünü 3.11+ importlib.resources.abc konumundan, Python 3.10 için importlib.abc uyumluluk yolundan yükler; runtime tür introspection sembolünü korur.",
       "relationships": [
         "ConfigStore default'ları, setup vault seed'i, entegrasyon rendering ve gateway UI dosyaları ResourceCatalog kullanır; checkout'a bağlı değildir."
       ],
-      "review_sha256": "92c137c9a126d147a59206db7a08fed41e2f07ab54d43c618a634917e0529604"
+      "review_sha256": "0a8e864da320fe93a8ce0079461a57f45228154093bc3ea41c894265aff34b7f"
     },
     {
       "path": "src/respectedbrain/gateway/__init__.py",
@@ -824,11 +824,11 @@
     {
       "path": "src/respectedbrain/integrations/hooks/codex_notify.py",
       "role": "Ajan ve işletim sistemi bağlantısı",
-      "purpose": "Codex completion bildirimi ve opaque JSON argümanını koruyarak lifecycle turn flush'u tetikler; önceki notify handler zincirini aynı argv ile sürdürür.",
+      "purpose": "Codex completion bildirimi ve opaque JSON argümanını koruyarak lifecycle turn flush'u tetikler; önceki notify handler zincirini aynı argv ile sürdürür. WSL Windows yol dönüşümünü ayrı tail ifadesinde hesaplayarak Python 3.10 parser uyumluluğunu korur; notify argv/payload davranışı aynıdır.",
       "relationships": [
         "rendering/global_config managed notify kaydını oluşturur; UUID DataRoot state chain'i saklar; writer lease reentrant/background işlerini korur."
       ],
-      "review_sha256": "27af63919b51ed6ed98708a5499ed36b832a5c0e11c8f836667f88de1b4b5750"
+      "review_sha256": "360ae0f99df3708c13c5d1d10fb7646b3a3a199b4e1fecdfbb75e4d3c9c201d0"
     },
     {
       "path": "src/respectedbrain/integrations/legacy_registration.py",
@@ -2249,11 +2249,11 @@
     {
       "path": "tests/run_all.py",
       "role": "Test altyapısı veya native kabul girişi",
-      "purpose": "Native dağıtım doğrulamasını, Python/PowerShell/Bash testlerini ve host kanıtını birleştirir; --python-only yalnız Python keşfini çalıştırır, tam unittest çıktısını korur ve CI hatasında yalnız doğrulanmış public test kimliklerini annotasyona taşır. Başarısız kimlikler GitHub step annotation sınırına takılmamak için tek güvenli bildirime toplanır; ham hata/subtest metni annotation içine alınmaz.",
+      "purpose": "Native dağıtım doğrulamasını, Python/PowerShell/Bash testlerini ve host kanıtını birleştirir; --python-only yalnız Python keşfini çalıştırır, tam unittest çıktısını korur ve CI hatasında yalnız doğrulanmış public test kimliklerini annotasyona taşır. Başarısız kimlikler GitHub step annotation sınırına takılmamak için tek güvenli bildirime toplanır; ham hata/subtest metni annotation içine alınmaz. Python 3.10 unittest module.Class başlığını güvenli public method kimliğiyle tamamlar; yeni module.Class.method biçimini ve tekrarsız listeyi korur.",
       "relationships": [
         "CI/release --python-only yolunu native doğrulama sonrası çağırır; varsayılan tam orkestrasyon native gate'ini korur. scenario_matrix_test gerçek başarısız discovery, traceback koruma ve test kimliği filtresini sınar."
       ],
-      "review_sha256": "921344d97ee8049c1a16e50d3be9dee1923a652032bf7aef5370da54b8a771e3"
+      "review_sha256": "b8386c30b6057f314fd5f9fc704572a67cb29ed3b7113a6a7d1dd1f9c1d09f87"
     },
     {
       "path": "tests/runtime_layout_test.py",
@@ -2278,11 +2278,11 @@
     {
       "path": "tests/scenario_matrix_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Beş platform profili için sağlayıcı hook/notify/JSON sözleşmelerini sınar; geçici unittest fixture'ıyla --python-only çıkış kodunu, tam stderr çıktısını ve public test kimliği annotasyonunun özel mesaj/yol/subtest verisi taşımamasını doğrular. Ondan fazla gerçek fixture hatasında tek annotation içinde bütün public kimliklerin korunduğunu ve özel hata gövdelerinin yalnız normal test logunda kaldığını sınar.",
+      "purpose": "Beş platform profili için sağlayıcı hook/notify/JSON sözleşmelerini sınar; geçici unittest fixture'ıyla --python-only çıkış kodunu, tam stderr çıktısını ve public test kimliği annotasyonunun özel mesaj/yol/subtest verisi taşımamasını doğrular. Ondan fazla gerçek fixture hatasında tek annotation içinde bütün public kimliklerin korunduğunu ve özel hata gövdelerinin yalnız normal test logunda kaldığını sınar. Python 3.10 sınıf başlığının modern public test kimliğine dönüştüğünü ve özel subtest değerlerinin dışarı taşınmadığını doğrular.",
       "relationships": [
         "integrations.rendering provider adaptörlerini üretir; tests/run_all.py teşhis sınırını gerçek subprocess discovery ile sınar."
       ],
-      "review_sha256": "4c62e2212db6888f8d79ee15e6be63e07dc270e3145ef9f3cd768a37c6405ed4"
+      "review_sha256": "96da0bf918d5a1f2aca01a64106c4db4f2685c8c60d0c8a63c0d4425a717d2f4"
     },
     {
       "path": "tests/scripts_test.py",

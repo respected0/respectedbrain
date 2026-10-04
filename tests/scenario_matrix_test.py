@@ -156,6 +156,15 @@ class PythonSuiteDiagnosticsTest(unittest.TestCase):
             self.assertNotIn('private failure payload', annotations[0])
             self.assertIn('Ran 12 tests', stderr.getvalue())
 
+    def test_python310_class_header_is_normalized_to_public_test_id(self):
+        tool = self.load_orchestrator()
+        output = (
+            "ERROR: test_legacy (fixture_test.OldCase)\n"
+            "FAIL: test_legacy (fixture_test.OldCase) (private='value')\n"
+            "AssertionError: private exception payload\n"
+        )
+        self.assertEqual(tool.failed_test_ids(output), ['fixture_test.OldCase.test_legacy'])
+
     def test_failure_identifiers_reject_nonpublic_header_data(self):
         tool = self.load_orchestrator()
         output = (

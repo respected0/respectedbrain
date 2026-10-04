@@ -49,7 +49,8 @@ def _chain_file_and_payload(argv: list[str]) -> tuple[Path | None, list[str]]:
 def _wsl_executable(value: str) -> str:
     if os.name != "nt" and re.match(r"^[A-Za-z]:[\\/]", value):
         drive = value[0].lower()
-        return f"/mnt/{drive}/{value[2:].lstrip('\\/').replace('\\', '/')}"
+        tail = value[2:].lstrip('\\/').replace('\\', '/')
+        return f"/mnt/{drive}/{tail}"
     return value
 
 

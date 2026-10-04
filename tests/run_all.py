@@ -73,8 +73,16 @@ def failed_test_ids(output: str) -> list[str]:
     """Extract public unittest identifiers; discard messages and subtest values."""
     identifier = r"[A-Za-z_][A-Za-z0-9_]*"
     header = re.compile(rf"^(?:FAIL|ERROR|UNEXPECTED SUCCESS): ({identifier}) \(((?:{identifier}\.)+{identifier})\)(?: .*)?$", re.MULTILINE)
-    return list(dict.fromkeys(identity for method, identity in header.findall(output)
-                              if identity.rsplit('.', 1)[-1] == method))
+    identities = []
+    for method, identity in header.findall(output):
+        last = identity.rsplit('.', 1)[-1]
+        if last == method:
+            identities.append(identity)
+        elif re.fullmatch(r"_*[A-Z][A-Za-z0-9_]*", last):
+            # Python 3.10 prints module.Class, later versions add .method.
+            # Restrict the legacy form to public project class identifiers.
+            identities.append(identity + "." + method)
+    return list(dict.fromkeys(identities))
 
 
 def run_python_tests() -> tuple[bool, float, str]:

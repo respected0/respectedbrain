@@ -120,3 +120,41 @@ Full-source real-junction alias GREEN: 668 tests, zero failures/errors, 15
 existing host skips. RED was 38 failures + 2 errors; the same harness excluded
 only FoundationNativeInstallTest, whose three real cases separately passed.
 Final discovery includes 671 tests. No production changes in this follow-up.
+
+### Python 3.10 compatibility investigation — 2026-10-05
+
+Run 37236806337 passed all three native build/full-suite/physical smoke and
+release-format jobs, plus all three Python 3.13 source jobs. Its three Python
+3.10 source jobs failed. A checksum-verified isolated CPython 3.10.22 reproduced
+136 discovery errors and two failures: ResourceCatalog imported the Python
+3.11+ importlib.resources.abc module unconditionally. The type now falls back
+to Python 3.10's importlib.abc.Traversable, preserving runtime introspection.
+All four existing resource/wheel-isolation tests passed on actual Python 3.10;
+17 resource/diagnostics tests passed on Python 3.12 (5.849s).
+
+Python 3.10's unittest headers omit the final method inside parentheses.
+Diagnostics normalize that restricted public class identifier to the same
+canonical test ID while excluding exception/subtest data. A new RED/GREEN
+case covers this older format. Independent review found no new issue; all
+13 diagnostics tests passed. Final discovery now includes 672 tests.
+The isolated runtime is ignored task evidence; no global Python, provider
+settings, live program or vault was changed. Fresh full-suite/platform results
+are required before main publication.
+
+A second actual 3.10 parser failure was isolated in Codex notify's WSL path
+conversion: a backslash inside an f-string expression needs Python 3.12+.
+The identical calculation now occurs in a separate tail variable. Existing
+turn-log/chain tests passed 10/10 on Python 3.10 and 10/10 on Python 3.12;
+actual Python 3.10 parsed all 155 source/test/tool Python files successfully.
+The first broader run after the resource fix captured this syntax error and
+an uninstalled editable entrypoint in the isolated runtime. After installing
+only into that disposable runtime, a fresh full run covers the final code.
+
+Fresh isolated CPython 3.10.22 source GREEN: 669 tests, zero failures/errors,
+15 existing host skips. Only the three FoundationNativeInstallTest cases are
+excluded by the throwaway harness, not permanently skipped. Native execution
+is separately required by the fresh CI. Final Windows distribution and Inno
+installer rebuilt; frozen version/registry/maps/search/hook/MCP passed. All
+1057 copied distribution files match SHA256 in primary dist; previous build
+is preserved in ignored evidence. No introduced finding in independent review
+of either compatibility change or diagnostics normalization.

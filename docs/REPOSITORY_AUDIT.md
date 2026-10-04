@@ -187,3 +187,30 @@ Fiziksel Linux native/full-suite/smoke ve extracted makeself paketi CI'da geçti
 son fixture düzeltmeleriyle tüm platform kapılarının sonucu devam planında
 kaydedilecektir. Yukarıdaki dört işlev/güvenlik sınırı bu düzeltmelerle kapatılmış
 sayılmaz. Kullanıcının canlı kurulumu ve notları değiştirilmedi.
+
+### Python sürüm uyumluluğu — 2026-10-05
+
+37236806337 koşusunda üç native paket/kabul/smoke ve gerçek dağıtım biçimi
+kapısı geçti; üç platformun Python 3.13 source kapısı da geçti. Python 3.10
+source kapıları ise ResourceCatalog'ın yalnız 3.11+ üzerinde bulunan
+`importlib.resources.abc` importu nedeniyle düştü. İzole gerçek CPython 3.10.22
+aynı kök nedeni yeniden üretti. Python 3.10 `importlib.abc.Traversable`
+uyumluluk yolu, mevcut runtime tür sembolünü ve introspection'ı koruyarak
+eklendi. Dört mevcut kaynak/wheel izolasyon testi gerçek 3.10 üzerinde geçti.
+
+Eski unittest çıktı biçiminin gizlediği public test kimlikleri de güvenli
+biçimde normalize edilir; exception/subtest gövdeleri annotation'a alınmaz.
+Bağımsız dar incelemede yeni önemli bulgu yok. Son ürün değişikliğinin tam
+3.10 dizisi ve yeni platform koşusu devam planında kaydedilecektir.
+
+Codex notify WSL yol dönüşümünde 3.12+ f-string söz dizimi de gerçek 3.10'da
+SyntaxError verdi. Aynı hesap ayrı değişkene alınarak eski parser desteği
+korundu; mevcut 10 turn-log/notify zincir testi hem 3.10 hem 3.12 üzerinde
+geçti. 3.10 parser taraması 155 kaynak/test/araç Python dosyasının tamamında
+başarılı. Değişiklik argv veya JSON payload semantiğini değiştirmez.
+
+Son gerçek CPython 3.10.22 source koşusu **669 test, sıfır failure/error,
+15 mevcut host skip** ile geçti; yalnız geçici harness üç ağır native kurulum
+testini hariç tutar. Native kapı yeni CI koşusunda ayrıca zorunludur. Son
+Windows paket/kurucu rebuild ve frozen komutlar geçti; ana klasörde 1057
+dosyalı dağıtım kopyası SHA256 eşleşmesiyle doğrulandı, önceki paket korundu.
