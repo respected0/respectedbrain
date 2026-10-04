@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import plistlib
 import subprocess
 import tempfile
 import unittest
@@ -25,6 +26,35 @@ class FoundationPosixDistributionTest(unittest.TestCase):
         self.backend = Backend()
     def mode(self, path):
         return stat.S_IMODE(path.stat().st_mode)
+    def test_macos_bundle_places_runtime_at_bootloader_frameworks_root(self):
+        source = self.root / "onedir"
+        (source / "app/respectedbrain/resources").mkdir(parents=True)
+        (source / "respectedbrain").write_bytes(b"launcher")
+        (source / "app/Python").write_bytes(b"python shared library")
+        (source / "app/respectedbrain/resources/instructions.md").write_bytes(b"instructions")
+        bundle = self.root / "RespectedBrain.app"
+        function = getattr(importlib.import_module("tools.build_installer"), "assemble_macos_bundle", None)
+        self.assertTrue(callable(function), "macOS bundle assembler is missing")
+        function(source, bundle)
+        self.assertEqual((bundle / "Contents/MacOS/respectedbrain").read_bytes(), b"launcher")
+        self.assertEqual((bundle / "Contents/Frameworks/Python").read_bytes(), b"python shared library")
+        self.assertEqual((bundle / "Contents/Frameworks/respectedbrain/resources/instructions.md").read_bytes(), b"instructions")
+        self.assertFalse((bundle / "Contents/MacOS/app").exists())
+        with (bundle / "Contents/Info.plist").open("rb") as stream:
+            self.assertEqual(plistlib.load(stream)["CFBundleExecutable"], "respectedbrain")
+    def test_macos_bundle_rebuild_drops_obsolete_payload_without_changing_source(self):
+        source = self.root / "onedir"
+        (source / "app").mkdir(parents=True)
+        (source / "respectedbrain").write_bytes(b"launcher")
+        (source / "app/Python").write_bytes(b"python shared library")
+        bundle = self.root / "RespectedBrain.app"
+        bundle.mkdir()
+        (bundle / "obsolete").write_bytes(b"old package")
+        function = getattr(importlib.import_module("tools.build_installer"), "assemble_macos_bundle", None)
+        self.assertTrue(callable(function), "macOS bundle assembler is missing")
+        function(source, bundle)
+        self.assertFalse((bundle / "obsolete").exists())
+        self.assertEqual((source / "app/Python").read_bytes(), b"python shared library")
     def test_replace_journals_source_and_original_modes(self):
         source, target = self.root / "source", self.root / "target"
         source.write_bytes(b"new launcher")

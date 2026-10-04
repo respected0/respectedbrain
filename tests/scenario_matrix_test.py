@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import importlib.util
+import contextlib
+import io
+import os
 import json
 from pathlib import Path
 import shutil
@@ -105,6 +108,47 @@ class ScenarioMatrixTest(IntegrationFixture, unittest.TestCase):
     def test_claude_global_stop_hook_is_async(self):
         settings = self.global_output(".claude/settings.json")
         self.assertTrue(settings["hooks"]["Stop"][0]["hooks"][0].get("async"))
+
+
+class PythonSuiteDiagnosticsTest(unittest.TestCase):
+    def load_orchestrator(self):
+        spec = importlib.util.spec_from_file_location('test_orchestrator', ROOT / 'tests/run_all.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_python_only_runs_discovery_without_native_payload_and_reports_public_test_id(self):
+        tool = self.load_orchestrator()
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Path(temporary)
+            (fixture / 'tests').mkdir()
+            (fixture / 'tests/diagnostic_test.py').write_text(
+                "import unittest\nclass Fixture(unittest.TestCase):\n"
+                "    def test_failure(self):\n        self.fail('ordinary traceback sentinel')\n",
+                encoding='utf-8')
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with mock.patch.object(tool, 'ROOT', fixture), mock.patch.dict(os.environ, {'GITHUB_ACTIONS': 'true'}), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                status = tool.main(['--python-only'])
+            self.assertEqual(status, 1)
+            annotations = [line for line in stdout.getvalue().splitlines() if line.startswith('::error')]
+            self.assertEqual(annotations, ['::error title=Python unittest failure::test=diagnostic_test.Fixture.test_failure'])
+            self.assertNotIn('Required Native Distribution', stdout.getvalue())
+            self.assertIn('ordinary traceback sentinel', stderr.getvalue())
+            self.assertIn('Ran 1 test', stderr.getvalue())
+
+    def test_failure_identifiers_reject_nonpublic_header_data(self):
+        tool = self.load_orchestrator()
+        output = (
+            "FAIL: test_good (fixture_test.Case.test_good) (payload='private subtest value')\n"
+            "ERROR: test_good (fixture_test.Case.test_good)\n"
+            "FAIL: test_bad (/private/path/fixture_test.Case.test_bad)\n"
+            "ERROR: test_bad (fixture_test.Case.test_bad%0A::error)\n"
+            "FAIL: test_bad (fixture_test.Case.test_bad,private=value)\n"
+            "FAIL: test_bad (fixture_test.Case.other_method)\n"
+            "AssertionError: private exception payload\n"
+            "UNEXPECTED SUCCESS: test_surprise (fixture_test.Case.test_surprise)\n"
+        )
+        self.assertEqual(tool.failed_test_ids(output), ['fixture_test.Case.test_good', 'fixture_test.Case.test_surprise'])
 
 
 if __name__ == "__main__":

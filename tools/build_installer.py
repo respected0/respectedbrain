@@ -5,6 +5,7 @@ import hashlib
 from importlib.metadata import version
 import json
 import os
+import plistlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -55,6 +56,36 @@ def dereference_distribution_links(app: Path) -> None:
             raise
 
 
+def assemble_macos_bundle(source: Path, bundle: Path) -> None:
+    """Place onedir contents where the macOS bootloader resolves its library root."""
+    if bundle.is_symlink():
+        raise ValueError("Bundle destination must not be a link")
+    bundle.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".respected-bundle-", dir=bundle.parent) as temporary:
+        staging = Path(temporary) / bundle.name
+        executable_dir = staging / "Contents/MacOS"
+        executable_dir.mkdir(parents=True)
+        shutil.copy2(source / "respectedbrain", executable_dir / "respectedbrain")
+        # PyInstaller recognizes .app/Contents/MacOS even for its console
+        # bootloader and uses Contents/Frameworks, ignoring --contents-directory.
+        shutil.copytree(source / "app", staging / "Contents/Frameworks")
+        with (staging / "Contents/Info.plist").open("wb") as stream:
+            plistlib.dump({"CFBundleExecutable": "respectedbrain",
+                          "CFBundleIdentifier": "com.respected.respectedbrain",
+                          "CFBundleName": "Respected Brain",
+                          "CFBundlePackageType": "APPL"}, stream)
+        original = Path(temporary) / "original"
+        existed = bundle.exists()
+        if existed:
+            bundle.rename(original)
+        try:
+            staging.rename(bundle)
+        except BaseException:
+            if existed:
+                original.rename(bundle)
+            raise
+
+
 def build(*, platform: str, output: Path, installer: bool = True) -> Path:
     native = "windows" if sys.platform == "win32" else "macos" if sys.platform == "darwin" else "linux"
     if platform != native:
@@ -71,12 +102,8 @@ def build(*, platform: str, output: Path, installer: bool = True) -> Path:
         dereference_distribution_links(app)
     if platform == "macos":
         bundle = output / "RespectedBrain.app"
-        bundle.mkdir(exist_ok=True)
-        target_dir = bundle / "Contents/MacOS"
-        target_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(app, target_dir, dirs_exist_ok=True)
-        (bundle / "Contents/Info.plist").write_text('<?xml version="1.0"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleExecutable</key><string>respectedbrain</string><key>CFBundleIdentifier</key><string>com.respected.respectedbrain</string><key>CFBundleName</key><string>Respected Brain</string></dict></plist>', encoding="utf-8")
-        app, target = bundle, target_dir / "respectedbrain"
+        assemble_macos_bundle(app, bundle)
+        app, target = bundle, bundle / "Contents/MacOS/respectedbrain"
     files = {path.relative_to(app).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(app.rglob("*")) if path.is_file() and path.name != "distribution.json"}
     document = {"schema_version": 3, "version": version("respectedbrain"), "platform": platform, "launcher": target.relative_to(app).as_posix(), "files": files}
     (app / "distribution.json").write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

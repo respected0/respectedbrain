@@ -66,7 +66,7 @@ jobs:
       - name: Verify frozen launcher without system Python
         run: python tools/verify_distribution.py --platform ${{ matrix.platform }} --distribution "${{ matrix.distribution }}"
       - name: Run full suite against native build
-        run: python -m unittest discover -s tests -p "*test*.py"
+        run: python tests/run_all.py --python-only
       - name: Physical host package smoke
         run: python tests/smoke/platform_smoke.py --package "${{ matrix.distribution }}" --output native-smoke.json
       - name: Package Windows installer

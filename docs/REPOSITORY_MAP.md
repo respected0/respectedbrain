@@ -483,16 +483,16 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 #### [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 
 **Rol:** Depo sözleşmesi.  
-**Amaç / sorumluluk:** Windows, Linux ve macOS üzerinde native dağıtım üretir, doğrular, regresyon ve host smoke kapılarını çalıştırır; PR/main değişikliklerinin kalite kapısıdır.
+**Amaç / sorumluluk:** Windows, Linux ve macOS üzerinde native dağıtım üretir, doğrular, regresyon ve host smoke kapılarını çalıştırır; PR/main değişikliklerinin kalite kapısıdır. Python suite tests/run_all.py --python-only üzerinden çalışır ve başarısız public test kimliklerini güvenli annotation ile gösterir.
 
-**İlişkiler ve sınır:** tools/build_installer.py, verify_distribution.py ve tests komutlarını bağlar; atlas --check kaynak/inceleme drift'ini yakalar.
+**İlişkiler ve sınır:** tools/build_installer.py, verify_distribution.py ve tests komutlarını bağlar; atlas --check kaynak/inceleme drift'ini yakalar. Python keşfi tests/run_all.py --python-only üzerinden tam stderr ve doğrulanmış public başarısız test kimliği annotasyonlarını korur.
 
 #### [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 
 **Rol:** Depo sözleşmesi.  
-**Amaç / sorumluluk:** v* etiketi veya elle tetikleme için üç platformun native yayın paketlerini üretir ve sürüm etiketini paket metadata'sıyla eşleştirir.
+**Amaç / sorumluluk:** v* etiketi veya elle tetikleme için üç platformun native yayın paketlerini üretir ve sürüm etiketini paket metadata'sıyla eşleştirir. Python suite tests/run_all.py --python-only üzerinden çalışır ve başarısız public test kimliklerini güvenli annotation ile gösterir.
 
-**İlişkiler ve sınır:** PyInstaller/Inno çıktılarını doğruladıktan sonra release artifact'lerini hazırlar; kaynaktan wheel ile native paketi ayırır.
+**İlişkiler ve sınır:** PyInstaller/Inno çıktılarını doğruladıktan sonra release artifact'lerini hazırlar; kaynaktan wheel ile native paketi ayırır. Native doğrulama sonrası tests/run_all.py --python-only tam unittest logunu ve güvenli public test kimliği teşhisini sağlar.
 
 ### Depo kökü
 
@@ -2118,7 +2118,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 #### [`tests/foundation_posix_distribution_test.py`](../tests/foundation_posix_distribution_test.py)
 
 **Rol:** Davranış/regresyon testi.  
-**Amaç / sorumluluk:** POSIX executable mode korunması/rollback'ini ve PyInstaller iç symlink/framework normalleştirmesinde escape/cycle reddini sınar. Odak örnekleri: `test_replace_journals_source_and_original_modes`, `test_write_keeps_existing_file_permissions`, `test_rollback_preserves_concurrent_permission_edit`.
+**Amaç / sorumluluk:** POSIX executable mode korunması/rollback'ini ve PyInstaller iç symlink/framework normalleştirmesinde escape/cycle reddini sınar. Odak örnekleri: `test_replace_journals_source_and_original_modes`, `test_write_keeps_existing_file_permissions`, `test_rollback_preserves_concurrent_permission_edit`. macOS bundle runtime yerleşimi ve yeniden build sırasında eski üyelerin temizlenmesi kaynak değiştirilmeden doğrulanır.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.errors`, `respectedbrain.installation.transaction`.
 
@@ -2314,9 +2314,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 #### [`tests/run_all.py`](../tests/run_all.py)
 
 **Rol:** Test altyapısı veya native kabul girişi.  
-**Amaç / sorumluluk:** Önce native distribution kapısını zorunlu tutar, sonra Python/native PowerShell/Bash ve host smoke'u tek raporda çalıştırır; yapılmayan platformları NOT VERIFIED tutar.
+**Amaç / sorumluluk:** Native dağıtım doğrulamasını, Python/PowerShell/Bash testlerini ve host kanıtını birleştirir; --python-only yalnız Python keşfini çalıştırır, tam unittest çıktısını korur ve CI hatasında yalnız doğrulanmış public test kimliklerini annotasyona taşır.
 
-**İlişkiler ve sınır:** build_installer çıktısı ön koşuldur; verify_distribution, smoke/platform_smoke ve native script'lerin exit kodları ortak sonuç belirler.
+**İlişkiler ve sınır:** CI/release --python-only yolunu native doğrulama sonrası çağırır; varsayılan tam orkestrasyon native gate'ini korur. scenario_matrix_test gerçek başarısız discovery, traceback koruma ve test kimliği filtresini sınar.
 
 #### [`tests/runtime_layout_test.py`](../tests/runtime_layout_test.py)
 
@@ -2335,9 +2335,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 #### [`tests/scenario_matrix_test.py`](../tests/scenario_matrix_test.py)
 
 **Rol:** Davranış/regresyon testi.  
-**Amaç / sorumluluk:** Advertised platform/provider hook event render matrisi ve run_all raporunun çalışmayan host'ları verified saymamasını sınar. Odak örnekleri: `test_orchestrator_never_calls_skipped_hosts_golden`, `test_every_advertised_target_renders_real_provider_adapters`, `test_gemini_project_adapter_uses_after_agent_and_strict_json_schema`.
+**Amaç / sorumluluk:** Beş platform profili için sağlayıcı hook/notify/JSON sözleşmelerini sınar; geçici unittest fixture'ıyla --python-only çıkış kodunu, tam stderr çıktısını ve public test kimliği annotasyonunun özel mesaj/yol/subtest verisi taşımamasını doğrular.
 
-**İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.integrations.backend`, `respectedbrain.integrations`.
+**İlişkiler ve sınır:** integrations.rendering provider adaptörlerini üretir; tests/run_all.py teşhis sınırını gerçek subprocess discovery ile sınar.
 
 #### [`tests/scripts_test.py`](../tests/scripts_test.py)
 
@@ -2502,7 +2502,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 #### [`tools/build_installer.py`](../tools/build_installer.py)
 
 **Rol:** Depo sözleşmesi.  
-**Amaç / sorumluluk:** PyInstaller ile platformun kendi çalışma ortamını taşıyan uygulamayı üretir, iç symbolic link'leri güvenli şekilde normalleştirir, dağıtım hash manifest'i ve native kurulum kabuğunu hazırlar.
+**Amaç / sorumluluk:** PyInstaller ile platformun kendi çalışma ortamını taşıyan uygulamayı üretir, iç symbolic link'leri güvenli şekilde normalleştirir, dağıtım hash manifest'i ve native kurulum kabuğunu hazırlar. macOS konsol bootloader'ının aradığı Contents/Frameworks köküne onedir runtime içeriğini, Contents/MacOS içine CLI launcher'ını koyar; yeniden build eski bundle üyelerini tutmaz.
 
 **İlişkiler ve sınır:** pyproject/resources/packaging girdidir; dist çıktıdır; validate_package ve verify_distribution üretilen dosyaların bütünlüğünü denetler.
 

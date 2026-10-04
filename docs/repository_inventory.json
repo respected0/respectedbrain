@@ -39,20 +39,22 @@
     {
       "path": ".github/workflows/ci.yml",
       "role": "Depo sözleşmesi",
-      "purpose": "Windows, Linux ve macOS üzerinde native dağıtım üretir, doğrular, regresyon ve host smoke kapılarını çalıştırır; PR/main değişikliklerinin kalite kapısıdır.",
+      "purpose": "Windows, Linux ve macOS üzerinde native dağıtım üretir, doğrular, regresyon ve host smoke kapılarını çalıştırır; PR/main değişikliklerinin kalite kapısıdır. Python suite tests/run_all.py --python-only üzerinden çalışır ve başarısız public test kimliklerini güvenli annotation ile gösterir.",
       "relationships": [
-        "tools/build_installer.py, verify_distribution.py ve tests komutlarını bağlar; atlas --check kaynak/inceleme drift'ini yakalar."
+        "tools/build_installer.py, verify_distribution.py ve tests komutlarını bağlar; atlas --check kaynak/inceleme drift'ini yakalar.",
+        "Python keşfi tests/run_all.py --python-only üzerinden tam stderr ve doğrulanmış public başarısız test kimliği annotasyonlarını korur."
       ],
-      "review_sha256": "7a235e81d1090735947b8836dbb99c9f94cf90aedd03901e25397d3aa5bede91"
+      "review_sha256": "22598fc3ec085ceaa1c95e0a81c2be6554257ddf3d81cfcc758854c233db286d"
     },
     {
       "path": ".github/workflows/release.yml",
       "role": "Depo sözleşmesi",
-      "purpose": "v* etiketi veya elle tetikleme için üç platformun native yayın paketlerini üretir ve sürüm etiketini paket metadata'sıyla eşleştirir.",
+      "purpose": "v* etiketi veya elle tetikleme için üç platformun native yayın paketlerini üretir ve sürüm etiketini paket metadata'sıyla eşleştirir. Python suite tests/run_all.py --python-only üzerinden çalışır ve başarısız public test kimliklerini güvenli annotation ile gösterir.",
       "relationships": [
-        "PyInstaller/Inno çıktılarını doğruladıktan sonra release artifact'lerini hazırlar; kaynaktan wheel ile native paketi ayırır."
+        "PyInstaller/Inno çıktılarını doğruladıktan sonra release artifact'lerini hazırlar; kaynaktan wheel ile native paketi ayırır.",
+        "Native doğrulama sonrası tests/run_all.py --python-only tam unittest logunu ve güvenli public test kimliği teşhisini sağlar."
       ],
-      "review_sha256": "31a48d9c15619fd07156f832b22d721c7905f7ac59c1c10a46b844e5e7759863"
+      "review_sha256": "f847fc7ab6a892e574a4f94906aec1bc3743effebbd026442a27bd69f8a38a49"
     },
     {
       "path": ".gitignore",
@@ -1963,12 +1965,12 @@
     {
       "path": "tests/foundation_posix_distribution_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "POSIX executable mode korunması/rollback'ini ve PyInstaller iç symlink/framework normalleştirmesinde escape/cycle reddini sınar. Odak örnekleri: `test_replace_journals_source_and_original_modes`, `test_write_keeps_existing_file_permissions`, `test_rollback_preserves_concurrent_permission_edit`.",
+      "purpose": "POSIX executable mode korunması/rollback'ini ve PyInstaller iç symlink/framework normalleştirmesinde escape/cycle reddini sınar. Odak örnekleri: `test_replace_journals_source_and_original_modes`, `test_write_keeps_existing_file_permissions`, `test_rollback_preserves_concurrent_permission_edit`. macOS bundle runtime yerleşimi ve yeniden build sırasında eski üyelerin temizlenmesi kaynak değiştirilmeden doğrulanır.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.errors`, `respectedbrain.installation.transaction`."
       ],
-      "review_sha256": "1ea936a5816cf96c7cd836cc91ce7043a833f1d2a5f88025ec7c79e586a82073"
+      "review_sha256": "bf6dfb3901677733cab43607623befac09715a5bf9182c9b05dbf724baf7483c"
     },
     {
       "path": "tests/foundation_posix_install_test.py",
@@ -2238,11 +2240,11 @@
     {
       "path": "tests/run_all.py",
       "role": "Test altyapısı veya native kabul girişi",
-      "purpose": "Önce native distribution kapısını zorunlu tutar, sonra Python/native PowerShell/Bash ve host smoke'u tek raporda çalıştırır; yapılmayan platformları NOT VERIFIED tutar.",
+      "purpose": "Native dağıtım doğrulamasını, Python/PowerShell/Bash testlerini ve host kanıtını birleştirir; --python-only yalnız Python keşfini çalıştırır, tam unittest çıktısını korur ve CI hatasında yalnız doğrulanmış public test kimliklerini annotasyona taşır.",
       "relationships": [
-        "build_installer çıktısı ön koşuldur; verify_distribution, smoke/platform_smoke ve native script'lerin exit kodları ortak sonuç belirler."
+        "CI/release --python-only yolunu native doğrulama sonrası çağırır; varsayılan tam orkestrasyon native gate'ini korur. scenario_matrix_test gerçek başarısız discovery, traceback koruma ve test kimliği filtresini sınar."
       ],
-      "review_sha256": "fe6d2add6c0e4ae377548a81713a0b75eb6d5e73571c119209440c1a7b1ef1ad"
+      "review_sha256": "10e5a89a64e7c15e99f0cdf6c6e88577f229af41538a8dd3efe92152e0677824"
     },
     {
       "path": "tests/runtime_layout_test.py",
@@ -2267,12 +2269,11 @@
     {
       "path": "tests/scenario_matrix_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Advertised platform/provider hook event render matrisi ve run_all raporunun çalışmayan host'ları verified saymamasını sınar. Odak örnekleri: `test_orchestrator_never_calls_skipped_hosts_golden`, `test_every_advertised_target_renders_real_provider_adapters`, `test_gemini_project_adapter_uses_after_agent_and_strict_json_schema`.",
+      "purpose": "Beş platform profili için sağlayıcı hook/notify/JSON sözleşmelerini sınar; geçici unittest fixture'ıyla --python-only çıkış kodunu, tam stderr çıktısını ve public test kimliği annotasyonunun özel mesaj/yol/subtest verisi taşımamasını doğrular.",
       "relationships": [
-        "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
-        "Doğrudan sınadığı ürün import noktaları: `respectedbrain.integrations.backend`, `respectedbrain.integrations`."
+        "integrations.rendering provider adaptörlerini üretir; tests/run_all.py teşhis sınırını gerçek subprocess discovery ile sınar."
       ],
-      "review_sha256": "86482104877bdffef989ca2977c14e087960af0bd719387df4ae0c0a59e0e435"
+      "review_sha256": "b50e94e3dbe5d9cf747368b604bc18d9c8a3ea10a87797249430d204bb7a3d33"
     },
     {
       "path": "tests/scripts_test.py",
@@ -2489,11 +2490,11 @@
     {
       "path": "tools/build_installer.py",
       "role": "Depo sözleşmesi",
-      "purpose": "PyInstaller ile platformun kendi çalışma ortamını taşıyan uygulamayı üretir, iç symbolic link'leri güvenli şekilde normalleştirir, dağıtım hash manifest'i ve native kurulum kabuğunu hazırlar.",
+      "purpose": "PyInstaller ile platformun kendi çalışma ortamını taşıyan uygulamayı üretir, iç symbolic link'leri güvenli şekilde normalleştirir, dağıtım hash manifest'i ve native kurulum kabuğunu hazırlar. macOS konsol bootloader'ının aradığı Contents/Frameworks köküne onedir runtime içeriğini, Contents/MacOS içine CLI launcher'ını koyar; yeniden build eski bundle üyelerini tutmaz.",
       "relationships": [
         "pyproject/resources/packaging girdidir; dist çıktıdır; validate_package ve verify_distribution üretilen dosyaların bütünlüğünü denetler."
       ],
-      "review_sha256": "281cee24f6f5521cbfa9469e2c674832010080892dfd6ba6ab1052850c4ddb0f"
+      "review_sha256": "e1b1e4199fbd62385d919a1061f054767e9cbcbef47d9ea15d55e9a24c2c5066"
     },
     {
       "path": "tools/repository_map.py",

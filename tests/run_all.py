@@ -7,6 +7,7 @@ and Bash tests (if bash is available), providing a single Golden Standard report
 
 from __future__ import annotations
 
+import argparse
 import os
 from pathlib import Path
 import re
@@ -29,7 +30,7 @@ _configure_console_output()
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run_command(title: str, command: list[str], env: dict | None = None) -> tuple[bool, float, str]:
+def run_command(title: str, command: list[str], env: dict | None = None, *, full_output: bool = False) -> tuple[bool, float, str]:
     print(f"\n>> Koşturuluyor: {title}", flush=True)
     start = time.perf_counter()
     merged_env = os.environ.copy()
@@ -55,15 +56,44 @@ def run_command(title: str, command: list[str], env: dict | None = None) -> tupl
         print(f"   [PASS] {title} ({elapsed:.2f}s)", flush=True)
     else:
         print(f"   [FAIL] {title} ({elapsed:.2f}s) - Exit code: {process.returncode}", flush=True)
-        if output:
+        if output and not full_output:
             print("   --- Çıktı ---", flush=True)
             for line in output.splitlines()[-15:]:
                 print(f"   | {line}", flush=True)
             print("   -------------", flush=True)
+    if full_output:
+        sys.stdout.write(process.stdout)
+        sys.stdout.flush()
+        sys.stderr.write(process.stderr)
+        sys.stderr.flush()
     return success, elapsed, output
 
 
-def main() -> int:
+def failed_test_ids(output: str) -> list[str]:
+    """Extract public unittest identifiers; discard messages and subtest values."""
+    identifier = r"[A-Za-z_][A-Za-z0-9_]*"
+    header = re.compile(rf"^(?:FAIL|ERROR|UNEXPECTED SUCCESS): ({identifier}) \(((?:{identifier}\.)+{identifier})\)(?: .*)?$", re.MULTILINE)
+    return list(dict.fromkeys(identity for method, identity in header.findall(output)
+                              if identity.rsplit('.', 1)[-1] == method))
+
+
+def run_python_tests() -> tuple[bool, float, str]:
+    command = [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "*test*.py"]
+    success, elapsed, output = run_command("Python Birim ve Entegrasyon Testleri", command, full_output=True)
+    if not success and os.environ.get("GITHUB_ACTIONS") == "true":
+        for identity in failed_test_ids(output):
+            print(f"::error title=Python unittest failure::test={identity}", flush=True)
+    return success, elapsed, output
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--python-only", action="store_true", help="Run Python discovery only; native payload is validated by the caller.")
+    args = parser.parse_args(argv)
+    if args.python_only:
+        success, _, _ = run_python_tests()
+        return 0 if success else 1
+
     print("=== Respected Brain Kalite ve Test Orkestratörü ===")
     print(f"Kök Dizin: {ROOT}")
     print(f"İşletim Sistemi: {os.name} ({sys.platform})")
@@ -87,8 +117,7 @@ def main() -> int:
         return 1
 
     # 1. Python Test Paketi
-    cmd = [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "*test*.py"]
-    ok, elapsed, python_output = run_command("Python Birim ve Entegrasyon Testleri", cmd)
+    ok, elapsed, python_output = run_python_tests()
     count_match = re.search(r"Ran (\d+) tests?", python_output)
     count = count_match.group(1) if count_match else "?"
     results.append((f"Python Test Suite ({count} test)", "Birim & Entegrasyon", ok, elapsed))
