@@ -94,7 +94,9 @@ temizlik yapmak uygulanmadı. Tam JSON raporları kişisel config içerebildiği
 eklenmez; yalnız ignored çalışma kanıtı alanında tutulur.
 
 Gerçek kurulum/migration **uygulanmadı**. Eski uninstaller çalıştırılmadı, kasa taşınmadı.
-Canlı devreye alma bu üç çatışmayı somut çözen plan gerektirir.
+Bu önizlemenin eski veriyi aktaran yolu üç çatışmayı çözen plan gerektiriyordu.
+Kullanıcının güncel devreye alma tercihi [ana plandadır](../plans/2026-10-03-modular-foundation.md#kullanıcının-devreye-alma-kararı--2026-10-04);
+bu tarihsel önizleme yeni kasa seçiminin önkoşulu olarak okunmamalıdır.
 
 ## Bilinen sınırlar
 
@@ -147,6 +149,7 @@ doğrulandı; `git worktree list` yalnız ana projeyi gösterir. Kişisel not ka
 
 ## For future agent
 
-Önce plan ve bu kanıtı oku; canlı state ve Codex wrapper çakışmalarını zorla aşma.
+Önce ana planın güncel devreye alma kararını ve bu tarihsel kanıtı oku.
+Eski veri aktarımı seçilirse state çakışmalarını zorla aşma; dış Codex wrapper bağlantısını koru.
 Test paketini derlerken eşzamanlı native test çalıştırma. Test başarılarını gerçek
 kurulumun uygulanmış olmasıyla karıştırma; not kasasının mevcut konumu korunur.

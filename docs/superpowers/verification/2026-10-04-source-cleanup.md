@@ -76,4 +76,5 @@ gösterir. Birleşmiş geçici dal silindi. GitHub push/yayın yapılmadı.
 
 ## For future agent
 Aktif durum ana modular-foundation planındadır; bu belge tarihli kanıttır.
-Canlı migration engellerini veya GitHub yayınını bu yerel temizlik tamamlandı diye aşma.
+Kurulum yolunu ana plandaki güncel kullanıcı kararından al; tarihsel migration
+çakışmalarını otomatik olarak yeni kasa açmanın önkoşulu sayma. Kurulum/yayın yetkisini ayrıca gözet.

@@ -10,7 +10,7 @@
 
 **Spec:** [Ana sözleşme](../specs/2026-10-03-modular-foundation-design.md) ve [kurulum/geçiş sözleşmesi](../specs/2026-10-03-modular-foundation-operations.md), kullanıcı onayı 2026-10-03.
 
-scope: project; confidence: verified; supersedes: []; status: integration-verified, source-cleanup-verified, live-migration-conflicts (as of 2026-10-04).
+scope: project; confidence: verified; supersedes: ["Canlı devreye alma için eski kasanın migration çakışmalarını çözme zorunluluğu"]; status: integration-verified, source-cleanup-verified, fresh-vault-selected, rollout-deferred-by-user (as of 2026-10-04).
 
 timeline:
   - from: 2026-10-03
@@ -35,6 +35,28 @@ timeline:
     learned: "Önceki durum source-cleanup-gaps idi; onaylı son temizlik eski girişleri kaldırdı ve yayın tarifini native build sözleşmesine bağladı."
     source: "../verification/2026-10-04-source-cleanup.md"
 
+  - from: 2026-10-04
+    until: 2026-10-04
+    learned: "Önceki devreye alma yolu live-migration-conflicts idi; kullanıcı eski kasayı en son yedekleyip ZIP'leyerek sıfırdan yeni kasa seçti."
+    source: "Kullanıcı: eski kasayı yedekleyip zipleyip yeni kasaya geçicem zaten sıfırdan ... en son yapcam onu"
+
+## Kullanıcının devreye alma kararı — 2026-10-04
+
+Eski kasa kullanıcı tarafından en son yedeklenip ZIP arşivine alınacak; ardından
+sıfırdan yeni boş kasa oluşturulacak. Yeni kasaya eski health/session state,
+cache veya not aktarımı varsayılmayacak. Yeni kasa kendi UUID'si ve ona bağlı
+teknik state/cache alanıyla başlayacak. Kurulum ve kasa değişimi son aşamadadır;
+bu karar mevcut kasayı ZIP'leme, silme, taşıma veya ürün kurma talimatı değildir.
+
+Eski health.json/session_start_time çakışmaları eski veriyi içeri aktaran
+migration yoluna aittir; bu kullanıcı için yeni kasa açmanın önkoşulu değildir.
+Codex computer-use notify zinciri kasa verisinden bağımsız program bağlantısıdır;
+son kurulumda iki bağlantı da korunarak yeniden düzenlenmesi gerekir.
+Eski AppData ayarlarını veya teknik verileri silme/sıfırlama izni varsayılmaz;
+eski program/veri köklerinin yeni kurulumla birlikte nasıl ele alınacağı son
+kurulum öncesi hazırlanır. Migration özelliği ve mevcut kasa koruma sözleşmesi
+diğer kullanım durumları için üründe kalır.
+
 Yürütme: ortak paket/yol/config/UUID temelini ana ajan kurar; temel oturunca
 iki bağımsız iş akışı paralel ajanlara verilir; sonuçlar birleştirilip ayrı
 ajanla son inceleme yapılır. Aynı dosyada eşzamanlı düzenleme yapılmaz.
@@ -46,7 +68,7 @@ Görev 1–13 uygulandı ve doğrulandı. [Test ve canlı envanter kanıtı](../
 launcher/zamanlayıcı ve 17 kontrolün tamamını geçen fiziksel smoke sonuçlarını içerir.
 Linux/macOS/gerçek WSL fiziksel doğrulaması bu yerel çalışmada yoktur.
 
-Görev 14'ün salt okunur önizlemesi ve devreye alma kapısı değerlendirildi.
+Önceki aktarım yolunda görev 14'ün salt okunur önizlemesi ve devreye alma kapısı değerlendirildi.
 Health/session state farkları ve Codex computer-use notify zinciri sahipliği nedeniyle
 gerçek apply yapılmadı. Not kasası mevcut konumundadır. Onaylanan yerel birleştirmeyle
 kod artık `Documents/ChatGPT/secondbrain` klasöründeki `main` dalındadır. Birleşmiş
@@ -65,7 +87,8 @@ native build/verify/test/smoke araçlarına bağlandı. 629 testlik paket OK
 (15 atlama), wheel/sdist ve gerçek Windows native paket doğrulaması başarılıdır.
 [Son temizlik planı](2026-10-04-source-cleanup.md) işlemleri,
 [tarihli kanıt](../verification/2026-10-04-source-cleanup.md) doğrulamayı kaydeder.
-Canlı migration engelleri değişmedi; gerçek ürün kurulumu uygulanmadı.
+Gerçek ürün kurulumu uygulanmadı. Eski migration önizlemesinin çakışmaları
+tarihsel kanıttır; güncel kullanıcı yolu yukarıdaki devreye alma kararındadır.
 
 Kullanıcının hedef ağaç ile mevcut klasörü karşılaştırması üzerine salt okunur
 denetim yapıldı. Önceki uygulama/test kanıtı korunur; bunun bütün eski kaynak

@@ -10,6 +10,10 @@ timeline:
     until: 2026-10-03
     learned: Yazılı sözleşme kullanıcı incelemesini bekliyordu; kullanıcı onayladı.
     source: "the human partner reviews and approves the written spec"
+  - from: 2026-10-03
+    until: 2026-10-04
+    learned: "Önceki kişisel açıklama notların mevcut RespectedOS kasasında kalacağını söylüyordu; kasa koruma sözleşmesi ile kullanıcıya özel devreye alma yolu ayrıldı."
+    source: "../plans/2026-10-03-modular-foundation.md#kullanıcının-devreye-alma-kararı--2026-10-04"
 ---
 
 # Respected Brain — Modüler Temel ve Kurulum Sözleşmesi
@@ -25,8 +29,11 @@ kurulumun bugün bu şekilde çalıştığı anlamına gelmez.
 1. Kaynak kodlar `src/respectedbrain` altında işlerine göre ayrılacak.
 2. Kurulu program `Local/Programs/RespectedBrain` altında tek kopya olacak.
 3. Ayarlar ve teknik kayıtlar `Local/RespectedBrain` altında korunacak.
-4. Notların mevcut RespectedOS kasasında kalacak; motor/cache oradan ayrılacak.
+4. Mevcut kasalar korunacak; kullanıcı yeni boş kasa seçebilir. Motor/cache notlardan ayrı olacak.
 5. Bütün kurucular aynı işlemleri kullanacak; eski veri önce yedeklenecek.
+
+Kullanıcıya özel devreye alma yolu [ana uygulama planında](../plans/2026-10-03-modular-foundation.md#kullanıcının-devreye-alma-kararı--2026-10-04)
+tutulur. Mevcut kasa koruma sözleşmesi, kullanıcının mutlaka eski kasayı aktarmasını gerektirmez.
 
 Program güncellemesi programı değiştirecek; kullanıcının notlarını şablonla
 yeniden oluşturmayacak. Bu belgede **yerleşim/modül eşleştirme tablosunu**,
