@@ -60,3 +60,27 @@ Files: docs/REPOSITORY_MAP.md, tools/repository_map.py, docs/repository_inventor
 Full source suite completed: **650 tests, 868.972s, OK (15 skips)**. Discovery occurred before the last four GUI and two atlas regressions were added; those final files were separately verified in the 33-test GUI/setup suite and 11-test atlas suite. Final source discovery has 656 tests; remote native jobs will discover that final tree. Frozen distribution verification and the Windows host smoke passed (all 16 checks; fresh package install 35.303s, two updates and owned-only uninstall preserve notes and restore test registrations). After the final hook removal and GUI action fix, a fresh Windows build and native acceptance are required and tracked above.
 
 Fresh independent review passed after the action-time vault-profile fix: 32 setup/operations/locking/runtime cases and 38 focused cases (5 host skips); no outstanding introduced findings. Shell hook cases 8/8 and temporary Git upstream scenarios 9/9 passed. Existing hardening limitations are recorded in [the audit](../../REPOSITORY_AUDIT.md); this change does not claim to close them.
+
+## Platform staging follow-up — 2026-10-05
+
+scope: project; confidence: verified; supersedes: []
+
+The historical results above remain dated evidence. Commit 657735c's actual
+CI run 37231789231 passed Linux native execution and macOS frozen launcher
+checks. Full-suite failures exposed OS temp aliases in fixtures and owned temp
+allocations, Windows global Python scripts-directory assumptions, and Inno
+compiler discovery. Fixes preserve arbitrary payload/user-path rejection.
+macOS smoke now keeps the .app suffix for both package and install destination.
+
+Windows intermittent Dashboard replacement errors were reproduced on Python
+3.12/3.13. The prepared output now retries only Windows error codes 5/32, at
+most five attempts, aborting on a changed Dashboard and never recalling the
+model. Fresh affected-suite verification: 92 tests / 30.739s / OK (7 host
+skips). Original eight-thread concurrency case: 100 runs on Python 3.13 /
+17.797s / OK. Previous complete local discovery: 662 tests / 791.651s / OK
+(15 skips), before the eight latest regressions; it does not cover them.
+
+Root AGENTS.md persists same-task atlas maintenance; the inventory now includes
+271 files. CI additionally verifies actual mounted macOS DMG and extracted
+Linux makeself payloads. These new release-format checks and the final native
+full suites still require a fresh remote run before main integration.

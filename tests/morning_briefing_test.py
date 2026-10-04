@@ -190,6 +190,58 @@ class MorningBriefingTest(unittest.TestCase):
         self.assertEqual(results.count(True), 1)
         self.assertTrue((self.vault / "🎯 100-Command-Center/Briefings/2026-08-31.md").is_file())
 
+    def test_windows_sharing_retry_publishes_without_running_model_again(self):
+        self._sharing_failure_case('transient')
+
+    def test_persistent_windows_sharing_failure_preserves_dashboard(self):
+        self._sharing_failure_case('persistent')
+
+    def test_windows_sharing_retry_aborts_on_concurrent_dashboard_edit(self):
+        self._sharing_failure_case('user-edit')
+
+    def test_windows_share_violation_retries_prepared_bytes(self):
+        self._sharing_failure_case('transient', winerror=32)
+
+    def test_unrelated_or_non_windows_replace_errors_are_not_retried(self):
+        for platform, code in (('linux', 5), ('win32', 87)):
+            with self.subTest(platform=platform, code=code):
+                self._sharing_failure_case('no-retry', platform=platform, winerror=code)
+
+    def _sharing_failure_case(self, variant, *, platform='win32', winerror=5):
+        from respectedbrain.briefing import service
+        worker = load_worker()
+        dashboard = self.vault / '🎯 100-Command-Center/Dashboard.md'
+        before = dashboard.read_bytes()
+        final = self.vault / '🎯 100-Command-Center/Briefings/2026-08-31.md'
+        user_edit = b'# Dashboard\nConcurrent user edit\n'
+        original = service.os.replace
+        calls, attempts = [], []
+        def replacing(source, target):
+            if Path(target) == dashboard:
+                attempts.append(True)
+                if len(attempts) == 1 or variant == 'persistent':
+                    if variant == 'user-edit':
+                        dashboard.write_bytes(user_edit)
+                    error = PermissionError('synthetic Windows sharing failure')
+                    error.winerror = winerror
+                    raise error
+            return original(source, target)
+        with patch.object(service.sys, 'platform', platform), patch.object(service.os, 'replace', side_effect=replacing):
+            created = worker.run_if_due(self.vault, datetime(2026, 8, 31, 10),
+                                      lambda prompt, cwd: (calls.append(True) or VALID, None, 'codex'))
+        self.assertEqual(len(calls), 1)
+        if variant == 'transient':
+            self.assertTrue(created)
+            self.assertEqual(len(attempts), 2)
+            self.assertTrue(final.is_file())
+            self.assertIn('Kullanıcı içeriği.', dashboard.read_text(encoding='utf-8'))
+        else:
+            self.assertFalse(created)
+            self.assertFalse(final.exists())
+            self.assertEqual(dashboard.read_bytes(), user_edit if variant == 'user-edit' else before)
+            self.assertLessEqual(len(attempts), 5, 'Sharing retries must remain finite')
+            self.assertEqual(len(attempts), 5 if variant == 'persistent' else 1)
+
     def test_large_dashboard_is_preserved_without_truncation(self):
         worker = load_worker()
         dashboard = self.vault / "🎯 100-Command-Center/Dashboard.md"

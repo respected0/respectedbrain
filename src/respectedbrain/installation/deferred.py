@@ -28,7 +28,8 @@ def defer_operation(ctx, *, mode, package=None, purge_data=False):
     document = validate_package(ctx.paths.app_root)
     if mode == "update":
         validate_package(package)
-    temporary = Path(tempfile.mkdtemp(prefix="respected-activation-"))
+    # OS temp roots may have a system alias (for example macOS /var).
+    temporary = Path(tempfile.mkdtemp(prefix="respected-activation-")).resolve()
     try:
         for name in (*document["files"], "distribution.json"):
             source = safe_path(ctx.paths.app_root / name)

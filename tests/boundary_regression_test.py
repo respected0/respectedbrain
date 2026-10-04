@@ -31,7 +31,7 @@ class BoundaryRegressionTest(unittest.TestCase):
         self.compile = compile
         temporary = tempfile.TemporaryDirectory(prefix="boundary-")
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.vault, self.legacy = self.root / "vault", self.root / "legacy"
         self.vault.mkdir()
         seed_legacy(self.legacy, layout="flat")
@@ -65,7 +65,7 @@ class BoundaryRegressionTest(unittest.TestCase):
                  mock.patch.object(self.compile, "_run_model") as mock_model:
 
                 with self.assertRaises(self.compile.PolicyError) as cm:
-                    self.compile._prepare_stage(vault_root, state_dir, daily_file, Path(tempfile.gettempdir()))
+                    self.compile._prepare_stage(vault_root, state_dir, daily_file, Path(tempfile.gettempdir()).resolve())
 
                 self.assertIn("staging-inside-vault", str(cm.exception))
                 self.assertEqual(mock_model.call_count, 0)
@@ -151,7 +151,7 @@ class BoundaryRegressionTest(unittest.TestCase):
         from respectedbrain.installation.transaction import Transaction
         from tests.foundation_memory_test import make_context
         with tempfile.TemporaryDirectory() as temporary:
-            base = Path(temporary)
+            base = Path(temporary).resolve()
             ctx = make_context(base / "Ada Brain")
             home = base / "home"
             home.mkdir()

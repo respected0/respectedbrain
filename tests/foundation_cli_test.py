@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sysconfig
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -18,7 +19,7 @@ class FoundationCliTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.ctx = make_context(self.root)
         self.env = {**os.environ, "RESPECTED_APP_DIR": str(self.root / "app"), "RESPECTED_DATA_DIR": str(self.root / "data"), "PYTHONUTF8": "1"}
 
@@ -31,7 +32,7 @@ class FoundationCliTest(unittest.TestCase):
     def test_module_and_entrypoint_dispatch_identically(self):
         args = ["vault", "list"]
         module = run_cli(args, env=self.env, cwd=self.root)
-        executable = Path(__import__("sys").executable).parent / ("respectedbrain.exe" if os.name == "nt" else "respectedbrain")
+        executable = Path(sysconfig.get_path("scripts")) / ("respectedbrain.exe" if os.name == "nt" else "respectedbrain")
         entry = subprocess.run([str(executable), *args], cwd=self.root, env=self.env, capture_output=True, text=True, encoding="utf-8", timeout=30)
         self.assertEqual(module.returncode, 0, module.stderr)
         self.assertEqual((module.returncode, module.stdout), (entry.returncode, entry.stdout))

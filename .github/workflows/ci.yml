@@ -69,6 +69,48 @@ jobs:
           ./tests/install_windows_test.ps1
           ./tests/windows_launchers_test.ps1
           ./tests/briefing_schedule_windows_test.ps1
+      - name: Stage Windows release installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release-assets -Force | Out-Null
+          Copy-Item -LiteralPath dist/RespectedBrain-Windows-Setup.exe -Destination release-assets/
+      - name: Build and verify macOS release disk image
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p release-assets release-stage
+          cp -R dist/RespectedBrain.app release-stage/
+          cp dist/setup.command release-stage/
+          chmod +x release-stage/setup.command
+          hdiutil create -volname "Respected Brain" -srcfolder release-stage -ov -format UDZO release-assets/RespectedBrain-macOS-Setup.dmg
+          hdiutil verify release-assets/RespectedBrain-macOS-Setup.dmg
+          MOUNT_POINT="$RUNNER_TEMP/respected-dmg-check"
+          mkdir -p "$MOUNT_POINT"
+          hdiutil attach -readonly -nobrowse -mountpoint "$MOUNT_POINT" release-assets/RespectedBrain-macOS-Setup.dmg
+          trap 'hdiutil detach "$MOUNT_POINT"' EXIT
+          python tools/verify_distribution.py --platform macos --distribution "$MOUNT_POINT/RespectedBrain.app"
+          test -x "$MOUNT_POINT/setup.command"
+      - name: Build and verify Linux release archive
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y makeself
+          mkdir -p release-assets release-stage
+          cp -R dist/RespectedBrain release-stage/
+          cp dist/setup.sh release-stage/
+          chmod +x release-stage/setup.sh
+          makeself ./release-stage release-assets/RespectedBrain-Linux-Setup.run "Respected Brain" ./setup.sh
+          ./release-assets/RespectedBrain-Linux-Setup.run --check
+          ./release-assets/RespectedBrain-Linux-Setup.run --noexec --nochown --target "$RUNNER_TEMP/respected-archive-check"
+          python tools/verify_distribution.py --platform linux --distribution "$RUNNER_TEMP/respected-archive-check/RespectedBrain"
+          test -x "$RUNNER_TEMP/respected-archive-check/setup.sh"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: release-assets/*
+          if-no-files-found: error
       - name: Preserve native executable permissions for source matrix
         run: python -c "import shutil; shutil.make_archive('native-payload','gztar',root_dir='dist')"
       - uses: actions/upload-artifact@v4

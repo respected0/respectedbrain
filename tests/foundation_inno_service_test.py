@@ -16,7 +16,7 @@ class FoundationInnoServiceTest(unittest.TestCase):
         from respectedbrain.core.errors import OwnershipConflict
         for artifact in ("uninstaller", "registry"):
             with self.subTest(artifact=artifact), tempfile.TemporaryDirectory() as temporary:
-                root = Path(temporary)
+                root = Path(temporary).resolve()
                 roots = Roots(root / "app", root / "data", root / "vault")
                 backend = Backend()
                 key = "HKCU\\Software\\RespectedTest"
@@ -34,7 +34,7 @@ class FoundationInnoServiceTest(unittest.TestCase):
     def test_registration_and_uninstaller_are_owned_by_shared_setup(self):
         from respectedbrain.installation.windows import prepare_shell, deploy_shell
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             roots = Roots(root / "app", root / "data", root / "vault")
             package = seed_package(root / "package")
             backend = Backend()
@@ -64,7 +64,7 @@ class FoundationInnoServiceTest(unittest.TestCase):
     def test_failed_health_restores_pre_shell_uninstaller_bytes_and_registry(self):
         from respectedbrain.installation.windows import prepare_shell, deploy_shell
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             roots = Roots(root / "app", root / "data", root / "vault")
             package = seed_package(root / "package")
             backend = Backend()

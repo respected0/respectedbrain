@@ -15,6 +15,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 from typing import Callable, Sequence
 
 
@@ -42,7 +43,11 @@ BEGIN = "<!-- RESPECTED-BRIEFING:BEGIN -->"
 END = "<!-- RESPECTED-BRIEFING:END -->"
 
 
-def _atomic_write(path: Path, content: str) -> None:
+_UNSPECIFIED_TARGET = object()
+
+
+def _atomic_write(path: Path, content: str, *, expected_before=_UNSPECIFIED_TARGET) -> None:
+    before = (path.read_bytes() if path.exists() else None) if expected_before is _UNSPECIFIED_TARGET else expected_before
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
@@ -54,7 +59,18 @@ def _atomic_write(path: Path, content: str) -> None:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        # Windows metadata/scanner handles can briefly block replacement.
+        # Retry the prepared bytes, preserving the model result and bounded work.
+        for attempt in range(5):
+            if attempt and (path.read_bytes() if path.exists() else None) != before:
+                raise OSError("briefing-target-changed")
+            try:
+                os.replace(temporary, path)
+                break
+            except PermissionError as error:
+                if sys.platform != "win32" or getattr(error, "winerror", None) not in (5, 32) or attempt == 4:
+                    raise
+                time.sleep(0.02)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -199,7 +215,8 @@ def _open_lock(path: Path, vault_root: Path):
 
 
 def _update_dashboard(path: Path, day: str) -> None:
-    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    before = path.read_bytes() if path.exists() else None
+    existing = before.decode("utf-8") if before is not None else ""
     block = f"{BEGIN}\n## Bugünün Brifingi\n\n[[Briefings/{day}|Bugünün Brifingi]]\n{END}"
     begin_count = existing.count(BEGIN)
     end_count = existing.count(END)
@@ -224,7 +241,7 @@ def _update_dashboard(path: Path, day: str) -> None:
     else:
         separator = "\n\n" if existing.strip() else ""
         updated = existing.rstrip() + separator + block + "\n"
-    _atomic_write(path, updated)
+    _atomic_write(path, updated, expected_before=before)
 
 
 @guarded_writer

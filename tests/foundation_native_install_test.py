@@ -33,7 +33,7 @@ class FoundationNativeInstallTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="Respected Türkçe 🧠 ")
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name).resolve()
         self.app, self.data, self.vault = self.root / "Programs/RespectedBrain", self.root / "data", self.root / "Notlar 🧠"
         self.distribution = ROOT / "dist/RespectedBrain"
         self.document = validate_package(self.distribution)
@@ -101,8 +101,9 @@ class FoundationNativeInstallTest(unittest.TestCase):
             self.assertEqual(restore.returncode, 0, restore.stderr)
 
     def test_actual_inno_install_update_and_owned_uninstall(self):
-        compiler = Path(os.environ["LOCALAPPDATA"]) / "Programs/Inno Setup 6/ISCC.exe"
-        if not compiler.is_file():
+        configured_compiler = os.environ.get("INNO_COMPILER")
+        compiler = Path(configured_compiler) if configured_compiler else Path(os.environ["LOCALAPPDATA"]) / "Programs/Inno Setup 6/ISCC.exe"
+        if not configured_compiler and not compiler.is_file():
             compiler = Path(shutil.which("ISCC.exe") or r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe")
         self.assertTrue(compiler.is_file(), "Native Inno compiler is required")
         app_id = "{" + str(uuid4()).upper() + "}"

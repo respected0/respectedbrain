@@ -43,7 +43,8 @@ class ResourceCatalog:
         if not source.is_file() and not source.is_dir():
             raise FileNotFoundError(relative)
         with TemporaryDirectory(prefix="respected-resource-") as temporary:
-            destination = Path(temporary) / source.name
+            # Canonicalize only the directory freshly allocated by this owner.
+            destination = Path(temporary).resolve() / source.name
 
             def copy(node: Traversable, target: Path) -> None:
                 if node.is_dir():

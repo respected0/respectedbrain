@@ -29,7 +29,7 @@ class FoundationMigrationApplyTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.vault, self.legacy = self.root / "Türkçe 🧠 Vault", self.root / "legacy"
         self.vault.mkdir()
         for name in ("daily", "knowledge", "🔮 850-Companion", "🏰 300-Projects", "📋 Templates", ".obsidian"):

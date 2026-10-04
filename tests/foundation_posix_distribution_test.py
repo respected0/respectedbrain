@@ -21,7 +21,7 @@ class FoundationPosixDistributionTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.data = self.root / "data"
         self.backend = Backend()
     def mode(self, path):
@@ -178,7 +178,7 @@ class SimulatedLinkNormalizationTest(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.app = self.root / "app"
         self.app.mkdir()
     def normalize(self, links):

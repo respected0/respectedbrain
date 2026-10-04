@@ -18,4 +18,7 @@ respectedbrain configure --summary-provider codex
 
 Linux AppRoot `~/.local/lib/respectedbrain`, DataRoot `$XDG_DATA_HOME/respectedbrain` (yoksa `~/.local/share/respectedbrain`). macOS AppRoot `~/Applications/RespectedBrain.app`, DataRoot `~/Library/Application Support/RespectedBrain`. Native doğrulama ilgili host/CI üzerinde yapılır.
 
+macOS'ta özel `RESPECTED_APP_DIR` de `.app` ile biten uygulama paketi olmalıdır;
+başlatıcı `Contents/MacOS`, paket çalışma ortamı `Contents/Frameworks` altındadır.
+
 Mevcut dolu kasaya fresh template uygulanmaz; önce [migration önizlemesi](UPDATE.md) yapılır. Kasa kaydı motor kurulumunun yerine geçmez.

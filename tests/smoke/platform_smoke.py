@@ -16,6 +16,14 @@ import time
 ROOT=Path(__file__).resolve().parents[2]
 PROVIDERS=("antigravity","gemini","codex","cursor","claude")
 
+def distribution_name():
+    return "RespectedBrain.app" if sys.platform=="darwin" else "RespectedBrain"
+
+def workspace_paths(root):
+    # macOS bootloader recognizes the .app suffix when locating Frameworks.
+    app_name="RespectedBrain.app" if sys.platform=="darwin" else "app"
+    return tuple(root / name for name in ("Furkan Smoke 🧠",app_name,"data","home"))
+
 def _run(command,*,env,cwd):
     started=time.perf_counter()
     result=subprocess.run(command,cwd=cwd,env=env,capture_output=True,text=True,encoding="utf-8",errors="replace",timeout=180,creationflags=0x08000000 if os.name=="nt" else 0)
@@ -27,13 +35,13 @@ def _sha256(path):
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output",type=Path)
-    parser.add_argument("--package",type=Path,default=Path(os.environ.get("RESPECTED_SMOKE_PACKAGE",str(ROOT / "dist/RespectedBrain"))))
+    parser.add_argument("--package",type=Path,default=Path(os.environ.get("RESPECTED_SMOKE_PACKAGE",str(ROOT / "dist" / distribution_name()))))
     parser.add_argument("--keep",action="store_true")
     args=parser.parse_args(argv)
     host="windows-native" if os.name=="nt" else "wsl" if os.environ.get("WSL_DISTRO_NAME") else "macos" if sys.platform=="darwin" else "linux"
     profile_name="windows-native" if os.name=="nt" else "posix"
     root=Path(tempfile.mkdtemp(prefix="respected-package-smoke-")).resolve()
-    vault,app,data,home=[root / name for name in ("Furkan Smoke 🧠","app","data","home")]
+    vault,app,data,home=workspace_paths(root)
     home.mkdir()
     env={**os.environ,"RESPECTED_APP_DIR":str(app),"RESPECTED_DATA_DIR":str(data),"HOME":str(home),"USERPROFILE":str(home),"PYTHONUTF8":"1","PYTHONIOENCODING":"utf-8"}
     checks=[]

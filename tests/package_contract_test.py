@@ -1,6 +1,7 @@
 """Prove the distributable package works without its source checkout."""
 from __future__ import annotations
 
+from contextlib import contextmanager
 import importlib.util
 import json
 import os
@@ -9,9 +10,31 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@contextmanager
+def owned_temp_alias(testcase, root):
+    """Exercise an allocated OS temp alias with a real local directory link."""
+    allocated, alias = root / 'allocated-temp', root / 'temp-alias'
+    allocated.mkdir()
+    if os.name == 'nt':
+        created = subprocess.run(['cmd', '/c', 'mklink', '/J', str(alias), str(allocated)], capture_output=True, text=True)
+        if created.returncode:
+            testcase.skipTest('Native directory junction creation unavailable')
+    else:
+        try:
+            alias.symlink_to(allocated, target_is_directory=True)
+        except OSError:
+            testcase.skipTest('Native directory symlink creation unavailable')
+    try:
+        yield alias, allocated
+    finally:
+        assert alias.resolve() == allocated and allocated.is_relative_to(root)
+        os.rmdir(alias) if os.name == 'nt' else alias.unlink()
 
 
 class PackageContractTest(unittest.TestCase):
@@ -81,6 +104,20 @@ print(respectedbrain.__version__)
                                    capture_output=True, text=True, encoding='utf-8')
             self.assertEqual((module.returncode, module.stdout), (0, '0.0.1\n'))
             self.assertEqual((entry.returncode, entry.stdout), (module.returncode, module.stdout))
+
+    def test_materialized_resource_canonicalizes_its_owned_temp_allocation(self):
+        from respectedbrain.core import resources
+        from respectedbrain.installation.ownership import safe_path
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            with owned_temp_alias(self, root) as (alias, allocated):
+                provider = mock.MagicMock()
+                provider.__enter__.return_value = str(alias)
+                with mock.patch.object(resources, 'TemporaryDirectory', return_value=provider):
+                    with resources.ResourceCatalog().materialize('defaults.json') as materialized:
+                        self.assertEqual(materialized, allocated / 'defaults.json')
+                        self.assertEqual(safe_path(materialized), materialized)
+                        self.assertEqual(json.loads(materialized.read_text(encoding='utf-8'))['summary_provider'], 'auto')
 
     def test_resource_names_cannot_escape_package(self):
         self.assertIsNotNone(importlib.util.find_spec('respectedbrain'), 'Installable package is missing')
