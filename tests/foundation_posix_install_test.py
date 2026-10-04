@@ -23,7 +23,7 @@ class FoundationPosixInstallTest(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.home = self.root / "Ada's home 🧠"
         self.home.mkdir()
         self.vault = self.root / "vault"

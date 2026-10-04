@@ -18,7 +18,7 @@ class VaultRegistryTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix='respected-registry-')
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name).resolve()
         self.data = self.root / 'Data'
         self.vault1 = self.root / 'Türkçe 🧠 Vault'
         self.vault2 = self.root / 'İkinci Vault'

@@ -81,8 +81,11 @@ def run_python_tests() -> tuple[bool, float, str]:
     command = [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "*test*.py"]
     success, elapsed, output = run_command("Python Birim ve Entegrasyon Testleri", command, full_output=True)
     if not success and os.environ.get("GITHUB_ACTIONS") == "true":
-        for identity in failed_test_ids(output):
-            print(f"::error title=Python unittest failure::test={identity}", flush=True)
+        identities = failed_test_ids(output)
+        if identities:
+            # GitHub limits error annotations per step; publish one safe list.
+            labels = " ".join(f"test={identity}" for identity in identities)
+            print(f"::error title=Python unittest failure::{labels}", flush=True)
     return success, elapsed, output
 
 

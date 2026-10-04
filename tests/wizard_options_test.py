@@ -25,7 +25,7 @@ class WizardOptionsTest(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.directory = Path(temporary.name)
+        self.directory = Path(temporary.name).resolve()
         self.roots = Roots(self.directory / "app", self.directory / "data", self.directory / "default-vault")
         self.backend = object()
         self.vault = self.directory / "selected-vault"

@@ -50,8 +50,8 @@ Files: docs/REPOSITORY_MAP.md, tools/repository_map.py, docs/repository_inventor
 
 ## Task 4: Verification and publication
 
-- [ ] Build and verify Windows native package; run full Python suite, shell and Windows acceptance tests in disposable locations.
-- [ ] Fresh independent branch review; address important findings and re-run affected checks.
+- [x] Build and verify Windows native package; run full Python suite, shell and Windows acceptance tests in disposable locations. Final product build/frozen verification and native 3/3 passed; earlier shell 8/8, upstream 9/9 and Windows launcher/scheduler acceptance passed. Current full local suite: 670 / 460.647s / OK (15 host skips).
+- [x] Fresh independent branch review; address important findings and re-run affected checks. 2026-10-05 review found no important new issue; 64 independent scoped cases and 12 diagnostics cases passed. Final test-fixture roots additionally undergo complete source alias verification.
 - [ ] Inspect remote history/auth, stage branch and run all real platform CI checks, then integrate and publish main when green.
 - [ ] Record results and limits in audit/plan, regenerate atlas, finish memory handoff. User performs fresh-vault backup/creation later.
 
@@ -97,3 +97,26 @@ reproduced those errors; canonical fixture roots passed all 22 affected cases
 the same two fixture-root corrections passed all 125 broader alias cases
 (48.703s). No product
 path-security policy was relaxed. Main publication remains pending.
+
+### Complete alias investigation — 2026-10-05
+
+Run 37235731550: Linux native and release archive verification passed. Windows
+and macOS full-suite failures were fixture-root aliases. GitHub retained only
+ten error annotations per step, hiding additional failures. A whole-source
+real-junction reproduction (excluding only the three expensive native install
+cases in the throwaway harness) ran 668 tests and identified exactly five
+remaining fixture modules: POSIX install, old update, briefing fault injection,
+vault registry, wizard options. All 69 affected cases passed after only fresh
+fixture-root .resolve corrections (3 existing host skips).
+
+Public-ID diagnostics now aggregate one safe annotation; real twelve-failure
+fixture first failed (12 annotations) and then passed (one annotation, all IDs,
+no exception/subtest payload). Independent diagnostic review passed 12/12.
+Normal local full suite on 598fede completed 670 / 460.647s / OK (15 skips),
+before the extra diagnostic case. Final actual platform proof remains pending;
+no failing test was deleted or permanently skipped to obtain these results.
+
+Full-source real-junction alias GREEN: 668 tests, zero failures/errors, 15
+existing host skips. RED was 38 failures + 2 errors; the same harness excluded
+only FoundationNativeInstallTest, whose three real cases separately passed.
+Final discovery includes 671 tests. No production changes in this follow-up.

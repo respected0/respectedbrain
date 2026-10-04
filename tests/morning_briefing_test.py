@@ -48,10 +48,10 @@ def load_worker():
 class MorningBriefingTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="respected-briefing-")
-        self.vault = Path(self.temporary.name) / "Ada Brain"
+        self.vault = Path(self.temporary.name).resolve() / "Ada Brain"
         from respectedbrain.briefing import service
         from tests.foundation_support import make_context
-        self.ctx = make_context(Path(self.temporary.name), self.vault)
+        self.ctx = make_context(Path(self.temporary.name).resolve(), self.vault)
         self.compiler = patch.object(service, "compile_memory", return_value=0)
         self.compiler.start()
         self.addCleanup(self.compiler.stop)

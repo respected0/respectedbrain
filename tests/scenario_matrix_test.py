@@ -136,6 +136,26 @@ class PythonSuiteDiagnosticsTest(unittest.TestCase):
             self.assertIn('ordinary traceback sentinel', stderr.getvalue())
             self.assertIn('Ran 1 test', stderr.getvalue())
 
+    def test_more_than_ten_failures_share_one_safe_annotation(self):
+        tool = self.load_orchestrator()
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Path(temporary)
+            (fixture / 'tests').mkdir()
+            source = "import unittest\nclass Fixture(unittest.TestCase):\n"
+            for number in range(12):
+                source += f"    def test_failure_{number:02d}(self):\n        self.fail('private failure payload')\n"
+            (fixture / 'tests/many_test.py').write_text(source, encoding='utf-8')
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with mock.patch.object(tool, 'ROOT', fixture), mock.patch.dict(os.environ, {'GITHUB_ACTIONS': 'true'}), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                status = tool.main(['--python-only'])
+            self.assertEqual(status, 1)
+            annotations = [line for line in stdout.getvalue().splitlines() if line.startswith('::error')]
+            self.assertEqual(len(annotations), 1, 'GitHub drops diagnostics beyond ten error annotations per step')
+            for number in range(12):
+                self.assertIn(f'test=many_test.Fixture.test_failure_{number:02d}', annotations[0])
+            self.assertNotIn('private failure payload', annotations[0])
+            self.assertIn('Ran 12 tests', stderr.getvalue())
+
     def test_failure_identifiers_reject_nonpublic_header_data(self):
         tool = self.load_orchestrator()
         output = (

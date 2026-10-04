@@ -126,7 +126,7 @@
       "relationships": [
         "Atlas yapıyı anlatır; audit yürütülmüş incelemenin kanıtıdır; tarihi ve bağlamı dışında canlı platform garantisi vermez."
       ],
-      "review_sha256": "13c63738a08f5279129728179f631ad60a5129e361695d85c8cf6c7ab22869f6"
+      "review_sha256": "4ab78cbf506c1237152acfbbbdf66a3339344936ccc817ad69da6966ef65480c"
     },
     {
       "path": "docs/REPOSITORY_MAP.md",
@@ -387,7 +387,7 @@
       "relationships": [
         "wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır."
       ],
-      "review_sha256": "6d3c33ddde5c9fec1eca1627b33eff11896c66f7f831860f7ab7a94b80370057"
+      "review_sha256": "f507c03f4758acd5a062886d1b2a1dafc641067cded85d5de786bb77f9479a64"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-source-cleanup.md",
@@ -1984,12 +1984,12 @@
     {
       "path": "tests/foundation_posix_install_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Linux zorunlu owned launcher'ı ve mode proof, optional flags, schedule, native wrapper ve geçiş sonrası kayıtların güvenli davranışını sınar. Odak örnekleri: `test_unknown_distribution_manifest_is_never_overwritten`, `test_default_linux_profile_persists_resolved_platform`, `test_posix_schedule_files_are_kept_when_global_is_disabled`.",
+      "purpose": "Linux zorunlu owned launcher'ı ve mode proof, optional flags, schedule, native wrapper ve geçiş sonrası kayıtların güvenli davranışını sınar. Odak örnekleri: `test_unknown_distribution_manifest_is_never_overwritten`, `test_default_linux_profile_persists_resolved_platform`, `test_posix_schedule_files_are_kept_when_global_is_disabled`. Fresh temp fixture kökü kanonikleştirilir; alias üzerinden oluşturulan fixture ile canonical servis hedefinin eşitlik/fault injection sözleşmesi korunur.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.config`, `respectedbrain.core.paths`, `respectedbrain.vault.registry`, `respectedbrain.installation.setup`, `respectedbrain.installation.update`, `respectedbrain.installation.repair`, `respectedbrain.installation.uninstall`, `respectedbrain.installation.ownership`, `respectedbrain.installation.operations`, `respectedbrain.integrations.backend`, `respectedbrain.installation.migration`."
       ],
-      "review_sha256": "4fb7064e1e973dd1d4d966c24018a0713ab21ca2b1047a2c2e074b80517633e7"
+      "review_sha256": "1549f8cf5602c7d6e4a9699ec3b40b2e2c84072915406791cf15cb7aacf88584"
     },
     {
       "path": "tests/foundation_services_test.py",
@@ -2151,12 +2151,12 @@
     {
       "path": "tests/morning_briefing_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "08:00 gate, tek brifing/day/concurrency, model validation, Dashboard byte koruması ve link/encoding hatalarında fail-closed davranışını sınar. Odak örnekleri: `test_before_eight_is_a_read_only_noop`, `test_success_writes_real_time_required_sections_and_preserves_dashboard`, `test_model_stage_uses_selected_uuid_cache`. Windows geçici/kalıcı paylaşım hatası, değişen Dashboard, ilgisiz hata ve tek model çağrısı regresyonları sınırlı atomic replacement davranışını sınar.",
+      "purpose": "08:00 gate, tek brifing/day/concurrency, model validation, Dashboard byte koruması ve link/encoding hatalarında fail-closed davranışını sınar. Odak örnekleri: `test_before_eight_is_a_read_only_noop`, `test_success_writes_real_time_required_sections_and_preserves_dashboard`, `test_model_stage_uses_selected_uuid_cache`. Windows geçici/kalıcı paylaşım hatası, değişen Dashboard, ilgisiz hata ve tek model çağrısı regresyonları sınırlı atomic replacement davranışını sınar. Fresh temp fixture kökü kanonikleştirilir; alias üzerinden oluşturulan fixture ile canonical servis hedefinin eşitlik/fault injection sözleşmesi korunur.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.briefing`, `respectedbrain.core.context`."
       ],
-      "review_sha256": "1f12ac31cccd9ad6ca100258ac903f017363006eb193c2ac4f62dd49e10cba8b"
+      "review_sha256": "9e27f2157fd96531775c6ca93c67fc74c44ca80a488196bc8f2652b7676ad92a"
     },
     {
       "path": "tests/multiai_test.py",
@@ -2249,11 +2249,11 @@
     {
       "path": "tests/run_all.py",
       "role": "Test altyapısı veya native kabul girişi",
-      "purpose": "Native dağıtım doğrulamasını, Python/PowerShell/Bash testlerini ve host kanıtını birleştirir; --python-only yalnız Python keşfini çalıştırır, tam unittest çıktısını korur ve CI hatasında yalnız doğrulanmış public test kimliklerini annotasyona taşır.",
+      "purpose": "Native dağıtım doğrulamasını, Python/PowerShell/Bash testlerini ve host kanıtını birleştirir; --python-only yalnız Python keşfini çalıştırır, tam unittest çıktısını korur ve CI hatasında yalnız doğrulanmış public test kimliklerini annotasyona taşır. Başarısız kimlikler GitHub step annotation sınırına takılmamak için tek güvenli bildirime toplanır; ham hata/subtest metni annotation içine alınmaz.",
       "relationships": [
         "CI/release --python-only yolunu native doğrulama sonrası çağırır; varsayılan tam orkestrasyon native gate'ini korur. scenario_matrix_test gerçek başarısız discovery, traceback koruma ve test kimliği filtresini sınar."
       ],
-      "review_sha256": "10e5a89a64e7c15e99f0cdf6c6e88577f229af41538a8dd3efe92152e0677824"
+      "review_sha256": "921344d97ee8049c1a16e50d3be9dee1923a652032bf7aef5370da54b8a771e3"
     },
     {
       "path": "tests/runtime_layout_test.py",
@@ -2278,11 +2278,11 @@
     {
       "path": "tests/scenario_matrix_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Beş platform profili için sağlayıcı hook/notify/JSON sözleşmelerini sınar; geçici unittest fixture'ıyla --python-only çıkış kodunu, tam stderr çıktısını ve public test kimliği annotasyonunun özel mesaj/yol/subtest verisi taşımamasını doğrular.",
+      "purpose": "Beş platform profili için sağlayıcı hook/notify/JSON sözleşmelerini sınar; geçici unittest fixture'ıyla --python-only çıkış kodunu, tam stderr çıktısını ve public test kimliği annotasyonunun özel mesaj/yol/subtest verisi taşımamasını doğrular. Ondan fazla gerçek fixture hatasında tek annotation içinde bütün public kimliklerin korunduğunu ve özel hata gövdelerinin yalnız normal test logunda kaldığını sınar.",
       "relationships": [
         "integrations.rendering provider adaptörlerini üretir; tests/run_all.py teşhis sınırını gerçek subprocess discovery ile sınar."
       ],
-      "review_sha256": "b50e94e3dbe5d9cf747368b604bc18d9c8a3ea10a87797249430d204bb7a3d33"
+      "review_sha256": "4c62e2212db6888f8d79ee15e6be63e07dc270e3145ef9f3cd768a37c6405ed4"
     },
     {
       "path": "tests/scripts_test.py",
@@ -2411,12 +2411,12 @@
     {
       "path": "tests/update_respected_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Eski update senaryolarını hash-proved migration üzerinden sınar; marker/state/custom data, link/overlap ve unknown old artifact korumasını sınar. Odak örnekleri: `test_preview_is_read_only`, `test_failed_gate_rolls_back_managed_files_and_keeps_old_marker`, `test_apply_preserves_personal_data_and_activates_only_after_gates`.",
+      "purpose": "Eski update senaryolarını hash-proved migration üzerinden sınar; marker/state/custom data, link/overlap ve unknown old artifact korumasını sınar. Odak örnekleri: `test_preview_is_read_only`, `test_failed_gate_rolls_back_managed_files_and_keeps_old_marker`, `test_apply_preserves_personal_data_and_activates_only_after_gates`. Fresh temp fixture kökü kanonikleştirilir; alias üzerinden oluşturulan fixture ile canonical servis hedefinin eşitlik/fault injection sözleşmesi korunur.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.config`, `respectedbrain.core.paths`, `respectedbrain.core.resources`, `respectedbrain.installation.migration`, `respectedbrain.integrations.backend`, `respectedbrain.core.errors`."
       ],
-      "review_sha256": "31c5d75030ea7893b8033a57a5a6cdb146b4d2e58e98125ed2f448438f0c718a"
+      "review_sha256": "d09624ee494973e4568d6234205b8883f1c814562f35ddd7316160d393c591b2"
     },
     {
       "path": "tests/upstream_sync_test.sh",
@@ -2440,12 +2440,12 @@
     {
       "path": "tests/vault_registry_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Yanlış CWD fallback, UUID taşınma/kopya çakışması, explicit selector, readonly discovery ve concurrent config kayıp-güncelleme korumasını sınar. Odak örnekleri: `test_selector_priority_and_invalid_explicit_path`, `test_move_and_copy_uuid`, `test_concurrent_config_edits_survive`.",
+      "purpose": "Yanlış CWD fallback, UUID taşınma/kopya çakışması, explicit selector, readonly discovery ve concurrent config kayıp-güncelleme korumasını sınar. Odak örnekleri: `test_selector_priority_and_invalid_explicit_path`, `test_move_and_copy_uuid`, `test_concurrent_config_edits_survive`. Fresh temp fixture kökü kanonikleştirilir; alias üzerinden oluşturulan fixture ile canonical servis hedefinin eşitlik/fault injection sözleşmesi korunur.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.config`, `respectedbrain.vault.registry`, `respectedbrain.core.errors`, `respectedbrain.core.paths`."
       ],
-      "review_sha256": "f9dd8a5e825e46061878f2dbcd04c072464fb2f5424a8f5ade1972efc397a9b1"
+      "review_sha256": "7d9cab7d73becaa2fccb8b337bacd6559bb1b5d0789edb8835fc27ebb79df79f"
     },
     {
       "path": "tests/windows_launchers_test.ps1",
@@ -2469,12 +2469,12 @@
     {
       "path": "tests/wizard_options_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Explicit GUI vault/package/profile ve false integration seçeneklerini; kayıtlı/fresh hedef ve action-time path değişikliğinde doğru hidden profile seçimini, explicit empty değerleri ve update package picker sınırını headless gerçek Tcl değişkenleriyle sınar.",
+      "purpose": "Explicit GUI vault/package/profile ve false integration seçeneklerini; kayıtlı/fresh hedef ve action-time path değişikliğinde doğru hidden profile seçimini, explicit empty değerleri ve update package picker sınırını headless gerçek Tcl değişkenleriyle sınar. Fresh temp fixture kökü kanonikleştirilir; alias üzerinden oluşturulan fixture ile canonical servis hedefinin eşitlik/fault injection sözleşmesi korunur.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain`, `respectedbrain.core.config`, `respectedbrain.core.paths`, `respectedbrain.installation`, `respectedbrain.installation.transaction`."
       ],
-      "review_sha256": "0805269a38e9d8137cfdaf39f0318e50cebc9edb6ccf2948c9152d0135c168c6"
+      "review_sha256": "ddd658c100f56e852d07130c0c009cfb456c992d603fec5ae272018940365646"
     },
     {
       "path": "tests/wizard_test.py",

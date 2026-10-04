@@ -160,3 +160,30 @@ OK** geçti. Resource allowlist tekrar kontrolünde eksik/stale kayıt yok.
 
 Bu audit fiziksel Linux/macOS/WSL, kullanıcı oturumlu sağlayıcı veya yeni native
 release build'i çalıştırmadı. Bu hostların başarısı bu belgeyle varsayılmaz.
+
+## Native doğrulamanın bulduğu ek düzeltmeler — 2026-10-05
+
+scope: project; confidence: verified; supersedes: []
+
+- macOS console bootloader .app/Contents/MacOS konumunda kütüphaneleri
+  Contents/Frameworks altında arıyor; bundle üreticisi bu yerleşime düzeltildi.
+  Gerçek macOS frozen version/registry/maps/search/hook/MCP kapısı geçti.
+- OS temp alias yolları ile canonical Roots/servis yolları fixture eşitliklerini
+  ve fault injection hedeflerini bozuyordu. Gerçek junction ile tüm source
+  testleri tarandı; yalnız yeni sahip olunan temp allocation ve fresh fixture
+  kökleri resolve edilir. Kullanıcı/payload link veya reparse reddi gevşetilmedi.
+- Windows geçici sharing/access replacement hatası modeli yeniden çağırabiliyordu.
+  Hazırlanmış byte çıktı yalnız hata 5/32 için en fazla beş kez yayımlanmaya
+  çalışılır; denemeler arasında Dashboard değişmişse durur. Kullanıcı değişikliği,
+  kalıcı hata ve tek model çağrısı regresyonları geçti; özgün eşzamanlı test
+  Python 3.13 üzerinde 100/100 geçti.
+- GitHub step hata bildirimi sınırı bütün başarısız testleri göstermiyordu.
+  Yalnız doğrulanmış public kimlikler tek annotation içinde toplanır; ham
+  exception, subtest değerleri veya yerel yollar annotation'a aktarılmaz.
+
+Güncel ürünle Windows gerçek native kabul 3/3 (321.464s), yerel tam Python suite
+670 test (460.647s, 15 host skip) geçti. Yeni diagnostic testi ayrı doğrulandı.
+Fiziksel Linux native/full-suite/smoke ve extracted makeself paketi CI'da geçti;
+son fixture düzeltmeleriyle tüm platform kapılarının sonucu devam planında
+kaydedilecektir. Yukarıdaki dört işlev/güvenlik sınırı bu düzeltmelerle kapatılmış
+sayılmaz. Kullanıcının canlı kurulumu ve notları değiştirilmedi.
