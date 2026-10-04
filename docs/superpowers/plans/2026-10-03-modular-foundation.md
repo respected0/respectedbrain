@@ -10,7 +10,7 @@
 
 **Spec:** [Ana sözleşme](../specs/2026-10-03-modular-foundation-design.md) ve [kurulum/geçiş sözleşmesi](../specs/2026-10-03-modular-foundation-operations.md), kullanıcı onayı 2026-10-03.
 
-scope: project; confidence: verified; supersedes: ["Canlı devreye alma için eski kasanın migration çakışmalarını çözme zorunluluğu"]; status: integration-verified, source-cleanup-verified, fresh-vault-selected, rollout-deferred-by-user (as of 2026-10-04).
+scope: project; confidence: verified; supersedes: ["Canlı devreye alma için eski kasanın migration çakışmalarını çözme zorunluluğu"]; status: integration-verified, source-cleanup-verified, installer-atlas-platform-staging, fresh-vault-selected, rollout-deferred-by-user (as of 2026-10-05).
 
 timeline:
   - from: 2026-10-03
@@ -39,6 +39,11 @@ timeline:
     until: 2026-10-04
     learned: "Önceki devreye alma yolu live-migration-conflicts idi; kullanıcı eski kasayı en son yedekleyip ZIP'leyerek sıfırdan yeni kasa seçti."
     source: "Kullanıcı: eski kasayı yedekleyip zipleyip yeni kasaya geçicem zaten sıfırdan ... en son yapcam onu"
+
+  - from: 2026-10-04
+    until: 2026-10-05
+    learned: "Kurulum seçimleri/hız, 271 dosyalık atlas ve sekiz ölü hook temizliği çalışma dalında; gerçek platform CI son fixture düzeltmelerini doğruluyor. Önceki integration/source-cleanup durumu korunur; GitHub main henüz ilerletilmedi."
+    source: "2026-10-04-installer-atlas-release.md; CI run 37234992142"
 
 ## Kullanıcının devreye alma kararı — 2026-10-04
 

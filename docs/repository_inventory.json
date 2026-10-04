@@ -378,7 +378,7 @@
       "relationships": [
         "Core/services/delivery ekleri ayrıntılı iş adımlarıdır; specs tasarımı yetkili belirler; verification sonuç kanıtını tutar."
       ],
-      "review_sha256": "1f54c6872c1bae04574d786c8d6a95a356a3624a1e5eb35898c11379dee6c679"
+      "review_sha256": "bb650afdccf4d45bf039d8f6ad82f35322bc4700d999cc198303d36e09d89b5d"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-installer-atlas-release.md",
@@ -387,7 +387,7 @@
       "relationships": [
         "wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır."
       ],
-      "review_sha256": "83ca2b2b6e23fcaa4c6001c89025d4e9753ddea26b38744ea03827fa73015f01"
+      "review_sha256": "6d3c33ddde5c9fec1eca1627b33eff11896c66f7f831860f7ab7a94b80370057"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-source-cleanup.md",
@@ -1924,12 +1924,12 @@
     {
       "path": "tests/foundation_migration_preview_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Legacy flat/nested/in-vault envanterin salt okunur kalmasını, config/override önceliğini, hash proof ve conflicting state/reparse reddini sınar. Odak örnekleri: `test_dry_run_has_zero_side_effects`, `test_flat_nested_and_in_vault_legacy_inventory`, `test_config_precedence_and_custom_overrides`.",
+      "purpose": "Legacy flat/nested/in-vault envanterin salt okunur kalmasını, config/override önceliğini, hash proof ve conflicting state/reparse reddini sınar. Odak örnekleri: `test_dry_run_has_zero_side_effects`, `test_flat_nested_and_in_vault_legacy_inventory`, `test_config_precedence_and_custom_overrides`. OS geçici klasör takma adında fixture kökü kanonikleştirilir; ürünün link/reparse reddi korunur.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.paths`, `respectedbrain.integrations.backend`, `respectedbrain.installation.legacy`."
       ],
-      "review_sha256": "bbcd0d92ccb2006ff213284e180d070517fc4133fe4062034a19fb41418c4e3a"
+      "review_sha256": "fb67b35286f89a828734e57daa0f6f8ce4ede56d84eef6f6de9c97f8cee2a798"
     },
     {
       "path": "tests/foundation_native_install_test.py",
@@ -1944,12 +1944,12 @@
     {
       "path": "tests/foundation_operations_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Update/repair/uninstall ortak servislerinde note/disabled option koruması, manifest proof, integration baseline restore ve failure rollback'i sınar. Odak örnekleri: `test_operations_preserve_notes_and_disabled_flags`, `test_failed_update_restores_app_config_and_external_records`, `test_uninstall_preserves_data_by_default_and_unknown_files`.",
+      "purpose": "Update/repair/uninstall ortak servislerinde note/disabled option koruması, manifest proof, integration baseline restore ve failure rollback'i sınar. Odak örnekleri: `test_operations_preserve_notes_and_disabled_flags`, `test_failed_update_restores_app_config_and_external_records`, `test_uninstall_preserves_data_by_default_and_unknown_files`. OS geçici klasör takma adında fixture kökü kanonikleştirilir; ürünün link/reparse reddi korunur.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.config`, `respectedbrain.installation.setup`, `respectedbrain.installation.update`, `respectedbrain.installation.repair`, `respectedbrain.installation.uninstall`, `respectedbrain.core.paths`, `respectedbrain.vault.registry`, `respectedbrain.integrations.backend`, `respectedbrain.installation.ownership`, `respectedbrain.installation.transaction`."
       ],
-      "review_sha256": "c6898ea1d042b0abe03055b0725617620da1af33abbf400b10307948da4b62ec"
+      "review_sha256": "6f5b3470cc0efec637920f500376657435ca080b1920ac6f1ad082c8a7a42994"
     },
     {
       "path": "tests/foundation_packaged_commands_test.py",
@@ -2004,12 +2004,12 @@
     {
       "path": "tests/foundation_setup_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Yeni kurulumun pure vault üretmesini, dolu unregistered hedef reddini, repeat/user note korumasını, health/busy gate ve GUI/CLI ortak servisini sınar. Odak örnekleri: `test_fresh_setup_is_pure_vault`, `test_nonempty_unregistered_target_is_untouched`, `test_manifest_does_not_own_user_notes_and_repeat_preserves_edits`.",
+      "purpose": "Yeni kurulumun pure vault üretmesini, dolu unregistered hedef reddini, repeat/user note korumasını, health/busy gate ve GUI/CLI ortak servisini sınar. Odak örnekleri: `test_fresh_setup_is_pure_vault`, `test_nonempty_unregistered_target_is_untouched`, `test_manifest_does_not_own_user_notes_and_repeat_preserves_edits`. OS geçici klasör takma adında fixture kökü kanonikleştirilir; ürünün link/reparse reddi korunur.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.paths`, `respectedbrain.core.config`, `respectedbrain.installation.setup`, `respectedbrain.installation.ownership`, `respectedbrain.installation`, `respectedbrain.installation.transaction`."
       ],
-      "review_sha256": "56e64587d7abfabf50a0ee3f994cbbf99987a250a38350b8ed7765f05580384c"
+      "review_sha256": "26f49d49efc044728dbfc17ab684b48ddcfea94a2239165eeb452775e8a99477"
     },
     {
       "path": "tests/foundation_support.py",
@@ -2024,12 +2024,12 @@
     {
       "path": "tests/foundation_transactions_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "WAL dosya/external byte rollback, crash restart recovery, process operation kilidi, writer quiescence ve changed-file sahiplik reddini sınar. Odak örnekleri: `test_fault_rolls_back_exact_file_and_external_bytes`, `test_rollback_preserves_concurrent_user_edit_and_new_sentinel`, `test_restart_recovery_restores_only_unchanged_outputs`.",
+      "purpose": "WAL dosya/external byte rollback, crash restart recovery, process operation kilidi, writer quiescence ve changed-file sahiplik reddini sınar. Odak örnekleri: `test_fault_rolls_back_exact_file_and_external_bytes`, `test_rollback_preserves_concurrent_user_edit_and_new_sentinel`, `test_restart_recovery_restores_only_unchanged_outputs`. OS geçici klasör takma adında fixture kökü kanonikleştirilir; ürünün link/reparse reddi korunur.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.errors`, `respectedbrain.installation.transaction`, `respectedbrain.installation.ownership`."
       ],
-      "review_sha256": "17eb316a24a44ff62bc7d98dd7e37a087f0bce1c44ce1f64dab159e0698def20"
+      "review_sha256": "1b2b2b9e78308d42162e379bd5f0345f5172a8fefd55f6d16b170605052323f5"
     },
     {
       "path": "tests/foundation_uninstall_proof_test.py",
@@ -2371,12 +2371,12 @@
     {
       "path": "tests/transaction_performance_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Transaction throughput regresyonunda çok dosyalı write-ahead kayıtların gereksiz tam journal snapshot sayısını sınırlar; durable recovery ve aynı byte/mode davranışını korur. Odak örnekleri: `test_write_uses_one_durable_snapshot_per_file_with_existing_parent`, `test_before_image_and_expected_output_are_durable_before_mutation`, `test_nested_directory_creation_uses_one_durable_directory_plan`.",
+      "purpose": "Transaction throughput regresyonunda çok dosyalı write-ahead kayıtların gereksiz tam journal snapshot sayısını sınırlar; durable recovery ve aynı byte/mode davranışını korur. Odak örnekleri: `test_write_uses_one_durable_snapshot_per_file_with_existing_parent`, `test_before_image_and_expected_output_are_durable_before_mutation`, `test_nested_directory_creation_uses_one_durable_directory_plan`. OS geçici klasör takma adında fixture kökü kanonikleştirilir; ürünün link/reparse reddi korunur.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.installation`."
       ],
-      "review_sha256": "3d2e5ee5ce27089cdf4c83fc9ca5ccb7277bdcf8a170b55faeb440ba2276a9a1"
+      "review_sha256": "738fe24df17a3d8f394fadf3a7ba4d0db7cf823f95f4ffe933b7aa112c1cdca9"
     },
     {
       "path": "tests/turn_log_pipeline_test.py",

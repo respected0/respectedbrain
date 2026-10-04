@@ -84,3 +84,16 @@ Root AGENTS.md persists same-task atlas maintenance; the inventory now includes
 271 files. CI additionally verifies actual mounted macOS DMG and extracted
 Linux makeself payloads. These new release-format checks and the final native
 full suites still require a fresh remote run before main integration.
+
+### Native follow-up evidence — 2026-10-05
+
+Commit 869d64f: Windows rebuild and frozen verification passed; all three real
+native install/update/uninstall, in-use executable rollback and readonly-app
+checks passed (321.464s). Run 37234992142 passed the Linux native/full-suite/
+host smoke and verified extracted makeself release archive. macOS full-suite
+exposed three additional raw-temp fixture roots. A real Windows junction
+reproduced those errors; canonical fixture roots passed all 22 affected cases
+(3.014s). A broader alias audit also reproduced setup/operations fixture errors;
+the same two fixture-root corrections passed all 125 broader alias cases
+(48.703s). No product
+path-security policy was relaxed. Main publication remains pending.

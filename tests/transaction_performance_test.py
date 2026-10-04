@@ -14,7 +14,7 @@ class TransactionThroughputTest(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.data = self.root / 'data'
         self.target = self.root / 'app' / 'file'
         self.target.parent.mkdir()

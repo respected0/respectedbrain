@@ -55,7 +55,7 @@ class FoundationMigrationPreviewTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
+        self.root = Path(self.tmp.name).resolve()
         self.vault, self.legacy = self.root / "Türkçe 🧠 Vault", self.root / "legacy"
         self.vault.mkdir()
         (self.vault / "daily").mkdir()

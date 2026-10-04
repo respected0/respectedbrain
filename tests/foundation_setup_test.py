@@ -18,7 +18,7 @@ class FoundationSetupTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         (self.root / "home").mkdir()
         self.vault = self.root / "Türkçe 🧠 Vault"
         self.roots = Roots(self.root / "app", self.root / "data", self.vault)
