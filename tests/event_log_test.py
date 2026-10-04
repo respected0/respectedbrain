@@ -3,15 +3,12 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
 
-ROOT = Path(__file__).resolve().parent.parent
-EVENTS_PATH = ROOT / "runtime/events.py" if (ROOT / "runtime/events.py").is_file() else ROOT / "template/.beyin/events.py"
 
 
 def load_events_module():
@@ -324,14 +321,9 @@ Bu bir koddur ve thread olarak algılanmamalıdır.
             self.assertEqual(len(archived), 2)
 
 
-FLUSH_PATH = ROOT / "runtime/engine/flush.py" if (ROOT / "runtime/engine/flush.py").is_file() else ROOT / "template/.beyin/engine/flush.py"
-
-
 def load_flush_module():
-    spec = importlib.util.spec_from_file_location("flush_module", FLUSH_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    from respectedbrain.memory import flush
+    return flush
 
 
 class FlushThreadsIntegrationTest(unittest.TestCase):
@@ -344,9 +336,6 @@ class FlushThreadsIntegrationTest(unittest.TestCase):
             vault_root = Path(temp_dir).resolve()
             companion = vault_root / "🔮 850-Companion"
             companion.mkdir(parents=True, exist_ok=True)
-            (vault_root / ".beyin").mkdir(parents=True, exist_ok=True)
-            import shutil
-            shutil.copy(EVENTS_PATH, vault_root / ".beyin" / "events.py")
 
             existing = """# Threads
 ## Açık Konular
@@ -378,9 +367,6 @@ Açıklama.
             vault_root = Path(temp_dir).resolve()
             companion = vault_root / "🔮 850-Companion"
             companion.mkdir(parents=True, exist_ok=True)
-            (vault_root / ".beyin").mkdir(parents=True, exist_ok=True)
-            import shutil
-            shutil.copy(EVENTS_PATH, vault_root / ".beyin" / "events.py")
 
             existing = """# Threads
 ## Açık Konular

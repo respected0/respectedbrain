@@ -5,6 +5,10 @@ description: Gelen kutusu ve Dump notlarını tasnif edip düzenler. "inbox düz
 
 # Inbox Düzenleme
 
+Native örneklerde `UUID` değerini `respectedbrain vault list` çıktısındaki kayıtlı kasa
+kimliğiyle değiştir. Not yolları VaultRoot'a göre çözülür; teknik state/cache DataRoot içinde
+UUID bazında tutulur. Kurulu launcher ayrıca Python veya kaynak checkout gerektirmez.
+
 ## İlke
 
 `📥 000-Inbox/Dump/` içeriğini önce salt okunur incele. Kullanıcı açıkça onaylamadan hiçbir notu
@@ -29,7 +33,7 @@ yeniden adlandırma, taşıma, düzenleme veya silme.
    Batch içinde hata olursa bu içeriklerle yapılan değişiklikleri geri al ve yarım başarı bildirme.
 7. Başlık/frontmatter güncellemesinde mevcut anlamlı metadata'yı koru. Etiketleri birleştir,
    wikilinkleri yalnız gerçekten ilişkili notlara ekle.
-8. Başarılı batch sonunda `python3 .beyin/map_builder.py` çalıştır. Kullanıcıya taşınan, atlanan ve
+8. Başarılı batch sonunda `respectedbrain maps --vault-id UUID` çalıştır. Kullanıcıya taşınan, atlanan ve
    değişmeden bırakılan ID'leri bildir.
 
 ## Kırmızı çizgiler

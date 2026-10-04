@@ -1,65 +1,7 @@
-# Respected Brain Kaldırma Kılavuzu (Uninstall Guide)
+# Kaldırma
 
-Respected Brain sistem entegrasyonlarını (global AI kancaları, zamanlayıcılar, kısayollar, MCP sunucuları) temiz bir şekilde sisteminizden kaldırmak için bu rehberi kullanabilirsiniz.
+Windows uygulamalar listesindeki kaldırıcı veya `respectedbrain uninstall` ortak servisi çağırır. Yalnız hash'i hâlâ sahiplik kaydıyla eşleşen program dosyaları ve yönetilen bağlantılar kaldırılır. Kullanıcı değiştirmişse conflict raporlanır; dosya korunur.
 
-> [!TIP]
-> **Notlarınız Güvendedir:**
-> Kaldırma aracı varsayılan olarak ikinci beyin kasanızı ve notlarınızı **kesinlikle silmez**. Sadece işletim sistemine ve AI araçlarına eklenen köprüleri ve görevleri kaldırır.
+Not kasası hedef değildir: daily, knowledge, Companion, projeler, Templates ve .obsidian kalır. DataRoot ayar/kayıt/yedekleri de varsayılan olarak kalır. `--purge-data` yalnız sahipli teknik dosyaları hedefler; bilinmeyen dosya ve yedek journal'ları korunur.
 
----
-
-## Kaldırma Yolları
-
-### 1. Yol: Windows `setup.exe` veya Denetim Masası (En Kolay)
-
-Windows kullanıyorsanız komut satırına gerek kalmadan:
-* **`setup.exe`** dosyasını çalıştırın -> **🗑️ Kaldır (Uninstall)** seçeneğini seçin.
-* VEYA Windows **Ayarlar -> Uygulamalar -> Yüklü Uygulamalar -> Respected Brain -> Kaldır** butonuna tıklayın.
-
-Tüm zamanlanmış sabah brifingi görevleri (`RespectedBrainBriefing`) ve kısayollar temizlenir. Notlarınız korunur.
-
----
-
-### 2. Yol: Evrensel Terminalden Kaldırma
-
-Terminalden doğrudan kaldırma aracını çalıştırın:
-
-```bash
-python setup.py --uninstall
-```
-
-VEYA interaktif olarak:
-```bash
-python setup.py
-```
-*(Menüden `[4] 🗑️ Kaldır` seçeneğini seçin).*
-
-Windows'ta:
-```powershell
-py -3 uninstall.py
-```
-
----
-
-## Tam Temizlik (Kasa Dosyalarını da Silmek)
-
-Eğer kasanızı, tüm notlarınızı ve şablonlarınızı da diskinizden tamamen silmek (purge) isterseniz:
-
-```bash
-python uninstall.py --purge-vault --vault-path "/kasa/yolu"
-```
-
-Windows PowerShell:
-```powershell
-py -3 uninstall.py --purge-vault --vault-path "$HOME\Documents\RespectedOS"
-```
-
-*Not: Normal kullanımda kasanın silinmesi için sizden açık metin onayı ("evet") istenir.*
-
-### Otomasyon / Script Modu (Soru Sormadan Temizleme)
-Test veya betik otomasyonlarında interaktif onay sorularını atlayıp doğrudan temizlemek için:
-```powershell
-py -3 uninstall.py --non-interactive --purge-vault
-```
-* **`--purge-vault`**: Kasa dizinini de tamamen siler (varsayılan davranış notları korumaktır).
-* **`--non-interactive`**: "Emin misiniz?" ve onay sorularını sormadan işlemi doğrudan tamamlar.
+Eski kasaya konmuş unins000.exe ile migration yapmayın; geniş temizleme davranışı olabilir. [Migration önizlemesini](UPDATE.md) kullanın. Windows programından kaldırma pending ise son helper makbuzu henüz beklenmektedir. İşlem/conflict sonucu DataRoot günlüklerinde bulunur.

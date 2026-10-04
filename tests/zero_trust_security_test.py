@@ -108,7 +108,7 @@ class ZeroTrustSecurityTests(unittest.TestCase):
 
     # --- 3. vault_mcp_server Tests ---
     def test_vault_mcp_server_safe_resolve_traversal_and_device(self):
-        server = RespectedMcpServer(self.vault_root)
+        server = RespectedMcpServer(self.ctx)
 
         # NUL byte
         self.assertIsNone(server._safe_resolve("notes/\x00secret.md"))
@@ -121,7 +121,7 @@ class ZeroTrustSecurityTests(unittest.TestCase):
         self.assertIsNone(server._safe_resolve("../../outside.txt"))
 
     def test_vault_mcp_server_note_size_ceiling(self):
-        server = RespectedMcpServer(self.vault_root)
+        server = RespectedMcpServer(self.ctx)
         huge_file = self.vault_root / "huge_note.md"
         # Test için sunucunun MAX_NOTE_BYTES tavanını geçici olarak küçültelim
         original_max = server.MAX_NOTE_BYTES

@@ -13,38 +13,35 @@ import tempfile
 import unittest
 from unittest import mock
 
-ORIGINAL_SYS_PATH = list(sys.path)
-
-ROOT = Path(__file__).resolve().parent.parent
-COMPILE_PATH = ROOT / "runtime/engine/compile.py" if (ROOT / "runtime/engine/compile.py").is_file() else ROOT / "template/.beyin/engine/compile.py"
-UPDATE_PATH = (ROOT / "runtime/scripts/update_respected.py") if (ROOT / "runtime/scripts/update_respected.py").is_file() else ROOT / "scripts/update_respected.py"
-
-
-def tearDownModule() -> None:
-    sys.path[:] = ORIGINAL_SYS_PATH
-
-
-def load_compile_module():
-    from respectedbrain.memory import compile
-    return compile
-
-
-def load_update_module():
-    scripts_dir = str((ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts"))
-    if scripts_dir not in sys.path:
-        sys.path.insert(0, scripts_dir)
-    spec = importlib.util.spec_from_file_location("update_module", UPDATE_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("update module cannot be loaded")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+from respectedbrain.core.config import ConfigStore
+from respectedbrain.core.errors import SelectionError
+from respectedbrain.core.paths import Roots
+from respectedbrain.integrations.backend import IntegrationProfile
+from respectedbrain.installation.migration import plan_migration, apply_migration
+from respectedbrain.installation.transaction import Transaction
+from tests.foundation_install_support import seed_package
+from tests.foundation_migration_apply_test import Backend
+from tests.foundation_migration_preview_test import seed_legacy, ALL_FALSE
+from tests.foundation_support import snapshot
 
 
 class BoundaryRegressionTest(unittest.TestCase):
     def setUp(self):
-        self.compile = load_compile_module()
-        self.update = load_update_module()
+        from respectedbrain.memory import compile
+        self.compile = compile
+        temporary = tempfile.TemporaryDirectory(prefix="boundary-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.vault, self.legacy = self.root / "vault", self.root / "legacy"
+        self.vault.mkdir()
+        seed_legacy(self.legacy, layout="flat")
+        (self.legacy / "config.json").write_text(json.dumps({"integrations": ALL_FALSE}), encoding="utf-8")
+        self.roots = Roots(self.root / "app", self.root / "data", self.vault)
+        self.backend = Backend()
+        self.profile = IntegrationProfile("windows-native", (str(self.roots.app_root / "respectedbrain.exe"),), self.root / "home")
+
+    def plan(self):
+        return plan_migration(self.legacy, self.vault, roots=self.roots, backend=self.backend, profile=self.profile)
 
     def test_staging_inside_vault_is_rejected_before_model_call(self):
         """If temporary staging directory falls inside vault root, compile must abort immediately."""
@@ -73,147 +70,104 @@ class BoundaryRegressionTest(unittest.TestCase):
                 self.assertIn("staging-inside-vault", str(cm.exception))
                 self.assertEqual(mock_model.call_count, 0)
 
-    def test_untrack_bytecode_and_gitignore_rules(self):
-        """Updating a vault must untrack any committed .pyc or __pycache__ without deleting files on disk."""
+    def test_migration_preserves_unknown_tracked_bytecode_and_gitignore(self):
+        """Unknown bytecode remains user-owned; migration never alters the user's Git index."""
         if shutil.which("git") is None:
             self.skipTest("git is not available")
+        subprocess.run(["git", "init"], cwd=self.vault, check=True, capture_output=True)
+        for key, value in (("user.email", "test@example.com"), ("user.name", "Test Runner")):
+            subprocess.run(["git", "config", key, value], cwd=self.vault, check=True, capture_output=True)
+        bytecode = self.vault / ".beyin/__pycache__/custom.cpython-311.pyc"
+        bytecode.parent.mkdir(parents=True)
+        bytecode.write_bytes(b"user bytecode")
+        root_pyc = self.vault / "custom.pyc"
+        root_pyc.write_bytes(b"user root bytecode")
+        ignore = self.vault / ".gitignore"
+        ignore.write_bytes(b".env\n")
+        subprocess.run(["git", "add", "."], cwd=self.vault, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "user files"], cwd=self.vault, check=True, capture_output=True)
+        index_before = (self.vault / ".git/index").read_bytes()
+        plan = self.plan()
+        retained = {entry.source for entry in plan.entries if entry.action == "retain-user"}
+        self.assertIn(bytecode, retained)
+        package = seed_package(self.root / "package")
+        with mock.patch("respectedbrain.installation.payload.validate_installed_health", return_value=None):
+            result = apply_migration(plan, roots=self.roots, package=package, backend=self.backend)
+        self.assertTrue(result.success, result.conflicts)
+        self.assertEqual(bytecode.read_bytes(), b"user bytecode")
+        self.assertEqual(root_pyc.read_bytes(), b"user root bytecode")
+        self.assertEqual(ignore.read_bytes(), b".env\n")
+        self.assertEqual((self.vault / ".git/index").read_bytes(), index_before)
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            vault = Path(temp_dir).resolve()
-            # Initialize git repo in vault
-            subprocess.run(["git", "init"], cwd=vault, check=True, capture_output=True)
-            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=vault, check=True, capture_output=True)
-            subprocess.run(["git", "config", "user.name", "Test Runner"], cwd=vault, check=True, capture_output=True)
+    def test_migration_preserves_custom_preferences_and_uses_installed_launcher(self):
+        """Unknown legacy options survive preview while registrations use the selected application."""
+        for command in (["/home/ada/.pyenv/shims/python3"], [], ["custom-py"]):
+            with self.subTest(command=command):
+                (self.legacy / "config.json").write_text(json.dumps({"python_command": command, "integrations": ALL_FALSE}), encoding="utf-8")
+                before = snapshot(self.root)
+                plan = self.plan()
+                self.assertEqual(plan.conflicts, ())
+                self.assertEqual(plan.config["preferences"]["python_command"], command)
+                self.assertEqual(plan.config["integrations"], ALL_FALSE)
+                self.assertEqual(snapshot(self.root), before)
+                self.assertEqual(self.profile.launcher, (str(self.roots.app_root / "respectedbrain.exe"),))
+        store = ConfigStore(self.roots.data_root)
+        store.update(lambda document: document["preferences"].update(custom_python=["user-shim"]))
+        store.update(lambda document: document["preferences"].update(summary_provider="codex"))
+        self.assertEqual(store.read()["preferences"]["custom_python"], ["user-shim"])
 
-            # Create standard vault layout
-            (vault / ".beyin-version").write_text("2.0.0\n", encoding="utf-8")
-            (vault / ".beyin-multi-version").write_text("1.3.2\n", encoding="utf-8")
-            (vault / ".beyin").mkdir(parents=True, exist_ok=True)
-            (vault / ".beyin/instructions.md").write_text("# Instructions\n", encoding="utf-8")
-            (vault / ".beyin/config.json").write_text('{"summary_provider": "auto", "platform": "windows-native"}\n', encoding="utf-8")
+    def test_corrupt_configuration_fails_closed_without_mutation(self):
+        (self.legacy / "config.json").write_text('{invalid_json: true,}\n', encoding="utf-8")
+        before = snapshot(self.root)
+        plan = self.plan()
+        self.assertTrue(plan.conflicts)
+        self.assertTrue(any("legacy-source" in conflict for conflict in plan.conflicts))
+        result = apply_migration(plan, roots=self.roots, package=self.root / "unused", backend=self.backend)
+        self.assertFalse(result.success)
+        self.assertEqual(snapshot(self.root), before)
+        self.roots.data_root.mkdir()
+        (self.roots.data_root / "config.json").write_text('{invalid_json: true,}\n', encoding="utf-8")
+        with self.assertRaises(SelectionError):
+            ConfigStore(self.roots.data_root).read()
 
-            # Create and commit bytecode files (simulating legacy/buggy vault state)
-            pycache_dir = vault / ".beyin" / "__pycache__"
-            pycache_dir.mkdir(parents=True, exist_ok=True)
-            committed_pyc = pycache_dir / "test_module.cpython-311.pyc"
-            committed_pyc.write_bytes(b"dummy bytecode")
-
-            root_pyc = vault / "stray.pyc"
-            root_pyc.write_bytes(b"dummy stray bytecode")
-
-            gitignore = vault / ".gitignore"
-            gitignore.write_text(".env\n", encoding="utf-8")
-
-            subprocess.run(["git", "add", "."], cwd=vault, check=True, capture_output=True)
-            subprocess.run(["git", "commit", "-m", "initial with bytecode"], cwd=vault, check=True, capture_output=True)
-
-            # Verify files are tracked
-            tracked_before = subprocess.run(["git", "ls-files"], cwd=vault, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True).stdout
-            self.assertIn("test_module.cpython-311.pyc", tracked_before)
-            self.assertIn("stray.pyc", tracked_before)
-
-            # Ensure clean_bytecode_and_gitignore helper exists on update module
-            self.assertTrue(
-                hasattr(self.update, "ensure_bytecode_cleanup") or hasattr(self.update, "_ensure_bytecode_cleanup"),
-                "update_respected module must provide ensure_bytecode_cleanup",
-            )
-            cleanup_func = getattr(self.update, "ensure_bytecode_cleanup", None) or getattr(self.update, "_ensure_bytecode_cleanup")
-            cleanup_func(vault)
-
-            # Check git index: files should NO LONGER be tracked
-            tracked_after = subprocess.run(["git", "ls-files"], cwd=vault, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True).stdout
-            self.assertNotIn("test_module.cpython-311.pyc", tracked_after)
-            self.assertNotIn("stray.pyc", tracked_after)
-
-            # Check disk: files must STILL EXIST on disk
-            self.assertTrue(committed_pyc.exists(), "bytecode file must not be deleted from disk")
-            self.assertTrue(root_pyc.exists(), "stray pyc must not be deleted from disk")
-
-            # Check .gitignore: must contain __pycache__/ and *.pyc
-            gitignore_content = gitignore.read_text(encoding="utf-8")
-            self.assertIn("__pycache__/", gitignore_content)
-            self.assertIn("*.pyc", gitignore_content)
-
-    def test_prepare_config_handles_custom_python_and_resets_invalid(self):
-        """Valid custom python command (e.g. pyenv shim) is preserved; invalid or empty is reset."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            vault = Path(temp_dir).resolve()
-            (vault / ".beyin").mkdir(parents=True, exist_ok=True)
-            config_file = vault / ".beyin/config.json"
-
-            # Case 1: custom valid pyenv shim command with auto request
-            config_file.write_text(
-                '{"python_command": ["/home/furkan/.pyenv/shims/python3"]}\n',
-                encoding="utf-8",
-            )
-            self.update._prepare_config(vault, "portable", "auto")
-            saved = json.loads(config_file.read_text(encoding="utf-8"))
-            self.assertEqual(saved["python_command"], ["/home/furkan/.pyenv/shims/python3"])
-
-            # Case 2: invalid/empty command with auto request is safely reset to default
-            config_file.write_text('{"python_command": []}\n', encoding="utf-8")
-            self.update._prepare_config(vault, "windows-wsl", "auto")
-            saved = json.loads(config_file.read_text(encoding="utf-8"))
-            self.assertEqual(saved["python_command"], ["python3"])
-
-            # Case 3: explicitly requested profile resets to default
-            config_file.write_text(
-                '{"python_command": ["custom-py"]}\n',
-                encoding="utf-8",
-            )
-            self.update._prepare_config(vault, "windows-native", "windows-native")
-            saved = json.loads(config_file.read_text(encoding="utf-8"))
-            self.assertEqual(saved["python_command"], ["py.exe", "-3"])
-
-    def test_prepare_config_corrupt_json_raises_update_error(self):
-        """If config.json contains malformed JSON, _prepare_config must fail-closed."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            vault = Path(temp_dir).resolve()
-            (vault / ".beyin").mkdir(parents=True, exist_ok=True)
-            config_file = vault / ".beyin/config.json"
-            config_file.write_text('{invalid_json: true,}\n', encoding="utf-8")
-
-            with self.assertRaises(self.update.UpdateError) as cm:
-                self.update._prepare_config(vault, "portable", "auto")
-            self.assertIn("geçersiz JSON", str(cm.exception))
-
-    def test_backup_root_inside_vault_raises_update_error(self):
-        """_backup_root must fail closed if backup destination resolves inside vault."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            vault = Path(temp_dir).resolve()
-            with mock.patch.object(self.update.Path, "home", return_value=vault):
-                with self.assertRaises(self.update.UpdateError) as cm:
-                    self.update._backup_root(vault)
-                self.assertIn("transaction yedeği vault dışında olmalı", str(cm.exception))
+    def test_transaction_backups_are_outside_vault_and_overlap_fails_before_write(self):
+        before = snapshot(self.root)
+        with self.assertRaises(SelectionError):
+            Roots(self.roots.app_root, self.vault / "unsafe-backups", self.vault)
+        self.assertEqual(snapshot(self.root), before)
+        note = self.vault / "note.md"
+        note.write_bytes(b"user note")
+        with Transaction(self.roots.data_root, self.backend) as tx:
+            tx.backup(note)
+            self.assertTrue(tx.directory.is_relative_to(self.roots.data_root / "backups"))
+            self.assertFalse(tx.directory.is_relative_to(self.vault))
+            tx.commit()
+        self.assertEqual(note.read_bytes(), b"user note")
 
     def test_install_antigravity_global_accepts_non_windows_vault_path(self):
         """install_antigravity_global must not reject Linux/POSIX vault paths where windows_path is None."""
-        scripts_dir = str((ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts"))
-        if scripts_dir not in sys.path:
-            sys.path.insert(0, scripts_dir)
-        import importlib
-        install_antigravity_global = importlib.import_module("install_antigravity_global")
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir).resolve()
-            home = temp_path / "home"
-            home.mkdir(parents=True, exist_ok=True)
-            vault = ROOT / "template"
-
-            # Before fix, windows_path returning None caused parser.error (SystemExit 2)
-            # After fix, windows_path is not required, so main succeeds with return code 0
-            patch_target = getattr(install_antigravity_global, "windows_path", None)
-            if patch_target is not None:
-                with mock.patch("install_antigravity_global.windows_path", return_value=None), \
-                     mock.patch.object(sys, "argv", ["install_antigravity_global.py", str(vault), "--antigravity-home", str(home), "--apply"]):
-                    exit_code = install_antigravity_global.main()
-                    self.assertEqual(exit_code, 0)
-                    self.assertTrue((home / ".gemini/config/hooks.json").is_file())
-            else:
-                with mock.patch.object(sys, "argv", ["install_antigravity_global.py", str(vault), "--antigravity-home", str(home), "--apply"]):
-                    exit_code = install_antigravity_global.main()
-                    self.assertEqual(exit_code, 0)
-                    self.assertTrue((home / ".gemini/config/hooks.json").is_file())
+        from respectedbrain.integrations.backend import IntegrationProfile, NativeBackend
+        from respectedbrain.integrations import rendering
+        from respectedbrain.installation.transaction import Transaction
+        from tests.foundation_memory_test import make_context
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            ctx = make_context(base / "Ada Brain")
+            home = base / "home"
+            home.mkdir()
+            backend = NativeBackend(ctx.paths.data_root, user_home=home)
+            profile = IntegrationProfile("posix", ("/opt/respectedbrain/bin/respectedbrain",), home)
+            with mock.patch.object(rendering, "windows_path", return_value=None):
+                changes = rendering.plan_integrations(ctx, profile, {"global": True}, backend)
+            with Transaction(ctx.paths.data_root, backend) as tx:
+                for change in changes:
+                    tx.apply_external(change)
+                tx.commit()
+            hooks = home / ".gemini/config/hooks.json"
+            self.assertTrue(hooks.is_file())
+            self.assertIn(ctx.paths.vault_id, hooks.read_text(encoding="utf-8"))
+            self.assertIn("/opt/respectedbrain/bin/respectedbrain", hooks.read_text(encoding="utf-8"))
+            self.assertFalse((ctx.paths.vault_root / ".beyin").exists())
 
 
 if __name__ == "__main__":

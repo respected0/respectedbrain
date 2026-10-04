@@ -5,6 +5,10 @@ description: Yerel AI ajan (Antigravity, Codex) loglarını tarar. "ajan geçmi�
 
 # Çapraz Ajan Geçmiş Madencisi (/ajan-gecmis-tara)
 
+Native örneklerde `UUID` değerini `respectedbrain vault list` çıktısındaki kayıtlı kasa
+kimliğiyle değiştir. Not yolları VaultRoot'a göre çözülür; teknik state/cache DataRoot içinde
+UUID bazında tutulur. Kurulu launcher ayrıca Python veya kaynak checkout gerektirmez.
+
 ## Amaç ve İlke
 
 Kullanıcı farklı projelerde çalışırken Claude Code, Antigravity veya Codex ile derin teknik problemler çözmüş olabilir. Bu oturumların hepsi yerel diskte JSONL formatında durur. Bu beceri, harici bir dışa aktarma zip'i beklemeden doğrudan diskteki ajan klasörlerini tarar, konuşmaları imbikten geçirir ve ikinci beyin vault'una aktarır.
@@ -20,20 +24,20 @@ Kullanıcı farklı projelerde çalışırken Claude Code, Antigravity veya Code
 1. **Önizleme (Dry-run):**
    Önce diski tara ve kaç adet yeni oturum bulunduğunu göster:
    ```bash
-   python scripts/mine_agent_history.py --dry-run --limit 10
+   respectedbrain maintenance --vault-id UUID mine_agent_history --dry-run --limit 10
    ```
 
 2. **Kullanıcı Onayı:**
-   Hangi ajanların (hepsi, yalnız antigravity, yalnız claude) ve nereye (`daily/` veya `📥 000-Inbox/Dump/`) aktarılacağını teyit et.
+   Hangi ajanların (hepsi, yalnız antigravity, yalnız claude veya yalnız codex) ve nereye (`daily/` veya `📥 000-Inbox/Dump/`) aktarılacağını teyit et.
 
 3. **İçe Aktarma (Import):**
    Onaylanan oturumları vault'a aktar:
    ```bash
-   python scripts/mine_agent_history.py --source all --limit 10 --target daily
+   respectedbrain maintenance --vault-id UUID mine_agent_history --source all --limit 10 --target daily
    ```
 
 4. **Derleme ve Haritalama:**
    Aktarılan logları derleyiciye bildirmek veya haritayı güncellemek için:
    ```bash
-   python scripts/arama.py --reindex
+   respectedbrain search --vault-id UUID --reindex
    ```

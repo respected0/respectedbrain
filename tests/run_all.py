@@ -35,6 +35,7 @@ def run_command(title: str, command: list[str], env: dict | None = None) -> tupl
     merged_env = os.environ.copy()
     merged_env["PYTHONUTF8"] = "1"
     merged_env["PYTHONIOENCODING"] = "utf-8"
+    merged_env["RESPECTED_TEST_PYTHON"] = sys.executable
     if env:
         merged_env.update(env)
     process = subprocess.run(
@@ -77,6 +78,14 @@ def main() -> int:
         "macOS fiziksel host": "NOT VERIFIED",
     }
 
+    platform = "windows" if os.name == "nt" else "macos" if sys.platform == "darwin" else "linux"
+    distribution = ROOT / "dist" / ("RespectedBrain.app" if platform == "macos" else "RespectedBrain")
+    ok, elapsed, _ = run_command("Required Native Distribution", [sys.executable, "tools/verify_distribution.py", "--distribution", str(distribution), "--platform", platform])
+    results.append(("Native distribution", "Frozen/no system Python", ok, elapsed))
+    if not ok:
+        print("Native payload is required before full-suite discovery; build tools/build_installer.py first.")
+        return 1
+
     # 1. Python Test Paketi
     cmd = [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "*test*.py"]
     ok, elapsed, python_output = run_command("Python Birim ve Entegrasyon Testleri", cmd)
@@ -87,6 +96,7 @@ def main() -> int:
     cmd = [sys.executable, "tests/smoke/platform_smoke.py"]
     ok, elapsed, _ = run_command("Fiziksel Host Platform Smoke", cmd)
     results.append(("platform_smoke.py", "Install/Turn/Update/Uninstall", ok, elapsed))
+    physical_smoke_ok = ok
 
     # 2. Windows Native PowerShell Testleri
     if os.name == "nt":
@@ -95,7 +105,7 @@ def main() -> int:
             cmd = [pwsh, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tests/install_windows_test.ps1"]
             ok, elapsed, _ = run_command("PowerShell Kurulum Sözleşmesi", cmd, env={"PYTHONIOENCODING": "utf-8"})
             results.append(("PowerShell install_windows_test.ps1", "Windows Installer", ok, elapsed))
-            native_ok = ok
+            native_ok = physical_smoke_ok and ok
 
             cmd = [pwsh, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tests/windows_launchers_test.ps1"]
             ok, elapsed, _ = run_command("PowerShell Launcher Sözleşmesi", cmd, env={"PYTHONIOENCODING": "utf-8"})
@@ -110,14 +120,15 @@ def main() -> int:
                 capabilities["Windows Native fiziksel host"] = "VERIFIED"
 
             wsl = shutil.which("wsl.exe") or shutil.which("wsl")
-            if wsl:
-                cmd = [pwsh, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tests/hybrid_wsl_smoke.ps1"]
+            if wsl and os.environ.get("RESPECTED_WSL_PACKAGE"):
+                cmd = [pwsh, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tests/hybrid_wsl_smoke.ps1", "-LinuxPackage", os.environ["RESPECTED_WSL_PACKAGE"]]
                 ok, elapsed, _ = run_command("Hibrit Windows+WSL Uçtan Uca Smoke", cmd)
                 results.append(("PowerShell hybrid_wsl_smoke.ps1", "Hybrid Turn Flush", ok, elapsed))
                 if ok:
                     capabilities["Hibrit Windows+WSL fiziksel host"] = "VERIFIED"
         else:
-            print("\n>> UYARI: PowerShell bulunamadı, Windows testleri atlandı.")
+            print("\n>> UYARI: Required native PowerShell acceptance unavailable.")
+            results.append(("PowerShell acceptance", "Required Windows gate", False, 0))
 
     # 3. Shell / Bash Testleri
     bash = shutil.which("bash")
@@ -132,12 +143,12 @@ def main() -> int:
     else:
         print("\n>> BİLGİ: Bash bulunamadı (Windows saf ortam), .sh testleri atlandı.")
 
-    if sys.platform.startswith("linux"):
+    if sys.platform.startswith("linux") and physical_smoke_ok:
         if os.environ.get("WSL_DISTRO_NAME"):
             capabilities["Saf WSL fiziksel host"] = "VERIFIED"
         else:
             capabilities["Saf Linux fiziksel host"] = "VERIFIED"
-    elif sys.platform == "darwin":
+    elif sys.platform == "darwin" and physical_smoke_ok:
         capabilities["macOS fiziksel host"] = "VERIFIED"
 
     # Özet Rapor Tablosu

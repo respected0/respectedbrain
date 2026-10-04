@@ -19,23 +19,8 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS_DIR = (ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts")
-ORIGINAL_SYS_PATH = list(sys.path)
-for p in (ROOT, SCRIPTS_DIR):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
-
-
-def tearDownModule():
-    sys.path[:] = ORIGINAL_SYS_PATH
-
-try:
-    from scripts.vault_mcp_server import RespectedMcpServer
-    from scripts.mine_agent_history import AgentHistoryMiner
-except ImportError:
-    from vault_mcp_server import RespectedMcpServer  # type: ignore[import-not-found]
-    from mine_agent_history import AgentHistoryMiner  # type: ignore[import-not-found]
-
+from respectedbrain.integrations.mcp.server import RespectedMcpServer
+from respectedbrain.maintenance.ingestion.mine_agent_history import AgentHistoryMiner
 
 from respectedbrain.search.engine import SearchEngine, read_head, parse_frontmatter_head
 from tests.foundation_support import make_context
@@ -60,7 +45,9 @@ class SearchEngineTest(unittest.TestCase):
             encoding="utf-8",
         )
 
-        self.engine = SearchEngine(make_context(self.vault.parent / (self.vault.name + "-data"), self.vault))
+        self.technical = tempfile.TemporaryDirectory()
+        self.addCleanup(self.technical.cleanup)
+        self.engine = SearchEngine(make_context(Path(self.technical.name), self.vault))
         self.addCleanup(lambda: __import__("shutil").rmtree(self.vault.parent / (self.vault.name + "-data"), ignore_errors=True))
 
     def tearDown(self) -> None:
@@ -120,7 +107,9 @@ class McpServerTest(unittest.TestCase):
         (self.vault / "🔮 850-Companion" / "Last-Session.md").write_text("Son oturum özeti.", encoding="utf-8")
         (self.vault / "🔮 850-Companion" / "Threads.md").write_text("Açık konular.", encoding="utf-8")
 
-        self.server = RespectedMcpServer(self.vault)
+        self.technical = tempfile.TemporaryDirectory()
+        self.addCleanup(self.technical.cleanup)
+        self.server = RespectedMcpServer(make_context(Path(self.technical.name),self.vault))
         self.server.search_engine.index_vault()
 
     def tearDown(self) -> None:
@@ -293,7 +282,7 @@ class AgentHistoryMinerTest(unittest.TestCase):
 
 class TemplateAndSkillsTest(unittest.TestCase):
     def test_note_template_has_bitemporal_and_aifirst(self) -> None:
-        note_template = ROOT / "template" / "📋 Templates" / "Note.md"
+        note_template = ROOT / "src/respectedbrain/resources/vault-template" / "📋 Templates" / "Note.md"
         self.assertTrue(note_template.is_file())
         content = note_template.read_text(encoding="utf-8")
         self.assertIn("valid_at:", content)
@@ -304,7 +293,7 @@ class TemplateAndSkillsTest(unittest.TestCase):
     def test_new_skills_exist_and_valid(self) -> None:
         skills_to_check = ["beyin-meydan-oku", "beyin-oruntu", "ajan-gecmis-tara"]
         for s in skills_to_check:
-            for skill_dir in [ROOT / "runtime" / "skills", ROOT / "runtime" / "adapters" / ".agents" / "skills", ROOT / "runtime" / "adapters" / ".claude" / "skills"]:
+            for skill_dir in [ROOT / "src/respectedbrain/resources/skills"]:
                 skill_file = skill_dir / s / "SKILL.md"
                 self.assertTrue(skill_file.is_file(), f"Skill file missing: {skill_file}")
                 text = skill_file.read_text(encoding="utf-8")
@@ -313,7 +302,7 @@ class TemplateAndSkillsTest(unittest.TestCase):
                 self.assertIn("description:", text)
 
     def test_skills_map_within_lifecycle_cap(self) -> None:
-        skills_map = ROOT / "template" / "🎯 100-Command-Center" / "Skills-Map.md"
+        skills_map = ROOT / "src/respectedbrain/resources/vault-template" / "🎯 100-Command-Center" / "Skills-Map.md"
         self.assertTrue(skills_map.is_file())
         text = skills_map.read_text(encoding="utf-8")
         self.assertLessEqual(
@@ -323,7 +312,7 @@ class TemplateAndSkillsTest(unittest.TestCase):
         )
 
     def test_note_template_has_epistemic_fields(self) -> None:
-        note_template = ROOT / "template" / "📋 Templates" / "Note.md"
+        note_template = ROOT / "src/respectedbrain/resources/vault-template" / "📋 Templates" / "Note.md"
         self.assertTrue(note_template.is_file())
         content = note_template.read_text(encoding="utf-8")
         self.assertIn("scope:", content)
@@ -350,10 +339,7 @@ class TemplateAndSkillsTest(unittest.TestCase):
             self.assertEqual(fm["tags"], ["a", "b"])
 
     def test_scan_open_loops(self) -> None:
-        p1 = str(ROOT / "runtime") if (ROOT / "runtime").is_dir() else str(ROOT / "template" / ".beyin")
-        sys.path.insert(0, p1)
-        self.addCleanup(lambda: sys.path.remove(p1) if p1 in sys.path else None)
-        from morning_briefing import _scan_open_loops  # type: ignore
+        from respectedbrain.briefing.service import _scan_open_loops
 
         with tempfile.TemporaryDirectory() as td:
             v_root = Path(td)
@@ -378,10 +364,7 @@ class TemplateAndSkillsTest(unittest.TestCase):
             self.assertIn("İşlenmeyi bekleyen", loops_text)
 
     def test_precompact_transcript_backup(self) -> None:
-        p2 = str(ROOT / "runtime" / "hooks") if (ROOT / "runtime" / "hooks").is_dir() else str(ROOT / "template" / ".beyin" / "hooks")
-        sys.path.insert(0, p2)
-        self.addCleanup(lambda: sys.path.remove(p2) if p2 in sys.path else None)
-        import lifecycle  # type: ignore
+        from respectedbrain.memory import lifecycle
 
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             v_root = Path(td)
@@ -398,9 +381,13 @@ class TemplateAndSkillsTest(unittest.TestCase):
                 "session_id": "session-xyz123",
                 "transcript_path": str(fake_transcript),
             }
-            lifecycle._finish_session(v_root, s_dir, payload, "precompact", dt.datetime.now(), "antigravity")
+            from unittest.mock import patch
+            ctx = make_context(Path(td) / "runtime", v_root / "vault")
+            # The transcript lives outside the selected vault; only its backup is written.
+            with patch.object(lifecycle, "_launch_flush"):
+                lifecycle._finish_session(ctx.paths.vault_root, ctx.paths.state_dir, payload, "precompact", dt.datetime.now(), "antigravity", ctx)
 
-            logs_dir = v_root / "🔮 850-Companion" / "Session-Logs"
+            logs_dir = ctx.paths.vault_root / "🔮 850-Companion" / "Session-Logs"
             self.assertTrue(logs_dir.is_dir())
             backed_files = list(logs_dir.glob("*.jsonl"))
             self.assertEqual(len(backed_files), 1)

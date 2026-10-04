@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Provider-neutral fresh-install and lifecycle E2E tests for Linux/POSIX (Faz 2)."""
+"""Standalone source CLI registration and provider lifecycle E2E on Linux/POSIX."""
 
 from __future__ import annotations
 
@@ -14,13 +14,15 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parent.parent
-TEMPLATE = ROOT / "template"
+from respectedbrain.core.resources import ResourceCatalog
+from respectedbrain.core.config import ConfigStore
+from tests.foundation_support import make_context
 
 
 class E2EFreshInstallLinuxTest(unittest.TestCase):
     def setUp(self):
         if os.name == "nt":
-            self.skipTest("Linux/POSIX E2E test; Windows covered by install_windows_test.ps1")
+            self.skipTest("Linux/POSIX source E2E; native package smoke is separate")
 
     def _create_provider_stub(self, bin_dir: Path, provider: str) -> Path:
         bin_dir.mkdir(parents=True, exist_ok=True)
@@ -47,30 +49,22 @@ sys.exit(0)
         return stub_path
 
     def _setup_fresh_vault(self, target_dir: Path, provider: str) -> Path:
-        """Create a fresh vault from template and render integrations."""
+        """Materialize packaged notes and register them through the public source CLI."""
         vault = target_dir / "TestVault"
-        shutil.copytree(TEMPLATE, vault)
-        (vault / "daily").mkdir(exist_ok=True)
-        (vault / "knowledge").mkdir(exist_ok=True)
-        (vault / "knowledge" / "index.md").write_text("# Knowledge Index\n", encoding="utf-8")
-
-        config = {
-            "summary_provider": provider,
-            "platform": "portable" if os.name != "nt" else "windows-native",
-        }
-        (vault / ".beyin" / "config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
-
-        # Run render_integrations
-        render_script = (ROOT / "runtime" / "scripts" / "render_integrations.py") if (ROOT / "runtime" / "scripts" / "render_integrations.py").is_file() else (ROOT / "scripts" / "render_integrations.py")
-        subprocess.run(
-            [sys.executable, str(render_script)],
-            cwd=vault,
-            check=True,
-            capture_output=True,
-        )
+        with ResourceCatalog().materialize("vault-template") as template:
+            shutil.copytree(template,vault)
+        env = {**os.environ, "HOME": str(target_dir / "home"), "USERPROFILE": str(target_dir / "home"), "RESPECTED_APP_DIR": str(target_dir / "app"), "RESPECTED_DATA_DIR": str(target_dir / "data")}
+        registered = subprocess.run([sys.executable, "-m", "respectedbrain", "vault", "register", str(vault)], cwd=target_dir, env=env, capture_output=True, text=True)
+        self.assertEqual(registered.returncode, 0, registered.stderr)
+        from respectedbrain.vault.registry import build_context
+        from respectedbrain.core.paths import Roots
+        store = ConfigStore(target_dir / "data")
+        store.update(lambda doc: doc["preferences"].update(summary_provider=provider, provider_priority=[provider], provider_fallback=False))
+        self.ctx = build_context(Roots(target_dir / "app", target_dir / "data", vault), store, vault=vault, vault_id=None, env={})
+        self.assertFalse((vault / ".beyin").exists())
         return vault
 
-    def test_fresh_install_lifecycle_for_all_providers(self):
+    def test_standalone_source_lifecycle_for_all_providers(self):
         """Verify every provider can run flush and generate a daily entry."""
         providers = ("claude", "codex", "antigravity", "gemini", "cursor")
 
@@ -86,7 +80,7 @@ sys.exit(0)
                     vault = self._setup_fresh_vault(sandbox, provider)
 
                     # Prepare hook input
-                    state_dir = vault / ".beyin" / "engine" / ".state"
+                    state_dir = self.ctx.paths.state_dir
                     state_dir.mkdir(parents=True, exist_ok=True)
                     transcript = vault / "transcript.jsonl"
                     transcript.write_text(
@@ -107,11 +101,11 @@ sys.exit(0)
                     env["HOME"] = str(home_dir)
                     env["USERPROFILE"] = str(home_dir)
                     env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
-                    env["BEYIN_PROVIDER"] = provider
+                    env["RESPECTED_APP_DIR"] = str(self.ctx.paths.app_root)
+                    env["RESPECTED_DATA_DIR"] = str(self.ctx.paths.data_root)
 
-                    flush_script = vault / ".beyin" / "engine" / "flush.py"
                     result = subprocess.run(
-                        [sys.executable, str(flush_script), "--hook-input", str(hook_input), "--reason", "sessionend"],
+                        [sys.executable,"-m","respectedbrain","flush","--vault-id",self.ctx.paths.vault_id,"--hook-input",str(hook_input),"--reason","sessionend"],
                         cwd=vault,
                         env=env,
                         capture_output=True,

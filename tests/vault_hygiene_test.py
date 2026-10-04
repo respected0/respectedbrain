@@ -15,20 +15,10 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-ORIGINAL_SYS_PATH = list(sys.path)
-for p in (str(ROOT), str(ROOT / "runtime" / "scripts"), str(ROOT / "scripts")):
-    if p not in sys.path:
-        sys.path.insert(0, p)
-
-
-def tearDownModule():
-    sys.path[:] = ORIGINAL_SYS_PATH
-
-from scripts.url_safety import validate_safe_url
-from scripts.defuddle import clean_html
-from scripts.vault_linter import lint_vault
-from scripts.tiling_check import check_tiling, jaccard_similarity, tokenize
-import scripts.respected_manifest as manifest
+from respectedbrain.maintenance.ingestion.url_safety import validate_safe_url
+from respectedbrain.maintenance.ingestion.defuddle import clean_html
+from respectedbrain.maintenance.vault_linter import lint_vault
+from respectedbrain.maintenance.tiling_check import check_tiling, jaccard_similarity, tokenize
 
 
 class TestUrlSafety(unittest.TestCase):
@@ -141,7 +131,7 @@ class TestDefuddle(unittest.TestCase):
 
     def test_defuddle_safe_redirect_handler_blocks_private_destinations(self):
         """Redirects to private IP or metadata must be blocked by SafeRedirectHandler."""
-        from scripts.defuddle import SafeRedirectHandler
+        from respectedbrain.maintenance.ingestion.defuddle import SafeRedirectHandler
         handler = SafeRedirectHandler()
         with self.assertRaises(ValueError) as ctx:
             handler.redirect_request(None, None, 302, "Found", {}, "http://127.0.0.1:8080/admin")
@@ -208,7 +198,7 @@ class TestVaultLinterAndTiling(unittest.TestCase):
         self.assertGreaterEqual(pair["similarity_pct"], 50.0)
 
     def test_vault_linter_ignores_code_block_wikilinks(self):
-        from scripts.vault_linter import lint_vault
+        from respectedbrain.maintenance.vault_linter import lint_vault
         test_note = self.vault / "knowledge" / "code_example.md"
         test_note.write_text(
             '---\ntitle: "Kod Ornegi"\ncreated: "2026-09-07"\ntype: note\nstatus: active\n---\n\n'
@@ -231,43 +221,32 @@ class TestVaultLinterAndTiling(unittest.TestCase):
 class TestManifestAndTemplates(unittest.TestCase):
     """1.4.1 Sürüm Manifesti, Şablonlar ve Kurallar."""
 
-    def test_manifest_version_is_0_0_1(self):
-        self.assertEqual(manifest.VERSION, "0.0.1")
-        self.assertEqual(manifest.VERSION_FILE, ".respectedbrain-version")
-        self.assertEqual(manifest.MULTI_VERSION, "0.0.1")
-        self.assertEqual(manifest.CORE_VERSION, "0.0.1")
-        self.assertIn("scripts/url_safety.py", manifest.RUNTIME)
-        self.assertIn("scripts/defuddle.py", manifest.RUNTIME)
-        self.assertIn("scripts/vault_linter.py", manifest.RUNTIME)
-        self.assertIn("scripts/tiling_check.py", manifest.RUNTIME)
-        self.assertIn(".beyin/graph_analysis.py", manifest.RUNTIME)
-        self.assertIn(".beyin/graphrag.py", manifest.RUNTIME)
-        self.assertIn(".beyin/session_brain.py", manifest.RUNTIME)
-        self.assertIn(".beyin/session_viz.py", manifest.RUNTIME)
-        self.assertIn(".agents/rules/software-quality-1.md", manifest.RUNTIME)
-        self.assertIn(".agents/rules/software-quality-2.md", manifest.RUNTIME)
-        self.assertIn(".cursor/rules/software-quality-1.mdc", manifest.RUNTIME)
-        self.assertIn(".cursor/rules/software-quality-2.mdc", manifest.RUNTIME)
-        self.assertIn("📋 Templates/Base.base", manifest.RUNTIME)
-        self.assertIn("📋 Templates/Canvas.canvas", manifest.RUNTIME)
-        self.assertIn(".obsidian/snippets/secondbrain-layout.css", manifest.RUNTIME)
+    def test_package_version_modules_and_resources_have_one_source(self):
+        from respectedbrain import __version__
+        from respectedbrain.core.resources import ResourceCatalog
+        import importlib
+        self.assertRegex(__version__, r"^\d+\.\d+\.\d+(?:[.+-].*)?$")
+        for name in ("maintenance.ingestion.url_safety", "maintenance.ingestion.defuddle", "maintenance.vault_linter", "maintenance.tiling_check", "memory.graph.graph_analysis", "memory.graph.graphrag", "memory.session_brain", "memory.session_viz"):
+            module = importlib.import_module("respectedbrain." + name)
+            self.assertTrue(Path(module.__file__).is_relative_to(ROOT / "src/respectedbrain"))
+        catalog = ResourceCatalog()
+        for name in (".agents/rules/software-quality-1.md", ".agents/rules/software-quality-2.md", ".cursor/rules/software-quality-1.mdc", ".cursor/rules/software-quality-2.mdc"):
+            self.assertTrue(catalog.read_text("integrations/" + name))
+        for name in ("📋 Templates/Base.base", "📋 Templates/Canvas.canvas", ".obsidian/snippets/secondbrain-layout.css"):
+            self.assertTrue(catalog.read_text("vault-template/" + name))
 
     def test_new_skills_and_templates_exist(self):
         # Obsidian CSS Snippet
-        self.assertTrue((ROOT / "template" / ".obsidian" / "snippets" / "secondbrain-layout.css").is_file())
+        self.assertTrue((ROOT / "src/respectedbrain/resources/vault-template" / ".obsidian" / "snippets" / "secondbrain-layout.css").is_file())
 
-        skills_root = (ROOT / "runtime" / "skills") if (ROOT / "runtime" / "skills").is_dir() else (ROOT / "template" / ".beyin" / "skills")
-        adapters_root = (ROOT / "runtime" / "adapters") if (ROOT / "runtime" / "adapters").is_dir() else (ROOT / "template")
+        skills_root = ROOT / "src/respectedbrain/resources/skills"
+        adapters_root = ROOT / "src/respectedbrain/resources/integrations"
 
         # Otonom araştırma skill'i
         self.assertTrue((skills_root / "otonom-arastirma" / "SKILL.md").is_file())
-        self.assertTrue((adapters_root / ".agents" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())
-        self.assertTrue((adapters_root / ".claude" / "skills" / "otonom-arastirma" / "SKILL.md").is_file())
 
         # Yazılım kalite skill'i ve iki parçalı kural seti (Madde 1-13 ve Madde 14-25 + Gate)
         self.assertTrue((skills_root / "yazilim-kalite" / "SKILL.md").is_file())
-        self.assertTrue((adapters_root / ".agents" / "skills" / "yazilim-kalite" / "SKILL.md").is_file())
-        self.assertTrue((adapters_root / ".claude" / "skills" / "yazilim-kalite" / "SKILL.md").is_file())
         self.assertTrue((adapters_root / ".agents" / "rules" / "software-quality-1.md").is_file())
         self.assertTrue((adapters_root / ".agents" / "rules" / "software-quality-2.md").is_file())
 
@@ -282,15 +261,17 @@ class TestManifestAndTemplates(unittest.TestCase):
         self.assertIn("alwaysApply: true", cursor_q2.read_text(encoding="utf-8"))
 
         # Obsidian Base şablonu
-        self.assertTrue((ROOT / "template" / "📋 Templates" / "Base.base").is_file())
+        self.assertTrue((ROOT / "src/respectedbrain/resources/vault-template" / "📋 Templates" / "Base.base").is_file())
 
         # Sürüm dosyası
-        self.assertEqual((ROOT / "template" / ".respectedbrain-version").read_text(encoding="utf-8").strip(), "0.0.1")
-        self.assertFalse((ROOT / "template" / ".beyin-version").exists())
-        self.assertFalse((ROOT / "template" / ".beyin-multi-version").exists())
+        from respectedbrain import __version__
+        self.assertEqual(__version__, "0.0.1")
+        self.assertFalse((ROOT / "src/respectedbrain/resources/vault-template" / ".respectedbrain-version").exists())
+        self.assertFalse((ROOT / "src/respectedbrain/resources/vault-template" / ".beyin-version").exists())
+        self.assertFalse((ROOT / "src/respectedbrain/resources/vault-template" / ".beyin-multi-version").exists())
 
     def test_url_safety_blocks_rfc_internal_domains(self):
-        from scripts.url_safety import validate_safe_url
+        from respectedbrain.maintenance.ingestion.url_safety import validate_safe_url
         internal_domains = [
             "http://gateway.home.arpa",
             "https://server.corp",
@@ -325,13 +306,13 @@ class TestManifestAndTemplates(unittest.TestCase):
         self.assertIn("kimlik bilgisi", reason)
 
         # Köşeli parantezli IPv6 doğrudan is_private_or_reserved_ip kontrolü
-        from scripts.url_safety import is_private_or_reserved_ip
+        from respectedbrain.maintenance.ingestion.url_safety import is_private_or_reserved_ip
         self.assertTrue(is_private_or_reserved_ip("[::1]"))
         self.assertTrue(is_private_or_reserved_ip("[::ffff:127.0.0.1]"))
         self.assertFalse(is_private_or_reserved_ip("[2606:4700:4700::1111]"))
 
     def test_install_briefing_schedule_decode_windows_xml_fallbacks(self):
-        from scripts.install_briefing_schedule import _decode_windows_xml
+        from respectedbrain.integrations.scheduling.service import _decode_windows_xml
         # CP857 ile kodlanmış Türkçe karakterler içeren XML
         turkish_text = '<?xml version="1.0"?><Task><Author>Şükrü Çağlar</Author></Task>'
         cp857_bytes = turkish_text.encode("cp857")
@@ -340,7 +321,7 @@ class TestManifestAndTemplates(unittest.TestCase):
 
     def test_defuddle_fail_closed_import_protection(self):
         """When validate_safe_url fallback is called, it must fail closed (return False) rejecting URLs."""
-        import scripts.defuddle as defuddle_mod
+        from respectedbrain.maintenance.ingestion import defuddle as defuddle_mod
         from unittest import mock
 
         fallback_fn = lambda u: (False, "url_safety güvenlik modülü yüklenemedi; istek engellendi")

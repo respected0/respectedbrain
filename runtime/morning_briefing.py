@@ -235,10 +235,12 @@ def _run_morning_compile(vault_root: Path) -> None:
     engine_compile = vault_root / ".beyin" / "engine" / "compile.py"
     compile_script = engine_compile if engine_compile.is_file() else vault_root / ".claude" / "scripts" / "compile.py"
     if not compile_script.is_file():
+        compile_script = BEYIN_DIR / "engine" / "compile.py"
+    if not compile_script.is_file():
         return
     try:
         subprocess.run(
-            [sys.executable, str(compile_script)],
+            [sys.executable, str(compile_script), "--vault", str(vault_root)],
             cwd=vault_root,
             capture_output=True,
             timeout=300,
@@ -273,7 +275,13 @@ def run_if_due(
     engine_state = root / ".beyin/engine/.state"
     legacy_state = root / ".claude/scripts/.state"
     state_dir = legacy_state if (legacy_state.exists() and not engine_state.exists()) else engine_state
-    for output in (final, dashboard, state_dir):
+    external_state = not (root / ".beyin").is_dir() and not legacy_state.exists()
+    if external_state:
+        state_dir = BEYIN_DIR / "state"
+    state_root = BEYIN_DIR if external_state else root
+    if not runtime_platform.path_within_vault(state_dir, state_root):
+        return False
+    for output in (final, dashboard):
         if not runtime_platform.path_within_vault(output, root):
             return False
     if final.is_file():
@@ -282,7 +290,7 @@ def run_if_due(
     state_dir.mkdir(parents=True, exist_ok=True)
     lock_path = state_dir / f"morning-briefing-{day}.lock"
     try:
-        lock_handle = _open_lock(lock_path, root)
+        lock_handle = _open_lock(lock_path, state_root)
     except OSError:
         return False
     with lock_handle:

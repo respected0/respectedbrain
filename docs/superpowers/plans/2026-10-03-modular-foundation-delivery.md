@@ -180,8 +180,11 @@ self.assertEqual(snapshot(installed_app), before_app)  # failed activation rollb
   kaynaklar manifestten tek kopya. Inno AppId korunur, lowest privileges,
   `UsePreviousAppDir=no`, uninstall directory AppRoot/uninstall; vault ayrı
   ayar. Geniş `[UninstallDelete]` kalkar; standart Inno payload temizliği de
-  manifest dışı dosyayı silmemeli (payload `uninsneveruninstall` + doğrulanmış
-  deletion list). Windows aktivasyon/kaldırma açık exe'yi yerinde değiştirmeyi
+  manifest dışı dosyayı silmemeli. Derleyici `{tmp}` payload'ında
+  `uninsneveruninstall` bayrağını reddettiği için payload yalnız OS-temp'e
+  açılır; bütün AppRoot payload mutasyonları ortak servise aittir.
+  Inno yalnız kendi doğrulanmış kaldırıcı çiftini sonlandırır.
+  Windows aktivasyon/kaldırma açık exe'yi yerinde değiştirmeyi
   varsaymaz; işlem bitiminde OS temp'teki doğrulanmış helper/Inno callback
   staged işlemi journal'a göre sürdürür. DataRoot'ta executable helper tutulmaz.
   Son health failure restore ve native task/registry rollback testleri şart.

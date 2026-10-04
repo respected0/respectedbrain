@@ -10,17 +10,35 @@
 
 **Spec:** [Ana sözleşme](../specs/2026-10-03-modular-foundation-design.md) ve [kurulum/geçiş sözleşmesi](../specs/2026-10-03-modular-foundation-operations.md), kullanıcı onayı 2026-10-03.
 
-scope: project; confidence: inferred; supersedes: []; status: implementation-approved (as of 2026-10-03).
+scope: project; confidence: verified; supersedes: []; status: implementation-verified, integration-pending, live-migration-conflicts (as of 2026-10-04).
 
 timeline:
   - from: 2026-10-03
     until: 2026-10-03
     learned: "Plan incelemesi ve yöntem seçimi bekleniyordu; kullanıcı karma yöntemi onayladı."
     source: "o zaman öyle yapalım nasıl daha iyiyse bizim için"
+  - from: 2026-10-03
+    until: 2026-10-04
+    learned: "Onaylı plan ayrı çalışma ağacında uygulandı; kaynak ve Windows native doğrulaması tamamlandı."
+    source: "../verification/2026-10-04-modular-foundation.md"
 
 Yürütme: ortak paket/yol/config/UUID temelini ana ajan kurar; temel oturunca
 iki bağımsız iş akışı paralel ajanlara verilir; sonuçlar birleştirilip ayrı
 ajanla son inceleme yapılır. Aynı dosyada eşzamanlı düzenleme yapılmaz.
+
+## Yürütme sonucu — 2026-10-04
+
+Görev 1–13 uygulandı ve doğrulandı. [Test ve canlı envanter kanıtı](../verification/2026-10-04-modular-foundation.md)
+627 kaynak testi (15 gerekçeli atlama), gerçek Windows kurucu/güncelleme/kaldırma,
+launcher/zamanlayıcı ve 17 kontrolün tamamını geçen fiziksel smoke sonuçlarını içerir.
+Linux/macOS/gerçek WSL fiziksel doğrulaması bu yerel çalışmada yoktur.
+
+Görev 14'ün salt okunur önizlemesi ve devreye alma kapısı değerlendirildi.
+Health/session state farkları ve Codex computer-use notify zinciri sahipliği nedeniyle
+gerçek apply yapılmadı. Not kasası mevcut konumundadır. Kod `codex/modular-foundation`
+dalındadır; ana checkout'taki başlangıç değişiklikleri korunur. Ana dala bütünleştirme
+kararı beklenir. Eklerdeki kontrol listeleri uygulama tarifidir; güncel yürütme durumu
+yalnız bu bölümde tutulur.
 
 ## Global Constraints
 
@@ -86,8 +104,8 @@ disk içeriği kullanılır; eski commit'ten içerik alınmaz.
 | 4 | `providers/runner.py`; `memory/{flush,compile,lifecycle,session_brain,session_viz,bounded_recall,events}.py`, `memory/graph/{graph_analysis,graphrag}.py`; `tests/foundation_memory_test.py` |
 | 5 | `briefing/service.py`, `search/engine.py`, `vault/maps.py`; `tests/foundation_features_test.py` |
 | 6 | `gateway/server.py`, `orchestration/{runner,orchestrate,antigravity_orchestrator}.py`; `maintenance/{repair_daily,vault_linter,architect_scan,smart_merge,tiling_check}.py`; `maintenance/backup/{backup_restic,publish_git_snapshot}.py`; `maintenance/ingestion/{mine_agent_history,defuddle,url_safety}.py`; `tests/foundation_services_test.py` |
-| 7 | `cli.py`, `core/bootstrap.py`: tek composition root/komutlar; `tests/foundation_cli_test.py` |
-| 8 | `integrations/hooks/{bridge,codex_notify}.py`, `integrations/mcp/server.py`, `integrations/global_config/{service,codex,claude,gemini,antigravity}.py`, `integrations/scheduling/service.py`, `integrations/{rendering,backend}.py`; `tests/foundation_integrations_test.py` |
+| 7 | `cli.py`, `bootstrap.py`: tek composition root/komutlar; `tests/foundation_cli_test.py` |
+| 8 | `integrations/hooks/{bridge,codex_notify}.py`, `integrations/mcp/server.py`, `integrations/{global_config,legacy_registration}.py`, `integrations/scheduling/service.py`, `integrations/{rendering,backend}.py`; `tests/foundation_integrations_test.py` |
 | 9 | `installation/{ownership,transaction,setup,wizard}.py`; `tests/foundation_setup_test.py` |
 | 10 | `installation/{update,repair,uninstall}.py`; `tests/foundation_operations_test.py` |
 | 11 | `installation/{legacy,migration}.py`; `tests/foundation_migration_preview_test.py` |

@@ -7,6 +7,11 @@ description: Çoklu AI model orkestrasyonu (Worktree izolasyonu). "orkestrasyon"
 
 Bu yetenek, ağır kodlama ve refactoring görevlerini ana depoyu riske atmadan izole bir Git worktree'sinde bir alt AI işçisine (Antigravity, Codex, Claude, Gemini) devretmeyi ve üretilen diff yamasını (`worker.patch`) ana depoya güvenle almayı sağlar.
 
+Native örneklerde `UUID` değerini `respectedbrain vault list` çıktısındaki kayıtlı kasa
+kimliğiyle değiştir. Not yolları VaultRoot'a göre çözülür; teknik state/cache DataRoot içinde
+UUID bazında tutulur. Kurulu launcher ayrıca Python veya kaynak checkout gerektirmez.
+`ABSOLUTE_PROJECT_ROOT` ayrı kod deposunun mutlak yoludur; vault'u proje kökü olarak kullanma.
+
 ## Temel Kurallar
 1. **İzole Ağaç:** İşçi modeller ana depoya doğrudan dokunamaz. Her görev `../<repo>-worktrees/run-<id>` altında çalışır.
 2. **Any-to-Any Serbestisi:** Master (Yönetici) ve Worker (İşçi) rolleri sabitleştirilemez. Kullanıcı veya herhangi bir model yönetici, diğeri işçi olabilir.
@@ -16,14 +21,15 @@ Bu yetenek, ağır kodlama ve refactoring görevlerini ana depoyu riske atmadan 
 
 ```powershell
 # Temel kullanım (İşçi: Antigravity)
-python scripts/orchestrate.py --task "Görev tanımı" --master user --worker antigravity
+respectedbrain orchestrate --vault-id UUID --project-root "ABSOLUTE_PROJECT_ROOT" -- --task "Görev tanımı" --master user --worker antigravity
 
 # Yönetici Codex, İşçi Gemini (Doğrulama testiyle)
-python scripts/orchestrate.py --task "Auth middleware refactoring" --master codex --worker gemini --test "pytest tests/auth_test.py"
+respectedbrain orchestrate --vault-id UUID --project-root "ABSOLUTE_PROJECT_ROOT" -- --task "Auth middleware refactoring" --master codex --worker gemini --test "pytest tests/auth_test.py"
 
 # İşlem tamamlandığında worktree'yi temizle
-python scripts/orchestrate.py --task "Fix typos" --master user --worker codex --cleanup
+respectedbrain orchestrate --vault-id UUID --project-root "ABSOLUTE_PROJECT_ROOT" -- --task "Fix typos" --master user --worker codex --cleanup
 ```
 
 ## Dashboard ve Web Arayüzü
+Native `respectedbrain dashboard --vault-id UUID --open` komutuyla paneli aç.
 Tüm aktif ve tamamlanan işçi koşuları `http://localhost:8520` (Gateway & Kontrol Paneli) üzerindeki **⚙️ Orkestrasyon** sekmesinde canlı olarak izlenebilir, üretilen diff görselleştirilebilir ve tek tıkla **✓ Onayla & Uygula** yapılabilir.

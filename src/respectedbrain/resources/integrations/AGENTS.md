@@ -1,4 +1,4 @@
-<!-- GENERATED: edit runtime/instructions.md, then run runtime/scripts/render_integrations.py -->
+<!-- DEFAULT SOURCE: src/respectedbrain/resources/instructions/default.md. Installed personal instructions: DataRoot/overrides/VaultUUID/instructions/default.md. Use respectedbrain repair --vault-id UUID for managed registrations and respectedbrain maps --vault-id UUID for vault maps; system Python is not required. -->
 
 # RespectedOS
 

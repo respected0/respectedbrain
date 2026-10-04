@@ -19,22 +19,13 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parent.parent
-ORIGINAL_SYS_PATH = list(sys.path)
-for p in (str(ROOT), str(ROOT / "runtime" / "scripts"), str(ROOT / "scripts"), str(ROOT / "runtime" if (ROOT / "runtime").is_dir() else ROOT / "template" / ".beyin")):
-    if p not in sys.path:
-        sys.path.insert(0, p)
-
-
-def tearDownModule():
-    sys.path[:] = ORIGINAL_SYS_PATH
-
-
-from scripts import respected_manifest as manifest
 from respectedbrain.maintenance.ingestion import url_safety
 from respectedbrain.maintenance import vault_linter
 from respectedbrain.maintenance import architect_scan
 from respectedbrain.maintenance import smart_merge
-import bounded_recall  # type: ignore
+from respectedbrain.memory import bounded_recall
+from tests.foundation_support import make_context
+from respectedbrain.core.resources import ResourceCatalog
 
 
 class TestBoundedRecall(unittest.TestCase):
@@ -55,7 +46,7 @@ class TestBoundedRecall(unittest.TestCase):
         self.assertFalse(bounded_recall.should_abstain("PostgreSQL connection pooling ayarları"))
 
     def test_bounded_recall_produces_budgeted_output(self):
-        from scripts.arama import SearchEngine
+        from respectedbrain.search.engine import SearchEngine
 
         with tempfile.TemporaryDirectory() as temp_dir:
             vault = Path(temp_dir)
@@ -65,12 +56,15 @@ class TestBoundedRecall(unittest.TestCase):
                 "---\ntitle: Auth Notu\n---\n# Auth\nNext.js auth session ve token doğrulama mimarisi.\n" * 20,
                 encoding="utf-8",
             )
-            engine = SearchEngine(vault)
+            technical = tempfile.TemporaryDirectory()
+            self.addCleanup(technical.cleanup)
+            ctx = make_context(Path(technical.name), vault)
+            engine = SearchEngine(ctx)
             engine.index_vault()
 
             result = bounded_recall.get_bounded_recall(
                 "Next.js auth mimarisi token",
-                vault_root=vault,
+                ctx=ctx,
                 max_chars=200,
             )
             # Must return substantive bounded recall, never empty when matches exist
@@ -80,26 +74,32 @@ class TestBoundedRecall(unittest.TestCase):
             self.assertGreater(len(result), 30)
 
     def test_bounded_recall_handles_fts_syntax_and_special_chars(self):
-        from scripts.arama import SearchEngine
+        from respectedbrain.search.engine import SearchEngine
 
         with tempfile.TemporaryDirectory() as temp_dir:
             vault = Path(temp_dir)
             (vault / "500-Knowledge").mkdir(parents=True)
             (vault / "500-Knowledge" / "Syntax.md").write_text("# Syntax\nFTS5 test query syntax handling.", encoding="utf-8")
-            engine = SearchEngine(vault)
+            technical = tempfile.TemporaryDirectory()
+            self.addCleanup(technical.cleanup)
+            ctx = make_context(Path(technical.name), vault)
+            engine = SearchEngine(ctx)
             engine.index_vault()
 
             # Queries with unbalanced quotes and FTS5 operators must not raise exceptions
-            res1 = bounded_recall.get_bounded_recall('"unclosed quote in query', vault_root=vault)
+            res1 = bounded_recall.get_bounded_recall('"unclosed quote in query', ctx=ctx)
             self.assertIsInstance(res1, str)
-            res2 = bounded_recall.get_bounded_recall("AND OR NOT * near", vault_root=vault)
+            res2 = bounded_recall.get_bounded_recall("AND OR NOT * near", ctx=ctx)
             self.assertIsInstance(res2, str)
 
     def test_bounded_recall_boundary_max_chars(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             vault = Path(temp_dir)
+            technical = tempfile.TemporaryDirectory()
+            self.addCleanup(technical.cleanup)
+            ctx = make_context(Path(technical.name), vault)
             # max_chars <= 0 must return empty string safely (fail-closed)
-            result = bounded_recall.get_bounded_recall("substantive query about architecture", vault_root=vault, max_chars=0)
+            result = bounded_recall.get_bounded_recall("substantive query about architecture", ctx=ctx, max_chars=0)
             self.assertEqual(result, "")
 
     def test_abstention_gate_on_slash_commands(self):
@@ -110,7 +110,8 @@ class TestBoundedRecall(unittest.TestCase):
     def test_bounded_recall_fails_closed_on_invalid_vault_or_error(self):
         non_existent_vault = Path(tempfile.gettempdir()) / "non_existent_vault_12345"
         # Must fail-closed: return empty string, never raise exception to the caller
-        result = bounded_recall.get_bounded_recall("substantive query about architecture", vault_root=non_existent_vault)
+        from types import SimpleNamespace
+        result = bounded_recall.get_bounded_recall("substantive query about architecture", ctx=SimpleNamespace(paths=None))
         self.assertEqual(result, "")
 
 
@@ -302,7 +303,7 @@ class TestTemplatesAndRules(unittest.TestCase):
     """Timeline schema and future agent preamble in templates & companion rules."""
 
     def test_note_template_contains_timeline_and_preamble(self):
-        note_template = (ROOT / "template" / "📋 Templates" / "Note.md").read_text(encoding="utf-8")
+        note_template = ResourceCatalog().read_text("vault-template/📋 Templates/Note.md")
         self.assertIn("timeline:", note_template)
         self.assertIn("from:", note_template)
         self.assertIn("until:", note_template)
@@ -310,7 +311,7 @@ class TestTemplatesAndRules(unittest.TestCase):
         self.assertIn("## For future agent", note_template)
 
     def test_kurallar_contains_smart_tool_directives(self):
-        kurallar = (ROOT / "template" / "🔮 850-Companion" / "Kurallar.md").read_text(encoding="utf-8")
+        kurallar = ResourceCatalog().read_text("vault-template/🔮 850-Companion/Kurallar.md")
         self.assertIn("timeline:", kurallar)
         self.assertIn("## For future agent", kurallar)
         self.assertIn("(as of YYYY-MM-DD)", kurallar)

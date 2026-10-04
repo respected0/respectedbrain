@@ -3,39 +3,29 @@
 
 from __future__ import annotations
 
-import importlib.util
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-MODEL_RUNNER_PATH = REPO_ROOT / "runtime" / "model_runner.py" if (REPO_ROOT / "runtime" / "model_runner.py").is_file() else REPO_ROOT / "template" / ".beyin" / "model_runner.py"
-COMPILE_PATH = REPO_ROOT / "runtime" / "engine" / "compile.py" if (REPO_ROOT / "runtime" / "engine" / "compile.py").is_file() else REPO_ROOT / "template" / ".beyin" / "engine" / "compile.py"
-RUNTIME_PATH = REPO_ROOT / "runtime" / "runtime_platform.py" if (REPO_ROOT / "runtime" / "runtime_platform.py").is_file() else REPO_ROOT / "template" / ".beyin" / "runtime_platform.py"
-
-
-def load_module(name: str, path: Path) -> ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Cannot load module {name} from {path}")
-    module = importlib.util.module_from_spec(spec)
-    import sys
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 class AdversarialQualityTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.runner = load_module("adversarial_runner", MODEL_RUNNER_PATH)
-        self.compiler = load_module("adversarial_compiler", COMPILE_PATH)
-        self.runtime = load_module("adversarial_runtime", RUNTIME_PATH)
+        from respectedbrain.providers import runner
+        from respectedbrain.memory import compile
+        from respectedbrain.core import platform
+        from tests.foundation_memory_test import make_context
+        self.runner, self.compiler, self.runtime = runner, compile, platform
+        temporary = tempfile.TemporaryDirectory(prefix="adversarial-context-")
+        self.addCleanup(temporary.cleanup)
+        self.ctx = make_context(Path(temporary.name) / "vault")
 
     # -------------------------------------------------------------------------
     # 2.2 Provider & Fallback Adversarial Matrix
@@ -50,13 +40,13 @@ class AdversarialQualityTest(unittest.TestCase):
         }
         with mock.patch.object(self.runner, "_configured_provider", return_value="auto"), \
              mock.patch.object(self.runner, "_available", return_value=["claude", "codex", "antigravity"]), \
-             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m: commands[p]), \
+             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m, vault: commands[p]), \
              mock.patch.object(self.runner.subprocess, "run", side_effect=[
                  SimpleNamespace(returncode=1, stdout="", stderr="claude auth failed"),
                  SimpleNamespace(returncode=2, stdout="", stderr="codex config error"),
                  SimpleNamespace(returncode=3, stdout="", stderr="antigravity fatal error"),
              ]) as run_mock:
-            output, error, provider = self.runner.run_model("prompt", REPO_ROOT, "text", 10, preferred=None)
+            output, error, provider = self.runner.run_model("prompt", REPO_ROOT, "text", 10, preferred=None, ctx=self.ctx)
 
         self.assertIsNone(output)
         self.assertEqual(error, "antigravity-exit-3")
@@ -71,12 +61,12 @@ class AdversarialQualityTest(unittest.TestCase):
         }
         with mock.patch.object(self.runner, "_configured_provider", return_value="auto"), \
              mock.patch.object(self.runner, "_available", return_value=["claude", "codex"]), \
-             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m: commands[p]), \
+             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m, vault: commands[p]), \
              mock.patch.object(self.runner.subprocess, "run", side_effect=[
                  subprocess.TimeoutExpired(cmd=["claude"], timeout=10),
                  SimpleNamespace(returncode=0, stdout="codex-recovered", stderr=""),
              ]) as run_mock:
-            output, error, provider = self.runner.run_model("prompt", REPO_ROOT, "text", 10, preferred=None)
+            output, error, provider = self.runner.run_model("prompt", REPO_ROOT, "text", 10, preferred=None, ctx=self.ctx)
 
         self.assertEqual((output, error, provider), ("codex-recovered", None, "codex"))
         self.assertEqual(run_mock.call_count, 2)
@@ -89,12 +79,12 @@ class AdversarialQualityTest(unittest.TestCase):
         }
         with mock.patch.object(self.runner, "_configured_provider", return_value="auto"), \
              mock.patch.object(self.runner, "_available", return_value=["claude", "codex"]), \
-             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m: commands[p]), \
+             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m, vault: commands[p]), \
              mock.patch.object(self.runner.subprocess, "run", side_effect=[
                  OSError("Binary corrupted or not executable"),
                  SimpleNamespace(returncode=0, stdout="codex-ok", stderr=""),
              ]) as run_mock:
-            output, error, provider = self.runner.run_model("prompt", REPO_ROOT, "text", 10, preferred=None)
+            output, error, provider = self.runner.run_model("prompt", REPO_ROOT, "text", 10, preferred=None, ctx=self.ctx)
 
         self.assertEqual((output, error, provider), ("codex-ok", None, "codex"))
         self.assertEqual(run_mock.call_count, 2)
@@ -108,12 +98,12 @@ class AdversarialQualityTest(unittest.TestCase):
         }
         with mock.patch.object(self.runner, "_configured_provider", return_value="auto"), \
              mock.patch.object(self.runner, "_available", return_value=["antigravity", "codex"]), \
-             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m: commands[p]), \
+             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m, vault: commands[p]), \
              mock.patch.object(self.runner.subprocess, "run", side_effect=[
                  SimpleNamespace(returncode=0, stdout=stream_error_payload, stderr=""),
                  SimpleNamespace(returncode=0, stdout="codex-salvaged", stderr=""),
              ]) as run_mock:
-            output, error, provider = self.runner.run_model("prompt", REPO_ROOT, "text", 10, preferred=None)
+            output, error, provider = self.runner.run_model("prompt", REPO_ROOT, "text", 10, preferred=None, ctx=self.ctx)
 
         self.assertEqual((output, error, provider), ("codex-salvaged", None, "codex"))
         self.assertEqual(run_mock.call_count, 2)
@@ -125,12 +115,12 @@ class AdversarialQualityTest(unittest.TestCase):
         }
         with mock.patch.object(self.runner, "_configured_provider", return_value="auto"), \
              mock.patch.object(self.runner, "_available", return_value=["gemini", "codex"]), \
-             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m: commands[p]), \
+             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m, vault: commands[p]), \
              mock.patch.object(self.runner.subprocess, "run", side_effect=[
                  SimpleNamespace(returncode=0, stdout='{\"response\":\"\",\"error\":null}', stderr=""),
                  SimpleNamespace(returncode=0, stdout="codex-recovered", stderr=""),
              ]) as run_mock:
-            result = self.runner.run_model("prompt", REPO_ROOT, "text", 10)
+            result = self.runner.run_model("prompt", REPO_ROOT, "text", 10, ctx=self.ctx)
 
         self.assertEqual(result, ("codex-recovered", None, "codex"))
         self.assertEqual(run_mock.call_count, 2)
@@ -142,11 +132,11 @@ class AdversarialQualityTest(unittest.TestCase):
             "claude": self.runner.Invocation(["claude"], "prompt"),
         }
         with mock.patch.object(self.runner, "_available", return_value=["codex", "claude"]), \
-             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m: commands[p]), \
+             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m, vault: commands[p]), \
              mock.patch.object(self.runner.subprocess, "run", return_value=SimpleNamespace(
                  returncode=1, stdout="", stderr="unauthorized api key"
              )) as run_mock:
-            output, error, provider = self.runner.run_model("prompt", REPO_ROOT, "text", 10, preferred="codex")
+            output, error, provider = self.runner.run_model("prompt", REPO_ROOT, "text", 10, preferred="codex", ctx=self.ctx)
 
         self.assertEqual((output, error, provider), (None, "codex-exit-1:auth", "codex"))
         self.assertEqual(run_mock.call_count, 1)
@@ -155,13 +145,13 @@ class AdversarialQualityTest(unittest.TestCase):
         commands = {"codex": self.runner.Invocation(["codex"], "prompt")}
         secret_stderr = "Unauthorized bearer sk-secret-value for account person@example.test"
         with mock.patch.object(self.runner, "_available", return_value=["codex"]), \
-             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m: commands[p]), \
+             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m, vault: commands[p]), \
              mock.patch.object(self.runner.subprocess, "run", return_value=SimpleNamespace(
                  returncode=1, stdout="", stderr=secret_stderr
              )):
             output, error, provider = self.runner.run_model(
                 "prompt", REPO_ROOT, "text", 10, preferred="codex"
-            )
+            , ctx=self.ctx)
 
         self.assertEqual((output, error, provider), (None, "codex-exit-1:auth", "codex"))
         self.assertNotIn("secret", error)
@@ -170,7 +160,7 @@ class AdversarialQualityTest(unittest.TestCase):
     def test_locked_provider_reports_hook_trust_category(self) -> None:
         commands = {"codex": self.runner.Invocation(["codex"], "prompt")}
         with mock.patch.object(self.runner, "_available", return_value=["codex"]), \
-             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m: commands[p]), \
+             mock.patch.object(self.runner, "_command", side_effect=lambda p, pr, m, vault: commands[p]), \
              mock.patch.object(self.runner.subprocess, "run", return_value=SimpleNamespace(
                  returncode=1,
                  stdout="",
@@ -178,7 +168,7 @@ class AdversarialQualityTest(unittest.TestCase):
              )):
             output, error, provider = self.runner.run_model(
                 "prompt", REPO_ROOT, "text", 10, preferred="codex"
-            )
+            , ctx=self.ctx)
 
         self.assertEqual(
             (output, error, provider),

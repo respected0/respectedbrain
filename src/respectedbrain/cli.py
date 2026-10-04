@@ -69,10 +69,130 @@ def _parser():
     _selector(maintenance)
     maintenance.add_argument("name")
     maintenance.add_argument("argv", nargs=argparse.REMAINDER)
+    setup_parser = commands.add_parser("setup")
+    setup_parser.add_argument("--vault", type=Path)
+    setup_parser.add_argument("--package", type=Path)
+    setup_parser.add_argument("--gui", action="store_true")
+    setup_parser.add_argument("--user-name")
+    setup_parser.add_argument("--user-bio")
+    setup_parser.add_argument("--companion")
+    setup_parser.add_argument("--os-name")
+    setup_parser.add_argument("--summary-provider", choices=("auto", "codex", "claude", "antigravity", "gemini", "cursor"))
+    setup_parser.add_argument("--platform", choices=("windows-native", "posix", "windows-wsl"))
+    for flag in ("global", "mcp", "schedule", "shortcut"):
+        setup_parser.add_argument("--" + flag, dest="desired_" + flag, action=argparse.BooleanOptionalAction, default=None)
+    for name in ("update", "repair", "uninstall"):
+        operation = commands.add_parser(name)
+        _selector(operation)
+        if name == "update":
+            operation.add_argument("--package", type=Path, required=True)
+        if name == "uninstall":
+            operation.add_argument("--purge-data", action="store_true")
+    migrate = commands.add_parser("migrate")
+    migrate.add_argument("--legacy-root", type=Path, required=True)
+    migrate.add_argument("--vault", type=Path, required=True)
+    migrate.add_argument("--package", type=Path)
+    migrate.add_argument("--apply", action="store_true")
+    migrate.add_argument("--platform", choices=("windows-native", "posix", "windows-wsl"))
+    commands.add_parser("recover")
+    hook = commands.add_parser("hook")
+    _selector(hook)
+    hook.add_argument("--provider", required=True, choices=("claude", "codex", "cursor", "antigravity", "gemini"))
+    hook.add_argument("--event", required=True, choices=("start", "prompt", "precompact", "postcompact", "turn", "end", "notify"))
+    hook.add_argument("--global-hook", action="store_true")
+    hook.add_argument("--chain-file", type=Path)
+    hook.add_argument("payload", nargs=argparse.REMAINDER)
+    _selector(commands.add_parser("mcp"))
+    resume = commands.add_parser("_resume-operation", help=argparse.SUPPRESS)
+    resume.add_argument("--request", type=Path, required=True)
+    resume.add_argument("--request-hash", required=True)
+    for name in ("_inno-prepare", "_inno-deploy", "_inno-uninstall", "_inno-seal", "_inno-launch"):
+        shell = commands.add_parser(name, help=argparse.SUPPRESS)
+        shell.add_argument("--app-root", type=Path, required=True)
+        shell.add_argument("--data-root", type=Path, required=True)
+        shell.add_argument("--vault", type=Path, required=True)
+        if name in ("_inno-prepare", "_inno-deploy"):
+            shell.add_argument("--request", type=Path, required=True)
+        if name == "_inno-prepare":
+            shell.add_argument("--registry-key")
+        if name == "_inno-deploy":
+            shell.add_argument("--package", type=Path, required=True)
+        if name == "_inno-uninstall":
+            shell.add_argument("--proof", type=Path, required=True)
+            shell.add_argument("--proof-hash", required=True)
+    copy = commands.add_parser("_inno-copy-helper", help=argparse.SUPPRESS)
+    copy.add_argument("--app-root", type=Path, required=True)
+    copy.add_argument("--output", type=Path, required=True)
     return parser
 
 
 def _dispatch(args) -> int:
+    if args.command == "_inno-copy-helper":
+        from .installation.windows import copy_helper
+        copy_helper(args.app_root, args.output)
+        return 0
+    if args.command.startswith("_inno-"):
+        from .core.paths import Roots
+        from .integrations.backend import NativeBackend, INNO_UNINSTALL_KEY
+        from .installation.windows import prepare_shell, deploy_shell, seal_shell
+        roots = Roots(args.app_root.resolve(), args.data_root.resolve(), args.vault.resolve())
+        backend = NativeBackend(roots.data_root)
+        if args.command == "_inno-seal":
+            return _operation_output(seal_shell(roots, backend=backend))
+        if args.command == "_inno-prepare":
+            prepare_shell(roots, request=args.request, registry_key=args.registry_key or INNO_UNINSTALL_KEY, backend=backend)
+            return 0
+        if args.command == "_inno-deploy":
+            return _operation_output(deploy_shell(roots, package=args.package.resolve(), request=args.request, backend=backend))
+        from .vault.registry import build_context
+        from .installation.uninstall import uninstall
+        ctx = build_context(roots, ConfigStore(roots.data_root), vault=None, vault_id=None, env={})
+        if args.command == "_inno-launch":
+            from .installation.deferred import defer_operation
+            pending = defer_operation(ctx, mode="uninstall")
+            return _operation_output(pending if pending is not None else uninstall(ctx, backend=backend))
+        from .installation.windows import validate_uninstall_proof
+        result = uninstall(ctx, backend=backend, shell_active=True, shell_proof=lambda: validate_uninstall_proof(roots, request=args.proof, expected_hash=args.proof_hash))
+        from .core.config import atomic_write_json
+        from dataclasses import asdict
+        atomic_write_json(roots.data_root / "logs/uninstall-result.json", asdict(result))
+        return _operation_output(result)
+    if args.command in ("compile", "flush"):
+        from .memory.lifecycle import _is_reentrant
+        if _is_reentrant():
+            return 0
+    if args.command == "_resume-operation":
+        from .installation.deferred import resume_operation
+        return resume_operation(args.request, expected_hash=args.request_hash)
+    if args.command in ("setup", "migrate", "recover"):
+        roots = application_roots()
+        from .integrations.backend import NativeBackend
+        backend = NativeBackend(roots.data_root)
+        if args.command == "recover":
+            from .installation.transaction import recover_transactions
+            from dataclasses import asdict
+            results = recover_transactions(roots.data_root, backend)
+            print(json.dumps([asdict(result) for result in results], ensure_ascii=False, indent=2))
+            return 1 if any(result.conflicts for result in results) else 0
+        if args.command == "migrate":
+            from .installation.common import installed_profile
+            from .installation.migration import plan_migration, plan_document
+            profile = {"platform": args.platform} if args.platform else {}
+            plan = plan_migration(args.legacy_root.resolve(), args.vault.resolve(), roots=roots, backend=backend, profile=installed_profile(roots, profile))
+            if not args.apply:
+                print(json.dumps(plan_document(plan), ensure_ascii=False, indent=2))
+                return 1 if plan.conflicts else 0
+            from .installation.migration import apply_migration
+            result = apply_migration(plan, roots=roots, package=args.package or roots.app_root, backend=backend)
+            return _operation_output(result)
+        if args.gui:
+            from .installation.wizard import main as wizard_main
+            return wizard_main(roots=roots, backend=backend)
+        from .installation.setup import setup
+        desired = ConfigStore(roots.data_root).read()["integrations"]
+        desired = {key: desired.get(key, False) if getattr(args, "desired_" + key) is None else getattr(args, "desired_" + key) for key in ("global", "mcp", "schedule", "shortcut")}
+        profile = {key: value for key, value in {"USER_NAME": args.user_name, "USER_BIO": args.user_bio, "COMPANION": args.companion, "OS_NAME": args.os_name, "summary_provider": args.summary_provider, "platform": args.platform}.items() if value is not None}
+        return _operation_output(setup(roots, args.vault.resolve() if args.vault is not None else roots.default_vault, profile=profile, desired=desired, backend=backend, package=args.package.resolve() if args.package is not None else None))
     if args.command in ("vault", "configure"):
         roots = application_roots()
         store = ConfigStore(roots.data_root)
@@ -95,6 +215,33 @@ def _dispatch(args) -> int:
             print(found)
         return 0
     ctx = bootstrap(vault=args.vault, vault_id=args.vault_id)
+    if args.command == "hook":
+        from .integrations.hooks.bridge import dispatch
+        arguments = (["--global-hook"] if args.global_hook else []) + args.payload
+        if args.chain_file is not None:
+            arguments = ["--chain-file", str(args.chain_file), *arguments]
+        sys.stdout.write(dispatch(ctx, provider=args.provider, event=args.event, argv=arguments, stdin=sys.stdin.read()))
+        sys.stdout.flush()
+        return 0
+    if args.command == "mcp":
+        from .integrations.mcp.server import serve
+        return serve(ctx)
+    if args.command in ("update", "repair", "uninstall"):
+        from .integrations.backend import NativeBackend
+        backend = NativeBackend(ctx.paths.data_root)
+        if args.command in ("update", "uninstall"):
+            from .installation.deferred import defer_operation
+            queued = defer_operation(ctx, mode=args.command, package=args.package.resolve() if args.command == "update" else None, purge_data=getattr(args, "purge_data", False))
+            if queued is not None:
+                return _operation_output(queued)
+        if args.command == "update":
+            from .installation.update import update
+            return _operation_output(update(ctx, package=args.package.resolve(), backend=backend))
+        if args.command == "repair":
+            from .installation.repair import repair
+            return _operation_output(repair(ctx, backend=backend))
+        from .installation.uninstall import uninstall
+        return _operation_output(uninstall(ctx, backend=backend, purge_data=args.purge_data))
     now = datetime.now().astimezone()
     if args.command in ("compile", "briefing", "flush"):
         from .providers.runner import ModelRunner
@@ -145,6 +292,12 @@ def _dispatch(args) -> int:
         return run(ctx, project_root=args.project_root, argv=args.argv)
     from .maintenance import run_tool
     return run_tool(ctx, name=args.name, argv=args.argv)
+
+
+def _operation_output(result) -> int:
+    from dataclasses import asdict
+    print(json.dumps(asdict(result), ensure_ascii=False, indent=2))
+    return 0 if result.success or result.pending else 1
 
 
 def main(argv: Sequence[str] | None = None) -> int:

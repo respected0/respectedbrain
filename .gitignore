@@ -73,6 +73,7 @@ env/
 ENV/
 build/
 dist/
+/setup.exe
 *.egg-info/
 *.egg
 node_modules/

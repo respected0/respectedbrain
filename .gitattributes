@@ -12,6 +12,7 @@
 
 # POSIX Shell & Linux scripts (LF required for POSIX shebang execution)
 *.sh text eol=lf
+*.command text eol=lf
 *.bash text eol=lf
 *.zsh text eol=lf
 
@@ -36,6 +37,8 @@
 *.md text eol=lf
 *.mdc text eol=lf
 *.txt text eol=lf
+# Historical source copies retain their original whitespace for lossless comparison.
+docs/history/** whitespace=-blank-at-eol
 *.rst text eol=lf
 *.svg text eol=lf
 

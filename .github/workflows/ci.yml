@@ -15,62 +15,108 @@ permissions:
 env:
   PYTHONUTF8: "1"
   PYTHONIOENCODING: "utf-8"
+  RESPECTED_TEST_PYTHON: python
 
 jobs:
-  matrix-ci:
-    name: test (${{ matrix.os }})
+  native:
+    name: native (${{ matrix.os }}, Python 3.13)
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-    env:
-      PYTHONUTF8: "1"
-      PYTHONIOENCODING: "utf-8"
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            distribution: dist/RespectedBrain
+          - os: macos-latest
+            platform: macos
+            distribution: dist/RespectedBrain.app
+          - os: windows-latest
+            platform: windows
+            distribution: dist/RespectedBrain
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install package and native build tools
+        run: python -m pip install -e ".[dev]"
+      - name: Install required Inno compiler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "Inno installation failed" }
+          $Compiler = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6/ISCC.exe"
+          if (-not (Test-Path -LiteralPath $Compiler)) { throw "Inno compiler missing" }
+          "INNO_COMPILER=$Compiler" >> $env:GITHUB_ENV
+      - name: Build required native distribution and installer
+        run: python tools/build_installer.py --platform ${{ matrix.platform }} --output dist
+      - name: Verify frozen launcher without system Python
+        run: python tools/verify_distribution.py --platform ${{ matrix.platform }} --distribution "${{ matrix.distribution }}"
+      - name: Full suite after native build
+        run: python -m unittest discover -s tests -p "*test*.py"
+      - name: Physical host package smoke
+        run: python tests/smoke/platform_smoke.py --package "${{ matrix.distribution }}" --output native-smoke.json
+      - name: Required Windows install and launcher acceptance
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./tests/install_windows_test.ps1
+          ./tests/windows_launchers_test.ps1
+          ./tests/briefing_schedule_windows_test.ps1
+      - name: Preserve native executable permissions for source matrix
+        run: python -c "import shutil; shutil.make_archive('native-payload','gztar',root_dir='dist')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.os }}
+          path: native-payload.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-${{ matrix.os }}
+          path: native-smoke.json
+          if-no-files-found: warn
+
+  source:
+    name: source (${{ matrix.os }}, Python ${{ matrix.python }})
+    needs: native
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.13"]
-
+        python: ["3.10", "3.13"]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v7
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Verify render drift
-        run: python runtime/scripts/render_integrations.py --check
-
-      - name: Run Python unit and integration tests
-        run: python -m unittest discover -s tests -p "*test*.py"
-
-      - name: Run Shell hook tests (POSIX)
-        if: runner.os != 'Windows'
-        run: bash tests/hooks_test.sh
-
-      - name: Run Shell upstream sync tests (POSIX)
-        if: runner.os != 'Windows'
-        run: bash tests/upstream_sync_test.sh
-
-      - name: PowerShell fresh-install contract (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: pwsh -NoProfile -ExecutionPolicy Bypass -File tests/install_windows_test.ps1
-
-      - name: PowerShell briefing-schedule contract (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: pwsh -NoProfile -ExecutionPolicy Bypass -File tests/briefing_schedule_windows_test.ps1
-
-      - name: Native lifecycle and runtime (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: python -m unittest -v tests.windows_native_test tests.runtime_platform_test
-
-      - name: Verify working tree clean
+          python-version: ${{ matrix.python }}
+      - name: Install editable package
+        run: python -m pip install -e "." "tomli; python_version < '3.11'"
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-${{ matrix.os }}
+      - name: Extract required Python-independent native payload
         shell: bash
         run: |
-          git diff --check
-          git diff --exit-code
-          test -z "$(git status --porcelain)" || { echo "Untracked or uncommitted changes detected:"; git status --porcelain; exit 1; }
+          mkdir -p dist
+          tar -xzf native-payload.tar.gz -C dist
+      - name: Install required Inno compiler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "Inno installation failed" }
+      - name: Run Python unit and integration tests
+        run: python -m unittest discover -s tests -p "*test*.py"
+      - name: Shell package hooks and repository sync
+        shell: bash
+        run: |
+          bash tests/hooks_test.sh
+          bash tests/upstream_sync_test.sh
+      - name: Verify diff whitespace
+        run: git diff --check

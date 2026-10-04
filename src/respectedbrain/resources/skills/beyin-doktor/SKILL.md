@@ -10,68 +10,79 @@ loglar tazeliğini koruyor mu, vault kirlenmiş mi. Amaç sessiz arızayı gör�
 
 ## Nasıl çalışırsın
 
-1. Vault kökünde (`.beyin/`, `AGENTS.md` veya `CLAUDE.md` bulunan klasör) çalış. Tüm yollar
-   göreceli, mutlak yol yazma.
-2. Önce `.beyin/config.json` içindeki platformu belirle. POSIX/WSL profilinde aşağıdaki Bash
-   örneklerini, `windows-native` profilinde aynı salt-okunur ölçütleri PowerShell ve `py.exe -3`
-   ile uygula. Bash veya `python3` komut adını native Windows'ta zorunlu tutma.
-3. Her kontrolün çıktısını 🟢 / 🟡 / 🔴 olarak sınıfla.
-4. Sonucu tek bir tabloda ver, her 🔴 için bir düzeltme satırı yaz.
-5. En sonda tek cümlelik hüküm ver.
+1. Global bağlantıdaki kayıtlı vault'u `respectedbrain vault list` ile doğrula. Örneklerdeki
+   `UUID` yer tutucusunu seçilen gerçek kasa kimliğiyle değiştir; birden fazla kasa varsa
+   kimliği netleştirmeden kontrolü başlatma.
+2. Notların kökü VaultRoot'tur. DataRoot/config.json kullanıcı yapılandırmasıdır;
+   DataRoot/vaults/<UUID>/state teknik durum, DataRoot/vaults/<UUID>/cache geçici veridir.
+   RESPECTED_DATA_DIR override'ını önce kontrol et. Varsayılan DataRoot Windows Known Folder
+   LocalAppData/RespectedBrain, Linux XDG_DATA_HOME/respectedbrain (yoksa ~/.local/share/respectedbrain),
+   macOS ~/Library/Application Support/RespectedBrain'dir. AppRoot kurulu uygulamadır; buraya yazma.
+3. Native launcher `respectedbrain` (Windows'ta `respectedbrain.exe`) kullanılır; kurulu motor
+   ayrıca Python istemez. POSIX dosya kontrol örneklerini Windows'ta mevcut PowerShell/dosya
+   okuma araçlarıyla aynı salt okunur ölçütlere göre uygula.
+4. Her kontrolün çıktısını 🟢 / 🟡 / 🔴 sınıfla, kanıt yollarını tek tabloda göster.
+5. Her kırmızı için düzeltme planı, en sonda tek cümlelik hüküm ver.
 
-Kontroller salt okunurdur. Hiçbir şeyi kendiliğinden düzeltme, önce raporla, sonra kullanıcı
-isterse düzelt.
+```text
+respectedbrain vault list
+respectedbrain configure
+respectedbrain --version
+```
+
+Kontroller salt okunurdur. Repair, compile, maps, briefing ve hook yazabilir veya model
+çağırabilir: aşağıdaki düzeltme örneklerini yalnız kullanıcı ilgili plan ID'sini seçince uygula.
+
+Eksik bir tohum not için kaynak checkout gerekmez. Kurulu paket kaynak kökü Windows/Linux'ta
+`AppRoot/app/respectedbrain/resources`, macOS'ta
+`AppRoot/Contents/MacOS/app/respectedbrain/resources` olur. Kaynak kökünü salt okunur doğrula;
+tohum mevcut değilse dosya içeriği uydurma, eksik dağıtımı raporla. Kopyalama yalnız seçilmiş
+düzeltme ID'sinde, hedef hâlâ yoksa exclusive-create ile yapılır; kişisel içerik ezilmez.
 
 ## Kontroller
 
-### 1. Hook dosyaları var mı ve çalıştırılabilir mi
+### 1. Native launcher ve hook kayıtları
 
-```bash
-for h in session-start prompt-counter session-end pre-compact; do f=".claude/hooks/$h.sh"; if [ ! -f "$f" ]; then echo "$h: DOSYA YOK"; elif [ ! -x "$f" ]; then echo "$h: calistirilabilir degil"; else echo "$h: ok"; fi; done
+Kullanılan provider'ın hook/notify kayıtlarını oku. Komut kurulu native launcher'a, doğru
+provider/event çiftine ve seçilen --vault-id kimliğine gitmeli. Eksik native motor veya eski
+betik bağlantısı kırmızıdır. Shell dosyalarını depodan kopyalama; onaylanan düzeltme:
+
+```text
+respectedbrain repair --vault-id UUID
 ```
 
-🟢 dördü de `ok`. 🔴 eksik veya çalıştırılabilir değil.
-Düzeltme: `chmod +x .claude/hooks/*.sh`, dosya yoksa depodan kopyala.
+### 2. Araç adaptörleri ve bağlantılar
 
-### 2. Araç adaptörleri ve hook bağlantıları var mı
+Yalnız etkin integration bayrakları ve kullanılan provider için global talimat, MCP ve hook
+kayıtlarını kontrol et. DataRoot/install-manifest.json ile gerçek içerik/hash farkını raporla.
+Kapalı integration'ın yokluğu arıza değildir. Onaylanan düzeltme native repair'dir; kullanıcının
+ilgisiz JSON/TOML anahtarlarını koru, hash çakışmasında üzerine yazma.
 
-```bash
-for f in AGENTS.md CLAUDE.md .codex/hooks.json .cursor/hooks.json .agents/hooks.json .agents/rules/beyin.md; do if [ -f "$f" ]; then echo "$f: var"; else echo "$f: YOK"; fi; done; python3 scripts/render_integrations.py --check 2>/dev/null || echo "adaptör drift'i var (kaynak repo dışındaki vault'ta bu kontrol atlanabilir)"
+### 3. Özyineleme koruması
+
+Hook komutunun native hook girişine bağlı olduğunu doğrula. İç model çağrılarında
+BEYIN_INVOKED_BY koruması motor içinde uygulanır; shell dosyalarına elle guard ekleme.
+Aynı olayı iki bağlantı tetikliyorsa ayrı bulgu yap. Eksik/eski bağlantıyı kullanıcı onayıyla
+native repair üzerinden düzelt.
+
+### 4. Native motor ve model CLI
+
+Configure çıktısındaki preferences.summary_provider, provider_priority ve provider_fallback
+alanlarını oku. İşletim sisteminin salt okunur executable keşfiyle claude, codex, agy, gemini
+ve cursor-agent erişimini kontrol et. Native motor var ama seçili provider ve izinli fallback'ler
+yoksa kırmızı. auto kaynak provider'ı önce dener, geçici kota/timeout/5xx hatalarında izinli
+fallback'e geçebilir; BEYIN_LLM_COMMAND özel komutu olabilir. Onaylanan tercih değişikliği:
+
+```text
+respectedbrain configure --summary-provider auto
 ```
 
-🟢 kullanılan aracın talimat ve hook dosyası var. 🔴 kullanılan aracın dosyası eksik.
-Düzeltme: kaynak repoda `python3 scripts/render_integrations.py`; kurulmuş vault'ta kaynak
-repodan `python3 scripts/enable_multiai.py <vault> --apply` çalıştır.
+### 5. UUID ve teknik durum sınırı
 
-### 3. Özyineleme koruması her hook'ta var mı
-
-```bash
-for f in .claude/hooks/*.sh; do if grep -q 'BEYIN_INVOKED_BY' "$f"; then echo "$(basename "$f"): guard var"; else echo "$(basename "$f"): GUARD YOK"; fi; done
-```
-
-🟢 hepsinde var. 🔴 eksik. Guard'ı olmayan hook, arka plan `claude -p` çağrısında tekrar
-tetiklenir ve sonsuz döngü riski doğar.
-Düzeltme: dosyanın shebang'inden hemen sonraki satıra `[ -n "${BEYIN_INVOKED_BY:-}" ] && exit 0` ekle.
-
-### 4. python3 ve en az bir model CLI yolda mı
-
-```bash
-if command -v python3 >/dev/null 2>&1; then echo "python3: $(python3 -V 2>&1)"; else echo "python3: YOK"; fi; n=0; for c in claude codex agy cursor-agent; do if command -v "$c" >/dev/null 2>&1; then echo "$c: var"; n=$((n+1)); else echo "$c: yok"; fi; done; echo "model_cli_sayisi: $n"; if [ -f .beyin/config.json ]; then echo "provider_ayari: $(python3 -c 'import json; print(json.load(open(".beyin/config.json")).get("summary_provider", "auto"))' 2>/dev/null || echo bozuk)"; else echo "provider_ayari: YOK"; fi
-```
-
-🟢 python3 ve en az bir model CLI var. 🔴 python3 yoksa flush ve derleme çalışmaz; model CLI
-yoksa arka plan özetleyici durur. `auto`, oturumu gönderen agentın CLI'ını önce dener; geçici
-kota/timeout/5xx hatalarında kurulu diğer CLI'lara geçer. Özel komut için `BEYIN_LLM_COMMAND`
-kullanılabilir.
-
-### 5. python3-missing işareti
-
-```bash
-f=".beyin/engine/.state/python3-missing"; [ -f "$f" ] || f=".claude/scripts/.state/python3-missing"; if [ -f "$f" ]; then echo "isaret VAR, tarih: $(head -1 "$f" 2>/dev/null)"; else echo "isaret yok"; fi
-```
-
-🟢 işaret yok. 🔴 işaret var: hook'lar python3 bulamadığı için JSON kaçışını yapamamış.
-Düzeltme: python3'ü kur, sonra dosyayı sil: `rm -f .beyin/engine/.state/python3-missing .claude/scripts/.state/python3-missing`.
+DataRoot/config.json schema_version 3, vault UUID kaydı ve VaultRoot/.respected.json
+kimliği tutarlı olmalı. UUID state/cache/overrides yolları VaultRoot ve AppRoot dışında olmalı.
+Yeni kasada durum kaydı yoksa sarı; yanlış kimlik veya vault içine runtime yazımı kırmızı.
+State/idempotency dosyalarını silerek düzeltme önerme; kimlik çakışmasını önce kanıtla.
 
 ### 6. Günlük log tazeliği
 
@@ -85,25 +96,24 @@ numaralı kontrollere dön, arıza flush zincirinde.
 
 ### 7. Derleme durumu
 
-```bash
-f=".beyin/engine/.state/compile-state.json"; [ -f "$f" ] || f=".claude/scripts/.state/compile-state.json"; if [ -f "$f" ]; then m=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f"); n=$(date +%s); echo "state: $(( (n - m) / 3600 )) saat once guncellendi"; python3 -c "import json;d=json.load(open('$f'));print('last_run:',d.get('last_run','yok'));print('last_status:',d.get('last_status','yok'));print('ingested:',len(d.get('ingested',{})),'log')" 2>/dev/null || echo "state dosyasi bozuk, JSON okunamadi"; else echo "compile: state dosyasi yok, henuz hic derleme calismadi"; fi
+DataRoot/vaults/<UUID>/state/compile-state.json içindeki last_run, last_status ve ingested
+sayısını oku. last_run 48 saatten yeni ve last_status ok ise yeşil; yeni kasada state yoksa
+sarı; fail veya beklenmeyen eskilik kırmızı. Onaylanan teşhis ve gerçek derleme örnekleri:
+
+```text
+respectedbrain compile --vault-id UUID --dry-run
+respectedbrain compile --vault-id UUID
 ```
 
-🟢 `last_run` 48 saatten yeni ve `last_status` `ok`. 🟡 state yok ama vault yeni kurulmuş veya
-henüz sabah 08:00 olmamış. 🔴 `last_status` `fail:` ile başlıyor veya 48 saatten eski.
-Düzeltme: elle bir tur çalıştır ve hatayı gör: `python3 .beyin/engine/compile.py --dry-run`,
-sonra `python3 .beyin/engine/compile.py`.
+Dry-run model çağırmaz ve günlük/bilgi notlarını değiştirmez; teknik kilit veya hata kaydı
+oluşturabilir. İkinci komut model kotası tüketebilir; ikisini de uygulama onayı kapsamıyla çalıştır.
 
 ### 8. Sağlık kayıtlarındaki son hatalar
 
-```bash
-f=".beyin/engine/.state/health.json"; [ -f "$f" ] || f=".claude/scripts/.state/health.json"; if [ -f "$f" ]; then tail -c 2000 "$f"; else echo "health: kayit yok"; fi
-```
-
-🟢 kayıt yok veya son kayıt 7 günden eski. 🔴 son 48 saatte hata kaydı var.
-Düzeltme: `component` alanına bak. `flush` ise transkript veya claude CLI, `compile` ise model
-çağrısı sorunlu. Hata içindeki provider adına bak; hatayı okuduktan sonra dosyayı silebilirsin,
-script yeniden yazar.
+UUID state dizinindeki health.json ve health.warning.json dosyalarını oku; component,
+provider, error ve zaman alanlarını raporla. Son 48 saatte hata kırmızı; eski çözülmüş kayıtları
+bugünkü arızayla karıştırma. Flush hatasında transkript/model, compile hatasında model ve state
+write zincirini kontrol et. Hata dosyasını silerek sistemi sağlıklı göstermeye çalışma.
 
 ### 9. Bilgi indeksi büyüklüğü
 
@@ -115,7 +125,8 @@ Oturum başında indeksin sadece ilk 150 satırı bağlama giriyor.
 🟢 150 satır ve altı. 🟡 151 ile 300 satır arası, alt sıralar artık enjekte edilmiyor.
 🔴 300 satırın üstü: özet indeks zamanı.
 Düzeltme: indeksi tema başlıklarına göre grupla, eski satırları tek bir özet satırında topla,
-detay makalede kalsın. Dosya hiç yoksa depodaki tohum dosyayı geri koy.
+detay makalede kalsın. Dosya hiç yoksa paket kaynaklarındaki
+`vault-template/knowledge/index.md` dosyasını seçilen düzeltme planına ekle.
 
 ### 10. iCloud çakışma dosyaları
 
@@ -138,15 +149,11 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then echo "git: var, kay
 hafızanın geri alınabilir bir geçmişi yok.
 Düzeltme: repo yoksa `git init` ve ilk commit. Birikme varsa commit at.
 
-### 12. Sürüm dosyası
+### 12. Uygulama sürümü ve taşınabilir marker
 
-```bash
-if [ -f .beyin-version ]; then echo "surum: $(head -1 .beyin-version)"; else echo "surum: DOSYA YOK, v1 vault"; fi
-```
-
-🟢 `2.0.0`. 🟡 dosya yok: bu bir v1 vault, yükseltme yapılabilir.
-Düzeltme: SETUP.md içindeki yükseltme yolunu (B modu) uygula. Yükseltme mevcut hafıza
-dosyalarına dokunmaz, sadece eksik parçaları ekler.
+Native --version çıktısını ve VaultRoot/.respected.json schema_version 3/UUID alanlarını
+kontrol et. Marker uygulama sürümü değil kasa kimliğidir. Eski kasa için kullanıcı tarafından
+seçilmiş kaynak ve yeni doğrulanmış dağıtımla native migrate önizlemesi öner; teşhiste uygulama.
 
 ### 13. Kurallar dosyası
 
@@ -155,42 +162,16 @@ if [ -f "🔮 850-Companion/Kurallar.md" ]; then echo "kurallar: var, $(wc -l < 
 ```
 
 🟢 var. 🟡 yok: kullanıcının düzeltmeleri kalıcı hale gelmiyor.
-Düzeltme: depodaki tohum `Kurallar.md` dosyasını `🔮 850-Companion/` altına kopyala.
+Düzeltme: paket kaynaklarındaki `vault-template/🔮 850-Companion/Kurallar.md` dosyasını
+`🔮 850-Companion/` altına kopyalamayı seçilen düzeltme planına ekle.
 
-### 14. Çift etkin kanca (settings.json + settings.local.json)
+### 14. Çift etkin kanca
 
-```bash
-python3 - <<'PYCHK'
-import json, os
-EV = ("SessionStart", "UserPromptSubmit", "SessionEnd", "PreCompact")
-V1 = ("session-start.sh", "prompt-counter.sh", "session-end.sh", "pre-compact.sh")
-n = {e: 0 for e in EV}
-for f in (".claude/settings.json", ".claude/settings.local.json"):
-    try:
-        d = json.load(open(f, encoding="utf-8"))
-    except FileNotFoundError:
-        continue
-    except ValueError:
-        print("%s: BOZUK JSON" % f); raise SystemExit(0)
-    if not isinstance(d, dict):
-        print("%s: JSON nesnesi degil" % f); continue
-    for ev, ms in (d.get("hooks") or {}).items():
-        if ev not in EV: continue
-        for m in (ms or []):
-            for h in (m.get("hooks") or []):
-                if any(b in (h.get("command") or "") for b in V1):
-                    n[ev] += 1
-for e in EV:
-    print("%s: %d" % (e, n[e]))
-PYCHK
-```
-
-🟢 dört olayın da sayısı tam olarak `1`. 🔴 herhangi biri `2` veya daha fazla: o olayda
-kancalar her seferinde iki kez çalışıyor, yani her prompt iki kez sayılıyor ve her oturum
-sonunda iki flush tetikleniyor. `0` ise o olay hiç bağlı değil.
-Düzeltme: `.claude/settings.local.json` içindeki beyin kanca girdisini sil, ilgisiz
-kancalara ve `env`, `permissions` gibi diğer anahtarlara dokunma. Tek bağlantı
-`.claude/settings.json` içinde kalmalı.
+Global/proje ve local provider kayıtlarını mevcut JSON/TOML okuma araçlarıyla karşılaştır.
+Claude SessionStart/UserPromptSubmit/SessionEnd/PreCompact olaylarında native respectedbrain
+hook komutu olay başına tam 1 olmalı: 0 eksik, 2+ çift tetikleme. Codex notify ve diğer
+provider bağlantılarında da aynı olayın iki kez bağlı olup olmadığını kontrol et.
+İlgisiz hook/env/permissions alanlarına dokunmadan düzeltme planla.
 
 ### 15. Vault içinde sır taşıyabilecek yedek artığı
 
@@ -205,17 +186,18 @@ Düzeltme: yedeği vault dışına taşı ve `chmod 600` ver; git izliyorsa
 `git rm --cached <dosya>` ile izlemeden çıkar, `.gitignore` kuralını doğrula, ve
 sızmış anahtarı sağlayıcıdan **iptal edip yenile**.
 
-### 16. Bağlantı, kırık link, yetim sayfa ve tekrar kontrolü (wiki-lint & tiling)
+### 16. Wikilink, frontmatter ve tekrarlar
 
-```bash
-python scripts/vault_linter.py 2>/dev/null || python3 scripts/vault_linter.py 2>/dev/null
-python scripts/tiling_check.py 2>/dev/null || python3 scripts/tiling_check.py 2>/dev/null
+Bu native kontroller salt okunurdur:
+
+```text
+respectedbrain maintenance --vault-id UUID vault_linter --json
+respectedbrain maintenance --vault-id UUID tiling_check --json
 ```
 
-🟢 Kırık link (dead link) 0, frontmatter hatası 0, kritik mükerrer yok.
-🟡 Yetim (hiçbir yerden link almayan) sayfalar veya %70+ benzer not çiftleri var.
-🔴 Kırık wikilink'ler (`[[VarOlmayanNot]]`) veya bozuk frontmatter blokları tespit edildi.
-Düzeltme: Raporlanan kırık linkleri düzelt veya hedef notu oluştur; benzer notları inceleyip birleştir (merge).
+Kırık link/frontmatter hatası ve kritik mükerrer yoksa yeşil; yetim veya yüksek benzerlik sarı;
+kırık hedef/bozuk metadata kırmızı. Kullanıcı onayına link/metadata düzeltme ve merge planı sun;
+teşhiste --fix-dashes veya smart_merge çalıştırma.
 
 ### 17. Inbox ve otomatik haritalar
 
@@ -225,20 +207,18 @@ göster. Bu kontrolde dosya oluşturma ya da yenileme yapma.
 
 ### 18. Sabah brifingi ve zamanlayıcı
 
-Yerel saat 08.00'i geçtiyse bugünün `🎯 100-Command-Center/Briefings/YYYY-MM-DD.md` dosyasını,
-`.claude/scripts/.state/briefing-health.json` kaydını ve platformun Respected zamanlayıcı tanımını
-salt okunur denetle. Brifing yoksa bunun zamanlayıcı eksikliği mi model hatası mı olduğunu kanıtla.
+Yerel 08.00 sonrası bugünkü VaultRoot/🎯 100-Command-Center/Briefings/YYYY-MM-DD.md,
+UUID state/briefing-health.json ve platformun Respected zamanlayıcısını salt okunur denetle.
+Zamanlayıcı seçilen UUID'yi içermeli; schedule kapalıysa eksikliğini arıza sayma. Brifing yoksa
+bunun zamanlayıcıdan mı model/compile hatasından mı kaynaklandığını kanıtla.
 
-### 19. Graf Topolojisi ve Köprü Analizi (Deterministik)
+### 19. Graf topolojisi ve köprü analizi
 
-```bash
-python3 .beyin/graph_analysis.py . --json 2>/dev/null || py -3 .beyin/graph_analysis.py . --json
-```
-
-🟢 Kırık link sayısı 0, kritik yetim sayfa oranı <%5.
-🟡 Kırık linkler var veya kopuk adalar (yetim sayfalar) tespit edildi.
-🔴 İsim çakışması (duplicate stems) var veya graf bütünlüğü bozulmuş.
-Düzeltme: Raporlanan kırık linkleri düzelt, çakışan aynı isimli sayfaları birleştir.
+16. kontroldeki native wikilink raporunu kullan; notların wikilink kenarlarını mevcut yerel
+dosya araçlarıyla salt okunur incele. Kırık hedefleri, duplicate stem, yetim ve kopuk adaları
+say; köprü görevi gören notları göster. Kritik yetim oranı <%5 ve kırık hedef yoksa yeşil,
+kopuk adalar sarı, isim çakışması/graf bütünlüğü bozuksa kırmızı. Native CLI'de bağımsız
+graph-analysis komutu yoktur; çalışmamış analizi çalıştı diye raporlama.
 
 ## Düzeltme planı sözleşmesi
 
@@ -257,18 +237,18 @@ Tüm kontroller bittikten sonra tek tablo bas:
 ```
 | Kontrol | Durum | Bulgu |
 | --- | --- | --- |
-| Hook dosyaları | 🟢 | dördü de yerinde ve çalıştırılabilir |
+| Native hook kayıtları | 🟢 | launcher ve UUID seçimi doğru |
 | settings.json bağlantısı | 🟢 | dört olay da bağlı |
 | Özyineleme koruması | 🟢 | hepsinde var |
-| python3 ve model CLI | 🟢 | python3 var, agy ve codex kullanılabilir, provider auto |
-| python3-missing işareti | 🟢 | işaret yok |
+| Native motor ve model CLI | 🟢 | launcher var, agy ve codex kullanılabilir, provider auto |
+| UUID teknik durum sınırı | 🟢 | schema 3, state/cache DataRoot içinde |
 | Günlük log tazeliği | 🟡 | son log 51 saat önce |
 | Derleme durumu | 🔴 | last_status fail:timeout |
 | Sağlık kayıtları | 🔴 | dün compile hatası |
 | Bilgi indeksi | 🟢 | 42 satır |
 | iCloud çakışmaları | 🟢 | temiz |
 | Git | 🟢 | repo var, 3 dosya kaydedilmemiş |
-| Sürüm | 🟢 | 2.0.0 |
+| Sürüm ve marker | 🟢 | native sürüm okundu, schema 3 UUID doğru |
 | Kurallar | 🟢 | var, 24 satır |
 | Çift etkin kanca | 🔴 | SessionEnd 2 kez bağlı |
 | Sır yedeği artığı | 🟢 | temiz |

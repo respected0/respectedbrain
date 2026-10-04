@@ -52,11 +52,11 @@ self.assertEqual(run_tool(ctx, name='vault_linter', argv=['--json']), 0)
 ## Görev 7: Tek CLI ve composition root
 
 **Files:** Modify: `src/respectedbrain/cli.py`; Create:
-`core/bootstrap.py`, `tests/foundation_cli_test.py`;
+`bootstrap.py`, `tests/foundation_cli_test.py`;
 Modify: `tests/{scripts,windows_native,runtime_platform}_test.py`.
 
 **Interfaces:** Consumes: görev 2–6 hizmetleri.
-Produces: `core/bootstrap.py: bootstrap(*, vault: Path | None = None, vault_id: str | None = None, env: Mapping[str,str] | None = None) -> AppContext`;
+Produces: `bootstrap.py: bootstrap(*, vault: Path | None = None, vault_id: str | None = None, env: Mapping[str,str] | None = None) -> AppContext`;
 `launcher_argv(*, env: Mapping[str,str] | None = None) -> tuple[str,...]`;
 `cli.main(argv: Sequence[str] | None = None) -> int` aynı giriş olmaya devam eder.
 Frozen launcher `(sys.executable,)`, geliştirme `(sys.executable,'-m','respectedbrain')`;

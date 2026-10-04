@@ -11,18 +11,10 @@ from types import ModuleType
 import unittest
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-COMPILE_PATH = REPO_ROOT / "runtime" / "engine" / "compile.py" if (REPO_ROOT / "runtime" / "engine" / "compile.py").is_file() else REPO_ROOT / "template" / ".beyin" / "engine" / "compile.py"
-
-
-def load_module(name: str, path: Path) -> ModuleType:
-    from respectedbrain.memory import compile
-    return compile
-
-
 class KnowledgeDomainTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.compiler = load_module("compile_domain_test", COMPILE_PATH)
+        from respectedbrain.memory import compile
+        self.compiler = compile
         self.temporary = tempfile.TemporaryDirectory()
         self.vault = Path(self.temporary.name)
         self.knowledge = self.vault / "knowledge"
@@ -56,8 +48,8 @@ class KnowledgeDomainTest(unittest.TestCase):
         self.assertNotIn("* finance:", prompt)
 
     def test_template_index_markdown_has_domain_column(self) -> None:
-        template_index = REPO_ROOT / "template" / "knowledge" / "index.md"
-        text = template_index.read_text(encoding="utf-8")
+        from respectedbrain.core.resources import ResourceCatalog
+        text = ResourceCatalog().read_text("vault-template/knowledge/index.md")
         self.assertIn("| Makale | Alan (Domain) | Özet | Kaynak | Güncellendi |", text)
 
     def test_allowed_output_file_permits_nested_domain_concepts(self) -> None:

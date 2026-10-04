@@ -83,24 +83,23 @@ class NamingContractTest(unittest.TestCase):
 
         self.assertEqual(occurrences, [])
 
-    def test_current_public_guides_use_the_respected_1_3_contract(self):
+    def test_current_public_guides_use_the_modular_native_contract(self):
         guides = {
             name: (ROOT / "docs/guides" / name if name != "README.md" else ROOT / name).read_text(encoding="utf-8")
-            for name in ("README.md", "SETUP.md", "SETUP-WINDOWS.md", "MULTI_AI.md")
+            for name in ("README.md", "SETUP.md", "SETUP-WINDOWS.md", "MULTI_AI.md", "UPDATE.md")
         }
         combined = "\n".join(guides.values())
 
         for provider in ("Claude", "Codex", "Cursor", "Antigravity"):
             self.assertIn(provider, combined)
-        for profile in ("portable", "windows-wsl", "windows-native"):
+        for profile in ("windows-wsl", "windows-native"):
             self.assertIn(profile, combined)
         self.assertIn("Respected Brain", guides["README.md"])
-        self.assertIn("https://github.com/respected0/respectedbrain.git", guides["README.md"])
-        self.assertIn("cd respectedbrain", guides["README.md"])
-        self.assertIn("scripts/update_respected.py", combined)
-        self.assertIn("0.0.1", combined)
-        self.assertIn(".respected/schedule-backups", combined)
-        self.assertIn(".respected/update-backups", combined)
+        self.assertIn("https://github.com/respected0/respectedbrain", guides["README.md"])
+        for current in ("respectedbrain", "--vault-id", "DataRoot", "AppRoot"):
+            self.assertIn(current, combined)
+        for retired in ("scripts/update_respected.py", ".respected/schedule-backups", ".respected/update-backups"):
+            self.assertNotIn(retired, combined)
         self.assertIn("önizleme", combined.casefold())
         self.assertIn("--apply", combined)
         self.assertIn("MIT", guides["README.md"])
@@ -173,14 +172,19 @@ class NamingContractTest(unittest.TestCase):
             "." + old_namespace + "/schedule-backups",
         )
 
-    def test_current_manifest_targets_0_0_1_and_single_version_file(self):
-        manifest = load_manifest()
-
-        self.assertIsNotNone(manifest, "scripts/respected_manifest.py is missing")
-        self.assertEqual(manifest.VERSION, "0.0.1")
-        self.assertEqual(manifest.VERSION_FILE, ".respectedbrain-version")
-        self.assertNotIn("scripts/update_respot.py", manifest.RUNTIME)
-        self.assertNotIn("scripts/respot_manifest.py", manifest.RUNTIME)
+    def test_current_manifest_uses_package_version_and_schema3_uuid_marker(self):
+        from importlib.metadata import version
+        from tests.foundation_support import make_context
+        from uuid import UUID
+        import json
+        manifest=load_manifest()
+        self.assertEqual(manifest.VERSION,version("respectedbrain"))
+        with tempfile.TemporaryDirectory() as temporary:
+            ctx=make_context(Path(temporary))
+            marker=json.loads((ctx.paths.vault_root / ".respected.json").read_text(encoding="utf-8"))
+            self.assertEqual(marker["schema_version"],3)
+            self.assertEqual(str(UUID(marker["vault_id"])),ctx.paths.vault_id)
+            self.assertFalse((ctx.paths.vault_root / ".respectedbrain-version").exists())
 
 
 if __name__ == "__main__":

@@ -1,412 +1,130 @@
-#!/usr/bin/env python3
-"""Tests for Respected Brain installation wizard and multi-channel setup."""
-
-from __future__ import annotations
-
-import importlib.util
-import json
-import os
+"""Wizard and source-launcher installation contracts use the same package services."""
 from pathlib import Path
-import plistlib
-import shutil
-import sys
-import tempfile
-from types import ModuleType, SimpleNamespace
+import json
 import unittest
 from unittest import mock
-
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-INSTALL_PY = REPO_ROOT / "installer" / "install.py"
-SET_PROVIDER_PY = (REPO_ROOT / "runtime" / "scripts" / "set_summary_provider.py") if (REPO_ROOT / "runtime" / "scripts" / "set_summary_provider.py").is_file() else (REPO_ROOT / "scripts" / "set_summary_provider.py")
-
-
-def load_module(name: str, path: Path) -> ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Cannot load module {name} from {path}")
-    module = importlib.util.module_from_spec(spec)
-    import sys
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
+from respectedbrain.core.config import ConfigStore
+from respectedbrain.vault.registry import build_context
+from respectedbrain.installation import wizard
+from respectedbrain.installation.setup import setup
+from respectedbrain.installation.transaction import OperationResult
+from tests import foundation_setup_test as setup_support
+from tests.foundation_support import snapshot
+from tests.runtime_layout_test import load, ROOT
 
 class WizardTest(unittest.TestCase):
-    def setUp(self) -> None:
-        self.temporary = tempfile.TemporaryDirectory()
-        self.temp_root = Path(self.temporary.name).resolve()
-        self.home_patch = mock.patch.dict(
-            os.environ,
-            {
-                "HOME": str(self.temp_root / "home"),
-                "USERPROFILE": str(self.temp_root / "home"),
-            },
-        )
-        self.home_patch.start()
-        self.installer = load_module("install_test_module", INSTALL_PY)
+    setUp = setup_support.FoundationSetupTest.setUp
+    install = setup_support.FoundationSetupTest.install
 
-    def tearDown(self) -> None:
-        self.home_patch.stop()
-        self.temporary.cleanup()
+    def action(self, *, mode="install", profile=None, desired=None, package=None):
+        values={"OS_NAME":"AdaOS","USER_NAME":"Ada Lovelace","USER_BIO":"Algoritma Mimarı","COMPANION":"Babbage","platform":"windows-native","user_home":str(self.root / "home")}
+        values.update(profile or {})
+        return wizard.run_action(mode,self.roots,self.vault,profile=values,desired=self.desired if desired is None else desired,backend=self.backend,package=self.package if package is None else package)
 
-    def test_automated_install_creates_complete_vault_and_resolves_placeholders(self) -> None:
-        target_vault = self.temp_root / "AdaOS"
-        code = self.installer.install_vault(
-            vault_path=target_vault,
-            user_name="Ada Lovelace",
-            user_bio="Algoritma Mimarı",
-            companion="Babbage",
-            os_name="AdaOS",
-            summary_provider="antigravity",
-            provider_priority=["antigravity", "codex"],
-            install_global=False,
-            quiet=True,
-        )
-        self.assertEqual(code, 0)
-        self.assertTrue(target_vault.is_dir())
-        self.assertTrue((target_vault / "knowledge" / "concepts").is_dir())
-        self.assertTrue((target_vault / "knowledge" / "connections").is_dir())
-        self.assertFalse((target_vault / "knowledge" / "concepts" / "core").exists())
-        self.assertFalse((target_vault / "knowledge" / "concepts" / "finance").exists())
+    def test_automated_install_creates_complete_vault_and_resolves_placeholders(self):
+        result=self.action(profile={"summary_provider":"antigravity","provider_priority":["antigravity","codex"]})
+        self.assertTrue(result.success,result.conflicts)
+        core=(self.vault / "🔮 850-Companion/Core.md").read_text(encoding="utf-8")
+        self.assertIn("Ada Lovelace",core)
+        self.assertIn("Babbage",core)
+        self.assertNotIn("{{",core)
+        self.assertTrue((self.vault / "knowledge/connections").is_dir())
+        config=ConfigStore(self.roots.data_root).read()
+        self.assertEqual(config["preferences"]["provider_priority"],["antigravity","codex"])
+        self.assertFalse((self.vault / ".beyin").exists())
 
-        # Check config.json
-        config_path = target_vault / ".beyin" / "config.json"
-        self.assertTrue(config_path.is_file())
-        config_data = json.loads(config_path.read_text(encoding="utf-8"))
-        self.assertEqual(config_data.get("summary_provider"), "antigravity")
-        self.assertEqual(config_data.get("provider_priority"), ["antigravity", "codex"])
-        self.assertEqual(config_data.get("platform"), "windows-native" if os.name == "nt" else "portable")
+    def test_fresh_native_install_renders_hooks_for_final_registered_uuid(self):
+        self.assertTrue(self.action().success)
+        identity=json.loads((self.vault / ".respected.json").read_text())["vault_id"]
+        content=(self.vault / ".claude/settings.json").read_text(encoding="utf-8")
+        self.assertIn(identity,content)
+        self.assertIn(str(self.roots.app_root / "respectedbrain.exe").replace("\\","\\\\"),content)
+        self.assertNotIn(".respected-stage",content)
 
-        # Check placeholders resolved in Companion / Core.md
-        core_file = target_vault / "🔮 850-Companion" / "Core.md"
-        if core_file.is_file():
-            content = core_file.read_text(encoding="utf-8")
-            self.assertIn("Ada Lovelace", content)
-            self.assertNotIn("{{USER_NAME}}", content)
-            self.assertNotIn("{{COMPANION}}", content)
+    def test_install_refuses_non_empty_unregistered_directory(self):
+        self.vault.mkdir()
+        (self.vault / "existing.txt").write_bytes(b"user")
+        before=snapshot(self.root)
+        result=self.action()
+        self.assertFalse(result.success)
+        self.assertEqual(snapshot(self.root),before)
 
-    @unittest.skipUnless(os.name == "nt", "native Windows hook paths")
-    def test_fresh_native_install_renders_hooks_for_promoted_vault_path(self) -> None:
-        target_vault = self.temp_root / "Final Türkçe 🚀 Vault"
+    def test_reinstall_preserves_user_note_and_project_config_bytes(self):
+        self.assertTrue(self.action().success)
+        path=self.vault / "knowledge/human-note.md"
+        path.write_bytes("İnsan notu.\n".encode())
+        settings=self.vault / ".claude/settings.json"
+        settings.write_bytes(b'{"myProjectSetting":true}')
+        before=snapshot(self.vault)
+        self.assertTrue(self.action(mode="modify").success)
+        self.assertEqual(snapshot(self.vault),before)
 
-        code = self.installer.install_vault(
-            vault_path=target_vault,
-            user_name="Ada",
-            user_bio="Engineer",
-            companion="Babbage",
-            os_name="FinalOS",
-            summary_provider="codex",
-            python_command=[sys.executable],
-            environment="native",
-            quiet=True,
-        )
+    def test_reinstall_applies_requested_dashboard_shortcut(self):
+        self.assertTrue(self.action().success)
+        result=self.action(mode="modify",desired={**self.desired,"shortcut":True})
+        self.assertTrue(result.success,result.conflicts)
+        rows=[value for (kind,key),value in self.backend.records.items() if kind=="shortcut"]
+        self.assertEqual(len(rows),1)
+        self.assertIn("dashboard --vault-id",json.loads(rows[0])["arguments"])
 
-        self.assertEqual(code, 0)
-        hooks = json.loads((target_vault / ".codex/hooks.json").read_text(encoding="utf-8"))
-        commands = [
-            hook["commandWindows"]
-            for groups in hooks["hooks"].values()
-            for group in groups
-            for hook in group["hooks"]
-        ]
-        self.assertEqual(len(commands), 5)
-        for command in commands:
-            self.assertTrue(
-                str(target_vault) in command or str(target_vault.resolve()) in command,
-                f"{target_vault} not in {command}",
-            )
-            self.assertNotIn(".respected-stage-", command)
+    def test_requested_global_failure_is_reported_and_existing_notes_retained(self):
+        self.assertTrue(self.action().success)
+        before=snapshot(self.vault)
+        with mock.patch.object(self.backend,"apply",side_effect=OSError("global failure")):
+            result=self.action(mode="modify",desired={**self.desired,"global":True})
+        self.assertFalse(result.success)
+        self.assertEqual(snapshot(self.vault),before)
 
-    def test_install_refuses_non_empty_directory(self) -> None:
-        target_vault = self.temp_root / "BusyVault"
-        target_vault.mkdir(parents=True)
-        (target_vault / "existing.txt").write_text("not empty", encoding="utf-8")
+    def test_native_install_persists_only_stable_application_launcher(self):
+        self.assertTrue(self.action().success)
+        content=(self.vault / ".claude/settings.json").read_text(encoding="utf-8")
+        self.assertIn("respectedbrain.exe",content)
+        self.assertNotIn("python",content)
+        self.assertNotIn(".py",content)
 
-        code = self.installer.install_vault(
-            vault_path=target_vault,
-            user_name="Test",
-            user_bio="Bio",
-            companion="Comp",
-            os_name="TestOS",
-            summary_provider="auto",
-            quiet=True,
-        )
-        self.assertEqual(code, 1)
+    def test_render_failure_rolls_back_partial_fresh_install(self):
+        with mock.patch("respectedbrain.integrations.rendering.render_project_integrations",side_effect=OSError("render failed")):
+            result=self.action()
+        self.assertFalse(result.success)
+        self.assertFalse(self.vault.exists())
+        self.assertFalse((self.roots.app_root / "respectedbrain.exe").exists())
 
-    def test_reinstall_updates_managed_files_and_preserves_user_file_bytes(self) -> None:
-        target_vault = self.temp_root / "RepeatableVault"
-        arguments = {
-            "vault_path": target_vault,
-            "user_name": "Ada",
-            "user_bio": "Engineer",
-            "companion": "Babbage",
-            "os_name": "RepeatableOS",
-            "summary_provider": "codex",
-            "provider_priority": ["codex", "gemini"],
-            "python_command": [sys.executable] if os.name == "nt" else ["python3"],
-            "environment": "native",
-            "quiet": True,
-        }
+    def test_wizard_antigravity_preference_is_saved_without_provider_call(self):
+        self.assertTrue(self.action(profile={"summary_provider":"antigravity"}).success)
+        self.assertEqual(ConfigStore(self.roots.data_root).read()["preferences"]["summary_provider"],"antigravity")
 
-        first = self.installer.install_vault(**arguments)
-        human_note = target_vault / "knowledge" / "human-note.md"
-        expected = "İnsan notu byte-for-byte korunmalı.\n".encode("utf-8")
-        human_note.write_bytes(expected)
-        second = self.installer.install_vault(**arguments)
+    def test_wizard_custom_priority_is_saved_in_data_config(self):
+        self.assertTrue(self.action(profile={"provider_priority":["antigravity","codex"]}).success)
+        self.assertEqual(ConfigStore(self.roots.data_root).read()["preferences"]["provider_priority"],["antigravity","codex"])
 
-        self.assertEqual(first, 0)
-        self.assertEqual(second, 0)
-        self.assertEqual(human_note.read_bytes(), expected)
-        config = json.loads((target_vault / ".beyin/config.json").read_text(encoding="utf-8"))
-        self.assertEqual(config["summary_provider"], "codex")
-        self.assertEqual(config["provider_priority"], ["codex", "gemini"])
+    def test_wizard_single_provider_lock_retains_fail_fast_setting(self):
+        self.assertTrue(self.action(profile={"summary_provider":"codex","provider_fallback":False}).success)
+        preferences=ConfigStore(self.roots.data_root).read()["preferences"]
+        self.assertEqual(preferences["summary_provider"],"codex")
+        self.assertFalse(preferences["provider_fallback"])
 
-    def test_reinstall_reapplies_requested_shortcut(self) -> None:
-        target_vault = self.temp_root / "RepairableVault"
-        desktop = self.temp_root / "Desktop"
-        desktop.mkdir()
-        arguments = {
-            "vault_path": target_vault,
-            "user_name": "Ada",
-            "user_bio": "Engineer",
-            "companion": "Babbage",
-            "os_name": "RepairableOS",
-            "summary_provider": "auto",
-            "environment": "native",
-            "quiet": True,
-        }
+    def test_gui_install_calls_same_setup_service_with_explicit_roots(self):
+        with mock.patch.object(wizard,"setup",return_value=OperationResult(True,"test",())) as service:
+            self.assertTrue(self.action().success)
+        self.assertEqual(service.call_args.args,(self.roots,self.vault))
+        self.assertEqual(service.call_args.kwargs["package"],self.package)
 
-        first = self.installer.install_vault(**arguments)
-        second = self.installer.install_vault(
-            **arguments,
-            desktop_shortcut=True,
-            desktop_dir_override=desktop,
-        )
+    def test_source_gui_launcher_delegates_without_loading_tk_on_import(self):
+        module=load(ROOT / "runtime/scripts/setup_wizard.py")
+        with mock.patch("respectedbrain.cli.main",return_value=9) as dispatch:
+            self.assertEqual(module.main(["--vault",str(self.vault)]),9)
+        dispatch.assert_called_once_with(["setup","--gui","--vault",str(self.vault)])
 
-        self.assertEqual(first, 0)
-        self.assertEqual(second, 0)
-        extension = ".webloc" if sys.platform == "darwin" else ".url" if os.name == "nt" else ".desktop"
-        self.assertTrue((desktop / f"RepairableVault{extension}").is_file())
+    def test_wizard_mcp_registration_uses_installed_launcher_and_uuid(self):
+        result=self.action(desired={**self.desired,"mcp":True})
+        self.assertTrue(result.success,result.conflicts)
+        records=[json.loads(value) for (kind,key),value in self.backend.records.items() if kind=="mcp" and value and "mcpServers" in json.loads(value)]
+        self.assertTrue(records)
+        for record in records:
+            command=record["mcpServers"]["respected-vault"]
+            self.assertEqual(command["command"],str(self.roots.app_root / "respectedbrain.exe"))
+            self.assertEqual(command["args"][0],"mcp")
+            self.assertIn("--vault-id",command["args"])
 
-    def test_reinstall_returns_requested_global_integration_failure(self) -> None:
-        target_vault = self.temp_root / "FailedRepairVault"
-        arguments = {
-            "vault_path": target_vault,
-            "user_name": "Ada",
-            "user_bio": "Engineer",
-            "companion": "Babbage",
-            "os_name": "FailedRepairOS",
-            "summary_provider": "auto",
-            "environment": "native",
-            "quiet": True,
-        }
-        self.assertEqual(self.installer.install_vault(**arguments), 0)
-
-        def integration_failure(command, **_kwargs):
-            script = Path(command[1]).name if len(command) > 1 else ""
-            if script == "install_global.py":
-                return SimpleNamespace(returncode=9, stdout="", stderr="global repair failed")
-            return SimpleNamespace(returncode=0, stdout="", stderr="")
-
-        with mock.patch.object(self.installer.subprocess, "run", side_effect=integration_failure):
-            code = self.installer.install_vault(**arguments, install_global=True)
-
-        self.assertEqual(code, 9)
-
-    @unittest.skipUnless(os.name == "nt", "native Windows interpreter propagation")
-    def test_native_install_persists_discovered_python_executable_in_hooks(self) -> None:
-        target_vault = self.temp_root / "RuntimeVault"
-        runtime = r"C:\Users\Ada\Custom Python\python.exe"
-        code = self.installer.install_vault(
-            vault_path=target_vault,
-            user_name="Ada",
-            user_bio="Engineer",
-            companion="Babbage",
-            os_name="AdaOS",
-            summary_provider="auto",
-            python_command=[runtime],
-            environment="native",
-            quiet=True,
-        )
-
-        self.assertEqual(code, 0)
-        config = json.loads((target_vault / ".beyin/config.json").read_text(encoding="utf-8"))
-        self.assertEqual(config["python_command"], [runtime])
-        rendered = (target_vault / ".claude/settings.json").read_text(encoding="utf-8")
-        self.assertIn("Custom Python", rendered)
-        self.assertNotIn("py.exe", rendered)
-
-    def test_render_failure_rolls_back_partial_fresh_install(self) -> None:
-        target_vault = self.temp_root / "BrokenVault"
-        with mock.patch.object(
-            self.installer.subprocess,
-            "run",
-            return_value=SimpleNamespace(returncode=7, stdout="", stderr="render failed"),
-        ):
-            code = self.installer.install_vault(
-                vault_path=target_vault,
-                user_name="Test",
-                user_bio="Bio",
-                companion="Comp",
-                os_name="TestOS",
-                summary_provider="auto",
-                quiet=True,
-            )
-
-        self.assertEqual(code, 7)
-        self.assertFalse(target_vault.exists(), "Başarısız temiz kurulum yarım vault bırakmamalı")
-
-    def test_interactive_wizard_antigravity_priority_selection(self) -> None:
-        target_vault = self.temp_root / "InteractiveVault"
-        mock_inputs = [
-            str(target_vault),     # 1. Kasa yolu
-            "Furkan",              # 2. Ad
-            "Yazılım Mühendisi",   # 3. Bio
-            "Companion",           # 4. Companion
-            "TestOS",              # 5. OS Name
-            "2",                   # 6. Seçim: [2] Google Antigravity Öncelikli
-            "1",                   # 7. Ortam: [1] Native
-            "h",                   # 8. Global AI: Hayır
-            "h",                   # 9. Masaüstü Kısayolu: Hayır
-            "h",                   # 10. Sabah Brifingi: Hayır
-            "h",                   # 11. MCP Sunucusu: Hayır
-        ]
-
-        with mock.patch("builtins.input", side_effect=mock_inputs):
-            code = self.installer._interactive_wizard()
-
-        self.assertEqual(code, 0)
-        config_data = json.loads((target_vault / ".beyin" / "config.json").read_text(encoding="utf-8"))
-        self.assertEqual(config_data.get("summary_provider"), "auto")
-        self.assertEqual(
-            config_data.get("provider_priority"),
-            ["antigravity", "gemini", "codex", "claude", "cursor"],
-        )
-        self.assertEqual(config_data.get("environment"), "native")
-
-    def test_interactive_wizard_custom_priority_selection(self) -> None:
-        target_vault = self.temp_root / "CustomVault"
-        mock_inputs = [
-            str(target_vault),     # 1. Kasa yolu
-            "Furkan",              # 2. Ad
-            "Yazılım Mühendisi",   # 3. Bio
-            "Companion",           # 4. Companion
-            "TestOS",              # 5. OS Name
-            "6",                   # 6. Seçim: [6] Özel Sıralama Belirle
-            "antigravity, codex",  # Özel sıra
-            "3",                   # 7. Ortam: [3] Hibrit
-            "h",                   # 8. Global AI: Hayır
-            "h",                   # 9. Masaüstü Kısayolu: Hayır
-            "h",                   # 10. Sabah Brifingi: Hayır
-            "h",                   # 11. MCP Sunucusu: Hayır
-        ]
-
-        with mock.patch("builtins.input", side_effect=mock_inputs):
-            code = self.installer._interactive_wizard()
-
-        self.assertEqual(code, 0)
-        config_data = json.loads((target_vault / ".beyin" / "config.json").read_text(encoding="utf-8"))
-        self.assertEqual(config_data.get("summary_provider"), "auto")
-        self.assertEqual(config_data.get("provider_priority"), ["antigravity", "codex"])
-        self.assertEqual(config_data.get("environment"), "hybrid")
-        self.assertEqual(config_data.get("platform"), "windows-wsl" if os.name == "nt" else "portable")
-        if os.name == "nt":
-            rendered = (target_vault / ".claude/settings.json").read_text(encoding="utf-8")
-            self.assertIn("wsl.exe", rendered)
-
-    def test_interactive_wizard_lock_single_provider_fail_fast(self) -> None:
-        target_vault = self.temp_root / "LockedVault"
-        mock_inputs = [
-            str(target_vault),     # 1. Kasa yolu
-            "Furkan",              # 2. Ad
-            "Yazılım Mühendisi",   # 3. Bio
-            "Companion",           # 4. Companion
-            "TestOS",              # 5. OS Name
-            "5",                   # 6. Seçim: [5] Tek Model Kitle
-            "codex",               # Kilitlenecek model
-            "1",                   # 7. Ortam: [1] Native
-            "h",                   # 8. Global AI: Hayır
-            "h",                   # 9. Masaüstü Kısayolu: Hayır
-            "h",                   # 10. Sabah Brifingi: Hayır
-            "h",                   # 11. MCP Sunucusu: Hayır
-        ]
-
-        with mock.patch("builtins.input", side_effect=mock_inputs):
-            code = self.installer._interactive_wizard()
-
-        self.assertEqual(code, 0)
-        config_data = json.loads((target_vault / ".beyin" / "config.json").read_text(encoding="utf-8"))
-        self.assertEqual(config_data.get("summary_provider"), "codex")
-        self.assertEqual(config_data.get("provider_priority"), ["codex"])
-        self.assertIs(config_data.get("provider_fallback"), False)
-
-    def test_create_desktop_shortcut_generates_obsidian_uri(self) -> None:
-        desktop_dir = self.temp_root / "Desktop"
-        desktop_dir.mkdir()
-        target_vault = self.temp_root / "ShortcutVault"
-        target_vault.mkdir()
-
-        shortcut_file = self.installer.create_desktop_shortcut(
-            os_name="TestOS",
-            vault_path=target_vault,
-            desktop_dir_override=desktop_dir,
-        )
-
-        self.assertIsNotNone(shortcut_file)
-        self.assertTrue(shortcut_file.is_file())
-        if sys.platform == "darwin":
-            expected_name = "ShortcutVault.webloc"
-        elif os.name == "nt" or str(desktop_dir).startswith("/mnt/c/"):
-            expected_name = "ShortcutVault.url"
-        else:
-            expected_name = "ShortcutVault.desktop"
-        self.assertEqual(shortcut_file.name, expected_name)
-        content = shortcut_file.read_text(encoding="utf-8")
-        self.assertIn("obsidian://open?vault=ShortcutVault", content)
-
-    def test_macos_shortcut_is_native_webloc(self) -> None:
-        desktop_dir = self.temp_root / "MacDesktop"
-        desktop_dir.mkdir()
-        vault = self.temp_root / "Furkan Brain"
-        vault.mkdir()
-        with mock.patch.object(self.installer.sys, "platform", "darwin"):
-            shortcut = self.installer.create_desktop_shortcut(
-                "BrainOS", vault, desktop_dir_override=desktop_dir
-            )
-
-        self.assertEqual(shortcut.suffix, ".webloc")
-        document = plistlib.loads(shortcut.read_bytes())
-        self.assertEqual(document["URL"], "obsidian://open?vault=Furkan%20Brain")
-
-    def test_interactive_wizard_with_mcp_registration(self) -> None:
-        target_vault = self.temp_root / "McpVault"
-        mock_inputs = [
-            str(target_vault),     # 1. Kasa yolu
-            "Furkan",              # 2. Ad
-            "Mühendis",            # 3. Bio
-            "Companion",           # 4. Companion
-            "TestOS",              # 5. OS Name
-            "1",                   # 6. Seçim: [1] Auto
-            "1",                   # 7. Ortam: [1] Native
-            "h",                   # 8. Global AI: Hayır
-            "h",                   # 9. Masaüstü Kısayolu: Hayır
-            "h",                   # 10. Sabah Brifingi: Hayır
-            "e",                   # 11. MCP Sunucusu: EVET
-        ]
-
-        # Gerçek kullanıcı home dizinini korumak için subprocess'ı izole et
-        with mock.patch("builtins.input", side_effect=mock_inputs), \
-             mock.patch("subprocess.run") as mock_sub:
-            mock_sub.return_value = mock.Mock(returncode=0, stdout="✓ Mocked MCP kaydı başarılı", stderr="")
-            code = self.installer._interactive_wizard()
-
-        self.assertEqual(code, 0)
-        self.assertTrue((target_vault / "scripts" / "vault_mcp_server.py").is_file())
-        # subprocess.run'ın vault_mcp_server.py --register ile çağrıldığını doğrula
-        called_args = [call[0][0] for call in mock_sub.call_args_list if call[0]]
-        self.assertTrue(any("vault_mcp_server.py" in str(arg) and "--register" in arg for arg in called_args))
-
-
-if __name__ == "__main__":
+if __name__=="__main__":
     unittest.main()

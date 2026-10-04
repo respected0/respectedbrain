@@ -30,7 +30,7 @@ dosyasını açmak, ayrıştırmak veya `daily/` altına dosya yazmak YASAKTIR.
 3. Agent dışa aktarım dosyasının yolunu kullanıcıdan istemek ve yolu yalnızca metin olarak almak
    ZORUNDADIR. Yolu tahmin edemez veya dosyayı henüz açamaz. Ardından yalnızca yerel, salt okunur
    önizleme taraması için açık izin istemek ve yanıtı beklemek ZORUNDADIR. Açık izin yoksa
-   dosyayı açamaz. İzin verilirse betiği `--preview` ve seçilen filtrelerle çalıştırır. Bu mod
+   dosyayı açamaz. İzin verilirse seçilen filtrelerle yerel önizleme planını üretir. Bu aşama
    hiçbir çıktı dosyası yazmaz.
 4. Agent önizlemedeki içe aktarılacak sohbet sayısını, tarih aralığını ve tarih, anahtar kelime,
    boş içerik veya geçersiz kayıt nedeniyle atlanacak sayıları kullanıcıya göstermek ZORUNDADIR.
@@ -52,26 +52,27 @@ bayrak ekleme.
      açmasını iste veya açık izinle yerelde `unzip` kullan.
    - Claude: dışa aktarım içindeki `conversations.json`.
    - Gemini: Google Takeout içindeki `My Activity/Gemini Apps/MyActivity.json`.
-3. Dosya boyutunu `wc -c < <yol>` ile ölç. 50 MB üstündeyse betik son 12 takvim ayını
-   otomatik sınır olarak uygular. Bunu önizlemede söyle. Kullanıcının daha dar tarih sınırı varsa
-   daha dar olan sınır geçerli olur.
-4. Aşağıdaki uygun betiği `.claude/scripts/.state/import-chatgpt.py` gibi bir geçici yola yaz.
-   Önce `--preview` ile çalıştır. İkinci açık onaydan sonra aynı filtrelerle `--preview` olmadan
-   çalıştır.
-5. Her anahtar kelime için ayrı `--exclude-keyword` kullan. Tarihler dahil olan günlerdir.
+3. Dosya boyutunu mevcut yerel dosya aracıyla ölç. 50 MB üstünde son 12 takvim ayını
+   otomatik sınır olarak uygula; daha dar kullanıcı sınırı önceliklidir. Önizlemede bunu söyle.
+4. Kurulu native CLI'de harici sohbet export importer komutu yoktur. Aşağıdaki kayıpsız
+   çözümleme algoritmasını referans alarak mevcut yerel JSON/dosya araçlarınla aynı önizleme,
+   tarih/anahtar kelime filtreleri ve parça planını uygula. Önizleme hiçbir çıktı yazmaz.
+   Bu araçlar büyük JSON'u eksiksiz işleyemiyorsa dur ve eksik yeteneği bildir; kurulu motorun
+   bunu yaptığı iddiasında bulunma veya kullanıcıdan Python kurmasını isteme.
+5. Tarihler dahil günlerdir; her hariç tutma anahtar kelimesini ayrı filtre olarak uygula.
+   Örnek önizleme isteği: conversations.json, başlangıç 2025-01-01, bitiş 2025-12-31,
+   hariç kelimeler “sağlık” ve “özel proje”. İkinci açık onaydan sonra aynı planı VaultRoot/daily
+   altında uygula. Hedef dosya mevcutsa exclusive-create sözleşmesiyle yazmayı reddet.
 
-```text
-python3 .claude/scripts/.state/import-chatgpt.py conversations.json \
-  --preview --start 2025-01-01 --end 2025-12-31 \
-  --exclude-keyword "sağlık" --exclude-keyword "özel proje"
-```
-
-6. Betiğin özet çıktısını kullanıcıya aynen aktar. Mevcut bir hedef dosya varsa betik üzerine
+6. İşlemin özetini kullanıcıya eksiksiz aktar. Mevcut bir hedef dosya varsa işlem üzerine
    yazmayı reddeder. Bu durumda kullanıcıdan açıkça yeni bir çıktı klasörü seçmesini veya mevcut
    dosyaları kendisinin ele almasını iste. Dosyayı silme, birleştirme ya da üzerine yazma.
 7. Derleme planını aşağıdaki `Sonra ne olur` bölümüne göre anlat.
 
-## ChatGPT betiği
+## ChatGPT çözümleme referansı
+
+Aşağıdaki Python kodu algoritma referansıdır; kurulu ürünün çalıştırma komutu veya
+Python kurulum gereksinimi değildir. Aynı veri kurallarını mevcut yerel araçlarında uygula.
 
 ChatGPT dışa aktarımında her sohbet bir `mapping` ağacıdır. Dallanma varsa bütün erişilebilir
 düğümler kaynak sırasına göre bir kez yazılır. Sistem ve araç mesajları günlük dosyasına yazılmaz.
@@ -420,7 +421,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-## Claude betiği
+## Claude çözümleme referansı
 
 Claude dışa aktarımının şeması düzdür. Aynı onay kapısını, `--preview`, tarih ve anahtar kelime
 filtrelerini, kayıpsız parça üretimini ve `write_exclusive` yazımını kullan. ChatGPT'e özgü
@@ -471,19 +472,27 @@ formatında yeniden dışa aktarmasını iste.
 İçe aktarım bittiğinde kullanıcıya dürüst özeti ver:
 
 - Yazılan ve atlanan sohbet sayılarını ayrı göster. Her parça dosyasının sohbet ve karakter
-  sayısını betik çıktısından aktar.
+  sayısını doğrulanmış işlem sonucundan aktar.
 - `daily/import-*.md` dosyaları yereldir. Akşam derleyicisi içeriklerini özetleme için
-  `.beyin/config.json` ve fallback sırasına göre seçilen yerel AI CLI'ın modeline gönderir.
+  `DataRoot/config.json` preferences ve fallback sırasına göre seçilen yerel AI CLI'ın modeline gönderir.
   Başka yere gönderim yapılmaz.
 - Derleyici akşamları bir tur çalışır ve her turda değişen logları işler. Büyük bir arşiv birkaç
   akşama yayılabilir.
-- Kullanıcı beklemek istemezse önce `python3 .claude/scripts/compile.py --dry-run`, sonra açık
-  onayıyla `python3 .claude/scripts/compile.py` çalıştırılabilir. Her tur abonelik limitinden pay
+- Kullanıcı beklemek istemezse önce `respectedbrain compile --vault-id UUID --dry-run`, sonra açık
+  onayıyla `respectedbrain compile --vault-id UUID` çalıştırılabilir. Her tur abonelik limitinden pay
   tüketir.
 - Kullanıcı içeriği hiçbir harici modele göndermek istemezse derleyiciyi çalıştırmamalı ve ilgili
   aylık parça dosyalarını akşam derlemesinden önce silmelidir. Belirli bir sağlayıcıyı istemiyorsa
-  derlemeden önce `scripts/set_summary_provider.py` ile başka bir ilk tercih seçebilir.
+  derlemeden önce `respectedbrain configure --summary-provider codex` ile başka bir ilk tercih seçebilir.
 - 50 MB sınırı nedeniyle daha eski arşiv atlandıysa bunu açıkça söyle ve ayrı bir tarih aralığıyla
   ikinci tur isteyip istemediğini sor.
+
+`UUID` yer tutucusunu native vault list çıktısındaki kayıtlı kasa kimliğiyle değiştir.
+Teknik durum DataRoot/vaults/<UUID>/state altında; cache ayrı dizindedir. Derleme önizlemesi:
+
+```text
+respectedbrain vault list
+respectedbrain compile --vault-id UUID --dry-run
+```
 
 Son adım olarak `beyin-doktor` çalıştırmayı öner. Derleme durumu satırından ilerleme izlenebilir.

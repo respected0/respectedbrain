@@ -1,13 +1,9 @@
 #!/bin/bash
-# Integration tests for scripts/upstream_sync.sh
+# Local-fixture integration tests for the canonical repository tools/upstream_sync.sh
 set -euo pipefail
 
 TEST_ROOT=$(CDPATH= cd "$(dirname "$0")/.." 2>/dev/null && pwd)
-if [ -f "$TEST_ROOT/runtime/scripts/upstream_sync.sh" ]; then
-  SCRIPT="$TEST_ROOT/runtime/scripts/upstream_sync.sh"
-else
-  SCRIPT="$TEST_ROOT/scripts/upstream_sync.sh"
-fi
+SCRIPT="$TEST_ROOT/tools/upstream_sync.sh"
 
 TEST_COUNT=0
 FAIL_COUNT=0

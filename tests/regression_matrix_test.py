@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -15,42 +14,14 @@ import unittest
 from unittest import mock
 
 
-ROOT = Path(__file__).resolve().parents[1]
-TEMPLATE = ROOT / "template"
-SCRIPTS_DIR = str((ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts"))
-ORIGINAL_SYS_PATH = list(sys.path)
-if SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, SCRIPTS_DIR)
-
-LOADED_MODULE_NAMES: list[str] = []
-
-
-def tearDownModule() -> None:
-    for name in LOADED_MODULE_NAMES:
-        sys.modules.pop(name, None)
-    sys.path[:] = ORIGINAL_SYS_PATH
-
-
-def load_module(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Cannot load module {name} from {path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    LOADED_MODULE_NAMES.append(name)
-    spec.loader.exec_module(module)
-    return module
-
-
-RUNTIME_DIR = ROOT / "runtime" if (ROOT / "runtime").is_dir() else ROOT / "template/.beyin"
 from respectedbrain.memory import lifecycle as LIFECYCLE
-BRIDGE = load_module("c9_bridge", RUNTIME_DIR / "hooks/bridge.py" if (RUNTIME_DIR / "hooks/bridge.py").is_file() else TEMPLATE / ".beyin/hooks/bridge.py")
+from respectedbrain.integrations.hooks import bridge as BRIDGE
 from respectedbrain.providers import runner as MODEL_RUNNER
 from respectedbrain.core import platform as RUNTIME
 from respectedbrain.memory import flush as FLUSH
 from respectedbrain.memory import compile as COMPILE
 from respectedbrain.briefing import service as BRIEFING
-REPAIR_DAILY = load_module("c9_repair_daily", (ROOT / "runtime/scripts/repair_daily.py") if (ROOT / "runtime/scripts/repair_daily.py").is_file() else ROOT / "scripts/repair_daily.py")
+from respectedbrain.maintenance import repair_daily as REPAIR_DAILY
 
 
 VALID_FLUSH_SUMMARY = """## Bağlam
@@ -267,8 +238,8 @@ class RegressionMatrixTest(unittest.TestCase):
     def test_10_windows_to_wsl_bridge_reentrancy_prevention(self):
         with mock.patch.dict(os.environ, {"BEYIN_INVOKED_BY": "beyin-scripts"}):
             with mock.patch.object(LIFECYCLE, "handle_event") as mock_handle:
-                result = BRIDGE.main(["--provider", "antigravity", "--event", "end", "--global-hook"])
-                self.assertEqual(result, 0)
+                result = BRIDGE.dispatch(self.ctx, provider="antigravity", event="end", argv=["--global-hook"], stdin="{}")
+                self.assertEqual(result, "")
                 mock_handle.assert_not_called()
 
     # -------------------------------------------------------------------------
@@ -303,7 +274,7 @@ class RegressionMatrixTest(unittest.TestCase):
             encoding="utf-8",
         )
 
-        cleaned, backup_path = REPAIR_DAILY.repair_daily_file(daily_file, self.vault)
+        cleaned, backup_path = REPAIR_DAILY.repair_daily_file(daily_file, self.vault, temp_dir=self.ctx.paths.cache_dir)
         self.assertTrue(cleaned)
         self.assertTrue(backup_path.is_file())
         self.assertIn("daily-backup", str(backup_path))

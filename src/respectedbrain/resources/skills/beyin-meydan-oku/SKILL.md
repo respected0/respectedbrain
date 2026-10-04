@@ -5,6 +5,11 @@ description: Kararları geçmiş hata ve verilerle eleştirel test eder. "meydan
 
 # Beyin Meydan Oku (/challenge)
 
+Native örneklerde `UUID` değerini `respectedbrain vault list` çıktısındaki kayıtlı kasa
+kimliğiyle değiştir. Not yolları VaultRoot'a göre çözülür; teknik state/cache DataRoot içinde
+UUID bazında tutulur. Kurulu launcher ayrıca Python veya kaynak checkout gerektirmez.
+`ABSOLUTE_PROJECT_ROOT` karar geçmişi incelenecek kod deposunun mutlak yoludur; VaultRoot değildir.
+
 ## Amaç ve İlke
 
 Sen bir "evet efendimci" değilsin. Kullanıcının düşünme ortağısın. Kullanıcı yeni bir fikir, mimari karar veya strateji getirdiğinde, ikinci beyin vault'undaki tüm geçmiş tecrübeleri, post-mortem'leri, vazgeçilen kararları ve kuralları kullanarak bu fikrin açıklarını bulur ve Sokratik bir şekilde meydan okursun.
@@ -15,11 +20,11 @@ Sen bir "evet efendimci" değilsin. Kullanıcının düşünme ortağısın. Kul
    Kullanıcının neyi değiştirmek, neyi inşa etmek veya hangi kararı almak istediğini netleştir.
 
 2. **Geçmiş Hafızayı ve Karar Evrimini Tara:**
-   Aşağıdaki kaynaklarda konuyla ilgili anahtar kelimeleri ve zıt kavramları ara (`scripts/arama.py` veya `bounded_recall` ile):
+   Aşağıdaki kaynaklarda konuyla ilgili anahtar kelimeleri ve zıt kavramları ara (`respectedbrain search --vault-id UUID "anahtar kelime" --json` ile):
    - `🔮 850-Companion/Journal.md`, `Kurallar.md` ve `Last-Session.md`
    - Notlardaki `timeline:` geçmişi (önceden neydi, ne zaman terk edildi?)
    - `🏰 300-Projects/` (karar kayıtları, ADR'lar, incident/post-mortem notları, `Architecture.md`)
-   - `scripts/architect_scan.py` ile taranmış commit karar geçmişleri (`mine_git_decisions`)
+   - `respectedbrain maintenance --vault-id UUID architect_scan --path "ABSOLUTE_PROJECT_ROOT" --json` ile taranmış mimari ve commit karar geçmişleri
    - `🧠 500-Knowledge/` ve `daily/` geçmiş logları
 
 3. **Karşı Kanıtları ve Çelişkileri Çıkar:**

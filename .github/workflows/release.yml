@@ -67,7 +67,11 @@ jobs:
           cp -r template runtime installer setup.py setup.command README.md dist_mac/RespectedBrain/
           chmod +x dist_mac/RespectedBrain/setup.command
           # Add root double-click launcher
-          cp setup.command dist_mac/Kurulumu-Baslat.command
+          cat > dist_mac/Kurulumu-Baslat.command <<'LAUNCHER'
+          #!/usr/bin/env bash
+          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+          exec /bin/bash "${SCRIPT_DIR}/RespectedBrain/setup.command" "$@"
+          LAUNCHER
           chmod +x dist_mac/Kurulumu-Baslat.command
 
       - name: Create Native macOS DMG with Version

@@ -1,73 +1,17 @@
-# Respected Brain Güncelleme Kılavuzu (Update Guide)
+# Güncelleme ve migration
 
-Bu kılavuz, mevcut bir ikinci beyin kasanızı en güncel kararlı sürüme (`v0.0.1`) yükseltmek için 3 farklı yolu sunar.
+`respectedbrain update --package "<yeni dağıtım>"` doğrulanmış native paketle programı günceller; kasa kimliği ve tercihleri korur. Windows'ta pending sonuç son makbuz beklenmeden tamamlandı sayılmaz.
 
-> [!IMPORTANT]
-> **Notlarınız Kutsaldır ve Kesinlikle Korunur:**
-> Güncelleme işlemi yalnızca motor dosyalarını, hook adaptörlerini, ortak skill'leri ve şablonları yeniler.
-> Kişisel kimlik dosyalarınıza (`🔮 850-Companion/Core.md`, `Journal.md`, `Threads.md`, `Last-Session.md`) ve aldığınız hiçbir kişisel nota asla dokunulmaz.
-> Güncelleme öncesinde kasanızın bir yedeği sisteminizde (`~/.respected/update-backups/`) otomatik olarak saklanır.
+Eski düzen için salt okunur plan:
 
----
-
-## Farklı Yollardan Güncelleme
-
-### 1. Yol: Windows Tek Tıkla Güncelleme (`setup.exe` — En Kolay)
-
-Windows kullanıyorsanız doğrudan **`setup.exe`** dosyasını çalıştırın:
-1. Kurulum programı mevcut kasanızı otomatik olarak tanır.
-2. *"Yeni sürüme doğrudan HIZLI GÜNCELLEME yapmak istiyor musunuz?"* sorusuna **Evet** demeniz yeterlidir.
-3. Kasanız saniyeler içinde güncellenir ve Kontrol Paneli açılır. Notlarınıza asla dokunulmaz.
-
----
-
-### 2. Yol: AI-Native Güncelleme
-AI asistanınıza (Claude Code, Antigravity, Cursor veya Codex) doğrudan şu talimatı verin:
-
-> *"Kasamı en son kararlı Respected Brain sürümüne güncelle."*
-
-Asistanınız arka planda `update.py` veya `scripts/update_respected.py` üzerinden önizleme yapacak ve onayınızla kasanızı güvenle güncelleyecektir.
-
----
-
-### 2. Yol: Evrensel Terminal Güncellemesi
-
-Doğrudan terminalinizden tek komutla güncelleyin:
-
-```bash
-python setup.py --update
+```text
+respectedbrain migrate --legacy-root "<eski kök>" --vault "<mevcut kasa>"
 ```
 
-*Özel kasa yolu belirtmek isterseniz:*
-```bash
-python setup.py --update --vault-path ~/Documents/RespectedOS
-```
+Plan kaynak/hedef/hash/sahiplik ve korunacak dosyaları gösterir; config/state/log/backup oluşturmaz. Conflict varsa geçiş yapılmaz. İsim veya .py uzantısı sahiplik kanıtı değildir.
 
----
+Doğrulanmış plan/paketle `migrate ... --package "<yeni dağıtım>" --apply` değişiklik yapar. Hash'ler kilit alındıktan sonra tekrar doğrulanır. Kişisel overrides, notlar, .obsidian ve Templates korunur. Eski uninstaller çalıştırılmaz.
 
-### 3. Yol: CLI Terminal Sihirbazı (Geliştiriciler İçin)
+DataRoot/backups/<işlem>/ journal ve byte yedekleri değişiklikleri izler. Hata otomatik geri alır. Yarım işlemler `respectedbrain recover` ile hash kontrolü üzerinden kurtarılır; sonradan değişmiş kullanıcı dosyası zorla geri çevrilmez. `repair` sahipli program/bağlantı alanlarını onarır.
 
-Depo kök dizinindeyseniz etkileşimli güncelleme sihirbazını başlatın:
-
-```bash
-# Etkileşimli sihirbaz (kasa yolunu sorar ve önizleme gösterir):
-python update.py
-
-# Doğrudan uygulamak için:
-python update.py --vault-path "/kasa/yolu" --apply
-```
-
-Windows'ta:
-```powershell
-py -3 update.py --platform windows-native
-```
-
----
-
-## Güncelleme Sonrası Sağlık Kontrolü
-
-Güncelleme tamamlandıktan sonra kullandığınız AI asistanınızda şu komutu vererek kasayı doğrulayın:
-
-> *"beyin doktor"*
-
-Tüm kancaların, hafıza dosyalarının ve şablonların yeşil yandığını göreceksiniz.
+Eski kökle yeni AppRoot aynı seçilmez. Aktif yazıcılar tamamlandıktan sonra kilit alınır; kilit conflict'i zorla aşılmaz.

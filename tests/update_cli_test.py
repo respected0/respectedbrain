@@ -1,68 +1,29 @@
-"""Tests for Respected Brain Update CLI wrapper (update.py)."""
-
-from __future__ import annotations
-
+"""Update source wrapper preserves the canonical package CLI contract."""
 from pathlib import Path
-import shutil
-import tempfile
-from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
-import sys
+from unittest import mock
+from respectedbrain.installation.transaction import OperationResult
+from tests.runtime_layout_test import load, ROOT
+from tests.foundation_integrations_test import IntegrationFixture
 
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-if str(ROOT / "installer") not in sys.path:
-    sys.path.insert(0, str(ROOT / "installer"))
+class TestUpdateCli(IntegrationFixture,unittest.TestCase):
+    def test_update_requires_explicit_verified_package_without_vault_discovery(self):
+        with mock.patch("respectedbrain.cli._dispatch",side_effect=AssertionError("mutation")):
+            self.assertEqual(load(ROOT / "installer/update.py").main(["--vault-id",self.ctx.paths.vault_id]),2)
 
-import update
+    def test_update_main_dispatches_selected_uuid_and_package_once(self):
+        from respectedbrain import cli
+        backend=mock.Mock()
+        with mock.patch.object(cli,"bootstrap",return_value=self.ctx),mock.patch("respectedbrain.integrations.backend.NativeBackend",return_value=backend),mock.patch("respectedbrain.installation.deferred.defer_operation",return_value=None),mock.patch("respectedbrain.installation.update.update",return_value=OperationResult(True,"test",())) as update:
+            code=load(ROOT / "installer/update.py").main(["--vault-id",self.ctx.paths.vault_id,"--package",str(self.root / "package")])
+        self.assertEqual(code,0)
+        update.assert_called_once_with(self.ctx,package=(self.root / "package").resolve(),backend=backend)
 
+    def test_update_failure_exit_status_is_not_rewritten_to_success(self):
+        from respectedbrain import cli
+        with mock.patch.object(cli,"bootstrap",return_value=self.ctx),mock.patch("respectedbrain.integrations.backend.NativeBackend"),mock.patch("respectedbrain.installation.deferred.defer_operation",return_value=None),mock.patch("respectedbrain.installation.update.update",return_value=OperationResult(False,"test",("failure",))):
+            code=load(ROOT / "installer/update.py").main(["--vault-id",self.ctx.paths.vault_id,"--package",str(self.root / "package")])
+        self.assertEqual(code,1)
 
-class TestUpdateCli(unittest.TestCase):
-    def setUp(self):
-        self.tmp_dir = Path(tempfile.mkdtemp(prefix="respected-update-cli-test-"))
-        self.fake_vault = self.tmp_dir / "RespectedOS"
-        self.fake_vault.mkdir(parents=True, exist_ok=True)
-        (self.fake_vault / ".respectedbrain-version").write_text("0.0.1\n", encoding="utf-8")
-
-    def tearDown(self):
-        shutil.rmtree(self.tmp_dir, ignore_errors=True)
-
-    def test_detect_default_vault_finds_vault(self):
-        with patch("pathlib.Path.home", return_value=self.tmp_dir):
-            detected = update._detect_default_vault()
-            self.assertEqual(detected, self.fake_vault)
-
-    @patch("subprocess.run")
-    def test_update_main_runs_preview_and_apply(self, mock_run):
-        mock_run.return_value.returncode = 0
-
-        exit_code = update.main([
-            "--vault-path", str(self.fake_vault),
-            "--apply",
-            "--platform", "portable",
-        ])
-
-        self.assertEqual(exit_code, 0)
-        self.assertEqual(mock_run.call_count, 2)  # preview + apply
-
-    @patch("subprocess.run")
-    def test_already_current_apply_is_successful_noop(self, mock_run):
-        mock_run.side_effect = [
-            SimpleNamespace(returncode=0),
-            SimpleNamespace(returncode=3),
-        ]
-
-        exit_code = update.main([
-            "--vault-path", str(self.fake_vault),
-            "--apply",
-            "--platform", "portable",
-        ])
-
-        self.assertEqual(exit_code, 0)
-        self.assertEqual(mock_run.call_count, 2)
-
-
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
+if __name__=="__main__":
+    unittest.main()

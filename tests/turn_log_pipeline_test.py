@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 import datetime as dt
-import importlib.util
 import json
 import os
 import subprocess
@@ -17,28 +16,11 @@ import unittest
 from unittest import mock
 
 
-ROOT = Path(__file__).resolve().parents[1]
-BEYIN = ROOT / "runtime" if (ROOT / "runtime").is_dir() else ROOT / "template/.beyin"
-if str(BEYIN) not in sys.path:
-    sys.path.insert(0, str(BEYIN))
-if str(BEYIN / "hooks") not in sys.path:
-    sys.path.insert(0, str(BEYIN / "hooks"))
-
-
-def load(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load {path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 from respectedbrain.memory import flush as FLUSH
 from tests.foundation_memory_test import FakeModel, make_context
 from respectedbrain.memory import lifecycle as LIFECYCLE
-CODEX_NOTIFY = load("turn_pipeline_codex_notify", BEYIN / "hooks/codex_notify.py")
+from respectedbrain.integrations.hooks import codex_notify as CODEX_NOTIFY
+from respectedbrain.integrations.hooks import bridge as BRIDGE
 
 
 class TurnLogPipelineTest(unittest.TestCase):
@@ -113,10 +95,10 @@ class TurnLogPipelineTest(unittest.TestCase):
 import datetime as dt, importlib.util, pathlib, sys
 from respectedbrain.memory import flush as module
 module._upsert_daily_session(
-    pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3]),
-    '## Baglam\\nProcess ' + sys.argv[4], 'turn',
+    pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]),
+    '## Baglam\\nProcess ' + sys.argv[3], 'turn',
     dt.datetime(2026, 9, 14, 12, 0, tzinfo=dt.timezone.utc),
-    'process-' + sys.argv[4], 'codex')
+    'process-' + sys.argv[3], 'codex')
 """
 
         def run(index: int) -> subprocess.CompletedProcess[str]:
@@ -125,7 +107,6 @@ module._upsert_daily_session(
                     sys.executable,
                     "-c",
                     worker,
-                    str(BEYIN / "engine/flush.py"),
                     str(self.vault),
                     str(self.state),
                     str(index),
@@ -200,36 +181,27 @@ module._upsert_daily_session(
         self.assertEqual(launch.call_args.kwargs["reason"], "turn")
 
     def test_codex_notify_creates_hook_input_and_launches_detached_flush(self):
-        hook_dir = self.vault / ".beyin/hooks"
-        engine = self.vault / ".beyin/engine"
-        hook_dir.mkdir(parents=True)
-        engine.mkdir(parents=True, exist_ok=True)
         transcript = self.vault / "codex-session.jsonl"
         transcript.write_text('{}\n', encoding="utf-8")
-        (engine / "flush.py").write_text("# test worker\n", encoding="utf-8")
-        fake_bridge = types.SimpleNamespace(
-            resolve_codex_transcript=lambda _session_id: str(transcript)
-        )
-
+        payload = '{"type":"agent-turn-complete","thread-id":"thread-123","cwd":"C:/work"}'
         with (
-            mock.patch.object(CODEX_NOTIFY, "__file__", str(hook_dir / "codex_notify.py")),
             mock.patch.object(CODEX_NOTIFY, "_forward_chained"),
-            mock.patch.object(CODEX_NOTIFY.sys, "argv", [
-                "codex_notify.py",
-                '{"type":"agent-turn-complete","thread-id":"thread-123","cwd":"C:/work"}',
-            ]),
-            mock.patch.dict(sys.modules, {"bridge": fake_bridge}),
-            mock.patch.object(CODEX_NOTIFY.subprocess, "Popen") as popen,
+            mock.patch.object(BRIDGE, "resolve_codex_transcript", return_value=str(transcript)),
+            mock.patch.object(LIFECYCLE.subprocess, "Popen") as popen,
         ):
-            result = CODEX_NOTIFY.main()
+            result = CODEX_NOTIFY.dispatch(self.ctx, argv=[payload], stdin="")
 
-        self.assertEqual(result, 0)
-        hook_inputs = list((engine / ".state").glob("hookin-*.json"))
+        self.assertEqual(result, "")
+        hook_inputs = list(self.state.glob("hookin-*.json"))
         self.assertEqual(len(hook_inputs), 1)
         self.assertIn('"session_id": "thread-123"', hook_inputs[0].read_text(encoding="utf-8"))
         popen.assert_called_once()
-        self.assertIn("--hook-input", popen.call_args.args[0])
-        self.assertEqual(popen.call_args.args[0][-2:], ["--reason", "turn"])
+        command = popen.call_args.args[0]
+        self.assertIn("--hook-input", command)
+        self.assertIn("--vault-id", command)
+        self.assertIn(self.ctx.paths.vault_id, command)
+        self.assertEqual(command[-2:], ["--reason", "turn"])
+        self.assertFalse((self.vault / ".beyin").exists())
 
     def test_codex_notify_forwards_exact_persisted_chain_command(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -1,47 +1,21 @@
-#!/usr/bin/env python3
-"""Tests for Respected Brain Auto-Updater."""
-
-from __future__ import annotations
-
-import json
+"""Retired updater forwards verified-package update through the public CLI."""
 from pathlib import Path
-import tempfile
 import unittest
-
-import sys
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS_DIR = (REPO_ROOT / "runtime" / "scripts") if (REPO_ROOT / "runtime" / "scripts").is_dir() else (REPO_ROOT / "scripts")
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
-
-from auto_updater import get_installed_version, verify_vault_integrity
-
+from unittest import mock
+from tests.runtime_layout_test import load, ROOT
 
 class AutoUpdaterTest(unittest.TestCase):
-    def setUp(self) -> None:
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.vault = Path(self.temp_dir.name)
+    def test_explicit_verified_package_update_preserves_exit_status(self):
+        updater = load(ROOT / "runtime/scripts/auto_updater.py")
+        arguments = ["--vault-id", "93e9e921-3334-4a6a-a381-1d4c42a9d405", "--package", "/explicit/package"]
+        with mock.patch("respectedbrain.cli.main", return_value=6) as dispatch:
+            self.assertEqual(updater.main(arguments), 6)
+        dispatch.assert_called_once_with(["update", *arguments])
 
-    def tearDown(self) -> None:
-        self.temp_dir.cleanup()
-
-    def test_get_installed_version(self) -> None:
-        self.assertEqual(get_installed_version(self.vault), "0.0.1")
-        (self.vault / ".respectedbrain-version").write_text("1.2.0\n", encoding="utf-8")
-        self.assertEqual(get_installed_version(self.vault), "1.2.0")
-
-    def test_verify_vault_integrity(self) -> None:
-        # Fails when missing companion dir
-        valid, msg = verify_vault_integrity(self.vault)
-        self.assertFalse(valid)
-        self.assertIn("🔮 850-Companion", msg)
-
-        # Passes when companion dir exists
-        (self.vault / "🔮 850-Companion").mkdir(parents=True)
-        valid, msg = verify_vault_integrity(self.vault)
-        self.assertTrue(valid)
-
+    def test_old_force_check_options_are_not_silently_applied(self):
+        updater = load(ROOT / "runtime/scripts/auto_updater.py")
+        with mock.patch("respectedbrain.cli._dispatch", side_effect=AssertionError("write")):
+            self.assertEqual(updater.main(["--force", "--check"]), 2)
 
 if __name__ == "__main__":
     unittest.main()

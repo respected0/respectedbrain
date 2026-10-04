@@ -1,8 +1,5 @@
-#!/usr/bin/env python3
-"""Transactional update tests for stamped Respected Brain vaults."""
-
-from __future__ import annotations
-
+"""Legacy update scenarios now exercise the hash-proved package migration service."""
+from dataclasses import replace
 import hashlib
 import json
 import os
@@ -13,412 +10,205 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
+from respectedbrain.core.config import ConfigStore
+from respectedbrain.core.paths import Roots
+from respectedbrain.core.resources import ResourceCatalog
+from respectedbrain.installation.migration import plan_migration,apply_migration,plan_document
+from respectedbrain.integrations.backend import IntegrationProfile
+from tests.foundation_install_support import seed_package
+from tests.foundation_migration_apply_test import Backend
+from tests.foundation_migration_preview_test import seed_legacy,ALL_FALSE,UUID_TEXT
+from tests.foundation_support import snapshot,note_hashes,write_json
 
-ROOT = Path(__file__).resolve().parents[1]
-UPDATER = (ROOT / "runtime" / "scripts" / "update_respected.py") if (ROOT / "runtime" / "scripts" / "update_respected.py").is_file() else (ROOT / "scripts" / "update_respected.py")
+ROOT=Path(__file__).resolve().parents[1]
 
-
-def tree_digest(root: Path) -> str:
-    digest = hashlib.sha256()
-    for current, directories, files in os.walk(root, topdown=True, followlinks=False):
-        directories[:] = sorted(name for name in directories if name != ".git")
-        for name in [*directories, *sorted(files)]:
-            path = Path(current) / name
-            relative = path.relative_to(root).as_posix()
-            metadata = path.lstat()
-            digest.update(relative.encode("utf-8"))
-            digest.update(b"\0")
-            digest.update(str(stat.S_IMODE(metadata.st_mode)).encode("ascii"))
-            digest.update(b"\0")
-            if stat.S_ISLNK(metadata.st_mode):
-                digest.update(os.readlink(path).encode("utf-8"))
-            elif stat.S_ISREG(metadata.st_mode):
-                digest.update(path.read_bytes())
-            digest.update(b"\0")
-    return digest.hexdigest()
-
+def tree_digest(root):
+    return hashlib.sha256(json.dumps(snapshot(root),sort_keys=True).encode()).hexdigest()
 
 class UpdateRespectedTest(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="respected-update-")
-        self.home = Path(self.temporary.name) / "home"
-        self.transaction_root = Path(self.temporary.name) / "transactions"
-        self.home.mkdir()
-        self.transaction_root.mkdir()
-        self.vault = Path(self.temporary.name) / "Ada Brain"
-        shutil.copytree(ROOT / "template", self.vault)
-        (self.vault / "scripts").mkdir(parents=True, exist_ok=True)
-        scripts_src = (ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts")
-        for p in scripts_src.glob("*.py"):
-            shutil.copy2(p, self.vault / "scripts" / p.name)
-        if (ROOT / "runtime").is_dir() and not (self.vault / ".beyin").is_dir():
-            shutil.copytree(ROOT / "runtime", self.vault / ".beyin")
-        (self.vault / ".respectedbrain-version").unlink(missing_ok=True)
-        (self.vault / ".beyin-version").write_text("2.0.0\n", encoding="utf-8")
-        (self.vault / ".beyin-multi-version").write_text("1.1.0\n", encoding="utf-8")
-        self.instructions = "# Ada Brain\n\nKişisel ve kalıcı talimat.\n"
-        (self.vault / ".beyin/instructions.md").write_text(self.instructions, encoding="utf-8")
-        config = json.loads((self.vault / ".beyin/config.json").read_text(encoding="utf-8"))
-        config["summary_provider"] = "cursor"
-        config["personal_setting"] = {"keep": True}
-        (self.vault / ".beyin/config.json").write_text(
-            json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
-        self.old_bridge = b"# old managed bridge\n"
-        (self.vault / ".beyin/hooks/bridge.py").write_bytes(self.old_bridge)
-        (self.vault / ".beyin/map_builder.py").unlink()
-        (self.vault / ".beyin/morning_briefing.py").unlink()
-        self.note = self.vault / "🧠 500-Knowledge" / "personal.md"
-        self.note.parent.mkdir(exist_ok=True)
-        self.note.write_bytes(b"personal note must survive\n")
-        self.human_files = {
-            "🔮 850-Companion/Core.md": b"# Furkan\n\nidentity\n",
-            "🔮 850-Companion/Journal.md": b"# Journal\n\nprivate memory\n",
-            "🔮 850-Companion/Threads.md": b"# Threads\n\n- ongoing\n",
-            "daily/2026-09-01.md": b"# Yesterday\n\ncompleted item\n",
-            "🏰 300-Projects/Ada/project.md": b"# Ada\n\nuser project\n",
-        }
-        for relative, content in self.human_files.items():
-            path = self.vault / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(content)
-
-        self.legacy_update = self.vault / "scripts/update_respot.py"
-        self.legacy_manifest = self.vault / "scripts/respot_manifest.py"
-        self.legacy_update.write_text(
-            '#!/usr/bin/env python3\n"""Respot Brain managed updater."""\n'
-            "import argparse\n"
-            "from respot_manifest import MULTI_VERSION\n"
-            "class UpdateError(RuntimeError):\n    pass\n"
-            "def update(vault, requested_profile, apply):\n    return 0\n"
-            "# supports --apply\n",
-            encoding="utf-8",
-        )
-        self.legacy_manifest.write_text(
-            '"""Version manifest shared by Respot migration tools."""\n'
-            'CORE_VERSION = "2.0.0"\nMULTI_VERSION = "1.2.0"\n'
-            "GENERATED = ()\nRUNTIME = ()\nSKILL_DESTINATIONS = ()\n",
-            encoding="utf-8",
-        )
-        self.similarly_named_user_file = self.vault / "🏰 300-Projects/Ada/update_respot.py"
-        self.similarly_named_user_file.write_bytes(b"user-owned helper\n")
-
-    def tearDown(self):
-        self.temporary.cleanup()
-
-    def run_update(self, *arguments: str, env: dict[str, str] | None = None):
-        environment = os.environ.copy()
-        environment.update(
-            {
-                "HOME": str(self.home),
-                "USERPROFILE": str(self.home),
-                "TMPDIR": str(self.transaction_root),
-                "TMP": str(self.transaction_root),
-                "TEMP": str(self.transaction_root),
-                "PYTHONUTF8": "1",
-                "PYTHONIOENCODING": "utf-8",
-            }
-        )
-        if env:
-            environment.update(env)
-        return subprocess.run(
-            [sys.executable, str(UPDATER), str(self.vault), *arguments],
-            cwd=ROOT,
-            env=environment,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            capture_output=True,
-            check=False,
-        )
-
-    def backup_directories(self) -> list[Path]:
-        root = self.home / ".respected" / "update-backups"
-        return sorted(root.glob("*/*")) if root.exists() else []
-
-    def transaction_directories(self) -> list[Path]:
-        return sorted(self.transaction_root.glob("respected-update-*"))
-
+        self.temporary=tempfile.TemporaryDirectory(prefix="respected-update-")
+        self.addCleanup(self.temporary.cleanup)
+        self.root=Path(self.temporary.name)
+        self.vault=self.root / "Ada Brain"
+        with ResourceCatalog().materialize("vault-template") as template:
+            shutil.copytree(template,self.vault)
+        self.legacy=self.vault / ".beyin"
+        seed_legacy(self.legacy,layout="flat")
+        self.roots=Roots(self.root / "app",self.root / "data",self.vault)
+        self.package=seed_package(self.root / "package")
+        self.backend=Backend()
+        self.profile=IntegrationProfile("windows-native",(str(self.roots.app_root / "respectedbrain.exe"),),self.root / "home")
+        write_json(self.vault / ".respected.json",{"schema_version":2,"vault_id":UUID_TEXT,"runtime_dir":str(self.legacy),"custom":9})
+        write_json(self.legacy / "config.json",{"summary_provider":"cursor","provider_priority":["cursor"],"provider_fallback":False,"personal_setting":{"keep":True},"integrations":ALL_FALSE})
+        self.instructions=b"# Ada Brain\nPersonal instructions.\n"
+        (self.legacy / "instructions.md").write_bytes(self.instructions)
+        self.note=self.vault / "🧠 500-Knowledge/personal.md"
+        self.note.write_bytes(b"personal notebook")
+        self.legacy_update=self.vault / "scripts/update_legacy.py"
+        self.legacy_update.parent.mkdir()
+        self.legacy_update.write_bytes(b"unknown legacy updater")
+        self.user_file=self.vault / "🏰 300-Projects/Ada/update_legacy.py"
+        self.user_file.parent.mkdir()
+        self.user_file.write_bytes(b"user helper")
+        self.health=patch("respectedbrain.installation.payload.validate_installed_health",return_value=None)
+        self.health.start()
+        self.addCleanup(self.health.stop)
+    def plan(self):
+        return plan_migration(self.legacy,self.vault,roots=self.roots,backend=self.backend,profile=self.profile)
+    def apply(self,plan=None,**kwargs):
+        return apply_migration(plan or self.plan(),roots=self.roots,package=self.package,backend=self.backend,**kwargs)
+    def backups(self):
+        return sorted((self.roots.data_root / "backups").glob("tx-*"))
     def test_preview_is_read_only(self):
-        before = tree_digest(self.vault)
-
-        result = self.run_update()
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(tree_digest(self.vault), before)
-        self.assertIn("ÖNİZLEME", result.stdout)
-        self.assertEqual(self.backup_directories(), [])
-        self.assertEqual(self.transaction_directories(), [])
-
-    def test_failed_gate_rolls_back_managed_files_and_keeps_old_stamp(self):
-        before = tree_digest(self.vault)
-
-        result = self.run_update("--apply", env={"RESPECTED_TEST_FAIL_GATE": "render"})
-
-        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(tree_digest(self.vault), before)
-        backups = self.backup_directories()
-        self.assertEqual(len(backups), 1)
-        self.assertEqual((backups[0] / ".beyin/hooks/bridge.py").read_bytes(), self.old_bridge)
-        manifest = json.loads(
-            (backups[0] / "respected-update-manifest.json").read_text(encoding="utf-8")
-        )
-        self.assertIn("scripts/update_respot.py", manifest["legacy_removals"])
-        self.assertIn(".beyin/config.json", manifest["targets"])
-        self.assertEqual(self.transaction_directories(), [])
-
-    def test_apply_preserves_personal_data_and_stamps_only_after_gates(self):
-        instruction_before = (self.vault / ".beyin/instructions.md").read_bytes()
-        note_before = self.note.read_bytes()
-
-        result = self.run_update("--apply")
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((self.vault / ".respectedbrain-version").read_text().strip(), "0.0.1")
-        self.assertFalse((self.vault / ".beyin-version").exists())
-        self.assertFalse((self.vault / ".beyin-multi-version").exists())
-        self.assertEqual((self.vault / ".beyin/instructions.md").read_bytes(), instruction_before)
-        self.assertEqual(self.note.read_bytes(), note_before)
-        config = json.loads((self.vault / ".beyin/config.json").read_text(encoding="utf-8"))
-        self.assertEqual(config["summary_provider"], "cursor")
-        self.assertEqual(config["personal_setting"], {"keep": True})
-        self.assertEqual(config["platform"], "portable")
-        self.assertTrue((self.vault / ".beyin/runtime_platform.py").is_file())
-        self.assertTrue((self.vault / ".beyin/hooks/lifecycle.py").is_file())
-        self.assertTrue((self.vault / ".beyin/map_builder.py").is_file())
-        self.assertTrue((self.vault / ".beyin/morning_briefing.py").is_file())
-        self.assertTrue((self.vault / "scripts/install_briefing_schedule.py").is_file())
-        self.assertTrue((self.vault / "scripts/update_respected.py").is_file())
-        self.assertTrue((self.vault / "scripts/respected_manifest.py").is_file())
-        self.assertTrue((self.vault / "scripts/repair_daily.py").is_file())
-        self.assertFalse(self.legacy_update.exists())
-        self.assertFalse(self.legacy_manifest.exists())
-        self.assertEqual(self.similarly_named_user_file.read_bytes(), b"user-owned helper\n")
-        self.assertIn(self.instructions, (self.vault / "AGENTS.md").read_text(encoding="utf-8"))
-        for relative, content in self.human_files.items():
-            self.assertEqual((self.vault / relative).read_bytes(), content)
-        backups = self.backup_directories()
-        self.assertEqual(len(backups), 1)
-        self.assertEqual((backups[0] / ".beyin/hooks/bridge.py").read_bytes(), self.old_bridge)
-        self.assertEqual(self.transaction_directories(), [])
-        self.assertIn("Güncelleme sonrası dış bağlantılar", result.stdout)
-        self.assertIn("install_global.py", result.stdout)
-        self.assertIn("install_briefing_schedule.py", result.stdout)
-        self.assertIn("Ayarlar > Hooks", result.stdout)
-        self.assertIn("/hooks", result.stdout)
-
-    def test_unknown_exact_legacy_file_fails_closed_without_mutation(self):
-        self.legacy_update.write_bytes(b"user-owned file at an old managed path\n")
-        before = tree_digest(self.vault)
-
-        result = self.run_update("--apply")
-
-        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(tree_digest(self.vault), before)
-        self.assertIn("sahipliği doğrulanamadı", result.stdout + result.stderr)
-        self.assertEqual(self.backup_directories(), [])
-        self.assertEqual(self.transaction_directories(), [])
-
-    @unittest.skipIf(os.name == "nt", "POSIX symlink semantics")
-    def test_managed_symlink_is_rejected_without_mutation(self):
-        bridge = self.vault / ".beyin/hooks/bridge.py"
-        bridge.unlink()
-        bridge.symlink_to(self.note)
-        before = tree_digest(self.vault)
-
-        result = self.run_update("--apply")
-
-        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(tree_digest(self.vault), before)
-        self.assertIn("sembolik bağlantı", result.stdout + result.stderr)
-        self.assertEqual(self.backup_directories(), [])
-
+        before=snapshot(self.root)
+        plan=self.plan()
+        self.assertEqual(plan.conflicts,())
+        self.assertEqual(snapshot(self.root),before)
+        self.assertEqual(self.backups(),[])
+        self.assertTrue(plan_document(plan)["entries"])
+    def test_failed_gate_rolls_back_managed_files_and_keeps_old_marker(self):
+        before=snapshot(self.vault)
+        def fault(phase):
+            if phase=="health": raise OSError("health gate failed")
+        result=self.apply(fault=fault)
+        self.assertFalse(result.success)
+        self.assertEqual(snapshot(self.vault),before)
+        self.assertEqual(len(self.backups()),1)
+        journal=json.loads((self.backups()[0] / "journal.json").read_text())
+        self.assertEqual(journal["status"],"rolled-back")
+        self.assertTrue(any(row["path"]==str(self.legacy / "model_runner.py") and row["backup"] for row in journal["files"]))
+    def test_apply_preserves_personal_data_and_activates_only_after_gates(self):
+        before=note_hashes(self.vault)
+        plan=self.plan()
+        result=self.apply(plan)
+        self.assertTrue(result.success,result.conflicts)
+        self.assertEqual(note_hashes(self.vault),before)
+        self.assertEqual((self.legacy / "instructions.md").read_bytes(),self.instructions)
+        self.assertEqual((self.roots.data_root / "vaults" / plan.vault_id / "overrides/instructions/default.md").read_bytes(),self.instructions)
+        preferences=ConfigStore(self.roots.data_root).read()["preferences"]
+        self.assertEqual(preferences["summary_provider"],"cursor")
+        self.assertEqual(preferences["personal_setting"],{"keep":True})
+        self.assertFalse((self.vault / "scripts/respectedbrain.py").exists())
+        self.assertEqual(self.legacy_update.read_bytes(),b"unknown legacy updater")
+        self.assertEqual(self.user_file.read_bytes(),b"user helper")
+        self.assertEqual(json.loads((self.roots.app_root / "distribution.json").read_text())["schema_version"],3)
+    def test_unknown_exact_legacy_file_is_retained_without_filename_ownership(self):
+        target=self.legacy / "model_runner.py"
+        target.write_bytes(b"user owned replacement")
+        self.assertEqual(next(row for row in self.plan().entries if row.source==target).action,"retain-user")
+        result=self.apply()
+        self.assertTrue(result.success,result.conflicts)
+        self.assertEqual(target.read_bytes(),b"user owned replacement")
+    def test_managed_link_is_rejected_without_mutation(self):
+        target=self.legacy / "model_runner.py"
+        linked=self.legacy / "linked.py"
+        os.link(target,linked)
+        before=snapshot(self.root)
+        plan=self.plan()
+        self.assertTrue(plan.conflicts)
+        self.assertFalse(self.apply(plan).success)
+        self.assertEqual(snapshot(self.root),before)
     def test_backup_and_staging_are_outside_the_vault(self):
-        result = self.run_update("--apply")
+        result=self.apply()
+        self.assertTrue(result.success,result.conflicts)
+        for directory in self.backups():
+            self.assertFalse(directory.is_relative_to(self.vault))
+            journal=json.loads((directory / "journal.json").read_text())
+            stages=[Path(row["path"]) for row in journal["files"] if "/stage/" in row["path"].replace("\\","/")]
+            self.assertTrue(stages)
+            self.assertTrue(all(not path.is_relative_to(self.vault) for path in stages))
+    def test_vault_contained_data_root_is_rejected(self):
+        plan=self.plan()
+        before=snapshot(self.root)
+        from respectedbrain.core.errors import SelectionError
+        with self.assertRaises(SelectionError):
+            Roots(self.roots.app_root,self.vault / "unsafe-data",self.vault)
+        self.assertEqual(snapshot(self.root),before)
+    def test_root_target_is_rejected_before_any_scan_or_write(self):
+        plan=self.plan()
+        config=json.loads(json.dumps(plan.config))
+        config["vaults"][plan.vault_id]["path"]=self.vault.anchor
+        before=snapshot(self.root)
+        result=self.apply(replace(plan,config=config))
+        self.assertFalse(result.success)
+        self.assertEqual(snapshot(self.root),before)
+    def test_already_current_plan_is_successful_without_session_mutation(self):
+        plan=self.plan()
+        self.assertTrue(self.apply(plan).success)
+        before=snapshot(self.roots.data_root / "vaults")
+        self.assertTrue(self.apply(plan).success)
+        self.assertEqual(snapshot(self.roots.data_root / "vaults"),before)
+    def test_preview_output_survives_cp1252_console(self):
+        # Fake backend prevents live HKCU/config reads in the child CLI.
+        code="""import sys
+from unittest.mock import patch
+from tests.foundation_migration_apply_test import Backend
+from respectedbrain.cli import main
+with patch('respectedbrain.integrations.backend.NativeBackend',return_value=Backend()):
+ raise SystemExit(main(sys.argv[1:]))
+"""
+        env={**os.environ,"RESPECTED_APP_DIR":str(self.roots.app_root),"RESPECTED_DATA_DIR":str(self.roots.data_root),"PYTHONIOENCODING":"cp1252"}
+        result=subprocess.run([sys.executable,"-c",code,"migrate","--legacy-root",str(self.legacy),"--vault",str(self.vault),"--platform","windows-native"],env=env,capture_output=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn(b"vault_id",result.stdout)
+    def test_legacy_vault_receives_package_without_new_engine_copies(self):
+        before=note_hashes(self.vault)
+        self.assertTrue(self.apply().success)
+        self.assertTrue((self.roots.app_root / "respectedbrain.exe").is_file())
+        self.assertFalse((self.legacy / "engine/flush.py").exists())
+        self.assertEqual(note_hashes(self.vault),before)
+    def test_current_vault_can_preview_and_apply_a_new_plan(self):
+        self.assertTrue(self.apply().success)
+        before=note_hashes(self.vault)
+        self.assertTrue(self.apply().success)
+        self.assertEqual(note_hashes(self.vault),before)
+    def test_unstamped_vault_gets_plan_only_uuid_before_explicit_apply(self):
+        marker=self.vault / ".respected.json"
+        marker.unlink()
+        before=snapshot(self.root)
+        plan=self.plan()
+        self.assertEqual(plan.conflicts,())
+        self.assertEqual(snapshot(self.root),before)
+        self.assertFalse(marker.exists())
+        self.assertTrue(self.apply(plan).success)
+        self.assertEqual(json.loads(marker.read_text())["vault_id"],plan.vault_id)
+    def test_legacy_claude_scripts_migrate_only_with_hash_proof_and_preserve_user_code(self):
+        scripts=self.vault / ".claude/scripts"
+        scripts.mkdir(parents=True)
+        managed=scripts / "flush.py"
+        managed.write_bytes(b"old proven engine")
+        user=scripts / "user_tool.py"
+        user.write_bytes(b"custom tool")
+        write_json(self.vault / "install-manifest.json",{"schema_version":3,"files":[{"path":str(managed),"sha256":hashlib.sha256(managed.read_bytes()).hexdigest(),"role":"application"}],"external":[]})
+        self.assertTrue(self.apply().success)
+        self.assertFalse(managed.exists())
+        self.assertEqual(user.read_bytes(),b"custom tool")
+        self.assertFalse((self.legacy / "engine/flush.py").exists())
+    def test_legacy_claude_state_moves_to_uuid_state_without_deleting_source(self):
+        state=self.vault / ".claude/scripts/.state/dummy.json"
+        state.parent.mkdir(parents=True)
+        state.write_bytes(b'{"session":"keep"}')
+        plan=self.plan()
+        self.assertTrue(self.apply(plan).success)
+        destination=self.roots.data_root / "vaults" / plan.vault_id / "state/dummy.json"
+        self.assertEqual(destination.read_bytes(),state.read_bytes())
+        self.assertEqual(state.read_bytes(),b'{"session":"keep"}')
+        self.assertFalse((self.legacy / "engine/.state").is_file())
+    def test_changed_cleanup_source_survives_late_gate(self):
+        owned=self.legacy / "model_runner.py"
+        def fault(phase):
+            if phase=="cleanup": owned.write_bytes(b"user edited at cleanup")
+        result=self.apply(fault=fault)
+        self.assertFalse(result.success)
+        self.assertEqual(owned.read_bytes(),b"user edited at cleanup")
+    def test_unknown_version_stamps_are_not_deleted_by_name(self):
+        stamp=self.vault / ".beyin-version"
+        stamp.write_bytes(b"user-stamp")
+        self.assertTrue(self.apply().success)
+        self.assertEqual(stamp.read_bytes(),b"user-stamp")
 
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        backups = self.backup_directories()
-        self.assertEqual(len(backups), 1)
-        self.assertFalse(backups[0].is_relative_to(self.vault))
-        self.assertEqual(self.transaction_directories(), [])
-
-    def test_vault_contained_staging_and_backup_roots_are_rejected(self):
-        inside_temp = self.vault / ".transaction-temp"
-        inside_temp.mkdir()
-        before_staging = tree_digest(self.vault)
-
-        staging_result = self.run_update(
-            "--apply",
-            env={
-                "TMPDIR": str(inside_temp),
-                "TMP": str(inside_temp),
-                "TEMP": str(inside_temp),
-            },
-        )
-
-        self.assertNotEqual(staging_result.returncode, 0, staging_result.stdout + staging_result.stderr)
-        self.assertEqual(tree_digest(self.vault), before_staging)
-        self.assertIn("staging alanı vault dışında", staging_result.stdout + staging_result.stderr)
-
-        before_backup = tree_digest(self.vault)
-        backup_result = self.run_update(
-            "--apply",
-            env={
-                "HOME": str(self.vault),
-                "USERPROFILE": str(self.vault),
-            },
-        )
-
-        self.assertNotEqual(backup_result.returncode, 0, backup_result.stdout + backup_result.stderr)
-        self.assertEqual(tree_digest(self.vault), before_backup)
-        self.assertIn("yedeği vault dışında", backup_result.stdout + backup_result.stderr)
-
-    def test_root_target_is_rejected(self):
-        result = subprocess.run(
-            [sys.executable, str(UPDATER), Path(self.vault.anchor), "--apply"],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-
-        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("geçersiz vault yolu", result.stdout + result.stderr)
-
-    def test_already_current_vault_returns_three_without_mutation(self):
-        (self.vault / ".beyin-version").unlink(missing_ok=True)
-        (self.vault / ".beyin-multi-version").unlink(missing_ok=True)
-        (self.vault / ".respectedbrain-version").write_text("0.0.1\n", encoding="utf-8")
-        before = tree_digest(self.vault)
-
-        result = self.run_update("--apply")
-
-        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertEqual(tree_digest(self.vault), before)
-        self.assertEqual(self.backup_directories(), [])
-        self.assertEqual(self.transaction_directories(), [])
-        self.assertIn("Güncelleme sonrası dış bağlantılar", result.stdout)
-        self.assertIn("install_global.py", result.stdout)
-        self.assertIn("install_briefing_schedule.py", result.stdout)
-
-    def test_post_update_guidance_survives_a_cp1252_windows_console(self):
-        (self.vault / ".beyin-version").unlink(missing_ok=True)
-        (self.vault / ".beyin-multi-version").unlink(missing_ok=True)
-        (self.vault / ".respectedbrain-version").write_text("0.0.1\n", encoding="utf-8")
-        environment = os.environ.copy()
-        environment["HOME"] = str(self.home)
-        environment["USERPROFILE"] = str(self.home)
-        environment["PYTHONIOENCODING"] = "cp1252"
-
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(UPDATER),
-                str(self.vault),
-                "--platform",
-                "portable",
-                "--apply",
-            ],
-            cwd=ROOT,
-            env=environment,
-            capture_output=True,
-            check=False,
-        )
-
-        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertIn(b"install_global.py", result.stdout)
-
-    def test_legacy_vault_receives_the_release(self):
-        result = self.run_update("--apply")
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            (self.vault / ".respectedbrain-version").read_text().strip(),
-            "0.0.1",
-        )
-        self.assertFalse((self.vault / ".beyin-version").exists())
-        self.assertFalse((self.vault / ".beyin-multi-version").exists())
-        self.assertTrue((self.vault / ".cursor/rules/software-quality-1.mdc").is_file())
-        self.assertTrue((self.vault / ".cursor/rules/software-quality-2.mdc").is_file())
-        self.assertTrue((self.vault / ".agents/rules/software-quality-1.md").is_file())
-        self.assertTrue((self.vault / ".agents/rules/software-quality-2.md").is_file())
-        self.assertTrue((self.vault / "📋 Templates/Base.base").is_file())
-
-    def test_already_current_vault_with_force_applies_successfully(self):
-        (self.vault / ".beyin-version").unlink(missing_ok=True)
-        (self.vault / ".beyin-multi-version").unlink(missing_ok=True)
-        (self.vault / ".respectedbrain-version").write_text("0.0.1\n", encoding="utf-8")
-
-        result = self.run_update("--apply", "--force")
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            (self.vault / ".respectedbrain-version").read_text().strip(),
-            "0.0.1",
-        )
-
-    def test_unstamped_vault_is_rejected_without_mutation(self):
-        vault = Path(self.temporary.name) / "invalid-unstamped"
-        shutil.copytree(self.vault, vault)
-        (vault / ".respectedbrain-version").unlink(missing_ok=True)
-        (vault / ".beyin-version").unlink(missing_ok=True)
-        (vault / ".beyin-multi-version").unlink(missing_ok=True)
-        before = tree_digest(vault)
-
-        result = subprocess.run(
-            [sys.executable, str(UPDATER), str(vault), "--apply"],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-
-        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(tree_digest(vault), before)
-        self.assertIn("sürüm", (result.stdout + result.stderr).casefold())
-    def test_legacy_claude_scripts_migrated_and_user_custom_scripts_preserved(self):
-        claude_scripts = self.vault / ".claude" / "scripts"
-        claude_scripts.mkdir(parents=True, exist_ok=True)
-        legacy_flush = claude_scripts / "flush.py"
-        legacy_compile = claude_scripts / "compile.py"
-        user_script = claude_scripts / "user_tool.py"
-
-        legacy_flush.write_text("# BEYIN runtime_platform flush\n", encoding="utf-8")
-        legacy_compile.write_text("# BEYIN compile script\n", encoding="utf-8")
-        user_script.write_text("# my custom tool\nprint('hello')\n", encoding="utf-8")
-
-        result = self.run_update("--apply")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-
-        self.assertTrue((self.vault / ".beyin/engine/flush.py").is_file())
-        self.assertTrue((self.vault / ".beyin/engine/compile.py").is_file())
-        self.assertFalse(legacy_flush.exists())
-        self.assertFalse(legacy_compile.exists())
-        self.assertTrue(claude_scripts.is_dir())
-        self.assertTrue(user_script.is_file())
-        self.assertEqual(user_script.read_text(encoding="utf-8"), "# my custom tool\nprint('hello')\n")
-
-    def test_legacy_claude_scripts_cleanly_removed_when_no_user_files(self):
-        claude_scripts = self.vault / ".claude" / "scripts"
-        claude_scripts.mkdir(parents=True, exist_ok=True)
-        legacy_flush = claude_scripts / "flush.py"
-        legacy_compile = claude_scripts / "compile.py"
-        legacy_state = claude_scripts / ".state"
-        legacy_state.mkdir(parents=True, exist_ok=True)
-        (legacy_state / "dummy.json").write_text("{}", encoding="utf-8")
-
-        legacy_flush.write_text("# BEYIN runtime_platform flush\n", encoding="utf-8")
-        legacy_compile.write_text("# BEYIN compile script\n", encoding="utf-8")
-
-        result = self.run_update("--apply")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-
-        self.assertTrue((self.vault / ".beyin/engine/flush.py").is_file())
-        self.assertTrue((self.vault / ".beyin/engine/compile.py").is_file())
-        self.assertTrue((self.vault / ".beyin/engine/.state/dummy.json").is_file())
-        self.assertFalse(claude_scripts.exists())
-
-
-if __name__ == "__main__":
+if __name__=="__main__":
     unittest.main()

@@ -25,7 +25,6 @@ import uuid
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SOURCE_SCRIPTS = REPO_ROOT / "runtime" / "engine" if (REPO_ROOT / "runtime" / "engine").is_dir() else REPO_ROOT / "template" / ".beyin" / "engine"
 VALID_SUMMARY = """## Bağlam
 Kalıcı bağlam.
 ## Önemli Konuşmalar
@@ -38,16 +37,11 @@ Kalıcı bağlam.
 - Açık iş."""
 
 
-def load_module(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Modül yüklenemedi: {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-FLUSH = load_module("beyin_flush_test", SOURCE_SCRIPTS / "flush.py")
+from respectedbrain.memory import flush as FLUSH
+from respectedbrain.memory import compile as COMPILER
+from respectedbrain.providers.runner import ModelRunner
+from tests.foundation_support import make_context
+from tests.foundation_memory_test import FakeModel
 
 
 class ScriptsTest(unittest.TestCase):
@@ -55,25 +49,19 @@ class ScriptsTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="beyin-tests-")
         self.root = Path(self.temporary.name)
         self.vault = self.root / "vault"
-        self.engine = self.vault / ".beyin" / "engine"
-        self.scripts = self.engine
-        self.beyin = self.vault / ".beyin"
-        self.state = self.engine / ".state"
+        from dataclasses import replace
+        from respectedbrain.core.config import ConfigStore
+        self.ctx = make_context(self.root, self.vault)
+        config = ConfigStore(self.ctx.paths.data_root).update(lambda doc: doc["preferences"].update(summary_provider="claude", provider_priority=["claude"], provider_fallback=False))
+        self.ctx = replace(self.ctx, config=config)
+        self.engine = self.ctx.paths.app_root
+        self.beyin = self.ctx.paths.app_root
+        self.state = self.ctx.paths.state_dir
         self.daily = self.vault / "daily"
         self.knowledge = self.vault / "knowledge"
         self.bin_dir = self.root / "bin"
-        self.engine.mkdir(parents=True)
-        self.beyin.mkdir(exist_ok=True)
-        self.state.mkdir()
-        self.daily.mkdir()
-        self.knowledge.mkdir()
-        self.bin_dir.mkdir()
-        shutil.copy2(SOURCE_SCRIPTS / "flush.py", self.engine / "flush.py")
-        shutil.copy2(SOURCE_SCRIPTS / "compile.py", self.engine / "compile.py")
-        shutil.copy2(
-            REPO_ROOT / "runtime" / "runtime_platform.py" if (REPO_ROOT / "runtime" / "runtime_platform.py").is_file() else REPO_ROOT / "template" / ".beyin" / "runtime_platform.py",
-            self.beyin / "runtime_platform.py",
-        )
+        for directory in (self.state,self.daily,self.knowledge,self.bin_dir,self.ctx.paths.cache_dir):
+            directory.mkdir(parents=True,exist_ok=True)
         (self.knowledge / "index.md").write_text(
             "# Bilgi İndeksi\n", encoding="utf-8"
         )
@@ -149,45 +137,17 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
             cmd_stub.write_text(f'@"{sys.executable}" "%~dp0claude" %*\n', encoding="utf-8")
 
     def test_engines_do_not_import_posix_locking_directly(self) -> None:
-        loader = r'''
-import contextlib
-import importlib.abc
-import importlib.util
-import pathlib
-import sys
-import types
-
-runtime = types.ModuleType("runtime_platform")
-@contextlib.contextmanager
-def exclusive_lock(_handle, *, blocking, timeout=300.0):
-    yield True
-runtime.exclusive_lock = exclusive_lock
-runtime.create_exclusive_claim = lambda _path, mode=0o600: True
-runtime.detached_process_options = lambda: {"start_new_session": True}
-runtime.path_within_vault = lambda path, root: pathlib.Path(path).is_relative_to(root)
-sys.modules["runtime_platform"] = runtime
-sys.modules.pop("fcntl", None)
-
-class RejectFcntl(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path, target=None):
-        if fullname == "fcntl":
-            raise ModuleNotFoundError("direct fcntl import rejected")
-        return None
-
-sys.meta_path.insert(0, RejectFcntl())
-for index, value in enumerate(sys.argv[1:]):
-    spec = importlib.util.spec_from_file_location(f"engine_{index}", value)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-print("loaded")
-'''
+        import ast
+        for module in (FLUSH,COMPILER):
+            tree=ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+            names=[node.module for node in ast.walk(tree) if isinstance(node,ast.ImportFrom)] + [alias.name for node in ast.walk(tree) if isinstance(node,ast.Import) for alias in node.names]
+            self.assertNotIn("fcntl",names)
+        loader = "import respectedbrain.memory.flush, respectedbrain.memory.compile; print('loaded')"
         result = subprocess.run(
             [
                 sys.executable,
                 "-c",
                 loader,
-                str(SOURCE_SCRIPTS / "flush.py"),
-                str(SOURCE_SCRIPTS / "compile.py"),
             ],
             cwd=REPO_ROOT,
             text=True,
@@ -202,6 +162,8 @@ print("loaded")
         environment.pop("BEYIN_INVOKED_BY", None)
         environment["PATH"] = f"{self.bin_dir}{os.pathsep}{environment['PATH']}"
         environment["BEYIN_TEST_LOG"] = str(self.stub_log)
+        environment["RESPECTED_APP_DIR"] = str(self.ctx.paths.app_root)
+        environment["RESPECTED_DATA_DIR"] = str(self.ctx.paths.data_root)
         environment["BEYIN_FAKE_HOUR"] = "0"
         environment["PYTHONUTF8"] = "1"
         environment["PYTHONIOENCODING"] = "utf-8"
@@ -249,43 +211,29 @@ print("loaded")
         )
         return hook
 
-    def _run_flush(
-        self,
-        hook: Path,
-        reason: str = "sessionend",
-        **environment: str,
-    ) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            [
-                sys.executable,
-                str(self.scripts / "flush.py"),
-                "--hook-input",
-                str(hook),
-                "--reason",
-                reason,
-            ],
-            cwd=self.vault,
-            env=self._environment(**environment),
-            text=True,
-            capture_output=True,
-            timeout=60,
-            check=False,
-        )
+    def _run_flush(self, hook: Path, reason: str = "sessionend", **environment: str):
+        import contextlib, io
+        stdout, stderr = io.StringIO(), io.StringIO()
+        now = dt.datetime.fromisoformat(environment.get("BEYIN_FAKE_NOW", dt.datetime.now().isoformat()))
+        with mock.patch.dict(os.environ, self._environment(**environment), clear=True), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            value = FLUSH.load_hook_input(hook)
+            status = FLUSH.flush_transcript(self.ctx, session_id=value["session_id"], transcript=Path(value["transcript_path"]), model=ModelRunner(self.ctx), now=now, reason=reason)
+            if FLUSH._managed_hook_input(hook, self.state):
+                hook.unlink(missing_ok=True)
+        return subprocess.CompletedProcess([],status,stdout.getvalue(),stderr.getvalue())
 
-    def _run_compile(
-        self,
-        *arguments: str,
-        **environment: str,
-    ) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            [sys.executable, str(self.scripts / "compile.py"), *arguments],
-            cwd=self.vault,
-            env=self._environment(**environment),
-            text=True,
-            capture_output=True,
-            timeout=60,
-            check=False,
-        )
+    def _run_compile(self, *arguments: str, **environment: str):
+        import argparse, contextlib, io
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--trigger-claim",type=Path)
+        parser.add_argument("--before-date",type=dt.date.fromisoformat)
+        parser.add_argument("--max-calls",type=int,default=COMPILER.DEFAULT_MAX_CALLS)
+        parser.add_argument("--dry-run",action="store_true")
+        args = parser.parse_args(arguments)
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with mock.patch.dict(os.environ,self._environment(**environment),clear=True), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            status = COMPILER.compile_pending(self.ctx,model=ModelRunner(self.ctx),now=dt.datetime.now(),trigger_claim=args.trigger_claim,before_date=args.before_date,max_calls=args.max_calls,dry_run=args.dry_run)
+        return subprocess.CompletedProcess([],status,stdout.getvalue(),stderr.getvalue())
 
     def _stub_calls(self, model: str | None = None) -> list[dict[str, object]]:
         if not self.stub_log.exists():
@@ -309,45 +257,23 @@ print("loaded")
                 snapshot[path.relative_to(self.vault).as_posix()] = path.read_bytes()
         return snapshot
 
-    def test_flush_temp_directory_uses_cross_host_parent(self) -> None:
-        expected = self.root / "windows-temp"
-        expected.mkdir()
+    def test_flush_temp_directory_uses_uuid_cache_parent(self):
+        transcript = self._write_transcript([("user","cache staging")])
+        result = self._run_flush(self._write_hook("cache-session",transcript),BEYIN_TEST_OUTPUT=VALID_SUMMARY)
+        self.assertEqual(result.returncode,0,result.stderr)
+        call = self._stub_calls("haiku")[0]
+        self.assertEqual(Path(call["cwd"]).parent,self.ctx.paths.cache_dir)
+        self.assertFalse(Path(call["cwd"]).is_relative_to(self.vault))
 
-        with mock.patch.object(
-            FLUSH.runtime_platform,
-            "external_temp_parent",
-            return_value=expected,
-        ):
-            kwargs = FLUSH._temporary_directory_kwargs(self.vault)
-
-        self.assertEqual(kwargs, {"dir": expected})
-
-    def test_compile_stage_uses_cross_host_parent_and_remains_external(self) -> None:
-        compiler = load_module(
-            "compile_temp_parent",
-            SOURCE_SCRIPTS / "compile.py",
-        )
-        expected = self.root / "windows-temp"
-        expected.mkdir()
-        daily_path = self.daily / "2026-08-20.md"
-        daily_path.write_text("kalıcı günlük", encoding="utf-8")
-
-        with mock.patch.object(
-            compiler.runtime_platform,
-            "external_temp_parent",
-            return_value=expected,
-        ):
-            stage, _baseline = compiler._prepare_stage(
-                self.vault,
-                self.state,
-                daily_path,
-            )
-
+    def test_compile_stage_uses_uuid_cache_parent_and_remains_external(self):
+        daily = self.daily / "2026-08-20.md"
+        daily.write_text("kalıcı günlük",encoding="utf-8")
+        stage, baseline = COMPILER._prepare_stage(self.vault,self.state,daily,self.ctx.paths.cache_dir)
         try:
-            self.assertEqual(stage.parent, expected)
+            self.assertEqual(stage.parent,self.ctx.paths.cache_dir)
             self.assertFalse(stage.is_relative_to(self.vault))
         finally:
-            shutil.rmtree(stage, ignore_errors=True)
+            shutil.rmtree(stage)
 
     def test_transcript_extraction_turn_and_character_caps(self) -> None:
         turns = []
@@ -546,7 +472,7 @@ print("loaded")
             hook,
             BEYIN_TEST_OUTPUT="## Bağlam\nEksik çıktı",
         )
-        self.assertEqual(first.returncode, 0)
+        self.assertEqual(first.returncode, 1)
         self.assertEqual(list(self.daily.glob("*.md")), [])
         failed = json.loads(
             (self.state / "last-flush.json").read_text(encoding="utf-8")
@@ -565,7 +491,7 @@ print("loaded")
         hook = self._write_hook("concurrent-session", transcript)
         command = [
             sys.executable,
-            str(self.scripts / "flush.py"),
+            "-m", "respectedbrain", "flush", "--vault-id", self.ctx.paths.vault_id,
             "--hook-input",
             str(hook),
             "--reason",
@@ -636,8 +562,8 @@ print("loaded")
 
         with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY, None)):
             count = FLUSH.catch_up_unflushed_sessions(
-                vault_root=self.vault,
-                state_dir=self.state,
+                ctx=self.ctx,
+                model=FakeModel(VALID_SUMMARY),
                 now=now,
                 home=fake_home,
             )
@@ -645,8 +571,8 @@ print("loaded")
 
             # Idempotency check: already flushed sessions must not be processed again
             count_again = FLUSH.catch_up_unflushed_sessions(
-                vault_root=self.vault,
-                state_dir=self.state,
+                ctx=self.ctx,
+                model=FakeModel(VALID_SUMMARY),
                 now=now,
                 home=fake_home,
             )
@@ -660,8 +586,8 @@ print("loaded")
             os.utime(active_file, (now.timestamp() - 5, now.timestamp() - 5))
 
             count_active = FLUSH.catch_up_unflushed_sessions(
-                vault_root=self.vault,
-                state_dir=self.state,
+                ctx=self.ctx,
+                model=FakeModel(VALID_SUMMARY),
                 now=now,
                 home=fake_home,
             )
@@ -694,8 +620,8 @@ print("loaded")
 
         with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY, None)):
             count = FLUSH.catch_up_unflushed_sessions(
-                vault_root=self.vault,
-                state_dir=self.state,
+                ctx=self.ctx,
+                model=FakeModel(VALID_SUMMARY),
                 now=now,
                 home=fake_home,
             )
@@ -703,152 +629,53 @@ print("loaded")
 
             # Idempotency check: already flushed sessions must not be processed again
             count_again = FLUSH.catch_up_unflushed_sessions(
-                vault_root=self.vault,
-                state_dir=self.state,
+                ctx=self.ctx,
+                model=FakeModel(VALID_SUMMARY),
                 now=now,
                 home=fake_home,
             )
             self.assertEqual(count_again, 0)
 
-    def test_trigger_gates_single_claim_and_spawn_failure_rollback(self) -> None:
-        daily_path = self.daily / "2026-08-22.md"
-        daily_path.write_text("ilk sürüm", encoding="utf-8")
-        digest = hashlib.sha256(daily_path.read_bytes()).hexdigest()
-        (self.state / "compile-state.json").write_text(
-            json.dumps({"ingested": {daily_path.name: digest}}),
-            encoding="utf-8",
-        )
-        launches = []
+    def test_trigger_gates_single_claim_and_failure_rollback(self):
+        daily=self.daily / "2026-08-22.md"
+        daily.write_text("past complete day",encoding="utf-8")
+        now=dt.datetime(2026,8,23,10)
+        model=FakeModel()
+        claim=self.state / "compile-trigger-2026-08-23"
+        claim.write_text("held",encoding="utf-8")
+        self.assertEqual(FLUSH.compile_catch_up(self.ctx,model=model,now=now),0)
+        self.assertEqual(model.calls,0)
+        claim.unlink()
+        from respectedbrain.core.context import ModelResult
+        failed=mock.Mock()
+        failed.run.return_value=ModelResult(None,"codex","provider-unavailable")
+        self.assertEqual(FLUSH.compile_catch_up(self.ctx,model=failed,now=now),1)
+        self.assertFalse(claim.exists())
+        self.assertEqual(FLUSH.compile_catch_up(self.ctx,model=self._compile_fake(),now=now),0)
+        self.assertFalse(claim.exists())
+        self.assertEqual(FLUSH.compile_catch_up(self.ctx,model=model,now=now),0)
+        self.assertEqual(model.calls,0)
 
-        def fake_popen(*args, **kwargs):
-            launches.append((args, kwargs))
-            return object()
+    def _compile_fake(self):
+        return FakeModel()
 
-        # Scheduled compile is completely abolished from flush (morning_briefing owns 08:00 compile)
-        self.assertFalse(
-            FLUSH.maybe_trigger_compile(
-                self.vault,
-                dt.datetime(2026, 8, 23, 19, 0),
-                fake_popen,
-                catch_up=False,
-            )
-        )
+    def test_catch_up_triggers_only_for_completed_days(self):
+        self.daily.joinpath("2026-08-23.md").write_text("today")
+        yesterday=self.daily / "2026-08-22.md"
+        yesterday.write_text("yesterday")
+        model=self._compile_fake()
+        self.assertEqual(FLUSH.compile_catch_up(self.ctx,model=model,now=dt.datetime(2026,8,23,10)),0)
+        state=COMPILER.load_state(self.state / "compile-state.json")
+        self.assertEqual(set(state["ingested"]),{yesterday.name})
+        self.assertEqual(model.calls,1)
 
-        current = dt.datetime(2026, 8, 23, 10, 0)
-        unchanged = FLUSH.maybe_trigger_compile(
-            self.vault,
-            current,
-            fake_popen,
-            catch_up=True,
-        )
-        self.assertFalse(unchanged)
-        daily_path.write_text("değişti", encoding="utf-8")
-        claimed = FLUSH.maybe_trigger_compile(
-            self.vault,
-            current,
-            fake_popen,
-            catch_up=True,
-        )
-        claimed_twice = FLUSH.maybe_trigger_compile(
-            self.vault,
-            current,
-            fake_popen,
-            catch_up=True,
-        )
-
-        self.assertTrue(claimed)
-        self.assertFalse(claimed_twice)
-        self.assertEqual(len(launches), 1)
-        launch_argv = launches[0][0][0]
-        self.assertIn("--trigger-claim", launch_argv)
-        self.assertIn("--before-date", launch_argv)
-        self.assertNotIn("BEYIN_INVOKED_BY", launches[0][1]["env"])
-
-        first_claim = self.state / "compile-trigger-2026-08-23"
-        first_claim.unlink()
-
-        def failed_popen(*_args, **_kwargs):
-            raise OSError("spawn failed")
-
-        with self.assertRaises(OSError):
-            FLUSH.maybe_trigger_compile(
-                self.vault,
-                current,
-                failed_popen,
-                catch_up=True,
-            )
-        self.assertFalse(
-            (self.state / "compile-trigger-2026-08-23").exists()
-        )
-
-    def test_catch_up_triggers_only_for_completed_days(self) -> None:
-        """Catches off-hours compilation of today's still-changing daily log."""
-        today = self.daily / "2026-08-23.md"
-        yesterday = self.daily / "2026-08-22.md"
-        today.write_text("bugün", encoding="utf-8")
-        yesterday.write_text("dün", encoding="utf-8")
-        launches = []
-
-        def fake_popen(*args, **kwargs):
-            launches.append((args, kwargs))
-            return object()
-
-        current = dt.datetime(2026, 8, 23, 10, 0)
-        self.assertTrue(
-            FLUSH.maybe_trigger_compile(
-                self.vault,
-                current,
-                fake_popen,
-                catch_up=True,
-            )
-        )
-        self.assertEqual(
-            launches[0][0][0][-2:],
-            ["--before-date", "2026-08-23"],
-        )
-
-        (self.state / "compile-trigger-2026-08-23").unlink()
-        yesterday_digest = hashlib.sha256(yesterday.read_bytes()).hexdigest()
-        (self.state / "compile-state.json").write_text(
-            json.dumps({"ingested": {yesterday.name: yesterday_digest}}),
-            encoding="utf-8",
-        )
-        launches.clear()
-        self.assertFalse(
-            FLUSH.maybe_trigger_compile(
-                self.vault,
-                current,
-                fake_popen,
-                catch_up=True,
-            )
-        )
-        self.assertEqual(launches, [])
-
-    def test_catch_up_after_18_still_excludes_current_day(self) -> None:
-        """Catches SessionStart after 18:00 ingesting today's partial log."""
-        today = self.daily / "2026-08-23.md"
-        yesterday = self.daily / "2026-08-22.md"
-        today.write_text("bugün hâlâ yazılıyor", encoding="utf-8")
-        yesterday.write_text("dün tamamlandı", encoding="utf-8")
-        launches = []
-
-        def fake_popen(*args, **kwargs):
-            launches.append((args, kwargs))
-            return object()
-
-        current = dt.datetime(2026, 8, 23, 19, 0)
-        self.assertTrue(
-            FLUSH.maybe_trigger_compile(
-                self.vault,
-                current,
-                fake_popen,
-                catch_up=True,
-            )
-        )
-        self.assertEqual(
-            launches[0][0][0][-2:],
-            ["--before-date", "2026-08-23"],
-        )
+    def test_catch_up_after_18_still_excludes_current_day(self):
+        self.daily.joinpath("2026-08-23.md").write_text("today changes")
+        self.daily.joinpath("2026-08-22.md").write_text("completed")
+        model=self._compile_fake()
+        self.assertEqual(FLUSH.compile_catch_up(self.ctx,model=model,now=dt.datetime(2026,8,23,19)),0)
+        self.assertEqual(set(COMPILER.load_state(self.state / "compile-state.json")["ingested"]),{"2026-08-22.md"})
+        self.assertEqual(model.calls,1)
 
     def test_hook_and_compile_temp_files_are_cleaned(self) -> None:
         transcript = self._write_transcript([("user", "temizlik")])
@@ -910,7 +737,7 @@ print("loaded")
         compile_result = self._run_compile(
             BEYIN_TEST_COMPILE_ACTION="directive"
         )
-        self.assertEqual(compile_result.returncode, 0, compile_result.stderr)
+        self.assertEqual(compile_result.returncode, 1, compile_result.stderr)
         self.assertEqual(real_hook.read_text(encoding="utf-8"), "original hook\n")
         state = json.loads(
             (self.state / "compile-state.json").read_text(encoding="utf-8")
@@ -933,7 +760,7 @@ print("loaded")
             BEYIN_TEST_COMPILE_ACTION="forbidden",
             BEYIN_TEST_FORBIDDEN="SETUP.md",
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(self._payload_snapshot(), before)
         state = json.loads(
             (self.state / "compile-state.json").read_text(encoding="utf-8")
@@ -947,7 +774,7 @@ print("loaded")
         daily_path.write_text("kalıcı günlük", encoding="utf-8")
         knowledge_before = self._payload_snapshot()
         result = self._run_compile(BEYIN_TEST_COMPILE_ACTION="none")
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(self._payload_snapshot(), knowledge_before)
         state = json.loads(
             (self.state / "compile-state.json").read_text(encoding="utf-8")
@@ -962,7 +789,7 @@ print("loaded")
         result = self._run_compile(
             BEYIN_TEST_COMPILE_ACTION="delete_index"
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(self._payload_snapshot(), before)
         state = json.loads(
             (self.state / "compile-state.json").read_text(encoding="utf-8")
@@ -981,7 +808,7 @@ print("loaded")
         daily_path.write_text("symlink denemesi", encoding="utf-8")
         before = self._payload_snapshot()
         result = self._run_compile(BEYIN_TEST_COMPILE_ACTION="symlink")
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(self._payload_snapshot(), before)
         state = json.loads(
             (self.state / "compile-state.json").read_text(encoding="utf-8")
@@ -1029,7 +856,7 @@ print("loaded")
         with lock_path.open("a+", encoding="utf-8") as lock_file:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             result = self._run_compile("--dry-run")
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(result.stdout, "")
         self.assertEqual(self._stub_calls(), [])
 
@@ -1042,7 +869,7 @@ print("loaded")
             str(claim),
             BEYIN_TEST_COMPILE_ACTION="none",
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 1, result.stderr)
         self.assertFalse(claim.exists())
         state = json.loads(
             (self.state / "compile-state.json").read_text(encoding="utf-8")
@@ -1111,7 +938,7 @@ print("loaded")
             ],
         )
         call_cwd = Path(str(call["cwd"]))
-        self.assertEqual(call_cwd.parent.resolve(), Path(tempfile.gettempdir()).resolve())
+        self.assertEqual(call_cwd.parent.resolve(),self.ctx.paths.cache_dir.resolve())
         self.assertFalse(call_cwd.is_relative_to(self.vault))
         self.assertTrue(call_cwd.name.startswith("compile-stage-"))
         if os.name != "nt":
@@ -1124,7 +951,7 @@ print("loaded")
         (self.daily / "2026-08-20.md").write_text("iki", encoding="utf-8")
         log_before = (self.knowledge / "log.md").read_bytes()
         result = self._run_compile(BEYIN_TEST_EXIT="7")
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(len(self._stub_calls("sonnet")), 1)
         self.assertEqual((self.knowledge / "log.md").read_bytes(), log_before)
         state = json.loads(
@@ -1143,7 +970,7 @@ print("loaded")
         flush_result = subprocess.run(
             [
                 sys.executable,
-                str(self.scripts / "flush.py"),
+                "-m", "respectedbrain", "flush", "--vault-id", self.ctx.paths.vault_id,
                 "--hook-input",
                 str(missing_hook),
             ],
@@ -1155,7 +982,7 @@ print("loaded")
             check=False,
         )
         compile_result = subprocess.run(
-            [sys.executable, str(self.scripts / "compile.py")],
+            [sys.executable, "-m", "respectedbrain", "compile", "--vault-id", self.ctx.paths.vault_id],
             cwd=self.vault,
             env=environment,
             text=True,

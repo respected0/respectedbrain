@@ -51,6 +51,17 @@ class FoundationCliTest(unittest.TestCase):
             self.assertEqual(self.call(["briefing", "--vault-id", self.ctx.paths.vault_id])[0], 1)
         self.assertEqual(briefing_call.call_args.args[0].paths.vault_id, self.ctx.paths.vault_id)
 
+    def test_hook_stdout_and_mcp_delegate_without_extra_text(self):
+        with patch("respectedbrain.integrations.hooks.bridge.dispatch", return_value='{"hookSpecificOutput":{}}\n') as service, patch("sys.stdin", io.StringIO('{}')):
+            code, out, err = self.call(["hook", "--vault-id", self.ctx.paths.vault_id, "--provider", "claude", "--event", "start", "--global-hook"])
+        self.assertEqual((code, out, err), (0, '{"hookSpecificOutput":{}}\n', ""))
+        self.assertEqual(service.call_args.kwargs["stdin"], '{}')
+        self.assertEqual(service.call_args.kwargs["argv"], ["--global-hook"])
+        with patch("respectedbrain.integrations.mcp.server.serve", return_value=0) as server:
+            code, out, err = self.call(["mcp", "--vault-id", self.ctx.paths.vault_id])
+        self.assertEqual((code, out, err), (0, "", ""))
+        self.assertEqual(server.call_args.args[0].paths, self.ctx.paths)
+
     def test_discovery_is_explicit_and_configure_preserves_other_keys(self):
         before = snapshot(self.root)
         code, out, _ = self.call(["vault", "discover", str(self.ctx.paths.vault_root)])
@@ -72,3 +83,11 @@ class FoundationCliTest(unittest.TestCase):
         self.assertEqual(service.call_args.args[0].paths.vault_id, self.ctx.paths.vault_id)
         self.assertEqual(service.call_args.kwargs["transcript"], transcript)
         self.assertTrue(payload.exists())
+
+    def test_setup_dispatches_shared_service_and_preserves_disabled_defaults(self):
+        from respectedbrain.installation.transaction import OperationResult
+        with patch("respectedbrain.installation.setup.setup", return_value=OperationResult(False, "test", ("fault",))) as service:
+            self.assertEqual(self.call(["setup", "--vault", str(self.ctx.paths.vault_root), "--user-name", "Ada"])[0], 1)
+        self.assertEqual(service.call_args.args[1], self.ctx.paths.vault_root)
+        self.assertFalse(service.call_args.kwargs["desired"]["schedule"])
+        self.assertEqual(service.call_args.kwargs["profile"]["USER_NAME"], "Ada")

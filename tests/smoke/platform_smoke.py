@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Destructive-safe physical-host smoke test for Respected Brain 0.0.1."""
-
+"""Physical host package smoke; all registration files and vault data use a temp workspace."""
 from __future__ import annotations
-
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -15,200 +12,106 @@ import subprocess
 import sys
 import tempfile
 import time
-from unittest import mock
 
+ROOT=Path(__file__).resolve().parents[2]
+PROVIDERS=("antigravity","gemini","codex","cursor","claude")
 
-ROOT = Path(__file__).resolve().parents[2]
-PROVIDERS = ("antigravity", "gemini", "codex", "cursor", "claude")
+def _run(command,*,env,cwd):
+    started=time.perf_counter()
+    result=subprocess.run(command,cwd=cwd,env=env,capture_output=True,text=True,encoding="utf-8",errors="replace",timeout=180,creationflags=0x08000000 if os.name=="nt" else 0)
+    return result.returncode,(result.stdout+result.stderr)[-4000:],time.perf_counter()-started
 
-
-def _configure_console_output() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if callable(reconfigure):
-            reconfigure(errors="replace")
-
-
-_configure_console_output()
-
-
-def _run(command: list[str], *, env: dict[str, str] | None = None) -> tuple[int, str, float]:
-    started = time.perf_counter()
-    merged = os.environ.copy()
-    merged.update({"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"})
-    if env:
-        merged.update(env)
-    process = subprocess.run(
-        command,
-        cwd=ROOT,
-        env=merged,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-        creationflags=0x08000000 if os.name == "nt" else 0,
-    )
-    return process.returncode, (process.stdout + process.stderr)[-4000:], time.perf_counter() - started
-
-
-def _sha256(path: Path) -> str:
+def _sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
-
-def _load_uninstaller():
-    spec = importlib.util.spec_from_file_location("smoke_uninstall", ROOT / "installer" / "uninstall.py")
-    if spec is None or spec.loader is None:
-        raise RuntimeError("uninstall.py yüklenemedi")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, help="JSON kanıt dosyası")
-    parser.add_argument("--keep", action="store_true", help="geçici çalışma alanını koru")
-    args = parser.parse_args(argv)
-
-    is_wsl = bool(os.environ.get("WSL_DISTRO_NAME"))
-    host = "windows-native" if os.name == "nt" else ("wsl" if is_wsl else "macos" if sys.platform == "darwin" else "linux")
-    profile = "windows-native" if host == "windows-native" else "portable"
-    root = Path(tempfile.mkdtemp(prefix="respected-physical-smoke-"))
-    vault = root / "Furkan Smoke 🧠"
-    home = root / "home"
+def main(argv=None):
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output",type=Path)
+    parser.add_argument("--package",type=Path,default=Path(os.environ.get("RESPECTED_SMOKE_PACKAGE",str(ROOT / "dist/RespectedBrain"))))
+    parser.add_argument("--keep",action="store_true")
+    args=parser.parse_args(argv)
+    host="windows-native" if os.name=="nt" else "wsl" if os.environ.get("WSL_DISTRO_NAME") else "macos" if sys.platform=="darwin" else "linux"
+    profile_name="windows-native" if os.name=="nt" else "posix"
+    root=Path(tempfile.mkdtemp(prefix="respected-package-smoke-")).resolve()
+    vault,app,data,home=[root / name for name in ("Furkan Smoke 🧠","app","data","home")]
     home.mkdir()
-    checks: list[dict[str, object]] = []
-
-    def record(name: str, passed: bool, detail: str = "", duration: float = 0.0) -> None:
-        checks.append({
-            "name": name,
-            "status": "VERIFIED" if passed else "FAILED",
-            "detail": detail[:500],
-            "duration_seconds": round(duration, 3),
-        })
-        if not passed:
-            raise RuntimeError(f"{name}: {detail}")
-
+    env={**os.environ,"RESPECTED_APP_DIR":str(app),"RESPECTED_DATA_DIR":str(data),"HOME":str(home),"USERPROFILE":str(home),"PYTHONUTF8":"1","PYTHONIOENCODING":"utf-8"}
+    checks=[]
+    def record(name,passed,detail="",duration=0):
+        checks.append({"name":name,"status":"VERIFIED" if passed else "FAILED","detail":detail[:500],"duration_seconds":round(duration,3)})
+        if not passed: raise RuntimeError(name+": "+detail)
     try:
-        install_command = [
-            sys.executable, str(ROOT / "installer" / "install.py"), "--non-interactive",
-            "--vault-path", str(vault), "--user-name", "Smoke User",
-            "--os-name", "SmokeOS", "--provider", "auto",
-            "--environment", "native", "--quiet",
-        ]
-        if os.name == "nt":
-            install_command += ["--python-executable", sys.executable]
-        code, output, elapsed = _run(install_command)
-        passed = code == 0 and (vault / ".respectedbrain-version").is_file()
-        record("transactional-fresh-install", passed, "" if passed else output, elapsed)
-
-        code, output, elapsed = _run([
-            sys.executable, str((ROOT / "runtime/scripts/install_global.py") if (ROOT / "runtime/scripts/install_global.py").is_file() else (ROOT / "scripts/install_global.py")), str(vault),
-            "--home", str(home), "--platform", profile, "--providers", "all", "--apply",
-        ])
-        adapters = [
-            home / ".gemini/config/hooks.json", home / ".gemini/settings.json",
-            home / ".codex/config.toml", home / ".cursor/hooks.json",
-            home / ".claude/settings.json",
-        ]
-        passed = code == 0 and all(path.is_file() for path in adapters)
-        record("five-provider-global-install", passed, "" if passed else output, elapsed)
-
-        helper = root / "summary_model.py"
-        helper.write_text(
-            "print('## Bağlam\\nSmoke bağlam\\n\\n## Önemli Konuşmalar\\nSmoke konuşma\\n\\n'"
-            "+ '## Alınan Kararlar\\nSmoke karar\\n\\n## Öğrenilenler\\nSmoke öğrenim\\n\\n'"
-            "+ '## Yapılacaklar\\n- Smoke tamamla')\n",
-            encoding="utf-8",
-        )
-        state = (vault / ".beyin/engine/.state") if (vault / ".beyin/engine").is_dir() else (root / ".state")
-        state.mkdir(parents=True, exist_ok=True)
-        transcript = root / "synthetic-transcript.jsonl"
-        env = {
-            "HOME": str(home), "USERPROFILE": str(home), "BEYIN_PROVIDER": "codex",
-            "BEYIN_LLM_COMMAND": f'"{Path(sys.executable).as_posix()}" "{helper.as_posix()}"',
-        }
-        flush = (vault / ".beyin/engine/flush.py") if (vault / ".beyin/engine/flush.py").is_file() else (ROOT / "runtime/engine/flush.py")
-        total_elapsed = 0.0
-        for revision in (1, 2):
-            transcript.write_text(
-                json.dumps({"role": "user", "content": f"synthetic turn {revision}"}) + "\n" +
-                json.dumps({"role": "assistant", "content": "synthetic answer"}) + "\n",
-                encoding="utf-8",
-            )
-            hook_input = state / f"hookin-smoke-{revision}.json"
-            hook_input.write_text(json.dumps({
-                "session_id": "physical-smoke-session",
-                "transcript_path": str(transcript),
-            }), encoding="utf-8")
-            code, output, elapsed = _run([
-                sys.executable, str(flush), "--hook-input", str(hook_input), "--reason", "turn",
-                "--vault", str(vault),
-            ], env=env)
-            total_elapsed += elapsed
-            record(f"turn-flush-revision-{revision}", code == 0, "" if code == 0 else output, elapsed)
-        daily_files = list((vault / "daily").glob("*.md"))
-        daily = daily_files[0] if len(daily_files) == 1 else Path()
-        daily_text = daily.read_text(encoding="utf-8") if daily.is_file() else ""
-        record(
-            "same-session-atomic-upsert",
-            daily.is_file()
-            and daily_text.count("### Oturum") == 1
-            and daily_text.count("<!-- RESPECTED-SESSION:") == 2
-            and daily_text.count(":BEGIN -->") == 1
-            and "Smoke bağlam" in daily_text,
-            f"daily_files={len(daily_files)} total_flush_seconds={total_elapsed:.3f}",
-        )
-        daily_hash = _sha256(daily)
-
-        for number in (1, 2):
-            code, output, elapsed = _run([
-                sys.executable, str(ROOT / "installer" / "update.py"), str(vault), "--apply", "--force",
-                "--platform", profile,
-            ], env={"HOME": str(home), "USERPROFILE": str(home)})
-            record(f"transactional-update-{number}", code == 0, "" if code == 0 else output, elapsed)
-        record("update-preserves-daily-byte-for-byte", _sha256(daily) == daily_hash)
-
-        sentinel = home / "keep-user-file.txt"
-        sentinel.write_text("keep", encoding="utf-8")
-        uninstaller = _load_uninstaller()
-        with mock.patch("pathlib.Path.home", return_value=home):
-            uninstaller.remove_global_integrations(clean_wsl=False)
-        codex_rule = home / ".codex/AGENTS.md"
-        record(
-            "managed-only-global-uninstall",
-            sentinel.read_text(encoding="utf-8") == "keep"
-            and (
-                not codex_rule.exists()
-                or "RESPECTED-GLOBAL" not in codex_rule.read_text(encoding="utf-8")
-            ),
-        )
+        from respectedbrain.installation.payload import validate_package
+        package=args.package.resolve()
+        document=validate_package(package)
+        expected_platform="windows" if os.name=="nt" else "macos" if sys.platform=="darwin" else "linux"
+        record("host-matching-real-distribution",document.get("platform")==expected_platform,str(document.get("platform")))
+        command=[sys.executable,"-m","respectedbrain","setup","--vault",str(vault),"--package",str(package),"--platform",profile_name,"--no-global","--no-mcp","--no-schedule","--no-shortcut","--user-name","Smoke User","--companion","Smoke Companion"]
+        code,output,elapsed=_run(command,env=env,cwd=root)
+        record("transactional-fresh-package-install",code==0,output,elapsed)
+        launcher=app / document["launcher"]
+        code,output,elapsed=_run([str(launcher),"--version"],env=env,cwd=root)
+        record("installed-frozen-launcher-version",code==0 and output.strip()==document["version"],output,elapsed)
+        from respectedbrain.core.config import ConfigStore
+        from respectedbrain.core.paths import Roots
+        from respectedbrain.vault.registry import build_context
+        from respectedbrain.integrations.backend import IntegrationProfile,NativeBackend
+        from respectedbrain.integrations.rendering import plan_integrations
+        from respectedbrain.installation.transaction import Transaction
+        from respectedbrain.installation.operations import operation_manifest
+        from respectedbrain.installation.ownership import read_manifest,manifest_document
+        ctx=build_context(Roots(app,data,vault),ConfigStore(data),vault=vault,vault_id=None,env={})
+        record("uuid-state-separated-from-pure-vault",ctx.paths.state_dir.is_relative_to(data) and not (vault / ".beyin").exists())
+        backend=NativeBackend(data,user_home=home)
+        profile=IntegrationProfile(profile_name,(str(launcher),),home)
+        prior=read_manifest(data / "install-manifest.json")
+        # Only temp-home file/MCP registrations are applied, never live scheduler/registry/shortcuts.
+        changes=plan_integrations(ctx,profile,{"global":True,"mcp":True},backend)
+        record("all-five-providers-rendered-without-legacy-engine",all(any(provider in change.key for change in changes) for provider in (".agents", ".gemini", ".codex", ".cursor", ".claude")))
+        record("registration-boundary-is-temporary-files",all(row.kind in ("file","mcp") and (Path(row.key).is_relative_to(home) or Path(row.key).is_relative_to(data)) for row in changes))
+        with Transaction(data,backend) as tx:
+            for row in changes: tx.apply_external(row)
+            tx.write_json(data / "install-manifest.json",manifest_document(operation_manifest(ctx,prior.files,changes)))
+            tx.commit()
+        record("five-provider-temp-home-global-and-mcp-registration",all(backend.read(row.kind,row.key)==row.after for row in changes))
+        helper=root / "summary_model.py"
+        helper.write_text("print('## Bağlam\\nSmoke bağlam\\n\\n## Önemli Konuşmalar\\nSmoke konuşma\\n\\n## Alınan Kararlar\\nSmoke karar\\n\\n## Öğrenilenler\\nSmoke öğrenim\\n\\n## Yapılacaklar\\n- Smoke tamamla')\n",encoding="utf-8")
+        model_env={**env,"BEYIN_LLM_COMMAND":'"'+str(Path(sys.executable))+'" "'+str(helper)+'"'}
+        transcript=root / "synthetic-transcript.jsonl"
+        for revision in (1,2):
+            transcript.write_text(json.dumps({"role":"user","content":"synthetic turn "+str(revision)})+"\n"+json.dumps({"role":"assistant","content":"synthetic answer"})+"\n",encoding="utf-8")
+            code,output,elapsed=_run([str(launcher),"flush","--vault-id",ctx.paths.vault_id,"--session-id","physical-smoke-session","--transcript",str(transcript),"--reason","turn"],env=model_env,cwd=root)
+            record("turn-flush-revision-"+str(revision),code==0,output,elapsed)
+        daily_files=list((vault / "daily").glob("*.md"))
+        record("one-daily-log",len(daily_files)==1)
+        daily=daily_files[0]
+        body=daily.read_text(encoding="utf-8")
+        record("turn-flush-upserts-one-complete-session",body.count("### Oturum")==1 and body.count("<!-- RESPECTED-SESSION:")==2 and "Smoke bağlam" in body)
+        daily_hash=_sha256(daily)
+        for number in (1,2):
+            # Source maintenance dispatcher keeps the destination executable out of use during replacement.
+            code,output,elapsed=_run([sys.executable,"-m","respectedbrain","update","--vault-id",ctx.paths.vault_id,"--package",str(package)],env=env,cwd=root)
+            record("transactional-update-"+str(number),code==0,output,elapsed)
+        record("update-preserves-daily-byte-for-byte",_sha256(daily)==daily_hash)
+        sentinel=home / "keep-user-file.txt"
+        sentinel.write_bytes(b"keep")
+        code,output,elapsed=_run([sys.executable,"-m","respectedbrain","uninstall","--vault-id",ctx.paths.vault_id],env=env,cwd=root)
+        record("transactional-owned-only-uninstall",code==0,output,elapsed)
+        record("uninstall-preserves-notes-state-and-user-file",_sha256(daily)==daily_hash and ctx.paths.state_dir.exists() and sentinel.read_bytes()==b"keep")
+        record("uninstall-restores-original-temp-home-registration",all(backend.read(row.kind,row.key)==row.before for row in changes))
     except Exception as error:
-        if not checks or checks[-1]["status"] != "FAILED":
-            checks.append({"name": "smoke-runner", "status": "FAILED", "detail": str(error), "duration_seconds": 0.0})
-
-    report = {
-        "schema_version": 1,
-        "host": host,
-        "profile": profile,
-        "platform": platform.platform(),
-        "python": {"version": platform.python_version(), "executable": sys.executable},
-        "wsl_distribution": os.environ.get("WSL_DISTRO_NAME"),
-        "providers": list(PROVIDERS),
-        "workspace": str(root) if args.keep else "deleted-after-run",
-        "checks": checks,
-        "overall": "VERIFIED" if checks and all(item["status"] == "VERIFIED" for item in checks) else "FAILED",
-    }
-    rendered = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+        if not checks or checks[-1]["status"]!="FAILED": checks.append({"name":"smoke-runner","status":"FAILED","detail":str(error),"duration_seconds":0})
+    report={"schema_version":3,"host":host,"profile":profile_name,"platform":platform.platform(),"python":{"version":platform.python_version(),"executable":sys.executable},"wsl_distribution":os.environ.get("WSL_DISTRO_NAME"),"providers":list(PROVIDERS),"package":str(args.package),"workspace":str(root) if args.keep else "deleted-after-run","checks":checks,"overall":"VERIFIED" if checks and all(row["status"]=="VERIFIED" for row in checks) else "FAILED"}
+    rendered=json.dumps(report,ensure_ascii=False,indent=2)+"\n"
     if args.output:
-        args.output.expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
-        args.output.expanduser().resolve().write_text(rendered, encoding="utf-8")
-    print(rendered, end="")
+        target=args.output.expanduser().resolve()
+        target.parent.mkdir(parents=True,exist_ok=True)
+        target.write_text(rendered,encoding="utf-8")
+    print(rendered,end="")
     if not args.keep:
-        shutil.rmtree(root, ignore_errors=True)
-    return 0 if report["overall"] == "VERIFIED" else 1
+        assert root.parent==Path(tempfile.gettempdir()).resolve() and root.name.startswith("respected-package-smoke-")
+        shutil.rmtree(root)
+    return 0 if report["overall"]=="VERIFIED" else 1
 
-
-if __name__ == "__main__":
+if __name__=="__main__":
     raise SystemExit(main())

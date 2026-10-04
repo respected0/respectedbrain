@@ -283,7 +283,7 @@ tasarlamak için gerekçe oluşturmaz.
 | scripts/orchestrate.py, antigravity_orchestrator.py | orchestration/ içi hizmet ve ince CLI çağrıları |
 | scripts/arama.py | search/engine.py |
 | scripts/vault_mcp_server.py | integrations/mcp/server.py |
-| scripts/install_global.py, install_antigravity_global.py | integrations/global_config/ |
+| scripts/install_global.py, install_antigravity_global.py | integrations/global_config.py, legacy_registration.py |
 | scripts/install_briefing_schedule.py | integrations/scheduling/ |
 | scripts/render_integrations.py | integrations/rendering.py |
 | scripts/set_summary_provider.py | core config hizmeti + configure komutu |

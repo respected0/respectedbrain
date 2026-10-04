@@ -12,20 +12,7 @@ import unittest
 from unittest import mock
 
 
-ROOT = Path(__file__).resolve().parents[1]
-RUNTIME_PATH = ROOT / "runtime" / "runtime_platform.py" if (ROOT / "runtime" / "runtime_platform.py").is_file() else ROOT / "template" / ".beyin" / "runtime_platform.py"
-
-
-def load_runtime():
-    spec = importlib.util.spec_from_file_location("respected_runtime_platform", RUNTIME_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load runtime module: {RUNTIME_PATH}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-RUNTIME = load_runtime()
+from respectedbrain.core import platform as RUNTIME
 
 
 class RuntimePlatformTest(unittest.TestCase):

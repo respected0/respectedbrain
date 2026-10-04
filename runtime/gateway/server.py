@@ -156,6 +156,17 @@ def _read_json_safe(path: Path, default: dict | list) -> dict | list:
     return default
 
 
+def _config_path(vault: Path) -> Path:
+    legacy = vault / ".beyin" / "config.json"
+    return legacy if legacy.is_file() else BEYIN_DIR / "config.json"
+
+
+def _state_dir(vault: Path) -> Path:
+    if (vault / ".beyin").is_dir():
+        return vault / ".beyin" / "engine" / ".state"
+    return BEYIN_DIR / "state"
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     vault_root: Path = VAULT_ROOT
 
@@ -231,8 +242,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _handle_api_get(self, path: str, params: dict[str, list[str]] | None = None) -> None:
         params = params or {}
         vault = self.vault_root
-        state_dir = vault / ".beyin" / "engine" / ".state"
-        config_path = vault / ".beyin" / "config.json"
+        state_dir = _state_dir(vault)
+        config_path = _config_path(vault)
 
         if path == "/api/status":
             config = _read_json_safe(config_path, {})
@@ -391,7 +402,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _handle_set_priority(self, payload: dict) -> None:
         priority = payload.get("priority")
         summary_provider = payload.get("summary_provider")
-        config_path = self.vault_root / ".beyin" / "config.json"
+        config_path = _config_path(self.vault_root)
         config = _read_json_safe(config_path, {})
 
         if isinstance(priority, list):
@@ -515,8 +526,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _handle_run_briefing(self) -> None:
         script = self.vault_root / ".beyin" / "morning_briefing.py"
         if not script.is_file():
-            script = REPO_ROOT / "template" / ".beyin" / "morning_briefing.py"
-        cmd = [sys.executable, str(script), "--apply"]
+            script = BEYIN_DIR / "morning_briefing.py"
+        cmd = [sys.executable, str(script), "--if-due", "--vault-root", str(self.vault_root)]
         res = subprocess.run(cmd, cwd=self.vault_root, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if res.returncode == 0:
             self._send_json({"success": True, "message": "Sabah brifingi başarıyla üretildi."})
@@ -526,8 +537,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _handle_run_compile(self) -> None:
         script = self.vault_root / ".beyin" / "engine" / "compile.py"
         if not script.is_file():
-            script = REPO_ROOT / "template" / ".beyin" / "engine" / "compile.py"
-        cmd = [sys.executable, str(script)]
+            script = BEYIN_DIR / "engine" / "compile.py"
+        cmd = [sys.executable, str(script), "--vault", str(self.vault_root)]
         res = subprocess.run(cmd, cwd=self.vault_root, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if res.returncode == 0:
             self._send_json({"success": True, "message": "Bilgi derleme başarıyla tamamlandı."})
@@ -535,7 +546,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_error_json(f"Derleme hatası: {res.stderr or res.stdout}")
 
     def _handle_run_doctor(self) -> None:
-        state_dir = self.vault_root / ".beyin" / "engine" / ".state"
+        state_dir = _state_dir(self.vault_root)
         health = _read_json_safe(state_dir / "health.json", {})
         briefing_health = _read_json_safe(state_dir / "briefing-health.json", {})
         compile_state = _read_json_safe(state_dir / "compile-state.json", {})
