@@ -9,17 +9,45 @@ import tempfile
 from respectedbrain.installation.payload import validate_package
 
 
+def _annotation(stage: str, code: str) -> None:
+    # Only fixed labels are public. Never place exception text, paths, UUIDs,
+    # subprocess output or environment values in an Actions annotation.
+    stages = {"manifest", "version", "register", "list", "maps", "search", "hook", "mcp"}
+    codes = {"manifest-invalid", "platform-mismatch", "launch-os-error", "launch-timeout",
+             "unsafe-path", "frozen-library", "child-terminated", "child-failed"}
+    if stage not in stages or code not in codes:
+        raise ValueError("Unknown verification diagnostic label")
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::error title=Native distribution verification::stage={stage}; code={code}", flush=True)
+
+
 def verify(distribution: Path, *, platform: str) -> int:
     distribution = distribution.resolve()
-    document = validate_package(distribution)
+    try:
+        document = validate_package(distribution)
+    except Exception:
+        _annotation("manifest", "manifest-invalid")
+        raise
     if document["platform"] != platform:
+        _annotation("manifest", "platform-mismatch")
         raise ValueError("Distribution platform mismatch")
     with tempfile.TemporaryDirectory(prefix="Respected Türkçe 🧠 ") as temporary:
         root = Path(temporary)
         env = {**os.environ, "PATH": str(Path(os.environ["SystemRoot"]) / "System32") if os.name == "nt" else "/usr/bin:/bin", "RESPECTED_APP_DIR": str(distribution), "RESPECTED_DATA_DIR": str(root / "data"), "PYTHONPATH": ""}
         def run(*args, stdin=None):
-            result = subprocess.run([str(distribution / document["launcher"]), *map(str, args)], cwd=root, env=env, input=stdin, capture_output=True, text=True, encoding="utf-8", timeout=45)
+            stage = {"--version": "version", "vault": "register" if args[1] == "register" else "list",
+                     "maps": "maps", "search": "search", "hook": "hook", "mcp": "mcp"}[args[0]]
+            try:
+                result = subprocess.run([str(distribution / document["launcher"]), *map(str, args)], cwd=root, env=env, input=stdin, capture_output=True, text=True, encoding="utf-8", timeout=45)
+            except subprocess.TimeoutExpired:
+                _annotation(stage, "launch-timeout")
+                raise
+            except OSError:
+                _annotation(stage, "launch-os-error")
+                raise
             if result.returncode:
+                code = "unsafe-path" if "Link or reparse target:" in result.stderr else "frozen-library" if "Failed to load Python shared library" in result.stderr else "child-terminated" if result.returncode < 0 else "child-failed"
+                _annotation(stage, code)
                 raise RuntimeError(result.stderr + result.stdout)
             return result.stdout
         if run("--version").strip() != document["version"]:
