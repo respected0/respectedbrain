@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from respectedbrain.core.coordination import guarded_writer
+
 import argparse
 import datetime as dt
 import hashlib
@@ -768,6 +770,7 @@ def compile_memory(ctx: AppContext, *, model: ModelService, now: dt.datetime) ->
     return compile_pending(ctx, model=model, now=now)
 
 
+@guarded_writer
 def compile_pending(ctx: AppContext, *, model: ModelService, now: dt.datetime,
                     trigger_claim: Path | None = None, before_date: dt.date | None = None,
                     max_calls: int = DEFAULT_MAX_CALLS, dry_run: bool = False) -> int:

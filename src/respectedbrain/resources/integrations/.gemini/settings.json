@@ -6,7 +6,7 @@
           {
             "name": "respected-brain-sessionstart",
             "type": "command",
-            "command": "python3 .beyin/hooks/bridge.py --provider gemini --event start",
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider gemini --event start",
             "timeout": 15000,
             "description": "Sync Respected Brain memory"
           }
@@ -19,7 +19,7 @@
           {
             "name": "respected-brain-beforeagent",
             "type": "command",
-            "command": "python3 .beyin/hooks/bridge.py --provider gemini --event prompt",
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider gemini --event prompt",
             "timeout": 5000,
             "description": "Sync Respected Brain memory"
           }
@@ -32,7 +32,7 @@
           {
             "name": "respected-brain-afteragent",
             "type": "command",
-            "command": "python3 .beyin/hooks/bridge.py --provider gemini --event turn",
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider gemini --event turn",
             "timeout": 10000,
             "description": "Sync Respected Brain memory"
           }
@@ -45,7 +45,7 @@
           {
             "name": "respected-brain-sessionend",
             "type": "command",
-            "command": "python3 .beyin/hooks/bridge.py --provider gemini --event end",
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider gemini --event end",
             "timeout": 10000,
             "description": "Sync Respected Brain memory"
           }
@@ -58,7 +58,7 @@
           {
             "name": "respected-brain-precompress",
             "type": "command",
-            "command": "python3 .beyin/hooks/bridge.py --provider gemini --event precompact",
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider gemini --event precompact",
             "timeout": 10000,
             "description": "Sync Respected Brain memory"
           }

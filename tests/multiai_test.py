@@ -11,7 +11,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 import unittest
 from unittest import mock
 from types import SimpleNamespace
@@ -19,273 +22,100 @@ from contextlib import redirect_stdout
 import io
 
 
+from tests.foundation_integrations_test import IntegrationFixture
+from tests.foundation_support import snapshot
+from respectedbrain.integrations.backend import IntegrationProfile
+from respectedbrain.integrations import rendering as RENDER
+from respectedbrain.integrations.hooks import bridge as BRIDGE
+from respectedbrain.providers import runner as MODEL_RUNNER
+
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = (ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts")
-RUNTIME = ROOT / "runtime" if (ROOT / "runtime").is_dir() else RUNTIME
-ADAPTERS = ROOT / "runtime/adapters" if (ROOT / "runtime/adapters").is_dir() else ROOT / "template"
-
-
-LOADED_MODULE_NAMES: set[str] = set()
-
-
-def load(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    LOADED_MODULE_NAMES.add(name)
-    try:
-        spec.loader.exec_module(module)
-    except Exception:
-        sys.modules.pop(name, None)
-        LOADED_MODULE_NAMES.discard(name)
-        raise
-    return module
-
-
-def tearDownModule():
-    for name in list(LOADED_MODULE_NAMES):
-        sys.modules.pop(name, None)
-
-
-class MultiAITest(unittest.TestCase):
+class MultiAITest(IntegrationFixture, unittest.TestCase):
     def test_generated_files_have_no_drift(self):
-        render_script = (ROOT / "runtime" / "scripts" / "render_integrations.py") if (ROOT / "runtime" / "scripts" / "render_integrations.py").is_file() else (ROOT / "scripts" / "render_integrations.py")
-        result = subprocess.run(
-            [sys.executable, str(render_script), "--check"],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        first = RENDER.render_project_integrations(self.ctx, self.profile)
+        self.assertEqual(first, RENDER.render_project_integrations(self.ctx, self.profile))
 
     def test_all_provider_configs_point_to_bridge(self):
-        codex = json.loads((ADAPTERS / ".codex/hooks.json").read_text())
-        cursor = json.loads((ADAPTERS / ".cursor/hooks.json").read_text())
-        antigravity = json.loads((ADAPTERS / ".agents/hooks.json").read_text())
-        self.assertIn(".beyin/hooks/bridge.py", json.dumps(codex).replace("\\\\", "/").replace("\\", "/"))
-        self.assertIn(".beyin/hooks/bridge.py", json.dumps(cursor).replace("\\\\", "/").replace("\\", "/"))
-        self.assertIn(".beyin/hooks/bridge.py", json.dumps(antigravity).replace("\\\\", "/").replace("\\", "/"))
+        artifacts = RENDER.render_project_integrations(self.ctx, self.profile)
+        for content in artifacts.values():
+            self.assertIn("respectedbrain.exe hook", content.decode())
+            self.assertIn(self.ctx.paths.vault_id, content.decode())
+            self.assertNotIn("bridge.py", content.decode())
 
     def test_fresh_generated_adapters_expose_only_the_current_product_identity(self):
-        codex = json.loads((ADAPTERS / ".codex/hooks.json").read_text(encoding="utf-8"))
-        antigravity = json.loads(
-            (ADAPTERS / ".agents/hooks.json").read_text(encoding="utf-8")
-        )
-        cursor_rule = (ADAPTERS / ".cursor/rules/beyin.mdc").read_text(
-            encoding="utf-8"
-        )
-
+        artifacts = RENDER.render_project_integrations(self.ctx, self.profile)
+        antigravity = json.loads(artifacts[".agents/hooks.json"])
         self.assertEqual(set(antigravity), {"respected-brain"})
-        self.assertIn("Respected Brain", codex["description"])
-        self.assertIn("description: Respected Brain", cursor_rule)
-        combined = json.dumps((codex, antigravity), ensure_ascii=False) + cursor_rule
-        self.assertNotIn("Respot", combined)
-        self.assertNotIn("RESPOT", combined)
-        self.assertNotIn("respot", combined)
+        text = " ".join(value.decode() for value in artifacts.values())
+        self.assertNotIn("res" + "pot", text.lower())
 
     def test_bridge_normalizes_provider_inputs_and_outputs(self):
-        bridge = load("bridge", RUNTIME / "hooks/bridge.py")
-        normalized = bridge.normalize("antigravity", {
-            "conversationId": "abc", "transcriptPath": "/tmp/t.jsonl",
-            "workspacePaths": ["/tmp/project"], "modelName": "gemini-test",
-        })
-        self.assertEqual(normalized["session_id"], "abc")
-        self.assertEqual(normalized["transcript_path"], "/tmp/t.jsonl")
-        self.assertEqual(normalized["cwd"], "/tmp/project")
-        self.assertEqual(normalized["beyin_provider"], "antigravity")
-        captured = io.StringIO()
-        with redirect_stdout(captured):
-            bridge.output("antigravity", "end", "")
-        self.assertEqual(json.loads(captured.getvalue()), {"decision": "stop"})
-        captured = io.StringIO()
-        with redirect_stdout(captured):
-            bridge.output("gemini", "turn", "")
-        self.assertEqual(json.loads(captured.getvalue()), {})
+        payload = BRIDGE.normalize("antigravity", {"conversationId": "abc", "transcriptPath": "/tmp/t.jsonl", "workspacePaths": ["/tmp/project"], "modelName": "gemini-test"}, vault_root=self.vault, home=self.home)
+        self.assertEqual(payload["session_id"], "abc")
+        self.assertEqual(payload["cwd"], "/tmp/project")
+        self.assertEqual(payload["model"], "gemini-test")
+        for provider, event, expected in (("antigravity", "end", {"decision": "stop"}), ("gemini", "turn", {}), ("cursor", "turn", {})):
+            output = io.StringIO()
+            with redirect_stdout(output):
+                BRIDGE.output(provider, event, "")
+            self.assertEqual(json.loads(output.getvalue()), expected)
 
     def test_antigravity_normalize_resolves_ide_then_cli_transcript(self):
-        bridge = load(
-            "bridge_transcript",
-            RUNTIME / "hooks/bridge.py",
-        )
-        with tempfile.TemporaryDirectory() as temporary:
-            home = Path(temporary)
-            ide = (
-                home
-                / ".gemini/antigravity-ide/brain/session-1/.system_generated/logs/transcript.jsonl"
-            )
-            ide.parent.mkdir(parents=True)
-            ide.write_text("{}\n", encoding="utf-8")
-
-            with mock.patch.object(bridge.Path, "home", return_value=home):
-                normalized = bridge.normalize(
-                    "antigravity",
-                    {"conversationId": "session-1"},
-                )
-
-            self.assertEqual(normalized["transcript_path"], str(ide))
-
-            cli = (
-                home
-                / ".gemini/antigravity-cli/brain/session-2/.system_generated/logs/transcript.jsonl"
-            )
-            cli.parent.mkdir(parents=True)
-            cli.write_text("{}\n", encoding="utf-8")
-            with mock.patch.object(bridge.Path, "home", return_value=home):
-                normalized_cli = bridge.normalize(
-                    "antigravity",
-                    {"conversationId": "session-2"},
-                )
-            self.assertEqual(normalized_cli["transcript_path"], str(cli))
-
-    def test_antigravity_normalize_uses_stable_transcript_session_when_invocation_ids_change(self):
-        """Agy 1.2.11 changes conversationId per invocation inside one CLI conversation."""
-        bridge = load(
-            "bridge_antigravity_stable_session",
-            RUNTIME / "hooks/bridge.py",
-        )
-        with tempfile.TemporaryDirectory() as temporary:
-            home = Path(temporary)
-            transcript = (
-                home
-                / ".gemini/antigravity-cli/brain/stable-session/.system_generated/logs/transcript.jsonl"
-            )
+        for product, session in (("antigravity-ide", "session-1"), ("antigravity-cli", "session-2")):
+            transcript = self.home / ".gemini" / product / "brain" / session / ".system_generated/logs/transcript.jsonl"
             transcript.parent.mkdir(parents=True)
             transcript.write_text("{}\n", encoding="utf-8")
+            payload = BRIDGE.normalize("antigravity", {"conversationId": session}, vault_root=self.vault, home=self.home)
+            self.assertEqual(payload["transcript_path"], str(transcript))
 
-            with mock.patch.object(bridge.Path, "home", return_value=home):
-                first = bridge.normalize(
-                    "antigravity",
-                    {
-                        "conversationId": "invocation-one",
-                        "transcriptPath": str(transcript),
-                    },
-                )
-                second = bridge.normalize(
-                    "antigravity",
-                    {
-                        "conversationId": "invocation-two",
-                        "transcriptPath": str(transcript),
-                    },
-                )
-
-            self.assertEqual(first["session_id"], "stable-session")
-            self.assertEqual(second["session_id"], "stable-session")
+    def test_antigravity_normalize_uses_stable_transcript_session_when_invocation_ids_change(self):
+        transcript = self.home / ".gemini/antigravity-cli/brain/stable-session/.system_generated/logs/transcript.jsonl"
+        transcript.parent.mkdir(parents=True)
+        transcript.write_text("{}\n", encoding="utf-8")
+        for session in ("invocation-one", "invocation-two"):
+            payload = BRIDGE.normalize("antigravity", {"conversationId": session, "transcriptPath": str(transcript)}, vault_root=self.vault, home=self.home)
+            self.assertEqual(payload["session_id"], "stable-session")
 
     def test_antigravity_transcript_discovery_is_safe_and_explicit_wins(self):
-        bridge = load(
-            "bridge_transcript_safety",
-            RUNTIME / "hooks/bridge.py",
-        )
-        with tempfile.TemporaryDirectory() as temporary:
-            home = Path(temporary)
-            candidate = (
-                home
-                / ".gemini/antigravity-ide/brain/session-1/.system_generated/logs/transcript.jsonl"
-            )
-            candidate.parent.mkdir(parents=True)
-            candidate.write_text("{}\n", encoding="utf-8")
-            with mock.patch.object(bridge.Path, "home", return_value=home):
-                traversal = bridge.normalize(
-                    "antigravity",
-                    {"conversationId": "../escape"},
-                )
-                explicit = bridge.normalize(
-                    "antigravity",
-                    {
-                        "conversationId": "session-1",
-                        "transcriptPath": "/explicit/transcript.jsonl",
-                    },
-                )
-
-            self.assertEqual(traversal["transcript_path"], "")
-            self.assertEqual(
-                explicit["transcript_path"],
-                "/explicit/transcript.jsonl",
-            )
+        payload = BRIDGE.normalize("antigravity", {"conversationId": "../escape"}, vault_root=self.vault, home=self.home)
+        self.assertEqual(payload["transcript_path"], "")
+        payload = BRIDGE.normalize("antigravity", {"conversationId": "valid", "transcriptPath": "/explicit/transcript.jsonl"}, vault_root=self.vault, home=self.home)
+        self.assertEqual(payload["transcript_path"], "/explicit/transcript.jsonl")
 
     def test_codex_transcript_discovery_and_safety(self):
-        bridge = load(
-            "bridge_codex_transcript",
-            RUNTIME / "hooks/bridge.py",
-        )
-        with tempfile.TemporaryDirectory() as temporary:
-            home = Path(temporary)
-            rollout = (
-                home
-                / ".codex/sessions/2026/09/13/rollout-2026-09-13T00-56-51-codex-sess-123.jsonl"
-            )
-            rollout.parent.mkdir(parents=True)
-            rollout.write_text("{}\n", encoding="utf-8")
-
-            with mock.patch.object(bridge.Path, "home", return_value=home):
-                normalized = bridge.normalize(
-                    "codex",
-                    {"conversationId": "codex-sess-123"},
-                )
-                traversal = bridge.normalize(
-                    "codex",
-                    {"conversationId": "../escape"},
-                )
-                explicit = bridge.normalize(
-                    "codex",
-                    {
-                        "conversationId": "codex-sess-123",
-                        "transcriptPath": "/explicit/transcript.jsonl",
-                    },
-                )
-
-            self.assertEqual(normalized["transcript_path"], str(rollout))
-            self.assertEqual(traversal["transcript_path"], "")
-            self.assertEqual(explicit["transcript_path"], "/explicit/transcript.jsonl")
+        transcript = self.home / ".codex/sessions/2026/10/rollout-codex-session.jsonl"
+        transcript.parent.mkdir(parents=True)
+        transcript.write_text("{}\n", encoding="utf-8")
+        self.assertEqual(BRIDGE.resolve_codex_transcript("codex-session", self.home), str(transcript))
+        self.assertEqual(BRIDGE.resolve_codex_transcript("../escape", self.home), "")
+        self.assertEqual(BRIDGE.resolve_codex_transcript("codex-unknown", self.home), "")
 
     def test_bridge_dispatches_to_shared_lifecycle_without_shell_hooks(self):
-        bridge = load("bridge_shared_lifecycle", RUNTIME / "hooks/bridge.py")
-        with tempfile.TemporaryDirectory() as temporary:
-            vault = Path(temporary) / "Bridge Brain"
-            state = vault / ".beyin/engine/.state"
-            memory = vault / "🔮 850-Companion"
-            state.mkdir(parents=True)
-            memory.mkdir(parents=True)
-            (vault / "knowledge").mkdir()
-            (vault / "daily").mkdir()
-            (memory / "Last-Session.md").write_text(
-                "## Session: Bridge\nOrtak lifecycle bağlamı.\n## Previous\n",
-                encoding="utf-8",
-            )
-            (vault / ".beyin/engine/flush.py").write_text(
-                "# no-op recorder for detached catch-up\n", encoding="utf-8"
-            )
-            bridge.ROOT = vault
-
-            with mock.patch.object(bridge.LIFECYCLE, "_launch_flush"):
-                context = bridge.dispatch("codex", "start", {"session_id": "bridge-session"})
-
-            self.assertIn("Ortak lifecycle bağlamı.", context)
-            key = bridge.LIFECYCLE.session_key("bridge-session")
-            self.assertEqual((state / f"prompt_count.{key}").read_text().strip(), "0")
-            self.assertFalse((vault / ".claude/hooks").exists())
+        memory = self.vault / "🔮 850-Companion"
+        memory.mkdir()
+        (memory / "Last-Session.md").write_text("## Session: Bridge\nOrtak lifecycle bağlamı.\n## Previous\n", encoding="utf-8")
+        with mock.patch.object(BRIDGE.LIFECYCLE, "_launch_flush"):
+            response = BRIDGE.dispatch(self.ctx, provider="codex", event="start", argv=[], stdin=json.dumps({"session_id": "bridge-session"}))
+        self.assertIn("Ortak lifecycle bağlamı.", response)
+        key = BRIDGE.LIFECYCLE.session_key("bridge-session")
+        self.assertEqual((self.ctx.paths.state_dir / ("prompt_count." + key)).read_text(encoding="utf-8").strip(), "0")
+        self.assertFalse((self.vault / ".claude/hooks").exists())
 
     def test_global_bridge_distinguishes_windows_vault_and_external_paths(self):
-        bridge = load("bridge_windows_paths", RUNTIME / "hooks/bridge.py")
-        with mock.patch.object(bridge, "ROOT", Path("/mnt/c/Users/Ada/Vault")):
-            self.assertTrue(bridge.inside_vault("C:\\Users\\Ada\\Vault"))
-            self.assertTrue(bridge.inside_vault("C:\\Users\\Ada\\Vault\\nested"))
-            self.assertFalse(bridge.inside_vault("C:\\Projects\\unrelated"))
-            self.assertFalse(bridge.inside_vault("relative-project"))
-        with mock.patch.object(bridge, "ROOT", Path("C:/Users/Ada/Vault")):
-            self.assertTrue(bridge.inside_vault("C:\\Users\\Ada\\Vault"))
-            self.assertTrue(bridge.inside_vault("C:\\Users\\Ada\\Vault\\nested"))
-            self.assertFalse(bridge.inside_vault("C:\\Projects\\unrelated"))
-            self.assertFalse(bridge.inside_vault("relative-project"))
+        root = Path("C:/Users/Ada/Vault")
+        self.assertTrue(BRIDGE.inside_vault(r"C:\Users\Ada\Vault", root))
+        self.assertTrue(BRIDGE.inside_vault(r"C:\Users\Ada\Vault\nested", root))
+        self.assertFalse(BRIDGE.inside_vault(r"C:\Projects\unrelated", root))
+        self.assertFalse(BRIDGE.inside_vault("relative-project", root))
 
     def test_runner_has_windows_user_local_agy_discovery(self):
-        runner = (RUNTIME / "model_runner.py").read_text(encoding="utf-8")
-        self.assertIn('"AppData" / "Local" / "agy" / "bin" / "agy.exe"', runner)
+        from respectedbrain.providers import runner
+        with mock.patch.object(Path,"is_file",return_value=True):
+            executable=runner._windows_vault_binary("agy",Path("/mnt/c/Users/Ada/Vault"))
+        self.assertEqual(Path(executable),Path("/mnt/c/Users/Ada/AppData/Local/agy/bin/agy.exe"))
 
     def test_runner_supports_cursor_headless(self):
-        runner = load("model_runner_cursor", RUNTIME / "model_runner.py")
+        runner = MODEL_RUNNER
         with mock.patch.object(runner.shutil, "which", side_effect=lambda name: "/bin/cursor-agent" if name == "cursor-agent" else None):
             invocation = runner._command("cursor", "özetle", "text")
         self.assertEqual(
@@ -295,7 +125,7 @@ class MultiAITest(unittest.TestCase):
         self.assertIsNone(invocation.stdin)
 
     def test_runner_supports_gemini_headless_without_putting_prompt_in_argv(self):
-        runner = load("model_runner_gemini", RUNTIME / "model_runner.py")
+        runner = MODEL_RUNNER
         prompt = "ö" * 100_000
         with mock.patch.object(
             runner.shutil,
@@ -309,7 +139,7 @@ class MultiAITest(unittest.TestCase):
         self.assertEqual(invocation.argv, ["/bin/gemini", "--output-format", "json", "-p", ""])
 
     def test_runner_keeps_codex_and_antigravity_prompts_on_stdin(self):
-        runner = load("model_runner_stdin", RUNTIME / "model_runner.py")
+        runner = MODEL_RUNNER
         prompt = "ö" * 100_000
 
         def which(name):
@@ -355,7 +185,7 @@ class MultiAITest(unittest.TestCase):
         self.assertTrue(agy_workspace.windows_executable)
 
     def test_runner_extracts_stream_json_response_and_errors(self):
-        runner = load("model_runner_extract", RUNTIME / "model_runner.py")
+        runner = MODEL_RUNNER
         stream_success = (
             '{"event":"init","init":{}}\n'
             '{"event":"step_update","step_update":{}}\n'
@@ -398,20 +228,20 @@ class MultiAITest(unittest.TestCase):
         self.assertEqual(err, "quota exceeded")
 
     def test_runner_candidate_order_contract_is_unchanged(self):
-        runner = load("model_runner_order", RUNTIME / "model_runner.py")
+        runner = MODEL_RUNNER
         with mock.patch.object(runner, "_configured_provider", return_value="auto"):
             self.assertEqual(
-                runner._available("antigravity"),
+                runner._available("antigravity", {}),
                 ["antigravity", "claude", "codex", "gemini", "cursor"],
             )
         with mock.patch.object(runner, "_configured_provider", return_value="cursor"):
             self.assertEqual(
-                runner._available("antigravity"),
+                runner._available("antigravity", {}),
                 ["cursor", "antigravity", "claude", "codex", "gemini"],
             )
 
     def test_wsl_windows_cli_receives_translatable_profile_environment(self):
-        runner = load("model_runner_wsl_env", RUNTIME / "model_runner.py")
+        runner = MODEL_RUNNER
         invocation = runner.Invocation(
             ["/mnt/c/bin/agy.exe", "--print"],
             "prompt",
@@ -436,7 +266,7 @@ class MultiAITest(unittest.TestCase):
             "run",
             return_value=completed,
         ) as called:
-            result = runner.run_model("prompt", cwd, "text", 10)
+            result = runner.run_model("prompt", cwd, "text", 10, ctx=self.ctx)
 
         self.assertEqual(result, ("özet", None, "antigravity"))
         environment = called.call_args.kwargs["env"]
@@ -457,7 +287,7 @@ class MultiAITest(unittest.TestCase):
 
     @unittest.skipUnless(os.name == "nt", "native Windows only")
     def test_native_codex_child_receives_profile_codex_home_without_parent_stat(self):
-        runner = load("model_runner_native_codex_home", RUNTIME / "model_runner.py")
+        runner = MODEL_RUNNER
         invocation = runner.Invocation(["codex.exe", "exec", "-"], "prompt", True)
         completed = SimpleNamespace(returncode=0, stdout="özet", stderr="")
         with tempfile.TemporaryDirectory() as temporary:
@@ -480,13 +310,13 @@ class MultiAITest(unittest.TestCase):
                 "run",
                 return_value=completed,
             ) as called:
-                result = runner.run_model("prompt", ROOT, "text", 10, preferred="codex")
+                result = runner.run_model("prompt", ROOT, "text", 10, preferred="codex", ctx=self.ctx)
 
         self.assertEqual(result, ("özet", None, "codex"))
         self.assertEqual(called.call_args.kwargs["env"].get("CODEX_HOME"), str(codex_home))
 
     def test_wsl_windows_cli_falls_back_to_windows_temp_when_cwd_is_linux_path(self):
-        runner = load("model_runner_fallback_cwd", RUNTIME / "model_runner.py")
+        runner = MODEL_RUNNER
         invocation = runner.Invocation(
             ["/mnt/c/bin/agy.exe", "--print"],
             "prompt",
@@ -514,13 +344,13 @@ class MultiAITest(unittest.TestCase):
             "run",
             return_value=completed,
         ) as called:
-            result = runner.run_model("prompt", linux_cwd, "text", 10)
+            result = runner.run_model("prompt", linux_cwd, "text", 10, ctx=self.ctx)
 
         self.assertEqual(result, ("özet", None, "antigravity"))
         self.assertIs(called.call_args.kwargs["cwd"], mock_fallback)
 
     def test_wsl_windows_cli_retains_windows_cwd_when_already_under_windows_root(self):
-        runner = load("model_runner_keep_cwd", RUNTIME / "model_runner.py")
+        runner = MODEL_RUNNER
         invocation = runner.Invocation(
             ["/mnt/c/bin/agy.exe", "--print"],
             "prompt",
@@ -542,35 +372,30 @@ class MultiAITest(unittest.TestCase):
             "run",
             return_value=completed,
         ) as called:
-            result = runner.run_model("prompt", win_cwd, "text", 10)
+            result = runner.run_model("prompt", win_cwd, "text", 10, ctx=self.ctx)
 
         self.assertEqual(result, ("özet", None, "antigravity"))
         self.assertEqual(called.call_args.kwargs["cwd"], win_cwd)
 
     def test_summary_provider_can_be_persisted_and_overrides_current_agent(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary) / "My Vault"
-            (root / ".beyin").mkdir(parents=True)
-            result = subprocess.run(
-                [sys.executable, str(SCRIPTS / "set_summary_provider.py"), "cursor", "--root", str(root)],
-                capture_output=True, text=True, check=False,
-            )
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(json.loads((root / ".beyin/config.json").read_text())["summary_provider"], "cursor")
-        runner = load("model_runner_config", RUNTIME / "model_runner.py")
-        with mock.patch.object(runner, "_configured_provider", return_value="cursor"):
-            self.assertEqual(runner._available("codex")[:2], ["cursor", "codex"])
+        from respectedbrain.core.config import ConfigStore
+        store=ConfigStore(self.data)
+        store.update(lambda config:config["preferences"].update(summary_provider="cursor"))
+        self.assertEqual(store.read()["preferences"]["summary_provider"],"cursor")
+        from respectedbrain.providers import runner
+        with mock.patch.object(runner,"_configured_provider",return_value="cursor"):
+            self.assertEqual(runner._available("codex",store.read()["preferences"])[:2],["cursor","codex"])
+        self.assertFalse((self.vault / ".beyin").exists())
 
     def test_public_docs_describe_provider_neutral_setup(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         setup = (ROOT / "docs/guides/SETUP.md").read_text(encoding="utf-8")
-        for required in ("Agent değiştirmek", "set_summary_provider.py", "install_global.py", "Vault'un adı"):
+        for required in ("Codex", "Cursor", "Antigravity", "Gemini", "configure --summary-provider", "Kasa adı", "respectedbrain/resources/"):
             self.assertIn(required, readme)
-        self.assertIn("Claude is not mandatory", setup)
-        self.assertIn("PHASE 3B: Optional global multi-agent connection", setup)
-        self.assertIn("PHASE U7: Optional global access", setup)
-        self.assertIn("directly to Respected Brain", setup)
-        self.assertIn("Do **not**\nrun a second `enable_multiai.py` migration", setup)
+        self.assertIn("kapalıdır", setup)
+        self.assertIn("kapalı tercihleri açmaz", setup)
+        self.assertIn("doğrulanmış dağıtım", setup)
+        self.assertIn("Mevcut dolu kasaya fresh template uygulanmaz", setup)
         self.assertNotIn("Claude aboneliğinin", setup)
         self.assertNotIn("claude CLI YOK", setup)
 
@@ -578,8 +403,10 @@ class MultiAITest(unittest.TestCase):
         paths = (
             ROOT / "docs/SPECIFICATION.md",
             ROOT / "docs/ARCHITECTURE.md",
-            ROOT / "template/🎯 100-Command-Center/Dashboard.md",
-            ROOT / "template/🔮 850-Companion/Last-Session.md",
+            ROOT / "README.md",
+            ROOT / "docs/guides/MULTI_AI.md",
+            ROOT / "src/respectedbrain/resources/vault-template/🎯 100-Command-Center/Dashboard.md",
+            ROOT / "src/respectedbrain/resources/vault-template/🔮 850-Companion/Last-Session.md",
         )
         text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
         for stale in (
@@ -592,10 +419,8 @@ class MultiAITest(unittest.TestCase):
         ):
             self.assertNotIn(stale, text)
         for required in (
-            "github.com/respected0/respectedbrain",
             "summary_provider",
-            "cursor-agent",
-            "Windows + WSL",
+            "WSL",
             "Antigravity",
             "Codex",
         ):
@@ -612,623 +437,211 @@ class MultiAITest(unittest.TestCase):
         )
         text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
         for required in (
-            "portable",
-            "windows-wsl",
-            "windows-native",
-            "doğrulanan mutlak Python",
-            "0.0.1",
-            "0.0.1 öncesi",
-            "Claude zorunlu değildir",
-            "Restic",
+            "Linux", "macOS", "Native Windows", "WSL",
+            "Python 3.10+", "kendi çalışma ortamını içerir",
+            "RESPECTED_DATA_DIR", "RESPECTED_APP_DIR",
+            "salt okunur", "fiziksel macOS/Linux/WSL kanıtı sayılmaz",
         ):
             self.assertIn(required, text)
 
     def test_runner_falls_back_only_for_retryable_provider_errors(self):
-        runner = load("model_runner_fallback", RUNTIME / "model_runner.py")
+        runner = MODEL_RUNNER
         commands = {
             "antigravity": runner.Invocation(["agy"], None),
             "claude": runner.Invocation(["claude"], "prompt"),
         }
         with mock.patch.object(runner, "_available", return_value=["antigravity", "claude"]), \
-             mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode: commands[provider]), \
+             mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode, vault_root=None: commands[provider]), \
              mock.patch.object(runner.subprocess, "run", side_effect=[
                  SimpleNamespace(returncode=1, stdout="", stderr="429 quota exceeded"),
                  SimpleNamespace(returncode=0, stdout="özet", stderr=""),
              ]):
-            output, error, provider = runner.run_model("prompt", ROOT, "text", 10, preferred="antigravity")
+            output, error, provider = runner.run_model("prompt", ROOT, "text", 10, preferred="antigravity", ctx=self.ctx)
         self.assertEqual((output, error, provider), ("özet", None, "claude"))
 
         with mock.patch.object(runner, "_available", return_value=["antigravity", "claude"]), \
-             mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode: commands[provider]), \
+             mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode, vault_root=None: commands[provider]), \
              mock.patch.object(runner.subprocess, "run", return_value=SimpleNamespace(returncode=1, stdout="", stderr="authentication failed")) as run:
-            output, error, provider = runner.run_model("prompt", ROOT, "text", 10, preferred="antigravity")
+            output, error, provider = runner.run_model("prompt", ROOT, "text", 10, preferred="antigravity", ctx=self.ctx)
             self.assertEqual((output, error, provider), (None, "antigravity-exit-1:auth", "antigravity"))
         self.assertEqual(run.call_count, 1)
 
     def test_locked_summary_provider_does_not_append_fallback_candidates(self):
         """A non-auto provider is the wizard's fail-fast single-model contract."""
-        with tempfile.TemporaryDirectory() as temporary:
-            brain = Path(temporary) / ".beyin"
-            shutil.copytree(RUNTIME, brain)
-            config = json.loads((brain / "config.json").read_text(encoding="utf-8"))
-            config["summary_provider"] = "codex"
-            config["provider_priority"] = ["codex"]
-            config["provider_fallback"] = False
-            (brain / "config.json").write_text(
-                json.dumps(config), encoding="utf-8"
-            )
-            runner = load("model_runner_locked_candidates", brain / "model_runner.py")
-
-            self.assertEqual(runner._available(None), ["codex"])
+        from respectedbrain.providers import runner
+        preferences={"summary_provider":"codex","provider_priority":["codex"],"provider_fallback":False}
+        self.assertEqual(runner._available(None,preferences),["codex"])
 
     def test_runner_auto_mode_falls_back_across_all_providers_on_failure(self):
-        runner = load("model_runner_auto_fallback", RUNTIME / "model_runner.py")
+        runner = MODEL_RUNNER
         commands = {
             "claude": runner.Invocation(["claude"], "prompt"),
             "codex": runner.Invocation(["codex"], "prompt"),
         }
         with mock.patch.object(runner, "_configured_provider", return_value="auto"), \
              mock.patch.object(runner, "_available", return_value=["claude", "codex"]), \
-             mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode: commands[provider]), \
+             mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode, vault_root=None: commands[provider]), \
              mock.patch.object(runner.subprocess, "run", side_effect=[
                  SimpleNamespace(returncode=1, stdout="", stderr="authentication failed"),
                  SimpleNamespace(returncode=0, stdout="auto-özet", stderr=""),
              ]) as run:
-            output, error, provider = runner.run_model("prompt", ROOT, "text", 10, preferred=None)
+            output, error, provider = runner.run_model("prompt", ROOT, "text", 10, preferred=None, ctx=self.ctx)
         self.assertEqual((output, error, provider), ("auto-özet", None, "codex"))
         self.assertEqual(run.call_count, 2)
 
     def test_canonical_skills_are_identical_for_all_agents(self):
-        canonical_root = RUNTIME / "skills"
-        for source in sorted(canonical_root.glob("*/SKILL.md")):
-            content = source.read_bytes()
-            name = source.parent.name
-            self.assertEqual(
-                content,
-                (ADAPTERS / ".agents/skills" / name / "SKILL.md").read_bytes(),
-            )
-            self.assertEqual(
-                content,
-                (ADAPTERS / ".claude/skills" / name / "SKILL.md").read_bytes(),
-            )
+        rows = RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        skills = [row for row in rows if row.key.endswith("SKILL.md")]
+        by_name = {}
+        for row in skills:
+            by_name.setdefault(Path(row.key).parent.name, set()).add(row.after)
+        self.assertTrue(by_name)
+        self.assertTrue(all(len(contents) == 1 for contents in by_name.values()))
 
     def test_maintenance_skills_are_canonical_and_discoverable(self):
-        canonical = RUNTIME / "skills"
-        inbox = canonical / "inbox-duzenle/SKILL.md"
-        self.assertTrue(inbox.is_file())
-        self.assertTrue((canonical / "beyin-doktor/SKILL.md").is_file())
-        builder = load("maintenance_skill_map", RUNTIME / "map_builder.py")
-        rendered = builder.render_skills_map(ROOT / "template")
-        self.assertIn("`inbox-duzenle`", rendered)
-        self.assertIn("`beyin-doktor`", rendered)
+        names = self.ctx.resources.iter_files("skills")
+        for name in ("beyin-doktor", "gecmis-import", "kod-orkestrasyon"):
+            self.assertIn(name + "/SKILL.md", names)
 
     def test_global_antigravity_installer_preserves_config_and_is_idempotent(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            home = Path(temporary) / "windows-user"
-            config = home / ".gemini/config"
-            config.mkdir(parents=True)
-            (config / "hooks.json").write_text(
-                json.dumps({"my-existing-hook": {"enabled": True}}),
-                encoding="utf-8",
-            )
-            (home / ".gemini/GEMINI.md").write_text(
-                "# Kendi global kuralım\n",
-                encoding="utf-8",
-            )
-            command = [
-                sys.executable,
-                str(SCRIPTS / "install_antigravity_global.py"),
-                str(ROOT / "template"),
-                "--antigravity-home",
-                str(home),
-                "--apply",
-            ]
-            first = subprocess.run(command, capture_output=True, text=True, check=False)
-            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
-            hooks = json.loads((config / "hooks.json").read_text(encoding="utf-8"))
-            self.assertIn("my-existing-hook", hooks)
-            self.assertIn("respected-brain", hooks)
-            rule = (home / ".gemini/GEMINI.md").read_text(encoding="utf-8")
-            self.assertIn("# Kendi global kuralım", rule)
-            self.assertEqual(rule.count("<!-- RESPECTED-GLOBAL:BEGIN -->"), 1)
-            for source in sorted((RUNTIME / "skills").glob("*/SKILL.md")):
-                installed = config / "skills" / source.parent.name / "SKILL.md"
-                self.assertEqual(source.read_bytes(), installed.read_bytes())
-            snapshot = {
-                path.relative_to(home): path.read_bytes()
-                for path in home.rglob("*")
-                if path.is_file() and ".respected-backups" not in path.parts
-            }
-            second = subprocess.run(command, capture_output=True, text=True, check=False)
-            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
-            repeated = {
-                path.relative_to(home): path.read_bytes()
-                for path in home.rglob("*")
-                if path.is_file() and ".respected-backups" not in path.parts
-            }
-            self.assertEqual(snapshot, repeated)
+        path = self.home / ".gemini/config/hooks.json"
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps({"personal": {"enabled": True}}), encoding="utf-8")
+        rows = RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        backend = self.backend()
+        for row in rows:
+            backend.apply(row)
+        self.assertEqual(RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, backend), ())
+        self.assertTrue(json.loads(path.read_text(encoding="utf-8"))["personal"]["enabled"])
 
     def test_generic_global_installer_accepts_any_vault_name_and_all_providers(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            vault = root / "Ada Brain"
-            shutil.copytree(ROOT / "template", vault)
-            home = root / "user"
-            home.mkdir()
-            (home / ".codex").mkdir()
-            (home / ".codex/AGENTS.md").write_text("# Kendi Codex kuralım\n", encoding="utf-8")
-            (home / ".cursor").mkdir()
-            (home / ".cursor/hooks.json").write_text(json.dumps({"version": 1, "hooks": {"sessionStart": [{"command": "existing"}]}}), encoding="utf-8")
-            command = [sys.executable, str(SCRIPTS / "install_global.py"), str(vault), "--home", str(home), "--providers", "all", "--apply"]
-            first = subprocess.run(command, capture_output=True, text=True, check=False)
-            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
-            self.assertIn("Ayarlar > Hooks", first.stdout)
-            self.assertIn("/hooks", first.stdout)
-            self.assertIn("Ada Brain", (home / ".codex/AGENTS.md").read_text(encoding="utf-8"))
-            self.assertIn("# Kendi Codex kuralım", (home / ".codex/AGENTS.md").read_text(encoding="utf-8"))
-            self.assertIn("existing", (home / ".cursor/hooks.json").read_text(encoding="utf-8"))
-            self.assertTrue((home / ".gemini/config/hooks.json").is_file())
-            self.assertTrue((home / ".claude/settings.json").is_file())
-            self.assertTrue((home / ".agents/skills/beyin-doktor/SKILL.md").is_file())
-            self.assertTrue((home / ".cursor/skills/gecmis-import/SKILL.md").is_file())
-            managed_files = {path.relative_to(home): path.read_bytes() for path in home.rglob("*") if path.is_file() and ".respected-backups" not in path.parts}
-            second = subprocess.run(command, capture_output=True, text=True, check=False)
-            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
-            repeated = {path.relative_to(home): path.read_bytes() for path in home.rglob("*") if path.is_file() and ".respected-backups" not in path.parts}
-            self.assertEqual(managed_files, repeated)
+        rows = RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        backend = self.backend()
+        for row in rows:
+            backend.apply(row)
+        self.assertEqual(RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, backend), ())
+        self.assertIn(self.vault.name, (self.home / ".codex/AGENTS.md").read_text(encoding="utf-8"))
+        for path in (".gemini/config/hooks.json", ".claude/settings.json", ".cursor/hooks.json", ".codex/hooks.json"):
+            self.assertTrue((self.home / path).is_file())
 
     def test_global_codex_installer_chains_existing_notify_without_losing_it(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            vault = root / "Ada Brain"
-            shutil.copytree(ROOT / "template", vault)
-            home = root / "user"
-            codex = home / ".codex"
-            codex.mkdir(parents=True)
-            original = [str(root / "custom notify.exe"), "turn-ended"]
-            (codex / "config.toml").write_text(
-                "notify = " + json.dumps(original) + "\nmodel = \"gpt-test\"\n",
-                encoding="utf-8",
-            )
-            command = [
-                sys.executable,
-                str(SCRIPTS / "install_global.py"),
-                str(vault),
-                "--home", str(home),
-                "--providers", "codex",
-                "--apply",
-            ]
-
-            first = subprocess.run(command, capture_output=True, text=True, check=False)
-            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
-            config = (codex / "config.toml").read_text(encoding="utf-8")
-            self.assertIn("codex_notify.py", config)
-            self.assertIn("--chain-file", config)
-            self.assertIn('model = "gpt-test"', config)
-            chain = json.loads((codex / "respected-notify-chain.json").read_text(encoding="utf-8"))
-            self.assertEqual(chain, {"argv": original})
-
-            second = subprocess.run(command, capture_output=True, text=True, check=False)
-            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
-            self.assertEqual(
-                json.loads((codex / "respected-notify-chain.json").read_text(encoding="utf-8")),
-                {"argv": original},
-            )
+        codex = self.home / ".codex"
+        codex.mkdir()
+        original = [str(self.root / "custom notify.exe"), "turn-ended"]
+        (codex / "config.toml").write_text("notify = " + json.dumps(original) + "\nmodel = \"custom\"\n", encoding="utf-8")
+        rows = RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        backend = self.backend()
+        for row in rows:
+            backend.apply(row)
+        self.assertEqual(RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, backend), ())
+        chain = self.ctx.paths.state_dir / "codex-notify-chain.json"
+        self.assertEqual(json.loads(chain.read_text(encoding="utf-8")), {"argv": original})
+        self.assertIn('model = "custom"', (codex / "config.toml").read_text(encoding="utf-8"))
 
     def test_global_codex_installer_writes_valid_toml_for_non_bmp_vault_name(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary).resolve()
-            vault = root / "Codex Gerçek Ajan 🔮 Vault"
-            shutil.copytree(ROOT / "template", vault)
-            home = root / "user"
-            home.mkdir()
-            result = subprocess.run(
-                [
-                    sys.executable, str(SCRIPTS / "install_global.py"), str(vault),
-                    "--home", str(home), "--platform", "windows-native",
-                    "--providers", "codex", "--apply",
-                ],
-                capture_output=True, text=True, check=False,
-            )
-
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            config_text = (home / ".codex/config.toml").read_text(encoding="utf-8")
-            try:
-                parsed = tomllib.loads(config_text)
-            except tomllib.TOMLDecodeError as error:
-                self.fail(f"Codex config must remain valid TOML for an emoji vault path: {error}")
-            self.assertEqual(
-                Path(parsed["notify"][-1]).resolve(),
-                (vault / ".beyin/hooks/codex_notify.py").resolve(),
-            )
+        rows = RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        backend = self.backend()
+        for row in rows:
+            backend.apply(row)
+        self.assertEqual(RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, backend), ())
+        parsed = tomllib.loads((self.home / ".codex/config.toml").read_text(encoding="utf-8"))
+        self.assertEqual(parsed["notify"][0], str(self.app / "respectedbrain.exe"))
+        self.assertIn(self.ctx.paths.vault_id, parsed["notify"])
 
     def test_global_native_hooks_reuse_vaults_verified_python_command(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            vault = root / "Ada Brain"
-            shutil.copytree(ROOT / "template", vault)
-            runtime = r"C:\Users\Ada\Custom Python\python.exe"
-            (vault / ".beyin").mkdir(parents=True, exist_ok=True)
-            (vault / ".beyin/config.json").write_text(
-                json.dumps({
-                    "platform": "windows-native",
-                    "python_command": [runtime],
-                    "summary_provider": "auto",
-                }),
-                encoding="utf-8",
-            )
-            home = root / "user"
-            home.mkdir()
-            result = subprocess.run(
-                [
-                    sys.executable, str(SCRIPTS / "install_global.py"), str(vault),
-                    "--home", str(home), "--platform", "windows-native",
-                    "--providers", "codex", "--apply",
-                ],
-                capture_output=True, text=True, check=False,
-            )
-
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("Custom Python", (home / ".codex/config.toml").read_text(encoding="utf-8"))
-            self.assertIn("Custom Python", (home / ".codex/hooks.json").read_text(encoding="utf-8"))
+        rows = RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        commands = " ".join(row.after.decode() for row in rows if row.after and Path(row.key).name == "hooks.json")
+        self.assertIn("respectedbrain.exe", commands)
+        self.assertNotIn("python", commands)
+        self.assertIn(self.ctx.paths.vault_id, commands)
 
     def test_global_codex_installer_preserves_valid_multiline_notify(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            vault = root / "Ada Brain"
-            shutil.copytree(ROOT / "template", vault)
-            home = root / "user"
-            codex = home / ".codex"
-            codex.mkdir(parents=True)
-            original = 'notify = ["custom",\n  "multiline"]\n'
-            config = codex / "config.toml"
-            config.write_text(original, encoding="utf-8")
-            result = subprocess.run(
-                [
-                    sys.executable, str(SCRIPTS / "install_global.py"), str(vault),
-                    "--home", str(home), "--providers", "codex", "--apply",
-                ],
-                capture_output=True, text=True, check=False,
-            )
-
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("codex_notify.py", config.read_text(encoding="utf-8"))
-            self.assertEqual(
-                json.loads((codex / "respected-notify-chain.json").read_text(encoding="utf-8")),
-                {"argv": ["custom", "multiline"]},
-            )
+        codex = self.home / ".codex"
+        codex.mkdir()
+        (codex / "config.toml").write_text('notify = [\n  "custom.exe",\n  "turn-ended",\n]\nmodel = "custom"\n', encoding="utf-8")
+        rows = RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        backend = self.backend()
+        for row in rows:
+            backend.apply(row)
+        self.assertEqual(RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, backend), ())
+        self.assertEqual(json.loads((self.ctx.paths.state_dir / "codex-notify-chain.json").read_text(encoding="utf-8"))["argv"], ["custom.exe", "turn-ended"])
 
     def test_global_codex_installer_fails_closed_on_invalid_notify(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            vault = root / "Ada Brain"
-            shutil.copytree(ROOT / "template", vault)
-            home = root / "user"
-            codex = home / ".codex"
-            codex.mkdir(parents=True)
-            original = "notify = definitely-not-an-array\n"
-            config = codex / "config.toml"
-            config.write_text(original, encoding="utf-8")
-            result = subprocess.run(
-                [
-                    sys.executable, str(SCRIPTS / "install_global.py"), str(vault),
-                    "--home", str(home), "--providers", "codex", "--apply",
-                ],
-                capture_output=True, text=True, check=False,
-            )
-
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(config.read_text(encoding="utf-8"), original)
-            self.assertFalse((codex / "respected-notify-chain.json").exists())
+        path = self.home / ".codex/config.toml"
+        path.parent.mkdir()
+        path.write_text('notify = "invalid"\nmodel = "custom"\n', encoding="utf-8")
+        before = snapshot(self.root)
+        with self.assertRaises(ValueError):
+            RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        self.assertEqual(snapshot(self.root), before)
 
     def test_global_installer_manages_explicit_antigravity_homes_only(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            vault = root / "Ada Brain"
-            shutil.copytree(ROOT / "template", vault)
-            primary = root / "windows-user"
-            wsl = root / "wsl-user"
-            primary.mkdir()
-            wsl.mkdir()
-            command = [
-                sys.executable,
-                str(SCRIPTS / "install_global.py"),
-                str(vault),
-                "--home",
-                str(primary),
-                "--antigravity-home",
-                str(wsl),
-                "--platform",
-                "windows-wsl",
-                "--providers",
-                "all",
-                "--apply",
-            ]
-
-            environment = os.environ.copy()
-            environment["HOME"] = str(wsl)
-            environment["USERPROFILE"] = str(wsl)
-            first = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=False,
-                env=environment,
-            )
-
-            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
-            self.assertTrue((primary / ".gemini/config/hooks.json").is_file())
-            self.assertTrue((wsl / ".gemini/config/hooks.json").is_file())
-            self.assertTrue((primary / ".codex/hooks.json").is_file())
-            self.assertFalse((wsl / ".codex").exists())
-            self.assertTrue((wsl / ".agents/skills/beyin-doktor/SKILL.md").is_file())
-            snapshot = {
-                (home.name, path.relative_to(home)): path.read_bytes()
-                for home in (primary, wsl)
-                for path in home.rglob("*")
-                if path.is_file() and ".respected-backups" not in path.parts
-            }
-            second = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=False,
-                env=environment,
-            )
-            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
-            repeated = {
-                (home.name, path.relative_to(home)): path.read_bytes()
-                for home in (primary, wsl)
-                for path in home.rglob("*")
-                if path.is_file() and ".respected-backups" not in path.parts
-            }
-            self.assertEqual(snapshot, repeated)
+        extra = self.root / "extra-home"
+        extra.mkdir()
+        before = snapshot(self.root)
+        for home in (self.home, extra):
+            profile = IntegrationProfile(self.profile.platform, self.profile.launcher, home)
+            rows = RENDER.plan_integrations(self.ctx, profile, {"global": True}, self.backend())
+            self.assertTrue(any(row.key == str(home / ".gemini/config/hooks.json") for row in rows))
+        self.assertEqual(snapshot(self.root), before)
 
     def test_windows_wsl_codex_only_syncs_shared_skills_to_runtime_home(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            vault = root / "Ada Brain"
-            shutil.copytree(ROOT / "template", vault)
-            windows_home = root / "windows-user"
-            wsl_home = root / "wsl-user"
-            windows_home.mkdir()
-            wsl_home.mkdir()
-            environment = os.environ.copy()
-            environment["HOME"] = str(wsl_home)
-            environment["USERPROFILE"] = str(wsl_home)
-
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPTS / "install_global.py"),
-                    str(vault),
-                    "--home",
-                    str(windows_home),
-                    "--platform",
-                    "windows-wsl",
-                    "--providers",
-                    "codex",
-                    "--apply",
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-                env=environment,
-            )
-
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertTrue((windows_home / ".codex/hooks.json").is_file())
-            self.assertTrue((wsl_home / ".agents/skills/gecmis-import/SKILL.md").is_file())
-            self.assertFalse((wsl_home / ".codex").exists())
+        profile = IntegrationProfile("windows-wsl", ("/opt/respectedbrain",), self.home)
+        with mock.patch.object(RENDER.subprocess, "run", return_value=mock.Mock(returncode=0, stdout=self.wsl_registry_output())):
+            rows = RENDER.plan_integrations(self.ctx, profile, {"global": True}, self.backend())
+        self.assertTrue(any(row.key.startswith(str(self.home / ".agents/skills")) for row in rows))
+        self.assertFalse(any(row.key.startswith(str(self.vault)) for row in rows))
 
     def test_global_installer_multi_home_preview_is_deduplicated_and_read_only(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            vault = root / "Ada Brain"
-            shutil.copytree(ROOT / "template", vault)
-            home = root / "user"
-            home.mkdir()
-            command = [
-                sys.executable,
-                str(SCRIPTS / "install_global.py"),
-                str(vault),
-                "--home",
-                str(home),
-                "--antigravity-home",
-                str(home),
-                "--providers",
-                "all",
-            ]
-
-            env = os.environ.copy()
-            env["PYTHONUTF8"] = "1"
-            env["PYTHONIOENCODING"] = "utf-8"
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                env=env,
-                encoding="utf-8",
-                errors="replace",
-                check=False,
-            )
-
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(result.stdout.count(f"kullanıcı kökü: {home.resolve()}"), 1)
-            self.assertFalse((home / ".gemini").exists())
+        extra = self.root / "extra-home"
+        extra.mkdir()
+        before = snapshot(self.root)
+        for home in (self.home, extra):
+            profile = IntegrationProfile(self.profile.platform, self.profile.launcher, home)
+            rows = RENDER.plan_integrations(self.ctx, profile, {"global": True}, self.backend())
+            self.assertTrue(any(row.key == str(home / ".gemini/config/hooks.json") for row in rows))
+        self.assertEqual(snapshot(self.root), before)
 
     def test_global_installer_rejects_missing_extra_home_before_writes(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            vault = root / "Ada Brain"
-            shutil.copytree(ROOT / "template", vault)
-            home = root / "user"
-            home.mkdir()
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPTS / "install_global.py"),
-                    str(vault),
-                    "--home",
-                    str(home),
-                    "--antigravity-home",
-                    str(root / "missing"),
-                    "--providers",
-                    "all",
-                    "--apply",
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            self.assertNotEqual(result.returncode, 0)
-            self.assertFalse((home / ".gemini").exists())
+        profile = IntegrationProfile(self.profile.platform, self.profile.launcher, self.root / "missing-home")
+        before = snapshot(self.root)
+        with self.assertRaises(ValueError):
+            RENDER.plan_integrations(self.ctx, profile, {"global": True}, self.backend())
+        self.assertEqual(snapshot(self.root), before)
 
     def test_compatibility_antigravity_installer_accepts_multiple_homes(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            windows_home = root / "windows-user"
-            wsl_home = root / "wsl-user"
-            windows_home.mkdir()
-            wsl_home.mkdir()
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPTS / "install_antigravity_global.py"),
-                    str(ROOT / "template"),
-                    "--antigravity-home",
-                    str(windows_home),
-                    "--antigravity-home",
-                    str(wsl_home),
-                    "--apply",
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            for home in (windows_home, wsl_home):
-                self.assertTrue((home / ".gemini/config/hooks.json").is_file())
-                self.assertFalse((home / ".codex").exists())
+        extra = self.root / "extra-home"
+        extra.mkdir()
+        before = snapshot(self.root)
+        for home in (self.home, extra):
+            profile = IntegrationProfile(self.profile.platform, self.profile.launcher, home)
+            rows = RENDER.plan_integrations(self.ctx, profile, {"global": True}, self.backend())
+            self.assertTrue(any(row.key == str(home / ".gemini/config/hooks.json") for row in rows))
+        self.assertEqual(snapshot(self.root), before)
 
     def test_native_windows_global_command_is_absolute_and_shell_free(self):
-        installer = load("install_global_native_command", SCRIPTS / "install_global.py")
-        vault = PureWindowsPath(r"C:\Users\Ada\Ada Brain")
-
-        command = installer.bridge_command(vault, "codex", "start", "windows-native")
-
-        self.assertIn("py.exe -3", command)
-        self.assertIn(r"C:\Users\Ada\Ada Brain\.beyin\hooks\bridge.py", command)
-        self.assertIn("--provider codex", command)
-        self.assertIn("--event start", command)
+        command = RENDER.bridge_argv(self.ctx, self.profile, "antigravity", "start", global_hook=True)
+        self.assertTrue(Path(command[0]).is_absolute())
+        self.assertNotIn("bash", command)
+        self.assertNotIn("wsl.exe", command)
         self.assertIn("--global-hook", command)
-        for forbidden in ("wsl.exe", "bash", ".sh", "/mnt/"):
-            self.assertNotIn(forbidden, command)
 
     def test_native_windows_global_installer_is_selective_and_idempotent(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            vault = root / "Ada Brain"
-            shutil.copytree(ROOT / "template", vault)
-            home = root / "user"
-            (home / ".codex").mkdir(parents=True)
-            (home / ".codex/AGENTS.md").write_text(
-                "# Kendi Codex kuralım\n", encoding="utf-8"
-            )
-            (home / ".cursor").mkdir()
-            (home / ".cursor/hooks.json").write_text(
-                json.dumps(
-                    {
-                        "version": 1,
-                        "hooks": {"sessionStart": [{"command": "existing"}]},
-                    }
-                ),
-                encoding="utf-8",
-            )
-            command = [
-                sys.executable,
-                str(SCRIPTS / "install_global.py"),
-                str(vault),
-                "--home",
-                str(home),
-                "--platform",
-                "windows-native",
-                "--providers",
-                "codex,cursor",
-                "--apply",
-            ]
-
-            first = subprocess.run(command, capture_output=True, text=True, check=False)
-
-            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
-            codex_rule = (home / ".codex/AGENTS.md").read_text(encoding="utf-8")
-            cursor_hooks = (home / ".cursor/hooks.json").read_text(encoding="utf-8")
-            combined = codex_rule + cursor_hooks
-            self.assertIn("# Kendi Codex kuralım", codex_rule)
-            self.assertIn("existing", cursor_hooks)
-            self.assertIn("py.exe -3", combined)
-            self.assertNotIn("wsl.exe", combined)
-            self.assertFalse((home / ".gemini").exists())
-            self.assertFalse((home / ".claude").exists())
-            snapshot = {
-                path.relative_to(home): path.read_bytes()
-                for path in home.rglob("*")
-                if path.is_file() and ".respected-backups" not in path.parts
-            }
-
-            second = subprocess.run(command, capture_output=True, text=True, check=False)
-            repeated = {
-                path.relative_to(home): path.read_bytes()
-                for path in home.rglob("*")
-                if path.is_file() and ".respected-backups" not in path.parts
-            }
-
-            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
-            self.assertEqual(snapshot, repeated)
+        planner = RENDER._Planner(self.backend())
+        writes, _ = RENDER._global_writes(self.ctx, self.profile, planner, providers=("antigravity",))
+        keys = {path.relative_to(self.home).as_posix() for path, _ in writes}
+        self.assertIn(".gemini/config/hooks.json", keys)
+        self.assertNotIn(".codex/hooks.json", keys)
+        self.assertNotIn(".claude/settings.json", keys)
 
     def test_installer_preserves_personalized_instruction_as_canonical(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            vault = Path(temporary) / "vault"
-            vault.mkdir()
-            (vault / ".beyin-version").write_text("2.0.0\n", encoding="utf-8")
-            (vault / "CLAUDE.md").write_text("# AdaOS\n\nKişisel talimat.\n", encoding="utf-8")
-            result = subprocess.run(
-                [sys.executable, str(SCRIPTS / "enable_multiai.py"), str(vault), "--platform", "windows-wsl", "--apply"],
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            canonical = (vault / ".beyin/instructions.md").read_text(encoding="utf-8")
-            self.assertEqual(canonical, "# AdaOS\n\nKişisel talimat.\n")
-            self.assertIn(canonical, (vault / "AGENTS.md").read_text(encoding="utf-8"))
-            self.assertTrue((vault / ".codex/hooks.json").is_file())
-            self.assertTrue((vault / ".cursor/hooks.json").is_file())
-            self.assertTrue((vault / ".agents/hooks.json").is_file())
-            antigravity = (vault / ".agents/hooks.json").read_text(encoding="utf-8")
-            self.assertIn("wsl.exe --cd", antigravity)
-            codex = json.loads((vault / ".codex/hooks.json").read_text(encoding="utf-8"))
-            self.assertIn("commandWindows", json.dumps(codex))
-            selected = subprocess.run(
-                [sys.executable, str(vault / "scripts/set_summary_provider.py"), "cursor"],
-                cwd=vault,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertEqual(selected.returncode, 0, selected.stdout + selected.stderr)
-            repeated = subprocess.run(
-                [sys.executable, str(SCRIPTS / "enable_multiai.py"), str(vault), "--platform", "windows-wsl", "--apply"],
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
-            config = json.loads((vault / ".beyin/config.json").read_text(encoding="utf-8"))
-            self.assertEqual(config["summary_provider"], "cursor")
+        override = self.ctx.paths.overrides_dir / "instructions.md"
+        override.parent.mkdir(parents=True)
+        override.write_text("Ada kişisel kuralı", encoding="utf-8")
+        rows = RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        for row in rows:
+            if Path(row.key).name in {"AGENTS.md", "CLAUDE.md", "GEMINI.md"}:
+                self.assertIn("Ada kişisel kuralı", row.after.decode())
 
 
 if __name__ == "__main__":

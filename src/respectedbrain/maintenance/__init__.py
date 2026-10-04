@@ -1,6 +1,8 @@
 """Dispatch existing maintenance tools against one explicit application context."""
 from __future__ import annotations
 
+from respectedbrain.core.coordination import guarded_writer
+
 from importlib import import_module
 from pathlib import Path
 from typing import Sequence
@@ -37,10 +39,24 @@ def mutable_target(ctx: AppContext | None, target: Path) -> Path:
     return target
 
 
-def run_tool(ctx: AppContext, *, name: str, argv: Sequence[str]) -> int:
+@guarded_writer(busy_result=None)
+def _run_tool(ctx: AppContext, *, name: str, argv: Sequence[str]) -> int:
     try:
         module_name = _TOOLS[name]
     except KeyError as exc:
         raise ValueError(f"Unknown maintenance tool: {name}") from exc
     module = import_module(module_name, __name__)
     return module.main(list(argv), ctx=ctx)
+
+
+def run_tool(ctx: AppContext, *, name: str, argv: Sequence[str]) -> int:
+    if name not in _TOOLS:
+        raise ValueError(f"Unknown maintenance tool: {name}")
+    for index, value in enumerate(argv):
+        if value in ("--vault", "--vault-root") and index + 1 < len(argv):
+            selected_vault(ctx, argv[index + 1])
+        elif value.startswith(("--vault=", "--vault-root=")):
+            selected_vault(ctx, value.partition("=")[2])
+    if name in ("vault_linter", "architect_scan", "tiling_check"):
+        return import_module(_TOOLS[name], __name__).main(list(argv), ctx=ctx)
+    return _run_tool(ctx, name=name, argv=argv)

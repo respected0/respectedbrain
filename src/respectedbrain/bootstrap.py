@@ -15,7 +15,9 @@ from .vault.registry import build_context
 def application_roots(*, env: Mapping[str, str] | None = None) -> Roots:
     values = dict(os.environ if env is None else env)
     if getattr(sys, "frozen", False):
-        values.setdefault("RESPECTED_APP_DIR", str(Path(sys.executable).parent))
+        executable = Path(sys.executable)
+        app = executable.parents[2] if sys.platform == "darwin" and executable.parent.name == "MacOS" else executable.parent
+        values.setdefault("RESPECTED_APP_DIR", str(app))
     return resolve_roots(platform=sys.platform, home=Path.home(), env=values, known_folder=known_folder)
 
 

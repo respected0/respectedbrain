@@ -1,0 +1,1 @@
+"""Vault MCP protocol service."""

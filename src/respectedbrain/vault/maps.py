@@ -161,6 +161,12 @@ def _validate_map_target(vault_root: Path, path: Path) -> None:
 
 
 def refresh_maps(ctx: AppContext, max_age_seconds: float = 60.0) -> tuple[Path, Path]:
+    from respectedbrain.core.coordination import writer_lease
+    with writer_lease(ctx, timeout=10):
+        return _refresh_maps(ctx, max_age_seconds)
+
+
+def _refresh_maps(ctx: AppContext, max_age_seconds: float) -> tuple[Path, Path]:
     root = ctx.paths.vault_root
     command_center = root / COMMAND_CENTER
     vault_map = command_center / VAULT_MAP

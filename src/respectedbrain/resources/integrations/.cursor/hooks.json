@@ -3,31 +3,31 @@
   "hooks": {
     "sessionStart": [
       {
-        "command": "python3 .beyin/hooks/bridge.py --provider cursor --event start",
+        "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider cursor --event start",
         "timeout": 15
       }
     ],
     "beforeSubmitPrompt": [
       {
-        "command": "python3 .beyin/hooks/bridge.py --provider cursor --event prompt",
+        "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider cursor --event prompt",
         "timeout": 5
       }
     ],
     "sessionEnd": [
       {
-        "command": "python3 .beyin/hooks/bridge.py --provider cursor --event end",
+        "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider cursor --event end",
         "timeout": 10
       }
     ],
     "preCompact": [
       {
-        "command": "python3 .beyin/hooks/bridge.py --provider cursor --event precompact",
+        "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider cursor --event precompact",
         "timeout": 10
       }
     ],
     "afterAgentResponse": [
       {
-        "command": "python3 .beyin/hooks/bridge.py --provider cursor --event turn",
+        "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider cursor --event turn",
         "timeout": 10
       }
     ]

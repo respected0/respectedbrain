@@ -1,15 +1,13 @@
 {
-  "description": "Respected Brain çoklu-AI hafıza kancaları (üretilmiştir).",
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .beyin/hooks/bridge.py --provider codex --event start",
-            "commandWindows": "wsl.exe --cd . python3 .beyin/hooks/bridge.py --provider codex --event start",
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider codex --event start",
             "timeout": 15,
-            "additionalContextLimit": 16000
+            "statusMessage": "Loading codex second-brain memory"
           }
         ]
       }
@@ -19,9 +17,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .beyin/hooks/bridge.py --provider codex --event prompt",
-            "commandWindows": "wsl.exe --cd . python3 .beyin/hooks/bridge.py --provider codex --event prompt",
-            "timeout": 5
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider codex --event prompt",
+            "timeout": 5,
+            "statusMessage": "Loading codex second-brain memory"
           }
         ]
       }
@@ -31,9 +29,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .beyin/hooks/bridge.py --provider codex --event end",
-            "commandWindows": "wsl.exe --cd . python3 .beyin/hooks/bridge.py --provider codex --event end",
-            "timeout": 10
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider codex --event end",
+            "timeout": 3,
+            "statusMessage": "Loading codex second-brain memory"
           }
         ]
       }
@@ -43,9 +41,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .beyin/hooks/bridge.py --provider codex --event turn",
-            "commandWindows": "wsl.exe --cd . python3 .beyin/hooks/bridge.py --provider codex --event turn",
-            "timeout": 10
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider codex --event turn",
+            "timeout": 10,
+            "statusMessage": "Loading codex second-brain memory"
           }
         ]
       }
@@ -55,9 +53,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .beyin/hooks/bridge.py --provider codex --event precompact",
-            "commandWindows": "wsl.exe --cd . python3 .beyin/hooks/bridge.py --provider codex --event precompact",
-            "timeout": 10
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider codex --event precompact",
+            "timeout": 10,
+            "statusMessage": "Loading codex second-brain memory"
           }
         ]
       }

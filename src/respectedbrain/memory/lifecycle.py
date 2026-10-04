@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from respectedbrain.core.coordination import guarded_writer
+
 import argparse
 from datetime import datetime, timedelta
 import hashlib
@@ -424,6 +426,7 @@ EVENT_NAME_MAP = {
 }
 
 
+@guarded_writer(busy_result="")
 def handle_event(ctx: AppContext, *, event: str, session_id: str, transcript: Path | None,
                  payload: dict[str, Any], now: datetime) -> str:
     event = EVENT_NAME_MAP.get(event.casefold(), event.lower())

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from respectedbrain.core.coordination import guarded_writer
+
 import argparse
 from datetime import datetime, timedelta
 import json
@@ -225,7 +227,8 @@ def _update_dashboard(path: Path, day: str) -> None:
     _atomic_write(path, updated)
 
 
-def run_if_due(ctx: AppContext, *, model: ModelService, now: datetime) -> int:
+@guarded_writer
+def _run_if_due(ctx: AppContext, *, model: ModelService, now: datetime) -> int:
     """Produce a validated daily briefing; skipped work is a successful no-op."""
     if now.hour < 8:
         return 0
@@ -276,3 +279,16 @@ def run_if_due(ctx: AppContext, *, model: ModelService, now: datetime) -> int:
             final.unlink()
         _record_health(state, now, str(error) or type(error).__name__)
         return 1
+
+
+def run_if_due(ctx: AppContext, *, model: ModelService, now: datetime) -> int:
+    if now.hour < 8:
+        return 0
+    root = ctx.paths.vault_root
+    final = root / "🎯 100-Command-Center/Briefings" / f"{now.date().isoformat()}.md"
+    for path, boundary in ((final, root), (root / "🎯 100-Command-Center/Dashboard.md", root), (ctx.paths.state_dir, ctx.paths.data_root)):
+        if not runtime_platform.path_within_vault(path, boundary):
+            return 1
+    if final.is_file():
+        return 0
+    return _run_if_due(ctx, model=model, now=now)

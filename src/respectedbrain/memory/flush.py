@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from respectedbrain.core.coordination import guarded_writer
+
 import argparse
 import datetime as dt
 import hashlib
@@ -861,6 +863,7 @@ def flush(ctx: AppContext, *, session_id: str, transcript: Path, model: ModelSer
     return flush_transcript(ctx, session_id=session_id, transcript=transcript, model=model, now=now)
 
 
+@guarded_writer
 def flush_transcript(ctx: AppContext, *, session_id: str, transcript: Path, model: ModelService, now: dt.datetime, reason: str = "sessionend") -> int:
     try:
         if not isinstance(session_id, str) or not session_id:
@@ -878,6 +881,7 @@ def flush_transcript(ctx: AppContext, *, session_id: str, transcript: Path, mode
     return 0
 
 
+@guarded_writer
 def catch_up_unflushed_sessions(ctx: AppContext, *, model: ModelService, now: dt.datetime, home: Path) -> int:
     """Scan provider transcript directories and flush any completed unflushed sessions."""
     current = now
@@ -968,6 +972,7 @@ def catch_up_unflushed_sessions(ctx: AppContext, *, model: ModelService, now: dt
 
 
 
+@guarded_writer
 def compile_catch_up(ctx: AppContext, *, model: ModelService, now: dt.datetime) -> int:
     """Claim and compile changed completed days in the selected UUID state."""
     from .compile import changed_daily_logs, compile_pending, load_state

@@ -26,6 +26,7 @@ import urllib.parse
 from respectedbrain import __version__
 from respectedbrain.core.context import AppContext
 from respectedbrain.core.config import ConfigStore
+from respectedbrain.core.coordination import guarded_writer
 from respectedbrain.core import platform as runtime_platform
 from respectedbrain.providers.runner import ModelRunner, ProviderStatus
 from respectedbrain.search.engine import SearchEngine
@@ -255,6 +256,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         else:
             self._send_error_json("API endpoint not found", 404)
 
+    @guarded_writer(busy_result=None)
     def _handle_set_priority(self, payload: dict) -> None:
         def edit(value):
             config = value["preferences"]
@@ -341,6 +343,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_error_json(f"İndeksleme hatası: {e}")
 
+    @guarded_writer(busy_result=None)
     def _handle_quick_capture(self, payload: dict) -> None:
         title = payload.get("title", "").strip() or "Hızlı Not"
         content = payload.get("content", "").strip()
@@ -358,8 +361,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         filename = f"{timestamp}_{safe_slug}.md"
 
         dump_dir = self.vault_root / "📥 000-Inbox" / "Dump"
-        dump_dir.mkdir(parents=True, exist_ok=True)
         target = dump_dir / filename
+        if not runtime_platform.path_within_vault(target, self.vault_root):
+            self._send_error_json("Unsafe capture target", 403)
+            return
+        dump_dir.mkdir(parents=True, exist_ok=True)
 
         tag_list_str = "\n".join(f"  - {t}" for t in tags)
         now_str = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

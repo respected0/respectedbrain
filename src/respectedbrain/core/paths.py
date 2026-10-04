@@ -37,7 +37,7 @@ class Roots:
 def resolve_roots(*, platform: str, home: Path, env: Mapping[str, str], known_folder: Callable[[str], Path]) -> Roots:
     home = _absolute(home)
     if platform in ("win32", "windows"):
-        local = _absolute(known_folder("LocalAppData"))
+        local = _absolute(known_folder("LocalAppData")) if "RESPECTED_APP_DIR" not in env or "RESPECTED_DATA_DIR" not in env else home / "AppData/Local"
         app, data = local / "Programs/RespectedBrain", local / "RespectedBrain"
         documents = _absolute(known_folder("Documents"))
     elif platform == "darwin":

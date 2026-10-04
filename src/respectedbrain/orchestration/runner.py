@@ -9,6 +9,8 @@ The main working tree is NEVER modified directly by worker models.
 
 from __future__ import annotations
 
+from respectedbrain.core.coordination import guarded_writer, writer_lease
+
 from typing import Sequence
 from respectedbrain.core.context import AppContext
 
@@ -302,7 +304,8 @@ class OrchestrationRun:
             )
 
 
-def run(ctx: AppContext, *, project_root: Path, argv: Sequence[str]) -> int:
+@guarded_writer(busy_result=None)
+def _run(ctx: AppContext, *, project_root: Path, argv: Sequence[str]) -> int:
     project_root = validate_project(ctx, project_root)
     if argv and argv[0] == "--":
         argv = argv[1:]
@@ -390,7 +393,13 @@ def list_runs(ctx: AppContext) -> dict:
     return {"worktrees_root": worktrees_root, "runs": runs}
 
 
-def start_run(ctx: AppContext, *, project_root: Path, task: str, master: str = "user", worker: str = "antigravity", test_command: str | None = None) -> dict:
+def execute_owned_worker(ctx, execution):
+    with writer_lease(ctx, timeout=10):
+        execution.execute_worker()
+
+
+@guarded_writer(busy_result=None)
+def _start_run(ctx: AppContext, *, project_root: Path, task: str, master: str = "user", worker: str = "antigravity", test_command: str | None = None) -> dict:
     project = validate_project(ctx, project_root)
     if not task.strip():
         raise ValueError("Task description cannot be empty")
@@ -401,10 +410,18 @@ def start_run(ctx: AppContext, *, project_root: Path, task: str, master: str = "
                                  test_command=test_command)
     if not execution.setup_worktree():
         return {"success": False, "error": "Isolated worktree could not be created"}
-    threading.Thread(target=execution.execute_worker, daemon=True).start()
+    threading.Thread(target=execute_owned_worker, args=(ctx, execution), daemon=True).start()
     return {"success": True, "run_id": execution.run_id, "message": f"Orchestration started ({master} -> {worker})", "worktree": str(execution.worktree_dir)}
 
 
+def start_run(ctx: AppContext, *, project_root: Path, task: str, master: str = "user", worker: str = "antigravity", test_command: str | None = None) -> dict:
+    validate_project(ctx, project_root)
+    if not task.strip() or master not in SUPPORTED_AGENTS or worker not in SUPPORTED_AGENTS:
+        raise ValueError("Invalid orchestration task/agent")
+    return _start_run(ctx, project_root=project_root, task=task, master=master, worker=worker, test_command=test_command)
+
+
+@guarded_writer(busy_result=None)
 def apply_run(ctx: AppContext, run_id: str) -> dict:
     directory = _run_directory(ctx, run_id)
     metadata = _run_metadata(ctx, directory)
@@ -419,6 +436,7 @@ def apply_run(ctx: AppContext, run_id: str) -> dict:
     return {"success": True, "message": f"Applied {run_id} to {project.name}"}
 
 
+@guarded_writer(busy_result=None)
 def reject_run(ctx: AppContext, run_id: str) -> dict:
     directory = _run_directory(ctx, run_id)
     if directory.exists():
@@ -431,3 +449,8 @@ def reject_run(ctx: AppContext, run_id: str) -> dict:
             raise ValueError("Run cleanup refuses reparse points")
         shutil.rmtree(directory)
     return {"success": True, "message": f"Run {run_id} removed"}
+
+
+def run(ctx: AppContext, *, project_root: Path, argv: Sequence[str]) -> int:
+    validate_project(ctx, project_root)
+    return _run(ctx, project_root=project_root, argv=argv)

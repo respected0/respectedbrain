@@ -18,6 +18,7 @@ import sys
 from typing import Any
 
 from respectedbrain.core.context import AppContext
+from respectedbrain.core.coordination import guarded_writer
 
 
 def read_head(path: Path, max_chars: int = 1200) -> str:
@@ -94,8 +95,10 @@ class SearchEngine:
         self.ctx = ctx
         self.vault_root = ctx.paths.vault_root
         self.db_path = ctx.paths.cache_dir / "search_index.db"
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_db()
+        from respectedbrain.core.coordination import writer_lease
+        with writer_lease(ctx):
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._init_db()
 
     @contextmanager
     def _get_connection(self):
@@ -129,6 +132,7 @@ class SearchEngine:
             """)
             con.commit()
 
+    @guarded_writer(busy_result=None)
     def index_vault(self, force: bool = False) -> dict[str, int]:
         """Vault içindeki tüm .md dosyalarını artımlı (incremental) olarak indeksler."""
         indexed = 0

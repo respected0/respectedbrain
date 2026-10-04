@@ -5,8 +5,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"",
-            "timeout": 15
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider claude --event start",
+            "timeout": 15,
+            "statusMessage": "Loading claude second-brain memory"
           }
         ]
       }
@@ -16,8 +17,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/prompt-counter.sh\"",
-            "timeout": 5
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider claude --event prompt",
+            "timeout": 5,
+            "statusMessage": "Loading claude second-brain memory"
           }
         ]
       }
@@ -27,8 +29,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/session-end.sh\"",
-            "timeout": 10
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider claude --event end",
+            "timeout": 3,
+            "statusMessage": "Loading claude second-brain memory"
           }
         ]
       }
@@ -38,8 +41,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-compact.sh\"",
-            "timeout": 10
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider claude --event precompact",
+            "timeout": 10,
+            "statusMessage": "Loading claude second-brain memory"
           }
         ]
       }
@@ -49,8 +53,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .beyin/hooks/bridge.py --provider claude --event turn",
+            "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider claude --event turn",
             "timeout": 10,
+            "statusMessage": "Loading claude second-brain memory",
             "async": true
           }
         ]

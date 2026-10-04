@@ -1,230 +1,86 @@
-#!/usr/bin/env python3
-"""Transactional migration tests for global Respected Brain identities."""
-
-from __future__ import annotations
-
-import hashlib
-import importlib.util
+"""Global legacy merge and transaction rollback protections."""
 import json
-import os
-from pathlib import Path
-import shutil
-import stat
-import subprocess
-import sys
-import tempfile
-import unittest
-from unittest import mock
+from unittest import TestCase, mock
+from tests.foundation_integrations_test import IntegrationFixture
+from tests.foundation_support import snapshot
+from respectedbrain.core.legacy_names import LEGACY_GLOBAL_BEGIN, LEGACY_GLOBAL_END, LEGACY_CURSOR_RULE, LEGACY_HOOK_NAME, LEGACY_GLOBAL_BACKUP_ROOT
+from respectedbrain.integrations.rendering import plan_integrations
+from respectedbrain.integrations.backend import ExternalChange
+from respectedbrain.installation.transaction import Transaction
 
-
-ROOT = Path(__file__).resolve().parents[1]
-INSTALLER = (ROOT / "runtime/scripts/install_global.py") if (ROOT / "runtime/scripts/install_global.py").is_file() else (ROOT / "scripts/install_global.py")
-
-
-def load(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-LEGACY_PATH = (ROOT / "runtime/scripts/legacy_names.py") if (ROOT / "runtime/scripts/legacy_names.py").is_file() else (ROOT / "scripts/legacy_names.py")
-LEGACY = load("global_migration_legacy_names", LEGACY_PATH)
-INSTALLER_MODULE = load("global_migration_installer", INSTALLER)
-
-
-def tree_digest(root: Path, *, exclude_backups: bool = False) -> str:
-    digest = hashlib.sha256()
-    if not root.exists():
-        return digest.hexdigest()
-    for current, directories, files in os.walk(root, topdown=True, followlinks=False):
-        if exclude_backups:
-            directories[:] = [name for name in directories if name != ".respected-backups"]
-        directories.sort()
-        for name in sorted(files):
-            path = Path(current) / name
-            relative = path.relative_to(root).as_posix()
-            metadata = path.lstat()
-            digest.update(relative.encode("utf-8"))
-            digest.update(str(stat.S_IMODE(metadata.st_mode)).encode("ascii"))
-            digest.update(path.read_bytes())
-    return digest.hexdigest()
-
-
-class GlobalBrandMigrationTest(unittest.TestCase):
-    def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="respected-global-")
-        root = Path(self.temporary.name)
-        self.vault = root / "Ada Brain"
-        self.home = root / "home"
-        shutil.copytree(ROOT / "template", self.vault)
-        self.home.mkdir()
-
-    def tearDown(self):
-        self.temporary.cleanup()
-
-    def run_installer(self, *arguments: str):
-        env = os.environ.copy()
-        env["PYTHONUTF8"] = "1"
-        env["PYTHONIOENCODING"] = "utf-8"
-        return subprocess.run(
-            [
-                sys.executable,
-                str(INSTALLER),
-                str(self.vault),
-                "--home",
-                str(self.home),
-                *arguments,
-            ],
-            cwd=ROOT,
-            env=env,
-            encoding="utf-8",
-            errors="replace",
-            capture_output=True,
-            check=False,
-        )
-
-    def legacy_block(self) -> str:
-        return (
-            f"{LEGACY.LEGACY_GLOBAL_BEGIN}\n"
-            "# Legacy managed content\n"
-            f"{LEGACY.LEGACY_GLOBAL_END}"
-        )
-
-    def seed_legacy_install(self):
-        for relative in (".gemini", ".codex", ".claude", ".cursor/rules"):
-            (self.home / relative).mkdir(parents=True, exist_ok=True)
-        for relative in (".gemini/GEMINI.md", ".codex/AGENTS.md", ".claude/CLAUDE.md"):
-            (self.home / relative).write_text(
-                "# Personal rule\n\n" + self.legacy_block() + "\n",
-                encoding="utf-8",
-            )
-        (self.home / ".gemini/config").mkdir(parents=True)
-        (self.home / ".gemini/config/hooks.json").write_text(
-            json.dumps(
-                {
-                    "personal-hook": {"enabled": True},
-                    LEGACY.LEGACY_HOOK_NAME: {"legacy": True},
-                }
-            ),
-            encoding="utf-8",
-        )
-        (self.home / ".cursor/rules" / LEGACY.LEGACY_CURSOR_RULE).write_text(
-            "---\nalwaysApply: true\n---\n\n" + self.legacy_block() + "\n",
-            encoding="utf-8",
-        )
+class GlobalBrandMigrationTest(IntegrationFixture, TestCase):
+    def block(self):
+        return LEGACY_GLOBAL_BEGIN + "\nlegacy\n" + LEGACY_GLOBAL_END
 
     def test_preview_is_read_only_and_apply_migrates_all_legacy_identities_idempotently(self):
-        self.seed_legacy_install()
-        before = tree_digest(self.home)
-
-        preview = self.run_installer("--providers", "all")
-
-        self.assertEqual(preview.returncode, 0, preview.stdout + preview.stderr)
-        self.assertEqual(tree_digest(self.home), before)
-        self.assertIn("ÖNİZLEME", preview.stdout)
-
-        applied = self.run_installer("--providers", "all", "--apply")
-
-        self.assertEqual(applied.returncode, 0, applied.stdout + applied.stderr)
         for relative in (".gemini/GEMINI.md", ".codex/AGENTS.md", ".claude/CLAUDE.md"):
-            content = (self.home / relative).read_text(encoding="utf-8")
-            self.assertIn("# Personal rule", content)
-            self.assertEqual(content.count("<!-- RESPECTED-GLOBAL:BEGIN -->"), 1)
-            self.assertNotIn(LEGACY.LEGACY_GLOBAL_BEGIN, content)
-        hooks = json.loads(
-            (self.home / ".gemini/config/hooks.json").read_text(encoding="utf-8")
-        )
-        self.assertIn("personal-hook", hooks)
-        self.assertIn("respected-brain", hooks)
-        self.assertNotIn(LEGACY.LEGACY_HOOK_NAME, hooks)
-        self.assertTrue((self.home / ".cursor/rules/respected-brain.mdc").is_file())
-        self.assertFalse((self.home / ".cursor/rules" / LEGACY.LEGACY_CURSOR_RULE).exists())
-        self.assertTrue((self.home / ".respected-backups").is_dir())
-
-        first = tree_digest(self.home, exclude_backups=True)
-        backup_count = len(tuple((self.home / ".respected-backups").iterdir()))
-        repeated = self.run_installer("--providers", "all", "--apply")
-
-        self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
-        self.assertEqual(tree_digest(self.home, exclude_backups=True), first)
-        self.assertEqual(
-            len(tuple((self.home / ".respected-backups").iterdir())),
-            backup_count,
-        )
+            path = self.home / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# Personal rule\n\n" + self.block() + "\n", encoding="utf-8")
+        hooks = self.home / ".gemini/config/hooks.json"
+        hooks.parent.mkdir()
+        hooks.write_text(json.dumps({"personal-hook": {"enabled": True}, LEGACY_HOOK_NAME: {"legacy": True}}), encoding="utf-8")
+        cursor = self.home / ".cursor/rules" / LEGACY_CURSOR_RULE
+        cursor.parent.mkdir(parents=True)
+        cursor.write_text(self.block(), encoding="utf-8")
+        before = snapshot(self.root)
+        rows = plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        self.assertEqual(snapshot(self.root), before)
+        backend = self.backend()
+        with Transaction(self.data, backend, vault_id=self.ctx.paths.vault_id) as tx:
+            for row in rows:
+                tx.apply_external(row)
+            tx.commit()
+        for relative in (".gemini/GEMINI.md", ".codex/AGENTS.md", ".claude/CLAUDE.md"):
+            text = (self.home / relative).read_text(encoding="utf-8")
+            self.assertIn("# Personal rule", text)
+            self.assertEqual(text.count("<!-- RESPECTED-GLOBAL:BEGIN -->"), 1)
+            self.assertNotIn(LEGACY_GLOBAL_BEGIN, text)
+        self.assertIn("personal-hook", json.loads(hooks.read_text(encoding="utf-8")))
+        self.assertFalse(cursor.exists())
+        self.assertEqual(plan_integrations(self.ctx, self.profile, {"global": True}, backend), ())
+        self.assertTrue((self.data / "backups").is_dir())
 
     def test_current_and_legacy_blocks_collide_without_mutation(self):
-        rule = self.home / ".codex/AGENTS.md"
-        rule.parent.mkdir(parents=True)
-        rule.write_text(
-            self.legacy_block()
-            + "\n\n<!-- RESPECTED-GLOBAL:BEGIN -->\ncurrent\n<!-- RESPECTED-GLOBAL:END -->\n",
-            encoding="utf-8",
-        )
-        before = tree_digest(self.home)
-
-        result = self.run_installer("--providers", "codex", "--apply")
-
-        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertEqual(tree_digest(self.home), before)
-        self.assertIn("çakış", (result.stdout + result.stderr).casefold())
+        path = self.home / ".codex/AGENTS.md"
+        path.parent.mkdir()
+        path.write_text(self.block() + "\n<!-- RESPECTED-GLOBAL:BEGIN -->current<!-- RESPECTED-GLOBAL:END -->", encoding="utf-8")
+        before = snapshot(self.root)
+        with self.assertRaisesRegex(ValueError, "çakış"):
+            plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        self.assertEqual(snapshot(self.root), before)
 
     def test_unverified_legacy_cursor_rule_fails_closed(self):
-        rule = self.home / ".cursor/rules" / LEGACY.LEGACY_CURSOR_RULE
-        rule.parent.mkdir(parents=True)
-        rule.write_text("# User-owned file\n", encoding="utf-8")
-        before = tree_digest(self.home)
-
-        result = self.run_installer("--providers", "cursor", "--apply")
-
-        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertEqual(tree_digest(self.home), before)
-        self.assertIn("doğrulan", (result.stdout + result.stderr).casefold())
+        path = self.home / ".cursor/rules" / LEGACY_CURSOR_RULE
+        path.parent.mkdir(parents=True)
+        path.write_text("# User-owned file", encoding="utf-8")
+        before = snapshot(self.root)
+        with self.assertRaisesRegex(ValueError, "doğrulan"):
+            plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        self.assertEqual(snapshot(self.root), before)
 
     def test_failed_apply_removes_new_files_and_directories_after_rollback(self):
-        writes = [
-            (self.home / ".codex/hooks.json", "{}\n"),
-            (self.home / ".codex/AGENTS.md", "managed\n"),
-        ]
-        original_write = INSTALLER_MODULE.write_text
-        calls = 0
-
-        def fail_second_write(path: Path, content: str):
-            nonlocal calls
-            calls += 1
-            if calls == 2:
+        backend = self.backend()
+        writes = [ExternalChange("file", str(self.home / ".codex/hooks.json"), None, b"{}\n"), ExternalChange("file", str(self.home / ".codex/AGENTS.md"), None, b"managed\n")]
+        original = backend.apply
+        def fail_second(change):
+            if change.key.endswith("AGENTS.md"):
                 raise OSError("injected-write-failure")
-            original_write(path, content)
-
-        with mock.patch.object(INSTALLER_MODULE, "write_text", side_effect=fail_second_write):
+            return original(change)
+        with mock.patch.object(backend, "apply", side_effect=fail_second):
             with self.assertRaisesRegex(OSError, "injected-write-failure"):
-                INSTALLER_MODULE.apply_plan(
-                    writes,
-                    self.home,
-                    self.home / ".respected-backups/test",
-                )
-
+                with Transaction(self.data, backend, vault_id=self.ctx.paths.vault_id) as tx:
+                    for row in writes:
+                        tx.apply_external(row)
+                    tx.commit()
         self.assertFalse((self.home / ".codex").exists())
 
-    def test_legacy_and_current_backup_roots_conflict_without_merge_or_deletion(self):
-        legacy_root = self.home / LEGACY.LEGACY_GLOBAL_BACKUP_ROOT
-        current_root = self.home / ".respected-backups"
-        legacy_root.mkdir()
-        current_root.mkdir()
-        (legacy_root / "keep.txt").write_bytes(b"legacy backup\n")
-        (current_root / "keep.txt").write_bytes(b"current backup\n")
-        before = tree_digest(self.home)
-
-        preview = self.run_installer("--providers", "codex")
-        applied = self.run_installer("--providers", "codex", "--apply")
-
-        self.assertEqual(preview.returncode, 0, preview.stdout + preview.stderr)
-        self.assertIn("yedek kökleri çakışıyor", (preview.stdout + preview.stderr).casefold())
-        self.assertEqual(applied.returncode, 2, applied.stdout + applied.stderr)
-        self.assertIn("ayrı migration kararı", (applied.stdout + applied.stderr).casefold())
-        self.assertEqual(tree_digest(self.home), before)
-
-
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    def test_legacy_and_current_backup_roots_are_preserved_as_unknown_user_data(self):
+        for relative in (LEGACY_GLOBAL_BACKUP_ROOT, ".respected-backups"):
+            path = self.home / relative
+            path.mkdir()
+            (path / "keep.txt").write_text(relative, encoding="utf-8")
+        before = snapshot(self.home)
+        rows = plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        self.assertEqual(snapshot(self.home), before)
+        self.assertFalse(any("backups" in row.key for row in rows))

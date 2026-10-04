@@ -76,6 +76,16 @@ class FoundationPathsTest(unittest.TestCase):
         with self.assertRaises(SelectionError):
             paths.resolve_roots(platform='linux', home=self.home, env={'RESPECTED_DATA_DIR': 'relative'}, known_folder=lambda _: None)
 
+    def test_explicit_app_and_data_roots_do_not_probe_localappdata(self):
+        paths = self.paths_module()
+        def folder(name):
+            self.assertEqual(name, 'Documents')
+            return self.docs
+        roots = paths.resolve_roots(platform='win32', home=self.home,
+                                    env={'RESPECTED_APP_DIR': str(self.root/'App'), 'RESPECTED_DATA_DIR': str(self.root/'Data')},
+                                    known_folder=folder)
+        self.assertEqual(roots.app_root, self.root/'App')
+
 
 if __name__ == '__main__':
     unittest.main()

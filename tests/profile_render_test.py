@@ -1,172 +1,102 @@
-#!/usr/bin/env python3
-"""Behavior tests for deterministic multi-platform adapter rendering."""
-
-from __future__ import annotations
-
-import importlib.util
+"""Deterministic explicit-profile command rendering regressions."""
 import json
-from pathlib import Path, PurePosixPath, PureWindowsPath
-import shutil
-import subprocess
-import sys
-import tempfile
-import unittest
+from unittest import TestCase, mock
+from pathlib import PureWindowsPath
+from tests.foundation_integrations_test import IntegrationFixture
+from tests.foundation_support import snapshot
+from respectedbrain.integrations.backend import IntegrationProfile
+from respectedbrain.integrations import rendering as RENDER
 
-
-ROOT = Path(__file__).resolve().parents[1]
-RENDER_PATH = (ROOT / "runtime" / "scripts" / "render_integrations.py") if (ROOT / "runtime" / "scripts" / "render_integrations.py").is_file() else (ROOT / "scripts" / "render_integrations.py")
-
-
-def load_renderer():
-    spec = importlib.util.spec_from_file_location("respected_profile_renderer", RENDER_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load renderer: {RENDER_PATH}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-RENDER = load_renderer()
-
-
-class ProfileRenderTest(unittest.TestCase):
+class ProfileRenderTest(IntegrationFixture, TestCase):
     def test_native_bridge_argv_preserves_a_spaced_windows_vault_as_one_argument(self):
-        profile = RENDER.Profile("windows-native", ("py.exe", "-3"))
+        argv = RENDER.bridge_argv(self.ctx, self.profile, "codex", "start")
+        self.assertEqual(argv[0], str(self.app / "respectedbrain.exe"))
+        self.assertEqual(argv[argv.index("--vault-id") + 1], self.ctx.paths.vault_id)
+        self.assertNotIn(str(self.vault), argv)
+        self.assertNotIn(".py", " ".join(argv))
 
-        argv = RENDER.bridge_argv(
-            profile,
-            PureWindowsPath(r"C:\Users\Ada\Ada Brain"),
-            "codex",
-            "start",
-        )
+    def test_native_antigravity_hook_uses_stable_absolute_executable(self):
+        argv = RENDER.bridge_argv(self.ctx, self.profile, "antigravity", "turn")
+        self.assertTrue(__import__("pathlib").Path(argv[0]).is_absolute())
+        self.assertEqual(argv[argv.index("--provider") + 1], "antigravity")
+        self.assertEqual(argv[argv.index("--event") + 1], "turn")
 
-        self.assertEqual(
-            argv,
-            [
-                "py.exe",
-                "-3",
-                r"C:\Users\Ada\Ada Brain\.beyin\hooks\bridge.py",
-                "--provider",
-                "codex",
-                "--event",
-                "start",
-            ],
-        )
+    def test_portable_global_bridge_uses_explicit_uuid(self):
+        profile = IntegrationProfile("posix", ("/opt/Respected Brain/respectedbrain",), self.home)
+        argv = RENDER.bridge_argv(self.ctx, profile, "codex", "start", global_hook=True)
+        self.assertEqual(argv[0], profile.launcher[0])
+        self.assertIn("--global-hook", argv)
+        self.assertIn(self.ctx.paths.vault_id, argv)
+        self.assertIn("'/opt/Respected Brain/respectedbrain'", RENDER.command_text(profile, argv))
 
-    def test_native_antigravity_project_hook_avoids_quoted_spaced_vault_path(self):
-        profile = RENDER.Profile("windows-native", ("py.exe", "-3"))
-
-        command = RENDER.antigravity_project_command(profile, "turn")
-
-        self.assertEqual(
-            command,
-            r"py.exe -3 ..\.beyin\hooks\bridge.py --provider antigravity --event turn",
-        )
-        self.assertNotIn('"', command)
-
-    def test_portable_global_bridge_uses_the_absolute_vault_path(self):
-        profile = RENDER.Profile("portable", ("python3",))
-
-        argv = RENDER.bridge_argv(
-            profile,
-            PurePosixPath("/opt/Ada Brain"),
-            "codex",
-            "start",
-            global_hook=True,
-        )
-
-        self.assertEqual(
-            argv,
-            [
-                "python3",
-                "/opt/Ada Brain/.beyin/hooks/bridge.py",
-                "--provider",
-                "codex",
-                "--event",
-                "start",
-                "--global-hook",
-            ],
-        )
-
-    def test_each_profile_renders_explicit_config_and_all_provider_adapters(self):
-        cases = {
-            "portable": {"required": "python3", "forbidden": ()},
-            "windows-wsl": {"required": "wsl.exe --cd", "forbidden": ()},
-            "windows-native": {
-                "required": "py.exe",
-                "forbidden": ("wsl.exe", "/mnt/", ".sh", "bash"),
-            },
-        }
-        with tempfile.TemporaryDirectory() as temporary:
-            base = Path(temporary)
-            for name, expected in cases.items():
-                vault = base / f"{name} Brain"
-                shutil.copytree(ROOT / "template", vault)
-
-                result = subprocess.run(
-                    [
-                        sys.executable,
-                        str(RENDER_PATH),
-                        "--root",
-                        str(vault),
-                        "--platform",
-                        name,
-                    ],
-                    cwd=ROOT,
-                    text=True,
-                    capture_output=True,
-                    check=False,
-                )
-
-                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                config = json.loads((vault / ".beyin/config.json").read_text(encoding="utf-8"))
-                self.assertEqual(config["platform"], name)
-                self.assertIsInstance(config["python_command"], list)
-                artifacts = {
-                    "claude": json.loads((vault / ".claude/settings.json").read_text(encoding="utf-8")),
-                    "codex": json.loads((vault / ".codex/hooks.json").read_text(encoding="utf-8")),
-                    "cursor": json.loads((vault / ".cursor/hooks.json").read_text(encoding="utf-8")),
-                    "antigravity": json.loads((vault / ".agents/hooks.json").read_text(encoding="utf-8")),
-                }
-                combined = json.dumps(artifacts, ensure_ascii=False)
-                self.assertIn(expected["required"], combined)
-                for forbidden in expected["forbidden"]:
-                    self.assertNotIn(forbidden, combined)
-                if name == "windows-native":
-                    self.assertIn("--provider claude", combined)
+    def test_each_profile_renders_all_provider_adapters(self):
+        for platform, launcher in (("windows-native", self.profile.launcher), ("windows-wsl", ("/opt/respectedbrain",)), ("posix", ("/opt/respectedbrain",))):
+            with self.subTest(platform=platform), mock.patch.object(RENDER.subprocess, "run", return_value=mock.Mock(returncode=0, stdout=self.wsl_registry_output())):
+                profile = IntegrationProfile(platform, launcher, self.home)
+                rows = RENDER.plan_integrations(self.ctx, profile, {"global": True}, self.backend())
+                text = " ".join(row.after.decode() for row in rows if row.after and __import__("pathlib").Path(row.key).name in {"hooks.json", "settings.json", "config.toml"})
+                for provider in ("antigravity", "gemini", "codex", "claude", "cursor"):
+                    self.assertIn("--provider " + provider, text)
+                self.assertNotIn(".beyin", text)
+                self.assertNotIn("bridge.py", text)
+                if platform == "windows-wsl":
+                    self.assertIn("wsl.exe --cd", text)
                 else:
-                    self.assertIn(".claude/hooks/session-start.sh", combined)
-                self.assertIn("--provider codex", combined)
-                self.assertIn("--provider cursor", combined)
-                self.assertIn("--provider antigravity", combined)
+                    self.assertNotIn("wsl.exe", text)
 
-    def test_render_check_uses_the_persisted_profile_without_mutating_the_vault(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            vault = Path(temporary) / "Persisted Brain"
-            shutil.copytree(ROOT / "template", vault)
-            first = subprocess.run(
-                [sys.executable, str(RENDER_PATH), "--root", str(vault), "--platform", "windows-native"],
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
-            before = {path.relative_to(vault): path.read_bytes() for path in vault.rglob("*") if path.is_file()}
+    def test_render_preview_is_deterministic_without_mutating_vault(self):
+        before = snapshot(self.root)
+        first = RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        second = RENDER.plan_integrations(self.ctx, self.profile, {"global": True}, self.backend())
+        self.assertEqual(first, second)
+        self.assertEqual(snapshot(self.root), before)
 
-            checked = subprocess.run(
-                [sys.executable, str(RENDER_PATH), "--root", str(vault), "--check"],
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
+    def test_fresh_project_configs_use_the_same_uuid_launcher_without_global_hook(self):
+        self.assertTrue(hasattr(RENDER, "render_project_integrations"))
+        before = snapshot(self.root)
+        artifacts = RENDER.render_project_integrations(self.ctx, self.profile)
+        self.assertTrue({".claude/settings.json", ".codex/hooks.json", ".cursor/hooks.json", ".agents/hooks.json", ".gemini/settings.json"} <= set(artifacts))
+        for key, content in artifacts.items():
+            with self.subTest(key=key):
+                json.loads(content)
+                self.assertIn(self.ctx.paths.vault_id, content.decode())
+                self.assertNotIn(".beyin", content.decode())
+                self.assertNotIn("--global-hook", content.decode())
+        self.assertEqual(snapshot(self.root), before)
 
-            after = {path.relative_to(vault): path.read_bytes() for path in vault.rglob("*") if path.is_file()}
-            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
-            self.assertEqual(after, before)
+    def test_wsl_executable_without_registered_uuid_fails_readonly(self):
+        from respectedbrain.core.errors import OwnershipConflict
+        profile = IntegrationProfile("windows-wsl", ("/opt/respectedbrain",), self.home)
+        before = snapshot(self.root)
+        with mock.patch.object(RENDER.subprocess, "run", side_effect=[mock.Mock(returncode=0), mock.Mock(returncode=0, stdout="{}")]) as run:
+            with self.assertRaisesRegex(OwnershipConflict, "vault register"):
+                RENDER.validate_profile(self.ctx, profile)
+        self.assertEqual(snapshot(self.root), before)
+        self.assertEqual(run.call_args.args[0], ["wsl.exe", "--", "/opt/respectedbrain", "vault", "list"])
 
+    def test_wsl_existing_uuid_must_point_to_same_converted_vault(self):
+        from respectedbrain.core.errors import OwnershipConflict
+        profile = IntegrationProfile("windows-wsl", ("/opt/respectedbrain",), self.home)
+        wrong = json.dumps({self.ctx.paths.vault_id: {"path": "/wrong/vault"}})
+        with mock.patch.object(RENDER.subprocess, "run", side_effect=[mock.Mock(returncode=0), mock.Mock(returncode=0, stdout=wrong)]):
+            with self.assertRaises(OwnershipConflict):
+                RENDER.validate_profile(self.ctx, profile)
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_wsl_matching_existing_uuid_is_accepted_without_registration_write(self):
+        profile = IntegrationProfile("windows-wsl", ("/opt/respectedbrain",), self.home)
+        registry = json.dumps({self.ctx.paths.vault_id: {"path": RENDER.wsl_path(self.vault)}})
+        before = snapshot(self.root)
+        with mock.patch.object(RENDER.subprocess, "run", side_effect=[mock.Mock(returncode=0), mock.Mock(returncode=0, stdout=registry)]):
+            RENDER.validate_profile(self.ctx, profile)
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_installed_wsl_profile_wraps_linux_launcher_exactly_once(self):
+        from respectedbrain.installation.common import installed_profile
+        from respectedbrain.core.paths import Roots
+        profile = installed_profile(Roots(self.app,self.data,self.vault), {"platform":"windows-wsl","user_home":str(self.home)})
+        self.assertEqual(profile.launcher, ("respectedbrain",))
+        with mock.patch.object(RENDER.subprocess, "run", return_value=mock.Mock(returncode=0,stdout=self.wsl_registry_output())):
+            RENDER.validate_profile(self.ctx,profile)
+        argv = RENDER.bridge_argv(self.ctx,profile,"cursor","prompt")
+        self.assertEqual(argv.count("wsl.exe"),1)
+        self.assertEqual(argv[3],"respectedbrain")

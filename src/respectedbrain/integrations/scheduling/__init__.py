@@ -1,0 +1,1 @@
+"""Native morning briefing registration."""

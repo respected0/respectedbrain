@@ -28,7 +28,8 @@ def known_folder(name: str) -> Path:
     read.argtypes = [ctypes.POINTER(GUID), wintypes.DWORD, wintypes.HANDLE, ctypes.POINTER(ctypes.c_wchar_p)]
     read.restype = ctypes.c_long
     result = ctypes.c_wchar_p()
-    status = read(ctypes.byref(guid), 0, None, ctypes.byref(result))
+    # Query the configured location without requiring it to exist or creating it.
+    status = read(ctypes.byref(guid), 0x00004000, None, ctypes.byref(result))
     if status != 0:
         raise OSError(f"Known Folder {name} failed: HRESULT {status & 0xffffffff:08x}")
     free = ctypes.WinDLL("ole32").CoTaskMemFree

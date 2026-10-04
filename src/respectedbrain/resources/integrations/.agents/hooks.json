@@ -3,14 +3,14 @@
     "PreInvocation": [
       {
         "type": "command",
-        "command": "python3 ../.beyin/hooks/bridge.py --provider antigravity --event start",
+        "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider antigravity --event start",
         "timeout": 15
       }
     ],
     "Stop": [
       {
         "type": "command",
-        "command": "python3 ../.beyin/hooks/bridge.py --provider antigravity --event turn",
+        "command": "respectedbrain hook --vault-id {{VAULT_ID}} --provider antigravity --event turn",
         "timeout": 10
       }
     ]
