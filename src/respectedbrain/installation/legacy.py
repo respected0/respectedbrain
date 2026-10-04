@@ -210,7 +210,7 @@ def inventory_legacy(legacy_root: Path, vault: Path, *, roots: Roots, backend: I
                         if default != source.read_bytes():
                             action, target = "preserve-override", pending / "overrides" / resource
                 if action == "retain-user" and source.name.casefold().startswith("unins"):
-                    if uninstaller is not None and source.with_suffix(".exe") == uninstaller:
+                    if uninstaller is not None and source.suffix.casefold() in (".exe", ".dat") and source.with_suffix(".exe") == uninstaller:
                         action, ownership = "remove-owned", "registry-match"
                     else:
                         ownership = "user"  # Inno artifacts require exact registration too.
