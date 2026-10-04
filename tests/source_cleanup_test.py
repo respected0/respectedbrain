@@ -1,15 +1,31 @@
 """Guard the single source tree and the native release entrypoint contract."""
 from pathlib import Path
 import os
+import importlib.util
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class SourceCleanupTest(unittest.TestCase):
+    def test_native_verification_stage_labels_handle_single_argument_version(self):
+        from tests.foundation_install_support import seed_package
+        spec = importlib.util.spec_from_file_location('native_verifier', ROOT / 'tools/verify_distribution.py')
+        tool = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tool)
+        with tempfile.TemporaryDirectory() as temporary:
+            package = seed_package(Path(temporary) / 'package')
+            def reply(argv, **kwargs):
+                command = argv[1:]
+                output = '0.0.1\n' if command == ['--version'] else 'identity\n' if command[:2] == ['vault', 'register'] else '{"identity": {}}' if command == ['vault', 'list'] else '{"id": 1}' if command[0] == 'mcp' else ''
+                return subprocess.CompletedProcess(argv, 0, output, '')
+            with mock.patch.object(tool.subprocess, 'run', side_effect=reply):
+                self.assertEqual(tool.verify(package, platform='windows'), 0)
+
     def test_frozen_verification_failure_publishes_diagnostic_annotation(self):
         from tests.foundation_install_support import seed_package
         with tempfile.TemporaryDirectory() as temporary:

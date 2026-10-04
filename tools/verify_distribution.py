@@ -35,8 +35,8 @@ def verify(distribution: Path, *, platform: str) -> int:
         root = Path(temporary)
         env = {**os.environ, "PATH": str(Path(os.environ["SystemRoot"]) / "System32") if os.name == "nt" else "/usr/bin:/bin", "RESPECTED_APP_DIR": str(distribution), "RESPECTED_DATA_DIR": str(root / "data"), "PYTHONPATH": ""}
         def run(*args, stdin=None):
-            stage = {"--version": "version", "vault": "register" if args[1] == "register" else "list",
-                     "maps": "maps", "search": "search", "hook": "hook", "mcp": "mcp"}[args[0]]
+            stage = ("register" if args[1] == "register" else "list") if args[0] == "vault" else {
+                "--version": "version", "maps": "maps", "search": "search", "hook": "hook", "mcp": "mcp"}[args[0]]
             try:
                 result = subprocess.run([str(distribution / document["launcher"]), *map(str, args)], cwd=root, env=env, input=stdin, capture_output=True, text=True, encoding="utf-8", timeout=45)
             except subprocess.TimeoutExpired:

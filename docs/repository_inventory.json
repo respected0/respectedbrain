@@ -2356,7 +2356,7 @@
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz."
       ],
-      "review_sha256": "727cab52243396b6cb25bdbbb0a78d7dde07531984077f5428c25631e6804271"
+      "review_sha256": "e1ca347d3ccdb983e9ae65474889fa09ec4c87c686ffd8f3c10ddeee8dfd4cc0"
     },
     {
       "path": "tests/transaction_performance_test.py",
@@ -2520,7 +2520,7 @@
       "relationships": [
         "installation.payload doğrulamasını kullanır; native build/release ve tests/run_all için ilk geçiş kapısıdır."
       ],
-      "review_sha256": "f3a7091035b09bb485134e91cfc6674bb37efc0407a56faedafb71a72d284236"
+      "review_sha256": "3432507c66e84c1dd73b79cd4945c53a4fae8a06de54f3ad23d196407b677aad"
     }
   ]
 }
