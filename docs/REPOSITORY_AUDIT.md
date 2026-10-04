@@ -214,3 +214,19 @@ Son gerçek CPython 3.10.22 source koşusu **669 test, sıfır failure/error,
 testini hariç tutar. Native kapı yeni CI koşusunda ayrıca zorunludur. Son
 Windows paket/kurucu rebuild ve frozen komutlar geçti; ana klasörde 1057
 dosyalı dağıtım kopyası SHA256 eşleşmesiyle doğrulandı, önceki paket korundu.
+
+### CI süre ve hata teşhis sınırı — 2026-10-05
+
+37239730909 üç native host kapısını geçti. Windows tam dizisi 7,3 dakika,
+önceki dizisi 9,4 dakika ve fiziksel smoke 4,7 dakika sürdü; normal tek kullanıcı
+kurulum süresi bu toplam değildir. Altı source işinden POSIX 3.10 testleri,
+global os.name mock'unun stdlib Path seçimine sızmasını ve macOS wheel izolasyon
+testini ortaya çıkardı. OS taklidi modül adaptörüyle sınırlandırıldı; wheel
+adımının hata teşhisi yalnız sabit stage etiketlerini dışarı verir.
+
+Kullanıcının bekleme/kota geri bildirimiyle erken üç-host 3.10 kapısı eklendi;
+native aşamadaki üç mükerrer 3.13 tam dizisi kaldırıldı. Altı source işi her
+hostta 3.10/3.13 tam dizisini native artifact ile çalıştırmaya devam eder.
+Gerçek native/smoke/kurucu/launcher/zamanlayıcı/dağıtım biçimi ve shell kapıları
+korunur. Yerel 3.10 erken 37 ve 3.12 değişen 19 vaka geçti; macOS wheel alt
+adımının nedeni hâlâ doğrulanmalıdır. Yeni ürün davranışı veya test atlaması yok.

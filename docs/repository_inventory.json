@@ -39,12 +39,12 @@
     {
       "path": ".github/workflows/ci.yml",
       "role": "Depo sözleşmesi",
-      "purpose": "Windows, Linux ve macOS üzerinde native dağıtım üretir, doğrular, regresyon ve host smoke kapılarını çalıştırır; PR/main değişikliklerinin kalite kapısıdır. Python suite tests/run_all.py --python-only üzerinden çalışır ve başarısız public test kimliklerini güvenli annotation ile gösterir. Native kapılar sonrası Windows EXE, macOS DMG ve Linux makeself arşivi oluşturulur; disk/arşiv bütünlüğü, açılan payload ve executable izinleri gerçek hostta yeniden doğrulanır.",
+      "purpose": "Windows, Linux ve macOS üzerinde native dağıtım üretir, doğrular, regresyon ve host smoke kapılarını çalıştırır; PR/main değişikliklerinin kalite kapısıdır. Python suite tests/run_all.py --python-only üzerinden çalışır ve başarısız public test kimliklerini güvenli annotation ile gösterir. Native kapılar sonrası Windows EXE, macOS DMG ve Linux makeself arşivi oluşturulur; disk/arşiv bütünlüğü, açılan payload ve executable izinleri gerçek hostta yeniden doğrulanır. Üç hostta erken 3.10 import/wheel/adapter kapısı native üretimden önce çalışır. Tam Python dizisi native aşamada tekrar edilmez; altı source host/sürüm işi her sürümü native artifact ile tam sınar; tüm native kabul ve shell kapıları korunur.",
       "relationships": [
         "tools/build_installer.py, verify_distribution.py ve tests komutlarını bağlar; atlas --check kaynak/inceleme drift'ini yakalar.",
         "Python keşfi tests/run_all.py --python-only üzerinden tam stderr ve doğrulanmış public başarısız test kimliği annotasyonlarını korur."
       ],
-      "review_sha256": "a966b3a188130e14b8895a494af60dcab47f6731dbd922749989f51491c5e1a2"
+      "review_sha256": "3b008bb19276d228653f0245483e090dd66e537506313e69785ec70415ee3753"
     },
     {
       "path": ".github/workflows/release.yml",
@@ -126,7 +126,7 @@
       "relationships": [
         "Atlas yapıyı anlatır; audit yürütülmüş incelemenin kanıtıdır; tarihi ve bağlamı dışında canlı platform garantisi vermez."
       ],
-      "review_sha256": "2ad678b95b3064e6cda87b44b0640fbd7471d22b0ba1fa48eaf14236dea8df32"
+      "review_sha256": "39a24c8359eeb2cbb684cd3df7141e87af49e20e866ea0cd19e8e50dff6e7be0"
     },
     {
       "path": "docs/REPOSITORY_MAP.md",
@@ -387,7 +387,7 @@
       "relationships": [
         "wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır."
       ],
-      "review_sha256": "0ae15d91f165bc03e3951d0c10b09aba05dfb6d4a657978927e2ea801580c6d3"
+      "review_sha256": "508e71cfe668c77498b69b0f3856651e14dc97e10b466571f93e1a4456a90813"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-source-cleanup.md",
@@ -2200,12 +2200,12 @@
     {
       "path": "tests/package_contract_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Paket kaynaklarının checkout olmadan erişilmesini, import yan etkisizliğini, resource path escape reddini ve temporary materialization'ı sınar. Odak örnekleri: `test_resources_and_import_are_independent_of_checkout`, `test_resource_names_cannot_escape_package`, `test_materialized_template_is_temporary_and_complete`. Resource geçici tahsisinin gerçek directory junction/symlink altında kanonik ve safe_path uyumlu olduğunu doğrular; owned_temp_alias fixture helperını paylaşır.",
+      "purpose": "Paket kaynaklarının checkout olmadan erişilmesini, import yan etkisizliğini, resource path escape reddini ve temporary materialization'ı sınar. Odak örnekleri: `test_resources_and_import_are_independent_of_checkout`, `test_resource_names_cannot_escape_package`, `test_materialized_template_is_temporary_and_complete`. Resource geçici tahsisinin gerçek directory junction/symlink altında kanonik ve safe_path uyumlu olduğunu doğrular; owned_temp_alias fixture helperını paylaşır. Başarısız wheel/venv/import/CLI subprocess adımında yalnız sabit whitelist stage etiketini CI annotationına taşır; tam exception/çıktı normal assert logunda kalır. Gerçek başarısız subprocess regresyonu özel mesajın bildirime sızmadığını doğrular.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.resources`."
       ],
-      "review_sha256": "c2b15e1560bbdb63d034e4ecc8c289ac0744da37fe35ae70f066c7553ad099ce"
+      "review_sha256": "98e6a7a350735fe8e12e7914ef5ca172acb87d36606986839774ad5a738ffd72"
     },
     {
       "path": "tests/profile_render_test.py",
@@ -2268,12 +2268,12 @@
     {
       "path": "tests/runtime_platform_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Gerçek lock/claim contention, detached/hidden süreç seçenekleri, WSL temp ve symlink/traversal containment platform primitive'lerini sınar. Odak örnekleri: `test_nonblocking_lock_reports_contention`, `test_exclusive_claim_has_a_single_winner`, `test_detached_process_options_match_the_host`.",
+      "purpose": "Gerçek lock/claim contention, detached/hidden süreç seçenekleri, WSL temp ve symlink/traversal containment platform primitive'lerini sınar. Odak örnekleri: `test_nonblocking_lock_reports_contention`, `test_exclusive_claim_has_a_single_winner`, `test_detached_process_options_match_the_host`. Native Windows taklidi yalnız ürün modülünün os adaptörünü mock eder; stdlib os.name ve Python 3.10 Path tür seçimini değiştirmez.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.core`."
       ],
-      "review_sha256": "c721a16c99f8bbe3274566ac76817bcd49ad027d5e0ca85b80058d3f7c45a4ff"
+      "review_sha256": "da783590b91924a819c32e8964ea2434ba3da90362a6ed98f475cf14d2af4109"
     },
     {
       "path": "tests/scenario_matrix_test.py",

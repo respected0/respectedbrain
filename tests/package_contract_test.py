@@ -1,7 +1,8 @@
 """Prove the distributable package works without its source checkout."""
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
+import io
 import importlib.util
 import json
 import os
@@ -14,6 +15,26 @@ from unittest import mock
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def run_package_step(stage, command, **kwargs):
+    """Keep full local diagnostics; expose only fixed stage labels to CI."""
+    if stage not in {'build-wheel', 'create-venv', 'install-wheel',
+                     'import-resources', 'module-cli', 'console-cli'}:
+        raise ValueError('Unknown package stage')
+
+    def report():
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            print('::error title=Package contract::package-stage=' + stage, flush=True)
+
+    try:
+        result = subprocess.run(command, **kwargs)
+    except Exception:
+        report()
+        raise
+    if result.returncode:
+        report()
+    return result
 
 
 @contextmanager
@@ -38,13 +59,23 @@ def owned_temp_alias(testcase, root):
 
 
 class PackageContractTest(unittest.TestCase):
+    def test_failed_package_step_reports_only_fixed_public_stage(self):
+        output = io.StringIO()
+        with mock.patch.dict(os.environ, GITHUB_ACTIONS='true'), redirect_stdout(output):
+            result = run_package_step('import-resources', [sys.executable, '-c',
+                "import sys; print('private failure payload'); sys.exit(7)"],
+                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 7)
+        self.assertIn('private failure payload', result.stdout)
+        self.assertEqual(output.getvalue(), '::error title=Package contract::package-stage=import-resources\n')
+
     def test_resources_and_import_are_independent_of_checkout(self):
         self.assertTrue((ROOT / 'pyproject.toml').is_file(), 'An installable product package is required')
         with tempfile.TemporaryDirectory(prefix='respected-wheel-') as temporary:
             home = Path(temporary)
             wheels = home / 'wheels'
             build_env = dict(os.environ, PYTHONUTF8='1', PYTHONIOENCODING='utf-8')
-            build = subprocess.run([sys.executable, '-m', 'build', '--wheel', '--no-isolation', '--outdir', str(wheels)],
+            build = run_package_step('build-wheel', [sys.executable, '-m', 'build', '--wheel', '--no-isolation', '--outdir', str(wheels)],
                                    cwd=ROOT, env=build_env, capture_output=True, text=True, encoding='utf-8', errors='replace')
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             wheel = next(wheels.glob('*.whl'))
@@ -60,11 +91,11 @@ class PackageContractTest(unittest.TestCase):
             # version installed through checkout egg-info, skipping the wheel.
             for name in ('PYTHONPATH', 'PYTHONHOME'):
                 isolated_env.pop(name, None)
-            result = subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(isolated)],
+            result = run_package_step('create-venv', [sys.executable, '-m', 'venv', '--without-pip', str(isolated)],
                                     env=isolated_env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             python = isolated / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
-            install = subprocess.run([sys.executable, '-m', 'pip', '--python', str(python), 'install', '--no-deps', str(wheel)],
+            install = run_package_step('install-wheel', [sys.executable, '-m', 'pip', '--python', str(python), 'install', '--no-deps', str(wheel)],
                                      env=isolated_env, capture_output=True, text=True, encoding='utf-8')
             self.assertEqual(install.returncode, 0, install.stdout + install.stderr)
             user = home / 'user'
@@ -92,15 +123,15 @@ assert 'SKILL.md' in catalog.iter_files('skills/beyin-doktor')
 assert json.loads(catalog.read_text('defaults.json'))['summary_provider'] == 'auto'
 print(respectedbrain.__version__)
 '''
-            checked = subprocess.run([str(python), '-c', probe, str(config)], cwd=home, env=env,
+            checked = run_package_step('import-resources', [str(python), '-c', probe, str(config)], cwd=home, env=env,
                                      capture_output=True, text=True, encoding='utf-8')
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
             self.assertEqual(checked.stdout.strip(), '0.0.1')
             self.assertEqual(config.read_text(encoding='utf-8'), '{"sentinel": true}')
-            module = subprocess.run([str(python), '-m', 'respectedbrain', '--version'], cwd=home, env=env,
+            module = run_package_step('module-cli', [str(python), '-m', 'respectedbrain', '--version'], cwd=home, env=env,
                                     capture_output=True, text=True, encoding='utf-8')
             launcher = isolated / ('Scripts/respectedbrain.exe' if os.name == 'nt' else 'bin/respectedbrain')
-            entry = subprocess.run([str(launcher), '--version'], cwd=home, env=env,
+            entry = run_package_step('console-cli', [str(launcher), '--version'], cwd=home, env=env,
                                    capture_output=True, text=True, encoding='utf-8')
             self.assertEqual((module.returncode, module.stdout), (0, '0.0.1\n'))
             self.assertEqual((entry.returncode, entry.stdout), (module.returncode, module.stdout))

@@ -158,3 +158,25 @@ installer rebuilt; frozen version/registry/maps/search/hook/MCP passed. All
 1057 copied distribution files match SHA256 in primary dist; previous build
 is preserved in ignored evidence. No introduced finding in independent review
 of either compatibility change or diagnostics normalization.
+
+### Earlier compatibility and reduced CI repetition — 2026-10-05
+
+Run 37239730909 passed all three native build/frozen/physical smoke/acceptance/
+release-format jobs and the Linux/macOS 3.13 source jobs. Windows native full
+suite took 7.3 minutes; the previous run took 9.4 minutes plus 4.7 minutes for
+physical smoke. Python 3.10 POSIX jobs exposed a test-only global os.name mock
+that changes Python 3.10 Path construction, and a macOS wheel-isolation error
+whose substage is not yet established. The OS fake now patches only the product
+module adapter; package diagnostics expose only one of six fixed stage labels.
+
+The user asked about waiting cost and runtime. CI now runs 37 minimum-version
+import/wheel/host-adapter tests on all three hosts before native work. The
+duplicated native-stage 3.13 full suite is removed; all six source host/version
+full suites still consume the verified native artifacts and include native
+acceptance cases. Native launcher/smoke/Inno/scheduler/real-format and shell
+gates remain. Actual 3.10 early scope: 37 / 6.737s / OK (one host skip);
+3.12 changed fixtures/release contract: 19 / 4.724s / OK (one host skip).
+Independent narrow review found no introduced important issue. No product
+change or rebuild is needed for this follow-up. Discovery now includes 673.
+macOS's failed substage must be diagnosed and all final gates green before
+main publication; a local host pass cannot stand in for the other platforms.

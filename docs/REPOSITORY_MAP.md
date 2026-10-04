@@ -486,7 +486,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Depo sözleşmesi.
 
-**Amaç / sorumluluk:** Windows, Linux ve macOS üzerinde native dağıtım üretir, doğrular, regresyon ve host smoke kapılarını çalıştırır; PR/main değişikliklerinin kalite kapısıdır. Python suite tests/run_all.py --python-only üzerinden çalışır ve başarısız public test kimliklerini güvenli annotation ile gösterir. Native kapılar sonrası Windows EXE, macOS DMG ve Linux makeself arşivi oluşturulur; disk/arşiv bütünlüğü, açılan payload ve executable izinleri gerçek hostta yeniden doğrulanır.
+**Amaç / sorumluluk:** Windows, Linux ve macOS üzerinde native dağıtım üretir, doğrular, regresyon ve host smoke kapılarını çalıştırır; PR/main değişikliklerinin kalite kapısıdır. Python suite tests/run_all.py --python-only üzerinden çalışır ve başarısız public test kimliklerini güvenli annotation ile gösterir. Native kapılar sonrası Windows EXE, macOS DMG ve Linux makeself arşivi oluşturulur; disk/arşiv bütünlüğü, açılan payload ve executable izinleri gerçek hostta yeniden doğrulanır. Üç hostta erken 3.10 import/wheel/adapter kapısı native üretimden önce çalışır. Tam Python dizisi native aşamada tekrar edilmez; altı source host/sürüm işi her sürümü native artifact ile tam sınar; tüm native kabul ve shell kapıları korunur.
 
 **İlişkiler ve sınır:** tools/build_installer.py, verify_distribution.py ve tests komutlarını bağlar; atlas --check kaynak/inceleme drift'ini yakalar. Python keşfi tests/run_all.py --python-only üzerinden tam stderr ve doğrulanmış public başarısız test kimliği annotasyonlarını korur.
 
@@ -2524,7 +2524,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Paket kaynaklarının checkout olmadan erişilmesini, import yan etkisizliğini, resource path escape reddini ve temporary materialization'ı sınar. Odak örnekleri: `test_resources_and_import_are_independent_of_checkout`, `test_resource_names_cannot_escape_package`, `test_materialized_template_is_temporary_and_complete`. Resource geçici tahsisinin gerçek directory junction/symlink altında kanonik ve safe_path uyumlu olduğunu doğrular; owned_temp_alias fixture helperını paylaşır.
+**Amaç / sorumluluk:** Paket kaynaklarının checkout olmadan erişilmesini, import yan etkisizliğini, resource path escape reddini ve temporary materialization'ı sınar. Odak örnekleri: `test_resources_and_import_are_independent_of_checkout`, `test_resource_names_cannot_escape_package`, `test_materialized_template_is_temporary_and_complete`. Resource geçici tahsisinin gerçek directory junction/symlink altında kanonik ve safe_path uyumlu olduğunu doğrular; owned_temp_alias fixture helperını paylaşır. Başarısız wheel/venv/import/CLI subprocess adımında yalnız sabit whitelist stage etiketini CI annotationına taşır; tam exception/çıktı normal assert logunda kalır. Gerçek başarısız subprocess regresyonu özel mesajın bildirime sızmadığını doğrular.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.resources`.
 
@@ -2580,7 +2580,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Gerçek lock/claim contention, detached/hidden süreç seçenekleri, WSL temp ve symlink/traversal containment platform primitive'lerini sınar. Odak örnekleri: `test_nonblocking_lock_reports_contention`, `test_exclusive_claim_has_a_single_winner`, `test_detached_process_options_match_the_host`.
+**Amaç / sorumluluk:** Gerçek lock/claim contention, detached/hidden süreç seçenekleri, WSL temp ve symlink/traversal containment platform primitive'lerini sınar. Odak örnekleri: `test_nonblocking_lock_reports_contention`, `test_exclusive_claim_has_a_single_winner`, `test_detached_process_options_match_the_host`. Native Windows taklidi yalnız ürün modülünün os adaptörünü mock eder; stdlib os.name ve Python 3.10 Path tür seçimini değiştirmez.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.core`.
 

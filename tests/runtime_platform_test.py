@@ -75,7 +75,9 @@ class RuntimePlatformTest(unittest.TestCase):
         self.assertIsNone(
             RUNTIME.external_temp_parent(Path("/mnt/d/projects/brain"))
         )
-        with mock.patch.object(RUNTIME.os, "name", "nt"):
+        simulated_os = mock.Mock(wraps=os)
+        simulated_os.name = "nt"
+        with mock.patch.object(RUNTIME, "os", simulated_os):
             self.assertIsNone(
                 RUNTIME.external_temp_parent(Path(r"C:\Users\Ada\Ada Brain"))
             )
