@@ -1,9 +1,7 @@
 """Public package entrypoints replace the retired source launchers."""
 from __future__ import annotations
-import contextlib
-import importlib
-import io
 from pathlib import Path
+import subprocess
 import sys
 import unittest
 from unittest import mock
@@ -30,12 +28,21 @@ class RuntimeLayoutTest(IntegrationFixture, unittest.TestCase):
         self.assertTrue(args.gui)
 
     def test_importing_package_services_has_no_home_io_or_process_side_effect(self):
+        probe = '''
+import importlib, sys
+from pathlib import Path
+from unittest import mock
+before = list(sys.path)
+with mock.patch.object(Path, 'home', side_effect=AssertionError('home lookup')), mock.patch.object(Path, 'mkdir', side_effect=AssertionError('mkdir')), mock.patch('subprocess.run', side_effect=AssertionError('process')):
+    importlib.import_module('respectedbrain.' + sys.argv[1])
+assert sys.path == before
+'''
         for name in ("core.paths", "installation.setup", "installation.update", "installation.uninstall", "installation.wizard", "integrations.rendering"):
-            before = list(sys.path)
-            with self.subTest(name=name), mock.patch.object(Path, "home", side_effect=AssertionError("home lookup")), mock.patch.object(Path, "mkdir", side_effect=AssertionError("mkdir")), mock.patch("subprocess.run", side_effect=AssertionError("process")), contextlib.redirect_stdout(io.StringIO()) as stdout:
-                importlib.reload(importlib.import_module("respectedbrain." + name))
-            self.assertEqual(stdout.getvalue(), "")
-            self.assertEqual(sys.path, before)
+            with self.subTest(name=name):
+                checked = subprocess.run([sys.executable, '-c', probe, name], cwd=ROOT,
+                                         capture_output=True, text=True, timeout=30)
+                self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+                self.assertEqual(checked.stdout, '')
 
     def test_project_renderer_keeps_notes_and_technical_state_separate(self):
         from respectedbrain.integrations.rendering import render_project_integrations

@@ -1,6 +1,10 @@
-# 0.0.1 Test Matrix
+# 0.0.1 Test Matrix — tarihsel kanıt
 
-Son güncelleme: 2026-09-14. Bu belge yalnız çalıştırılmış kanıtı başarı sayar. Otomatik adapter
+Bu tablolardaki kanıt 2026-09-14 tarihli önceki düzene aittir; güncel modüler
+native dağıtımın doğrulaması olarak kullanılamaz. Güncel, kapsamı ve atlamaları
+belirtilmiş sonuçlar [modüler temel doğrulamasında](superpowers/verification/2026-10-04-modular-foundation.md)
+ve [kaynak temizliği doğrulamasında](superpowers/verification/2026-10-04-source-cleanup.md)
+tutulur. Bu belge yalnız çalıştırılmış kanıtı başarı sayar. Otomatik adapter
 testi, gerçek bir platform veya giriş yapılmış ajan smoke testinin yerine geçmez.
 
 ## Fiziksel host kanıtı
@@ -57,5 +61,5 @@ sh ./tests/smoke/macos.sh --output ./smoke-macos.json
 ```
 
 Başarı için exit code `0`, `overall: VERIFIED` ve bütün `checks[*].status` değerleri `VERIFIED`
-olmalıdır. Ayrıntılı insan kabul turu [MANUAL-ACCEPTANCE-0.0.1.md](MANUAL-ACCEPTANCE-0.0.1.md)
-belgesindedir.
+olmalıdır. Güncel paket gereksinimleri ve çalıştırma seçenekleri
+[smoke rehberinde](../tests/smoke/README.md) açıklanır.

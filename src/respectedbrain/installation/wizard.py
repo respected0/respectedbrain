@@ -35,13 +35,14 @@ def run_action(mode, roots, vault, *, profile, desired, backend, package=None):
 
 
 class SetupWizard:
-    def __init__(self, root: tk.Tk, *, roots=None, backend=None) -> None:
+    def __init__(self, root: tk.Tk, *, roots=None, backend=None, vault=None, package=None, profile=None, desired=None) -> None:
         self.root = root
         self.roots = roots or application_roots()
         if backend is None:
             from respectedbrain.integrations.backend import NativeBackend
             backend = NativeBackend(self.roots.data_root)
         self.backend = backend
+        self.package = Path(package).resolve() if package is not None else None
         self.root.title(f"Respected Brain {__version__} — Kurulum & Bakım")
         self.root.geometry("680x640")
         self.root.resizable(False, False)
@@ -52,20 +53,30 @@ class SetupWizard:
         self.model_choice_var = tk.StringVar(value="auto")
         self.mode_var = tk.StringVar(value="install")
         config = ConfigStore(self.roots.data_root).read()
-        desired = config["integrations"]
-        self.desktop_shortcut_var = tk.BooleanVar(value=desired.get("shortcut", False))
-        self.schedule_var = tk.BooleanVar(value=desired.get("schedule", False))
-        self.global_rules_var = tk.BooleanVar(value=desired.get("global", False))
-        self.mcp_server_var = tk.BooleanVar(value=desired.get("mcp", False))
+        selections = {**config["integrations"], **(desired or {})}
+        self.desktop_shortcut_var = tk.BooleanVar(value=selections.get("shortcut", False))
+        self.schedule_var = tk.BooleanVar(value=selections.get("schedule", False))
+        self.global_rules_var = tk.BooleanVar(value=selections.get("global", False))
+        self.mcp_server_var = tk.BooleanVar(value=selections.get("mcp", False))
         self.model_choice_var.set(config["preferences"].get("summary_provider", "auto"))
-        identity = config.get("active_vault_id")
+        self.explicit_profile = dict(profile or {})
+        self.profile = {}
+        selected_vault = Path(vault).resolve() if vault is not None else None
+        identity = (next((key for key, entry in config["vaults"].items()
+                          if Path(entry["path"]).resolve() == selected_vault), None)
+                    if selected_vault is not None else config.get("active_vault_id"))
         if identity is not None:
             entry = config["vaults"][identity]
             self.vault_path_var.set(entry["path"])
             self.mode_var.set("modify")
-            settings = entry.get("settings", {})
-            self.user_name_var.set(settings.get("USER_NAME", Path.home().name))
-            self.companion_var.set(settings.get("COMPANION", "Companion"))
+            self.profile.update(entry.get("settings", {}))
+        if selected_vault is not None:
+            self.vault_path_var.set(str(selected_vault))
+        self.profile.update(self.explicit_profile)
+        self.user_name_var.set(self.profile.get("USER_NAME", Path.home().name))
+        self.companion_var.set(self.profile.get("COMPANION", "Companion"))
+        if "summary_provider" in self.profile:
+            self.model_choice_var.set(self.profile["summary_provider"])
         self._build_ui()
         self._on_mode_change()
         self._log(f"Program: {self.roots.app_root}")
@@ -270,17 +281,22 @@ class SetupWizard:
     def _start_action_thread(self):
         mode = self.mode_var.get()
         vault = Path(self.vault_path_var.get().strip()).resolve()
-        package = None
-        if mode == "update":
+        package = self.package
+        if mode == "update" and package is None:
             chosen = filedialog.askdirectory(title="Yeni Dağıtım Paketini Seçin")
             if not chosen:
                 return
-            package = Path(chosen)
+            package = Path(chosen).resolve()
         if mode == "uninstall" and not messagebox.askyesno("Programı Kaldır", "Program kaldırılacak. Notlar ve ayarlar korunacak. Devam edilsin mi?"):
             return
-        profile = {"OS_NAME": vault.name, "USER_NAME": self.user_name_var.get().strip() or Path.home().name,
-                   "USER_BIO": "", "COMPANION": self.companion_var.get().strip() or "Companion",
+        config = ConfigStore(self.roots.data_root).read()
+        settings = next((entry.get("settings", {}) for entry in config["vaults"].values()
+                         if Path(entry["path"]).resolve() == vault), {})
+        profile = {**settings, **self.explicit_profile, "USER_NAME": self.user_name_var.get().strip() or Path.home().name,
+                   "COMPANION": self.companion_var.get().strip() or "Companion",
                    "summary_provider": self.model_choice_var.get()}
+        profile.setdefault("OS_NAME", vault.name)
+        profile.setdefault("USER_BIO", "")
         desired = {"global": self.global_rules_var.get(), "mcp": self.mcp_server_var.get(),
                    "schedule": self.schedule_var.get(), "shortcut": self.desktop_shortcut_var.get()}
         self.btn_action.configure(state="disabled")
@@ -308,8 +324,8 @@ class SetupWizard:
             messagebox.showerror("İşlem Başarısız", "Ayrıntılar işlem günlüğünde; kullanıcı dosyaları korunuyor.")
 
 
-def main(*, roots=None, backend=None) -> int:
+def main(*, roots=None, backend=None, vault=None, package=None, profile=None, desired=None) -> int:
     root = tk.Tk()
-    SetupWizard(root, roots=roots, backend=backend)
+    SetupWizard(root, roots=roots, backend=backend, vault=vault, package=package, profile=profile, desired=desired)
     root.mainloop()
     return 0

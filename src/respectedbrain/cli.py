@@ -185,14 +185,17 @@ def _dispatch(args) -> int:
             from .installation.migration import apply_migration
             result = apply_migration(plan, roots=roots, package=args.package or roots.app_root, backend=backend)
             return _operation_output(result)
+        desired_overrides = {key: getattr(args, "desired_" + key) for key in ("global", "mcp", "schedule", "shortcut") if getattr(args, "desired_" + key) is not None}
+        profile = {key: value for key, value in {"USER_NAME": args.user_name, "USER_BIO": args.user_bio, "COMPANION": args.companion, "OS_NAME": args.os_name, "summary_provider": args.summary_provider, "platform": args.platform}.items() if value is not None}
+        vault = args.vault.resolve() if args.vault is not None else None
+        package = args.package.resolve() if args.package is not None else None
         if args.gui:
             from .installation.wizard import main as wizard_main
-            return wizard_main(roots=roots, backend=backend)
+            return wizard_main(roots=roots, backend=backend, vault=vault, package=package, profile=profile, desired=desired_overrides)
         from .installation.setup import setup
         desired = ConfigStore(roots.data_root).read()["integrations"]
-        desired = {key: desired.get(key, False) if getattr(args, "desired_" + key) is None else getattr(args, "desired_" + key) for key in ("global", "mcp", "schedule", "shortcut")}
-        profile = {key: value for key, value in {"USER_NAME": args.user_name, "USER_BIO": args.user_bio, "COMPANION": args.companion, "OS_NAME": args.os_name, "summary_provider": args.summary_provider, "platform": args.platform}.items() if value is not None}
-        return _operation_output(setup(roots, args.vault.resolve() if args.vault is not None else roots.default_vault, profile=profile, desired=desired, backend=backend, package=args.package.resolve() if args.package is not None else None))
+        desired = {key: desired_overrides.get(key, desired.get(key, False)) for key in ("global", "mcp", "schedule", "shortcut")}
+        return _operation_output(setup(roots, vault if vault is not None else roots.default_vault, profile=profile, desired=desired, backend=backend, package=package))
     if args.command in ("vault", "configure"):
         roots = application_roots()
         store = ConfigStore(roots.data_root)

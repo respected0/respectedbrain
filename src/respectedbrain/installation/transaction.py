@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from typing import Callable
 from uuid import uuid4
 
-from respectedbrain.core.config import atomic_write_bytes, atomic_write_json
+from respectedbrain.core.config import atomic_write_bytes
 from respectedbrain.core.errors import OwnershipConflict
 from respectedbrain.core.locking import exclusive_lock
 from .ownership import safe_path, digest, encode_bytes, decode_bytes
@@ -78,7 +78,10 @@ class Transaction:
             raise
 
     def _save(self):
-        atomic_write_json(safe_path(self.journal), self.document)
+        # An unindented snapshot uses the JSON encoder's fast path. Keep schema
+        # 3 and the same fsync + atomic replacement durability contract.
+        payload = (json.dumps(self.document, ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+        atomic_write_bytes(safe_path(self.journal), payload)
 
     def checkpoint(self, phase: str):
         self.document["phase"] = phase
@@ -92,16 +95,26 @@ class Transaction:
         while not parent.exists():
             missing.append(parent)
             parent = parent.parent
-        for directory in reversed(missing):
+        if not missing:
+            return
+        directories = list(reversed(missing))
+        for directory in directories:
             safe_path(directory)
             self.document["directories"].append(str(directory))
-            self._save()
-            directory.mkdir()
+        # Persist every planned directory before creating any. Recovery can
+        # safely ignore absent directories if creation was interrupted.
+        self._save()
+        for directory in directories:
+            safe_path(directory).mkdir()
 
     def backup(self, path: Path) -> None:
+        self._capture_before(path, persist=True)
+
+    def _capture_before(self, path: Path, *, persist: bool) -> dict:
         safe_path(path)
-        if any(row["path"] == str(path) for row in self.document["files"]):
-            return
+        existing = next((row for row in self.document["files"] if row["path"] == str(path)), None)
+        if existing is not None:
+            return existing
         if path.exists() and not path.is_file():
             raise OwnershipConflict(f"Expected regular file: {path}")
         payload = path.read_bytes() if path.exists() else None
@@ -110,11 +123,14 @@ class Transaction:
         if payload is not None:
             backup = f"file-{len(self.document['files'])}.bin"
             atomic_write_bytes(self.directory / backup, payload)
-        self.document["files"].append({"path": str(path), "backup": backup,
+        row = {"path": str(path), "backup": backup,
                                        "before": hashlib.sha256(payload).hexdigest() if payload is not None else None,
                                        "after": hashlib.sha256(payload).hexdigest() if payload is not None else None,
-                                       "before_mode": mode, "after_mode": mode})
-        self._save()
+                                       "before_mode": mode, "after_mode": mode}
+        self.document["files"].append(row)
+        if persist:
+            self._save()
+        return row
 
     def adopt_before(self, path: Path, before: bytes | None):
         """Journal an Inno artifact whose pre-install bytes were captured earlier."""
@@ -131,8 +147,9 @@ class Transaction:
         self._save()
 
     def write(self, target: Path, payload: bytes, *, mode: int | None = None) -> None:
-        self.backup(target)
-        row = next(row for row in self.document["files"] if row["path"] == str(target))
+        # The before-image is fsynced first; its record and expected output
+        # share one durable snapshot before target mutation.
+        row = self._capture_before(target, persist=False)
         actual = digest(target) if target.exists() else None
         if actual != row["after"] or not _mode_matches(row, "after_mode", _file_mode(target)):
             raise OwnershipConflict(f"Target changed during transaction: {target}")

@@ -1,6 +1,5 @@
-# Secrets, never commit. assert_no_secret_staged refuses to commit
-# these paths, so anything it guards must also be ignored here, otherwise the very first
-# snapshot stages a secret and the upgrade dies before it starts.
+# Secret paths are excluded from new Git staging. Already tracked files and
+# secrets inside note bodies need a separate review before publishing snapshots.
 .claude/settings.local.json
 *settings.local.json
 .beyin/backups/

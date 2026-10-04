@@ -10,10 +10,7 @@
     "files.eol": "\r\n"
   },
   "python.analysis.extraPaths": [
-    "./scripts",
-    "./template/.beyin/engine",
-    "./template/.beyin",
-    "./template/.beyin/hooks"
+    "./src"
   ],
   "python.testing.unittestArgs": [
     "-v",

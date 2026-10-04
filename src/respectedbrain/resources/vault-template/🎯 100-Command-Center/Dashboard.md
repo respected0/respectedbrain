@@ -9,9 +9,9 @@ type: dashboard
 Hoş geldin {{USER_NAME}}. Bu senin ikinci beynin.
 
 ## Hızlı bağlantılar
-- 📥 [Capture](📥%20000-Inbox/Dump/)
-- 🏰 [Projeler](🏰%20300-Projects/)
-- 🧠 [Bilgi](🧠%20500-Knowledge/)
+- 📥 [Capture](../📥%20000-Inbox/Dump/)
+- 🏰 [Projeler](../🏰%20300-Projects/)
+- 🧠 [Bilgi](../🧠%20500-Knowledge/)
 - 🔮 [[🔮 850-Companion/Core.md|{{COMPANION}}]]
 
 <!-- RESPECTED-BRIEFING:BEGIN -->

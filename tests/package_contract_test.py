@@ -32,19 +32,24 @@ class PackageContractTest(unittest.TestCase):
                 self.assertNotIn('respectedbrain/resources/vault-template/.respectedbrain-version', files)
                 self.assertFalse(any('/__pycache__/' in item or '/.state/' in item for item in files))
             isolated = home / 'isolated'
-            result = subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(isolated)], capture_output=True, text=True)
+            isolated_env = dict(os.environ, PYTHONUTF8='1', PYTHONIOENCODING='utf-8')
+            # Source PYTHONPATH can make pip think the target already has this
+            # version installed through checkout egg-info, skipping the wheel.
+            for name in ('PYTHONPATH', 'PYTHONHOME'):
+                isolated_env.pop(name, None)
+            result = subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(isolated)],
+                                    env=isolated_env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             python = isolated / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
             install = subprocess.run([sys.executable, '-m', 'pip', '--python', str(python), 'install', '--no-deps', str(wheel)],
-                                     capture_output=True, text=True, encoding='utf-8')
+                                     env=isolated_env, capture_output=True, text=True, encoding='utf-8')
             self.assertEqual(install.returncode, 0, install.stdout + install.stderr)
             user = home / 'user'
             user.mkdir()
             config = user / 'config.json'
             config.write_text('{"sentinel": true}', encoding='utf-8')
-            env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONUTF8='1', RESPECTED_DATA_DIR=str(user),
+            env = dict(isolated_env, PYTHONDONTWRITEBYTECODE='1', RESPECTED_DATA_DIR=str(user),
                        RESPECTED_VAULT_PATH=str(home / 'never-discover'))
-            env.pop('PYTHONPATH', None)
             probe = r'''
 import json, sys
 from pathlib import Path

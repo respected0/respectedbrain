@@ -248,6 +248,11 @@ README'deki 3.10+ ile eşlendi, sürüm tabanı yükseltilmedi.
 
 ## For future agent
 
+2026-10-04 kurulum seçenekleri/hız, eksiksiz dosya atlası, kaynak denetimi ve
+GitHub platform doğrulaması için [devam planını](2026-10-04-installer-atlas-release.md)
+oku. Bu devam işi canlı kullanıcı kurulumunu veya kasayı değiştirmez; kişisel
+devreye alma kararı bu ana plandaki kullanıcı tercihidir.
+
 Spec ve karma yürütme yöntemi kullanıcı tarafından onaylandı. Görev eklerini
 bağımlılık sırasıyla uygula; çalışma ağacındaki onarımları koru.
 Canlı kurulum değişikliğine görev 14'ün önizleme ve geri alma kontrolleri

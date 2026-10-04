@@ -45,6 +45,25 @@ Programın tek kaynağı `src/respectedbrain/` olur. Modüller görevlerine gör
 ayrılır. Hazır içerikler `resources/` içindedir. Kurulum tarifleri `packaging/`,
 geliştirici araçları `tools/`, testler `tests/`, belgeler `docs/` altındadır.
 
+[Ayrıntılı depo atlası](docs/REPOSITORY_MAP.md), en küçük paket işaretçisi dahil
+her proje dosyasının görevini, ilişkilerini, tam ağacı ve yerel üretim çıktılarının
+yerini açıklar. [Depo denetimi](docs/REPOSITORY_AUDIT.md) inceleme ve test kanıtını tutar.
+
+Atlasın açıklama kaynağı `docs/repository_inventory.json` olur. Yeni veya değişmiş
+dosya aynı iş içinde okunup açıklanır; otomatik keşif yeni kodun sorumluluğunu tahmin
+etmez. Bakım ve CI kapısı:
+
+```powershell
+python tools/repository_map.py --update
+# Envanterde yeni dosyanın rol/amaç/ilişkilerini doldurun; değişeni gözden geçirin.
+python tools/repository_map.py --accept-reviewed "path/to/changed.py"
+python tools/repository_map.py --write
+python tools/repository_map.py --check
+```
+
+`--check` eksik/fazla/çift dosya, açıklama gerektiren yeni kayıt, içerik hash'iyle
+eskimiş açıklama ve üretilmiş Markdown farkını reddeder. Kişisel vault'u taramaz.
+
 Eski kök `runtime/`, `installer/`, `template/` ve `setup.py/setup/setup.command`
 girişleri kaldırılmıştır. Geliştirmede `python -m respectedbrain`, paketlemede
 `python tools/build_installer.py` kullanılır. `.venv/`, `build/` ve `dist/` yerel
