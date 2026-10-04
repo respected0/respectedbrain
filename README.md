@@ -21,7 +21,7 @@ Windows native kurucusu `RespectedBrain-Windows-Setup.exe` dosyasıdır. Program
 [Kaynak kod](https://github.com/respected0/respectedbrain) üzerinde geliştirme ve native dağıtım üretimi:
 
 ```powershell
-python -m pip install -e .
+python -m pip install -e ".[dev]"
 python -m respectedbrain --version
 python tools/build_installer.py --platform windows --output dist
 python tools/verify_distribution.py --distribution dist/RespectedBrain --platform windows
@@ -36,7 +36,22 @@ Kurulum/güncelleme doğrulanmış native paket gerektirir. Kaynaktan çalışt�
 | `runtime/` ve kasada `.beyin/` motor kopyaları | Tek `src/respectedbrain/` paketi; kurulumda tek AppRoot |
 | `template/`, ayrı instructions/skills kopyaları | Tek `src/respectedbrain/resources/` kaynağı |
 | Motor/cache kasa içine karışabiliyordu | Teknik durum DataRoot'ta; kasa notlar için |
-| Eski betiklerde ayrı kurulum davranışları | Geçiş adaptörleri ortak CLI/installation servisini çağırır |
+| Eski betiklerde ayrı kurulum davranışları | Tek CLI ve ortak installation servisi |
+
+## Kaynak proje düzeni
+
+Programın tek kaynağı `src/respectedbrain/` olur. Modüller görevlerine göre
+`memory`, `search`, `providers`, `integrations`, `installation` ve diğer paketlere
+ayrılır. Hazır içerikler `resources/` içindedir. Kurulum tarifleri `packaging/`,
+geliştirici araçları `tools/`, testler `tests/`, belgeler `docs/` altındadır.
+
+Eski kök `runtime/`, `installer/`, `template/` ve `setup.py/setup/setup.command`
+girişleri kaldırılmıştır. Geliştirmede `python -m respectedbrain`, paketlemede
+`python tools/build_installer.py` kullanılır. `.venv/`, `build/` ve `dist/` yerel
+geliştirme/üretim çıktılarıdır; ürün kaynak ağacının parçası değildir.
+
+Eski canlı kurulumları okuyabilen migration kodu korunur. Kaynak temizliği,
+bilgisayardaki mevcut ürünün veya not kasasının otomatik dönüştürülmesi değildir.
 
 Kişisel talimat/skill değişiklikleri migration sırasında UUID'ye bağlı `overrides/` alanına korunur. Bilinmeyen dosyalar silinmez; eski kaldırıcı çalıştırılmaz. Geçiş varsayılan olarak salt okunur önizlemedir.
 

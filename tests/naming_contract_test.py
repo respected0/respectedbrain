@@ -11,8 +11,6 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = (ROOT / "runtime" / "scripts" / "respected_manifest.py") if (ROOT / "runtime" / "scripts" / "respected_manifest.py").is_file() else (ROOT / "scripts" / "respected_manifest.py")
-LEGACY_NAMES = (ROOT / "runtime" / "scripts" / "legacy_names.py") if (ROOT / "runtime" / "scripts" / "legacy_names.py").is_file() else (ROOT / "scripts" / "legacy_names.py")
 FORBIDDEN_BRAND_FRAGMENTS = ("Respot Brain", "RESPOT", "Respot", "respot")
 
 
@@ -37,24 +35,9 @@ def find_forbidden_occurrences(
     return occurrences
 
 
-def load_manifest():
-    if not MANIFEST.is_file():
-        return None
-    spec = importlib.util.spec_from_file_location("respected_manifest", MANIFEST)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 def load_legacy_names():
-    if not LEGACY_NAMES.is_file():
-        return None
-    spec = importlib.util.spec_from_file_location("legacy_names", LEGACY_NAMES)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    from respectedbrain.core import legacy_names
+    return legacy_names
 
 
 class NamingContractTest(unittest.TestCase):
@@ -139,7 +122,7 @@ class NamingContractTest(unittest.TestCase):
     def test_legacy_identifiers_are_reconstructed_by_one_compatibility_module(self):
         legacy = load_legacy_names()
 
-        self.assertIsNotNone(legacy, "scripts/legacy_names.py is missing")
+        self.assertIsNotNone(legacy, "core/legacy_names.py is missing")
         old_namespace = "res" + "pot"
         old_upper = "RES" + "POT"
         self.assertEqual(legacy.LEGACY_PRODUCT_NAME, "Res" + "pot Brain")
@@ -177,8 +160,8 @@ class NamingContractTest(unittest.TestCase):
         from tests.foundation_support import make_context
         from uuid import UUID
         import json
-        manifest=load_manifest()
-        self.assertEqual(manifest.VERSION,version("respectedbrain"))
+        from respectedbrain import __version__
+        self.assertEqual(__version__,version("respectedbrain"))
         with tempfile.TemporaryDirectory() as temporary:
             ctx=make_context(Path(temporary))
             marker=json.loads((ctx.paths.vault_root / ".respected.json").read_text(encoding="utf-8"))

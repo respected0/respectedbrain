@@ -11,7 +11,6 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parent.parent
-FLUSH_PATH = ROOT / "runtime/engine/flush.py" if (ROOT / "runtime/engine/flush.py").is_file() else ROOT / "template/.beyin/engine/flush.py"
 
 
 from datetime import datetime

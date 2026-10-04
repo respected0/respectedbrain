@@ -10,7 +10,7 @@ from respectedbrain.installation.setup import setup
 from respectedbrain.installation.transaction import OperationResult
 from tests import foundation_setup_test as setup_support
 from tests.foundation_support import snapshot
-from tests.runtime_layout_test import load, ROOT
+from respectedbrain import cli
 
 class WizardTest(unittest.TestCase):
     setUp = setup_support.FoundationSetupTest.setUp
@@ -109,11 +109,12 @@ class WizardTest(unittest.TestCase):
         self.assertEqual(service.call_args.args,(self.roots,self.vault))
         self.assertEqual(service.call_args.kwargs["package"],self.package)
 
-    def test_source_gui_launcher_delegates_without_loading_tk_on_import(self):
-        module=load(ROOT / "runtime/scripts/setup_wizard.py")
-        with mock.patch("respectedbrain.cli.main",return_value=9) as dispatch:
-            self.assertEqual(module.main(["--vault",str(self.vault)]),9)
-        dispatch.assert_called_once_with(["setup","--gui","--vault",str(self.vault)])
+    def test_gui_cli_preserves_selected_vault_and_status(self):
+        with mock.patch.object(cli, "_dispatch", return_value=9) as dispatch:
+            self.assertEqual(cli.main(["setup", "--gui", "--vault", str(self.vault)]), 9)
+        args = dispatch.call_args.args[0]
+        self.assertTrue(args.gui)
+        self.assertEqual(args.vault, self.vault)
 
     def test_wizard_mcp_registration_uses_installed_launcher_and_uuid(self):
         result=self.action(desired={**self.desired,"mcp":True})

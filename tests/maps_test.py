@@ -57,20 +57,6 @@ class MapsTest(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
-    def test_retired_sources_have_no_second_business_implementation(self):
-        import ast
-        self.assertFalse((ROOT / "template").exists(), "Vault template must have one packaged source")
-        self.assertFalse((ROOT / "runtime/config.json").exists(), "Mutable settings must live in DataRoot")
-        for relative in ("runtime/model_runner.py", "runtime/events.py", "runtime/bounded_recall.py", "runtime/session_brain.py", "runtime/session_viz.py", "runtime/graph_analysis.py", "runtime/graphrag.py", "runtime/runtime_platform.py", "runtime/map_builder.py", "runtime/engine/flush.py", "runtime/engine/compile.py", "runtime/hooks/lifecycle.py", "runtime/hooks/bridge.py", "runtime/hooks/codex_notify.py"):
-            source = ROOT / relative
-            if source.exists():
-                tree = ast.parse(source.read_text(encoding="utf-8"))
-                definitions = [node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
-                self.assertEqual(definitions, [], f"Duplicate implementation remains: {relative}")
-                self.assertLessEqual(len(source.read_text(encoding="utf-8").splitlines()), 16)
-        self.assertFalse((ROOT / "runtime/skills").exists())
-        self.assertFalse((ROOT / "runtime/instructions.md").exists())
-
     def test_refresh_writes_visible_deterministic_maps_without_reading_note_bodies(self):
         builder = load_builder()
         core_before = (self.vault / "🔮 850-Companion/Core.md").read_bytes()

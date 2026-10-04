@@ -2,161 +2,129 @@ name: release
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
+  RESPECTED_TEST_PYTHON: python
 
 jobs:
-  # ============================================================================
-  # 1. WINDOWS BUILD -> RespectedBrain-v0.0.1-Windows-Setup.exe
-  # ============================================================================
-  build-windows:
-    name: Build Windows (.exe)
-    runs-on: windows-latest
+  build:
+    name: Native release (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            distribution: dist/RespectedBrain
+          - os: macos-latest
+            platform: macos
+            distribution: dist/RespectedBrain.app
+          - os: ubuntu-latest
+            platform: linux
+            distribution: dist/RespectedBrain
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: '3.13'
-
-      - name: Install Inno Setup
-        run: choco install innosetup -y --no-progress
-
-      - name: Compile Windows Installer
+          python-version: "3.13"
+      - name: Install package and native build tools
+        run: python -m pip install -e ".[dev]"
+      - name: Read package version and check release tag
+        shell: bash
+        env:
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\respected_setup.iss
-
-      - name: Rename Artifact with Version
+          VERSION=$(python -c "from importlib.metadata import version; print(version('respectedbrain'))")
+          if [[ "$RELEASE_REF" == refs/tags/* && "$RELEASE_TAG" != "v$VERSION" ]]; then
+            echo "Release tag must match package version v$VERSION" >&2
+            exit 1
+          fi
+          echo "RELEASE_VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Install Inno compiler
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $ver = if ("${{ github.ref_name }}" -match "^v") { "${{ github.ref_name }}" } else { "v0.0.1" }
-          $filename = "RespectedBrain-$ver-Windows-Setup.exe"
-          Move-Item setup.exe $filename
-          echo "OUT_NAME=$filename" >> $env:GITHUB_ENV
-
-      - name: Upload Windows Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer
-          path: RespectedBrain-*-Windows-Setup.exe
-
-  # ============================================================================
-  # 2. MACOS BUILD -> RespectedBrain-v0.0.1-macOS-Setup.dmg
-  # ============================================================================
-  build-macos:
-    name: Build macOS (.dmg)
-    runs-on: macos-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Prepare macOS Package Directory
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "Inno installation failed" }
+          $Compiler = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6/ISCC.exe"
+          if (-not (Test-Path -LiteralPath $Compiler)) { throw "Inno compiler missing" }
+          "INNO_COMPILER=$Compiler" >> $env:GITHUB_ENV
+      - name: Build native distribution
+        run: python tools/build_installer.py --platform ${{ matrix.platform }} --output dist
+      - name: Verify frozen launcher without system Python
+        run: python tools/verify_distribution.py --platform ${{ matrix.platform }} --distribution "${{ matrix.distribution }}"
+      - name: Run full suite against native build
+        run: python -m unittest discover -s tests -p "*test*.py"
+      - name: Physical host package smoke
+        run: python tests/smoke/platform_smoke.py --package "${{ matrix.distribution }}" --output native-smoke.json
+      - name: Package Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          mkdir -p dist_mac/RespectedBrain
-          cp -r template runtime installer setup.py setup.command README.md dist_mac/RespectedBrain/
-          chmod +x dist_mac/RespectedBrain/setup.command
-          # Add root double-click launcher
-          cat > dist_mac/Kurulumu-Baslat.command <<'LAUNCHER'
-          #!/usr/bin/env bash
-          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-          exec /bin/bash "${SCRIPT_DIR}/RespectedBrain/setup.command" "$@"
-          LAUNCHER
-          chmod +x dist_mac/Kurulumu-Baslat.command
-
-      - name: Create Native macOS DMG with Version
+          New-Item -ItemType Directory -Path release-assets -Force | Out-Null
+          Copy-Item -LiteralPath dist/RespectedBrain-Windows-Setup.exe -Destination "release-assets/RespectedBrain-v$env:RELEASE_VERSION-Windows-Setup.exe"
+      - name: Package macOS disk image
+        if: runner.os == 'macOS'
+        shell: bash
         run: |
-          VER="${{ github.ref_name }}"
-          [[ "$VER" == v* ]] || VER="v0.0.1"
-          OUT_NAME="RespectedBrain-${VER}-macOS-Setup.dmg"
-          hdiutil create -volname "Respected Brain" -srcfolder dist_mac -ov -format UDZO "${OUT_NAME}"
-
-      - name: Upload macOS Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-installer
-          path: RespectedBrain-*-macOS-Setup.dmg
-
-  # ============================================================================
-  # 3. LINUX BUILD -> RespectedBrain-v0.0.1-Linux-Setup.run
-  # ============================================================================
-  build-linux:
-    name: Build Linux (.run)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install Makeself
-        run: sudo apt-get update && sudo apt-get install -y makeself
-
-      - name: Prepare Linux Package Directory
+          mkdir -p release-assets release-stage
+          cp -R dist/RespectedBrain.app release-stage/
+          cp dist/setup.command release-stage/
+          chmod +x release-stage/setup.command
+          hdiutil create -volname "Respected Brain" -srcfolder release-stage -ov -format UDZO "release-assets/RespectedBrain-v$RELEASE_VERSION-macOS-Setup.dmg"
+      - name: Package Linux installer
+        if: runner.os == 'Linux'
+        shell: bash
         run: |
-          mkdir -p dist_linux
-          cp -r template runtime installer setup.py setup README.md dist_linux/
-          chmod +x dist_linux/setup
-
-      - name: Create Self-Extracting Linux Executable with Version
-        run: |
-          VER="${{ github.ref_name }}"
-          [[ "$VER" == v* ]] || VER="v0.0.1"
-          OUT_NAME="RespectedBrain-${VER}-Linux-Setup.run"
-          makeself ./dist_linux "${OUT_NAME}" "Respected Brain Installer Suite" ./setup
-
-      - name: Upload Linux Artifact
-        uses: actions/upload-artifact@v4
+          sudo apt-get update
+          sudo apt-get install -y makeself
+          mkdir -p release-assets release-stage
+          cp -R dist/RespectedBrain release-stage/
+          cp dist/setup.sh release-stage/
+          chmod +x release-stage/setup.sh
+          makeself ./release-stage "release-assets/RespectedBrain-v$RELEASE_VERSION-Linux-Setup.run" "Respected Brain" ./setup.sh
+      - uses: actions/upload-artifact@v4
         with:
-          name: linux-installer
-          path: RespectedBrain-*-Linux-Setup.run
+          name: release-assets-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-smoke-${{ matrix.platform }}
+          path: native-smoke.json
+          if-no-files-found: warn
 
-  # ============================================================================
-  # 4. PUBLISH GITHUB RELEASE
-  # ============================================================================
   publish-release:
-    name: Publish GitHub Release
-    needs: [build-windows, build-macos, build-linux]
+    name: Publish verified native assets
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Download Windows Artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: windows-installer
-
-      - name: Download macOS Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-installer
-
-      - name: Download Linux Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-installer
-
-      - name: Create Release and Upload Assets
+          pattern: release-assets-*
+          merge-multiple: true
+      - name: Create release and upload assets
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             RespectedBrain-*-Windows-Setup.exe
             RespectedBrain-*-macOS-Setup.dmg
             RespectedBrain-*-Linux-Setup.run
+          fail_on_unmatched_files: true
           generate_release_notes: true
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

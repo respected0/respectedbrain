@@ -9,7 +9,7 @@ from respectedbrain.installation.ownership import OwnershipManifest,read_manifes
 from respectedbrain.integrations.backend import ExternalChange
 from tests import foundation_setup_test as setup_support
 from tests.foundation_support import snapshot
-from tests.runtime_layout_test import load,ROOT
+from respectedbrain import cli
 
 class TestUninstall(unittest.TestCase):
     def setUp(self):
@@ -101,12 +101,11 @@ class TestUninstall(unittest.TestCase):
         self.assertTrue(uninstall(self.ctx,backend=self.backend).success)
         self.assertEqual(self.backend.records[key],b"my own hook settings")
 
-    def test_source_adapter_rejects_retired_purge_vault_and_wsl_worker_flags(self):
+    def test_cli_rejects_retired_purge_vault_and_wsl_worker_flags(self):
         before=snapshot(self.vault)
         with mock.patch("respectedbrain.cli._dispatch",side_effect=AssertionError("mutation")):
-            module=load(ROOT / "installer/uninstall.py")
-            self.assertEqual(module.main(["--purge-vault"]),2)
-            self.assertEqual(module.main(["--wsl-worker"]),2)
+            self.assertEqual(cli.main(["uninstall", "--purge-vault"]),2)
+            self.assertEqual(cli.main(["uninstall", "--wsl-worker"]),2)
         self.assertEqual(snapshot(self.vault),before)
 
 if __name__=="__main__":

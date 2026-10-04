@@ -14,16 +14,6 @@ import unittest
 from unittest.mock import patch
 
 
-ORIGINAL_SYS_PATH = list(sys.path)
-ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS_DIR = str((ROOT / "runtime" / "scripts") if (ROOT / "runtime" / "scripts").is_dir() else (ROOT / "scripts"))
-if SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, SCRIPTS_DIR)
-MODULE_PATH = ROOT / "runtime/morning_briefing.py" if (ROOT / "runtime/morning_briefing.py").is_file() else ROOT / "template/.beyin/morning_briefing.py"
-
-
-def tearDownModule() -> None:
-    sys.path[:] = ORIGINAL_SYS_PATH
 VALID = """## Dün tamamlananlar
 - Derleyici düzeldi.
 ## Açık işler

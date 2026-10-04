@@ -44,6 +44,7 @@ tmp-brief/
 .respected-install-*/
 
 # Local Agent & Runtime State
+.superpowers/
 runtime/state/
 runtime/.state/
 .beyin/engine/.state/
@@ -73,6 +74,8 @@ env/
 ENV/
 build/
 dist/
+release-assets/
+release-stage/
 /setup.exe
 *.egg-info/
 *.egg

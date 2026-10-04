@@ -9,28 +9,13 @@ import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 
-import sys
-ROOT = Path(__file__).resolve().parents[1]
-ORIGINAL_SYS_PATH = list(sys.path)
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-if str(ROOT / "runtime" / "scripts") not in sys.path:
-    sys.path.insert(0, str(ROOT / "runtime" / "scripts"))
-if "scripts" not in sys.modules and (ROOT / "runtime" / "scripts").is_dir():
-    import runtime.scripts
-    sys.modules["scripts"] = runtime.scripts
-
-
-def tearDownModule():
-    sys.path[:] = ORIGINAL_SYS_PATH
-
-from scripts.url_safety import validate_safe_url, is_safe_url
+from respectedbrain.maintenance.ingestion.url_safety import validate_safe_url, is_safe_url
 from respectedbrain.maintenance.backup.publish_git_snapshot import publish_if_due
-from scripts.vault_mcp_server import RespectedMcpServer
+from respectedbrain.integrations.mcp.server import RespectedMcpServer
 from respectedbrain.maintenance.ingestion.mine_agent_history import AgentHistoryMiner
-from scripts.smart_merge import smart_merge, dump_frontmatter
-from scripts.tiling_check import check_tiling
-from scripts.defuddle import clean_html, MAX_HTML_STRING_LEN
+from respectedbrain.maintenance.smart_merge import smart_merge, dump_frontmatter
+from respectedbrain.maintenance.tiling_check import check_tiling
+from respectedbrain.maintenance.ingestion.defuddle import clean_html, MAX_HTML_STRING_LEN
 
 
 class ZeroTrustSecurityTests(unittest.TestCase):

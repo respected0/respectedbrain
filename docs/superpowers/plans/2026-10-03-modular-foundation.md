@@ -10,7 +10,7 @@
 
 **Spec:** [Ana sözleşme](../specs/2026-10-03-modular-foundation-design.md) ve [kurulum/geçiş sözleşmesi](../specs/2026-10-03-modular-foundation-operations.md), kullanıcı onayı 2026-10-03.
 
-scope: project; confidence: verified; supersedes: []; status: implementation-verified, integration-verified, live-migration-conflicts (as of 2026-10-04).
+scope: project; confidence: verified; supersedes: []; status: integration-verified, source-cleanup-verified, live-migration-conflicts (as of 2026-10-04).
 
 timeline:
   - from: 2026-10-03
@@ -29,6 +29,11 @@ timeline:
     until: 2026-10-04
     learned: "Ana klasörde tam 630 testlik paket OK (15 atlama); test cleanup yarışı düzeltildi ve ayrı worktree kanıtları korunarak arşivlendi."
     source: "../verification/2026-10-04-modular-foundation.md#yerel-birleştirme--2026-10-04"
+
+  - from: 2026-10-04
+    until: 2026-10-04
+    learned: "Önceki durum source-cleanup-gaps idi; onaylı son temizlik eski girişleri kaldırdı ve yayın tarifini native build sözleşmesine bağladı."
+    source: "../verification/2026-10-04-source-cleanup.md"
 
 Yürütme: ortak paket/yol/config/UUID temelini ana ajan kurar; temel oturunca
 iki bağımsız iş akışı paralel ajanlara verilir; sonuçlar birleştirilip ayrı
@@ -51,6 +56,38 @@ korunur. Ayrı managed worktree, gerekli paketler ve kanıtlar ana projeye kopya
 sonra arşivlendi.
 Eklerdeki kontrol listeleri uygulama tarifidir; güncel yürütme durumu
 yalnız bu bölümde tutulur.
+
+## Kaynak yerleşimi incelemesi ve son temizlik — 2026-10-04
+
+Aşağıdaki gözlemler temizlik öncesinin tarihsel kaydıdır. Kullanıcının son temizliği
+onaylamasıyla eski kaynak ağacı ve setup girişleri kaldırıldı; release akışı
+native build/verify/test/smoke araçlarına bağlandı. 629 testlik paket OK
+(15 atlama), wheel/sdist ve gerçek Windows native paket doğrulaması başarılıdır.
+[Son temizlik planı](2026-10-04-source-cleanup.md) işlemleri,
+[tarihli kanıt](../verification/2026-10-04-source-cleanup.md) doğrulamayı kaydeder.
+Canlı migration engelleri değişmedi; gerçek ürün kurulumu uygulanmadı.
+
+Kullanıcının hedef ağaç ile mevcut klasörü karşılaştırması üzerine salt okunur
+denetim yapıldı. Önceki uygulama/test kanıtı korunur; bunun bütün eski kaynak
+kopyalarının ve yayın akışlarının temizlendiği anlamına geldiği yorumu düzeltilir.
+
+timeline:
+  - from: 2026-10-04
+    until: 2026-10-04
+    learned: "Önceki durum implementation-verified idi; kaynak yerleşiminin son temizliği aşağıdaki açıklarla tamamlanmamış bulundu."
+    source: "runtime/adapters/, runtime/gateway/web/index.html, .github/workflows/release.yml salt okunur incelemesi"
+
+- `runtime/` ve `installer/` altındaki Python girişlerinin çoğu yeni pakete ince
+  yönlendirmedir. Plan yalnız bir geçiş sürümü için bunlara izin verir.
+- `runtime/adapters/` altındaki eski skill/talimat/hook içerikleri ve
+  `runtime/gateway/web/index.html` yalnız yönlendirme değildir; eski içerik
+  kopyaları kalmıştır. Yeni paket kaynakları `src/respectedbrain/resources/` olur.
+- `.github/workflows/release.yml` macOS/Linux için kaldırılmış `template/` ile
+  eski `runtime/installer` ağacını kopyalar; Windows için eski kök `setup.exe`
+  çıktısını bekler. Yayın akışı yeni native build sözleşmesine uyarlanmamıştır.
+  Bu inceleme workflow çalıştırması değildir; mevcut komutlar kaynakta doğrulandı.
+- İnceleme sırasında kaynak temizliği ve release uyarlaması açık işti.
+  Sonraki onaylı temizlik bu kaynak açıklarını kapattı. Canlı migration ayrı iştir.
 
 ## Global Constraints
 
