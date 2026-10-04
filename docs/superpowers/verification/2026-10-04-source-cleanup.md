@@ -55,6 +55,25 @@ kimliklerini yeniden oluşturur; ileride subprocess import probe daha iyi izolas
 sağlar. Tam suite şu değişiklikle başarılıdır. GUI setup'ın CLI vault/package
 seçeneklerini wizard'a iletmemesi mevcut sorundur; kaynak temizliği bunu değiştirmedi.
 
+## Yerel bütünleştirme
+
+Main, `bc8d40a` → `7b1174d` fast-forward ile ilerledi. Önceki açıklama/plan
+değişikliği birebir yedekle karşılaştırılıp temizlik commit'ine dahil edildi.
+Eski köklerin kalan teknik kayıt/bytecode dosyaları backup manifest'ine göre
+yeniden hash kontrolünden geçtikten sonra kaldırıldı. Ana klasörde retired
+runtime/installer/template ve kök setup girişlerinin hiçbiri yoktur.
+
+Ana klasörde 40 ek paket/wheel/CLI davranış testi OK (24.045 saniye). Frozen
+native version/registry/maps/search/hook/MCP kontrolü tekrar OK. Tam 629 test
+koşusu aynı ürün/test kaynaklarını taşıyan izole commit üzerinde yapılmıştır.
+1068 paket dosyası ana dist alanına kopyalanıp birebir hash eşitliği doğrulandı;
+önceki dist, ignored backup/previous-dist alanında korundu. Geliştirme venv'i
+ana src paketine bağlıdır; bu canlı ürün kurulumu değildir. Test/derleme kanıtları
+ignored `.superpowers/sdd/2026-10-04-source-cleanup/` alanında tutulur.
+
+Managed çalışma kopyası arşivlendi; git worktree list yalnız ana checkout'ı
+gösterir. Birleşmiş geçici dal silindi. GitHub push/yayın yapılmadı.
+
 ## For future agent
 Aktif durum ana modular-foundation planındadır; bu belge tarihli kanıttır.
 Canlı migration engellerini veya GitHub yayınını bu yerel temizlik tamamlandı diye aşma.

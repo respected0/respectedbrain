@@ -10,7 +10,7 @@ yerleşimi tamamlanır. Canlı kurulum, migration, push ve yayın bu işin dış
 - [x] `runtime/`, `installer/`, kök `setup.py/setup/setup.command` geçiş katmanını kaldır.
 - [x] Release akışını native build/verify araçlarına bağla; kaynak ağacı paketlenmesin.
 - [x] Wheel, Windows native paket, tam testler ve shell fixture'larını doğrula.
-- [ ] Son inceleme, yerel ana projeye bütünleştirme ve güncel devir.
+- [x] Son inceleme, yerel ana projeye bütünleştirme ve güncel devir.
 
 Riskler: adapter testlerini kaldırırken güvenlik davranışlarını kaybetmek;
 setuptools `setup.py` olmadan wheel/sdist üretiminin bozulması; yayın arşivinin
@@ -40,3 +40,10 @@ Küçük ertelenen test notu: runtime_layout_test içinde reload sınıf kimlikl
 değiştirebilir; gelecekte subprocess import probe kullanılabilir. Şu tam suite
 başarılıdır. Mevcut GUI CLI-vault/package forwarding sorunu bu değişiklikle
 oluşmadı; davranış geliştirme aşamasında ele alınır.
+
+Yerel bütünleştirme: main `7b1174d` commit'ine fast-forward edildi. Ana klasörde
+40 ek paket/CLI/wheel kontrolü ve frozen native doğrulaması OK. 1068 paket dosyası
+kopyalama sonrası hash eşitliğiyle doğrulandı; önceki dist çıktıları ayrıca
+yerel yedekte tutulur. Eski köklerde kalan dosyalar ancak 177 dosyalık yedek
+manifest'iyle tekrar eşleşince kaldırıldı. Managed çalışma kopyası arşivlendi;
+birleşmiş geçici dal kaldırıldı. Push veya canlı ürün kurulumu yapılmadı.
