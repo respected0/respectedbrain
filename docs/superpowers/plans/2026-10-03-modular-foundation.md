@@ -10,7 +10,7 @@
 
 **Spec:** [Ana sözleşme](../specs/2026-10-03-modular-foundation-design.md) ve [kurulum/geçiş sözleşmesi](../specs/2026-10-03-modular-foundation-operations.md), kullanıcı onayı 2026-10-03.
 
-scope: project; confidence: verified; supersedes: []; status: implementation-verified, integration-pending, live-migration-conflicts (as of 2026-10-04).
+scope: project; confidence: verified; supersedes: []; status: implementation-verified, integration-verified, live-migration-conflicts (as of 2026-10-04).
 
 timeline:
   - from: 2026-10-03
@@ -21,6 +21,14 @@ timeline:
     until: 2026-10-04
     learned: "Onaylı plan ayrı çalışma ağacında uygulandı; kaynak ve Windows native doğrulaması tamamlandı."
     source: "../verification/2026-10-04-modular-foundation.md"
+  - from: 2026-10-04
+    until: 2026-10-04
+    learned: "Kullanıcı yerel birleştirmeyi onayladı; main dalı 3b45460'a fast-forward ile ilerletildi. Birleşmiş kaynak doğrulaması başladı."
+    source: "Kullanıcı: yap onaylıyorum"
+  - from: 2026-10-04
+    until: 2026-10-04
+    learned: "Ana klasörde tam 630 testlik paket OK (15 atlama); test cleanup yarışı düzeltildi ve ayrı worktree kanıtları korunarak arşivlendi."
+    source: "../verification/2026-10-04-modular-foundation.md#yerel-birleştirme--2026-10-04"
 
 Yürütme: ortak paket/yol/config/UUID temelini ana ajan kurar; temel oturunca
 iki bağımsız iş akışı paralel ajanlara verilir; sonuçlar birleştirilip ayrı
@@ -35,9 +43,13 @@ Linux/macOS/gerçek WSL fiziksel doğrulaması bu yerel çalışmada yoktur.
 
 Görev 14'ün salt okunur önizlemesi ve devreye alma kapısı değerlendirildi.
 Health/session state farkları ve Codex computer-use notify zinciri sahipliği nedeniyle
-gerçek apply yapılmadı. Not kasası mevcut konumundadır. Kod `codex/modular-foundation`
-dalındadır; ana checkout'taki başlangıç değişiklikleri korunur. Ana dala bütünleştirme
-kararı beklenir. Eklerdeki kontrol listeleri uygulama tarifidir; güncel yürütme durumu
+gerçek apply yapılmadı. Not kasası mevcut konumundadır. Onaylanan yerel birleştirmeyle
+kod artık `Documents/ChatGPT/secondbrain` klasöründeki `main` dalındadır. Birleşmiş
+kaynağın tam 630 testlik paketi başarılıdır (15 gerekçeli atlama). Başlangıçtaki 41 dosya
+düzenlemesi yeni çalışmaya önceden taşınmıştı; birebir byte yedeği ve Git stash ayrıca
+korunur. Ayrı managed worktree, gerekli paketler ve kanıtlar ana projeye kopyalandıktan
+sonra arşivlendi.
+Eklerdeki kontrol listeleri uygulama tarifidir; güncel yürütme durumu
 yalnız bu bölümde tutulur.
 
 ## Global Constraints

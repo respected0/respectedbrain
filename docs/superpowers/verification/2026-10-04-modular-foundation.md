@@ -104,9 +104,46 @@ timeout'u 300 saniyedir; timeout olursa yalnız fixture'ın bilinen alt süreç 
 kapatılır. Journal performans iyileştirmesi bu temel geçişin dışında ayrı iştir.
 Doğrulanmış helper kopyaları OS-temp'te tutulur; DataRoot aktif executable içermez.
 
-Ana checkout başlangıçtaki kullanıcı değişiklikleriyle korunur. İş `codex/modular-foundation`
-dalında, ayrı managed worktree'dedir. Ana dala bütünleştirme ve canlı kurulum ayrı kararlardır.
+Birleştirme öncesinde ana checkout başlangıçtaki kullanıcı değişiklikleriyle korundu;
+iş `codex/modular-foundation` dalında ayrı managed worktree'de hazırlandı.
+Ana dala bütünleştirme ve canlı kurulum ayrı kararlardır; güncel durum uygulama planındadır.
 Başlangıçta alınan 41 kullanıcı dosyası hash'i kapanışta tekrar karşılaştırıldı; fark yok.
+
+## Yerel birleştirme — 2026-10-04
+
+Kullanıcının `yap onaylıyorum` mesajıyla yerel birleştirme onaylandı. `main`,
+`1d27391` commit'inden `3b45460` commit'ine `--ff-only` ile ilerletildi; çatışma olmadı.
+Ana proje `C:/Users/Furkan/Documents/ChatGPT/secondbrain` konumundadır.
+GitHub'a push ve gerçek ürün kurulumu yapılmadı.
+
+Önceki 41 değişik dosya, modüler çalışma başlamadan taşınmış baseline ile tekrar
+karşılaştırıldı: fark veya yeni dosya yoktu. Eski yapıyı yeniden canlandıracak bir
+stash pop uygulanmadı. 41 birebir byte yedeği SHA-256 ile tekrar doğrulandı;
+geri dönüş Git stash kaydı da korunuyor. Yedeklerin konumu Git'ten dışlanan
+`.superpowers/sdd/2026-10-04-local-integration/` alanıdır.
+
+Worktree'nin ignored deney/test kanıtları ana projeye kopyalandı ve 1290 dosyanın
+hash eşitliği doğrulandı. Native dağıtım ana projenin `dist/` alanına kopyalanıp
+package manifest'i doğrulandı. Main'deki geliştirme venv'i yeni ana proje kaynağına
+editable bağlandı; import yolu doğrudan ana projenin `src/` alanıdır.
+Bu işlem bilgisayara ürün kurulumu değildir.
+
+Ana klasörde frozen version/registry/maps/search/hook/MCP kontrolü OK oldu.
+Ana klasördeki son tam komut `python -m unittest discover -v -s tests -p '*test*.py'`:
+**630 test, 482.274 s, OK (skipped=15)**. Bu tek koşu gerçek Windows native kurulum,
+update rollback ve readonly AppRoot senaryolarını da içerir. Ana klasörde Git Bash
+hook fixture'ları 8/8 OK, yerel upstream fixture'ları 9/9 OK oldu.
+
+İlk tam koşuda yalnız detached-process fixture'ı cleanup sırasında Windows log kilidine
+takıldı. Testin `done` dosyası süreç sona ermeden yazılıyordu. Bu yarış, child'ın dosyayı
+yazdıktan sonra kısa süre yaşamaya devam ettiği fixture ile yeniden üretildi (RED).
+Test artık Windows'ta child PID'nin gerçekten sonlanmasını bekler; ürün algoritması
+değişmedi. İlgili 4 test GREEN oldu; yukarıdaki son tam koşuda da hata kalmadı.
+
+Native paket/installer/wheel ve ignored kanıtlar korunduktan sonra managed worktree,
+Codex'in geri alınabilir archive işlemiyle arşivlendi. Artifact `archived_worktree` olarak
+doğrulandı; `git worktree list` yalnız ana projeyi gösterir. Kişisel not kasası ve canlı
+ürün kurulumu bu birleştirmenin hedefi olmadı.
 
 ## For future agent
 

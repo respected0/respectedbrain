@@ -39,16 +39,21 @@ class RecoveryTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             done = root / 'done'
-            command = [sys.executable, '-c', 'import time,pathlib; time.sleep(1); pathlib.Path(' + repr(str(done)) + ').write_text("ok")']
+            command = [sys.executable, '-c', 'import time,pathlib; time.sleep(1); pathlib.Path(' + repr(str(done)) + ').write_text("ok"); time.sleep(0.5)']
             source = ('from respectedbrain.orchestration import antigravity_orchestrator as m; from pathlib import Path; '
-                      'm._spawn_detached(' + repr(command) + ', Path(' + repr(str(root)) + '), Path(' + repr(str(root / 'log')) + '))')
+                      'print(m._spawn_detached(' + repr(command) + ', Path(' + repr(str(root)) + '), Path(' + repr(str(root / 'log')) + ')))')
             parent = subprocess.run([sys.executable, '-c', source], capture_output=True, timeout=10)
             self.assertEqual(parent.returncode, 0, parent.stderr.decode('utf-8', errors='replace'))
+            child_pid = int(parent.stdout.strip())
             import time
             deadline = time.monotonic() + 5
-            while not done.exists() and time.monotonic() < deadline:
+            # On Windows the completion file can precede release of the inherited
+            # log handle. Wait for the actual child exit before temp cleanup.
+            while (not done.exists() or (os.name == 'nt' and m._pid_is_alive(child_pid))) and time.monotonic() < deadline:
                 time.sleep(0.1)
             self.assertEqual(done.read_text(), 'ok')
+            if os.name == 'nt':
+                self.assertFalse(m._pid_is_alive(child_pid), 'Detached test child did not exit')
 
 
 if __name__ == '__main__':
