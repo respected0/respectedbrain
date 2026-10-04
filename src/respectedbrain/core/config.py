@@ -67,13 +67,14 @@ class ConfigStore:
         validate_config(document)
         return copy.deepcopy(document)
 
-    def update(self, mutator: Callable[[dict[str, Any]], None], *, rollback: Callable[[], None] | None = None) -> dict[str, Any]:
+    def update(self, mutator: Callable[[dict[str, Any]], None], *, rollback: Callable[[], None] | None = None,
+               writer: Callable[[Path, dict[str, Any]], None] | None = None) -> dict[str, Any]:
         with exclusive_lock(self.lock_path):
             document = self.read()
             try:
                 mutator(document)
                 validate_config(document)
-                atomic_write_json(self.path, document)
+                (writer or atomic_write_json)(self.path, document)
             except Exception:
                 if rollback is not None:
                     rollback()

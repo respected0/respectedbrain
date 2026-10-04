@@ -1,7 +1,7 @@
 """Register and select vaults by stable UUID without CWD fallback."""
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Callable
 import copy
 from datetime import datetime, timezone
 import json
@@ -39,7 +39,8 @@ class VaultRegistry:
     def __init__(self, store: ConfigStore):
         self.store = store
 
-    def register(self, path: Path, *, new_identity: bool = False) -> str:
+    def register(self, path: Path, *, new_identity: bool = False,
+                 writer: Callable[[Path, dict[str, Any]], None] | None = None) -> str:
         path = path.resolve()
         if not path.is_dir():
             raise SelectionError(f"Vault directory does not exist: {path}")
@@ -75,7 +76,10 @@ class VaultRegistry:
                     backup.parent.mkdir(parents=True, exist_ok=True)
                     backup.write_bytes(original)
                 expected = (json.dumps(updated, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
-                atomic_write_bytes(marker_path, expected)
+                if writer is None:
+                    atomic_write_bytes(marker_path, expected)
+                else:
+                    writer(marker_path, updated)
                 marker_undo.append((original, expected))
             config["vaults"][identity] = entry
             if config["active_vault_id"] is None:
@@ -93,7 +97,7 @@ class VaultRegistry:
             else:
                 atomic_write_bytes(marker_path, original)
 
-        self.store.update(register_locked, rollback=rollback_marker)
+        self.store.update(register_locked, rollback=rollback_marker, writer=writer)
         return assigned[0]
 
     def list(self) -> dict[str, dict[str, Any]]:
