@@ -203,3 +203,36 @@ The user's CI method is recorded in the main foundation plan: push the reviewed
 feature revision, then stop. Do not poll/wait for CI or create a waiting agent
 or automation. The user will resume when results exist. Main publication,
 worktree archive and final platform approval remain dependent on those results.
+
+### Detached worker completion file race fix — 2026-10-05
+
+CI run 37312475952 passed 11 of 12 jobs, failing only the macOS Python 3.13 source
+gate at tests/orchestration_recovery_test.py:54 ('' != 'ok'). Investigation confirmed
+the root cause was a test wait loop race: on POSIX, checking only `not done.exists()`
+unblocks immediately upon `open(mode='w')` creating the 0-byte file before the child
+process completes writing `'ok'` and closing the file.
+
+The test wait condition is corrected via `_wait_for_detached_completion`, checking
+payload equality (`done.read_text() == 'ok'`) within the existing deadline, while
+preserving the Windows child PID exit and log handle release checks before tempdir
+cleanup. Real subprocess execution and non-atomic fixture write are preserved.
+Deterministic regression tests were added covering the empty-file window,
+unwritten empty file timeout, and partial payload timeout, plus Windows PID liveness.
+
+Verification:
+
+- `RecoveryTest` (8 tests): 3 consecutive runs passed on Windows (Python 3.13: 8 / 2.5s / OK).
+- Isolated Python 3.10 and 3.12 runtimes verified with worktree PYTHONPATH: 8 / 3.2s / OK.
+- `tests.antigravity_orchestrator_test` (26 tests): 26 / 6.064s / OK (2 skips).
+- Atlas inventory updated, reviewed and verified: 271 files; `python tools/repository_map.py --check` passed; `git diff --check` clean.
+- macOS platform pass will be confirmed on fresh CI run without local substitution.
+
+Independent Codex review: no blocking introduced issue found; product code is
+unchanged. Actual isolated Python 3.10 passed 8 tests in 2.773s and Python 3.12
+passed 8 in 3.112s. A module-local POSIX adapter simulation passed the four
+helper cases without changing global os.name. Restoring only the original
+existence-based completion predicate in that disposable review process caused
+both empty/partial-payload timeout regressions to fail as expected. Thus the
+regressions reject the original error; this is not an actual macOS execution.
+Atlas check passed for 271 files and git diff --check was clean. Push is followed
+by stopping; final CI/main approval awaits the user's next result-triggered call.

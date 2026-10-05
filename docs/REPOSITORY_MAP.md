@@ -808,7 +808,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Güncel belge ve yönlendirici.
 
-**Amaç / sorumluluk:** GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder.
+**Amaç / sorumluluk:** GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını, detached worker tamamlama yarışı düzeltmesini ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder.
 
 **İlişkiler ve sınır:** wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır.
 
@@ -2508,9 +2508,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Provider success prose/error ayrımı, öldürmeyen PID probe ve parent çıktıktan sonra tamamlanan detached worker süreçlerini sınar. Odak örnekleri: `test_success_prose_is_not_a_provider_error`, `test_structured_error_is_still_classified`, `test_pid_probe_does_not_kill_process`.
+**Amaç / sorumluluk:** Provider success prose/error ayrımı, öldürmeyen PID probe, parent çıktıktan sonra tamamlanan detached worker süreçleri ve boş dosya açılış yarışı/zaman aşımı dayanıklılığını sınar. Odak örnekleri: `test_detached_process_finishes_after_parent_exits`, `test_wait_for_detached_completion_survives_empty_file_window`, `test_wait_for_detached_completion_times_out_on_unwritten_empty_file`.
 
-**İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.
+**İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.orchestration.antigravity_orchestrator`.
 
 #### [`tests/output_normalization_test.py`](../tests/output_normalization_test.py)
 
