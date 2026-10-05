@@ -246,3 +246,19 @@ Yerel ortam bulgusu: global Python 3.13 paket metadata'sı editable kurulumun
 installer-atlas çalışma ağacını gösterdiğini doğruladı. Bu inceleme global
 kurulumu değiştirmedi. Çalışma ağacını arşivlemeden önce bu bağlantı ele
 alınmalı; aksi halde global geliştirme komutu silinen kaynak yolunu gösterebilir.
+
+### Son platform kanıtı ve kaynak birleştirmesi — 2026-10-05
+
+Kullanıcının sonuç çağrısında GitHub API üzerinden `631c37e` için
+[37318525236](https://github.com/respected0/respectedbrain/actions/runs/37318525236)
+koşusunun **12/12 kapısı başarılı** doğrulandı: üç erken 3.10, üç native
+3.13 ve altı source host/sürüm işi. macOS detached-test hatası son koşuda
+geçti. Kaynak `main` ile fast-forward birleştirildi; ana klasörde 19 test
+5,108 saniyede geçti, atlas 271 dosyayı ve temiz diff'i doğruladı. Kapanış
+belgeleri ürün davranışını değiştirmez. Önceden kaydedilmiş hardening
+sınırları bu platform başarısıyla kapanmış sayılmaz.
+
+Canlı program/kasa değişmedi. Global Python editable bağlantısının bozulmaması
+için çalışma ağacı ve yerel kanıtları şimdilik korundu; bağlantı çözülmeden
+arşivlenmez. Mevcut ana dist önceki yerel derlemedir; son kaynak sürümünün
+paket kanıtı bu başarılı CI'ın native artifact'larıdır.

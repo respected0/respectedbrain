@@ -52,8 +52,8 @@ Files: docs/REPOSITORY_MAP.md, tools/repository_map.py, docs/repository_inventor
 
 - [x] Build and verify Windows native package; run full Python suite, shell and Windows acceptance tests in disposable locations. Final product build/frozen verification and native 3/3 passed; earlier shell 8/8, upstream 9/9 and Windows launcher/scheduler acceptance passed. Current full local suite: 670 / 460.647s / OK (15 host skips).
 - [x] Fresh independent branch review; address important findings and re-run affected checks. 2026-10-05 review found no important new issue; 64 independent scoped cases and 12 diagnostics cases passed. Final test-fixture roots additionally undergo complete source alias verification.
-- [ ] Inspect remote history/auth, stage branch and run all real platform CI checks, then integrate and publish main when green.
-- [ ] Record results and limits in audit/plan, regenerate atlas, finish memory handoff. User performs fresh-vault backup/creation later.
+- [x] Inspect remote history/auth, stage branch and run all real platform CI checks, then integrate and publish main when green. Final code 631c37e: run 37318525236 passed 12/12; main fast-forward integration confirmed.
+- [x] Record results and limits in audit/plan, regenerate atlas, finish memory handoff. User performs fresh-vault backup/creation later.
 
 ## Local evidence before platform staging
 
@@ -236,3 +236,32 @@ both empty/partial-payload timeout regressions to fail as expected. Thus the
 regressions reject the original error; this is not an actual macOS execution.
 Atlas check passed for 271 files and git diff --check was clean. Push is followed
 by stopping; final CI/main approval awaits the user's next result-triggered call.
+
+### Final platform proof and main integration — 2026-10-05
+
+The user returned with all-green results. A single GitHub API inspection
+confirmed run 37318525236 completed successfully for exact code HEAD
+631c37eda13f569072e0436984cbf19f6b709ba8 and all 12 jobs: three early Python
+3.10 compatibility, three native Python 3.13 platform builds/acceptance and
+six complete source host/version jobs (macOS/Linux/Windows × 3.10/3.13).
+No failed, skipped or unfinished job was treated as a successful gate.
+The job evidence is preserved in the primary ignored task workspace as
+final-ci-631c37e-jobs.json. These are CI job results, not an invented aggregate
+test count. Link: https://github.com/respected0/respectedbrain/actions/runs/37318525236
+
+Remote main was b1bee8f, an ancestor of local main 884af22; local main was
+an ancestor of the reviewed feature head. Integration used --ff-only,
+preserving history. The merged primary checkout passed all 19 recovery/atlas
+tests in 5.108s, atlas coverage 271, and git diff --check. Only closure records
+and generated inventory/map are changed after the tested code revision.
+Publication is an ordinary main push; no release tag or live installation.
+The user-triggered CI method remains in force after publication.
+
+The managed installer-atlas worktree is intentionally retained: read-only
+metadata again confirms global Python 3.13's editable installation points
+there. Its ignored proofs/builds also remain preserved. Repoint/remove that
+development installation according to the desired environment and preserve
+needed ignored artifacts before eventual archive. No global environment was
+changed during this integration. The primary dist is an earlier local build;
+fresh CI native artifacts provide this code revision's platform proof, and
+the older local installer must not be presented as this final build.

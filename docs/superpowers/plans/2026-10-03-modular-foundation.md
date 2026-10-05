@@ -10,7 +10,7 @@
 
 **Spec:** [Ana sözleşme](../specs/2026-10-03-modular-foundation-design.md) ve [kurulum/geçiş sözleşmesi](../specs/2026-10-03-modular-foundation-operations.md), kullanıcı onayı 2026-10-03.
 
-scope: project; confidence: verified; supersedes: ["Canlı devreye alma için eski kasanın migration çakışmalarını çözme zorunluluğu"]; status: integration-verified, source-cleanup-verified, installer-atlas-platform-staging, fresh-vault-selected, rollout-deferred-by-user (as of 2026-10-05).
+scope: project; confidence: verified; supersedes: ["Canlı devreye alma için eski kasanın migration çakışmalarını çözme zorunluluğu", "installer-atlas-platform-staging"]; status: integration-verified, source-cleanup-verified, installer-atlas-platform-verified, source-published, fresh-vault-selected, rollout-deferred-by-user (as of 2026-10-05).
 
 timeline:
   - from: 2026-10-03
@@ -46,6 +46,15 @@ timeline:
     source: "2026-10-04-installer-atlas-release.md; CI run 37234992142"
 
 ## CI sonuçlarının kullanıcı çağrısıyla incelenmesi — 2026-10-05
+
+Kapanış kaydı: `631c37e` kaynak commit'i için [37318525236 CI koşusunun](https://github.com/respected0/respectedbrain/actions/runs/37318525236)
+12/12 işi başarılı. Üç native platform ve üç host × iki Python source kapısı
+doğrulandı; önceki staging durumu bu kanıtla kapandı. `main`, onaylı çalışma
+dalına fast-forward ile ilerletildi; birleşmiş ana klasörde 19 recovery/atlas
+testi ve 271 dosya atlas kontrolü geçti. Kapanış belgeleri ürün kodunu değiştirmez.
+Canlı kurulum/kasa geçişi kullanıcının sonraki aşamasıdır. Global Python'un
+editable kaynak bağlantısı nedeniyle geçici çalışma ağacı şimdilik korunur;
+bağlantı ele alınmadan arşivlenmez. Ayrıntılı kanıt devam planındadır.
 
 scope: project; confidence: verified; supersedes: ["Push sonrası otomatik CI bekleme/sorgulama varsayımı"]
 

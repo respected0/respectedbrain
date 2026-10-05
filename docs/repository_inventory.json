@@ -122,11 +122,11 @@
     {
       "path": "docs/REPOSITORY_AUDIT.md",
       "role": "Depo sözleşmesi",
-      "purpose": "Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder. Dev backend RED/GREEN kanıtını ve global editable kurulum bulgusunu tarihlendirir.",
+      "purpose": "Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder. Dev backend RED/GREEN kanıtını ve global editable kurulum bulgusunu tarihlendirir. Son 12 başarılı platform kapısı ile birleşmiş ana checkout doğrulamasını tarihlendirir.",
       "relationships": [
         "Atlas yapıyı anlatır; audit yürütülmüş incelemenin kanıtıdır; tarihi ve bağlamı dışında canlı platform garantisi vermez."
       ],
-      "review_sha256": "b5135d29984a0e308e11678f397b2c2713598e05674dacdae2ed068bb4309aa4"
+      "review_sha256": "62996f65c636dd2b5aea4cda24146835a733b3722ef13911271a00f0fe453180"
     },
     {
       "path": "docs/REPOSITORY_MAP.md",
@@ -374,20 +374,20 @@
     {
       "path": "docs/superpowers/plans/2026-10-03-modular-foundation.md",
       "role": "Güncel belge ve yönlendirici",
-      "purpose": "Modüler dönüşümün ana yürütme sırası, global sınırlar, görev ekleri, kullanıcı devreye alma kararı ve son yürütme/temizlik kaydını tutar. Kullanıcının CI sonuçlarını yeni çağrıda inceletme tercihini de kaydeder.",
+      "purpose": "Modüler dönüşümün ana yürütme sırası, global sınırlar, görev ekleri, kullanıcı devreye alma kararı ve son yürütme/temizlik kaydını tutar. Kullanıcının CI sonuçlarını yeni çağrıda inceletme tercihini de kaydeder. Son 12 platform kapısının doğrulanması ve main kaynak yayınının yetkili durumunu tutar.",
       "relationships": [
         "Core/services/delivery ekleri ayrıntılı iş adımlarıdır; specs tasarımı yetkili belirler; verification sonuç kanıtını tutar."
       ],
-      "review_sha256": "62423cf1c346bdd2e2a4dffbdd0add9dad5205ef08a7626ff4389540505acdc4"
+      "review_sha256": "4ba5bf6c997e4426412080cf6a2db271e52a191543e50b03c956df6305923c53"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-installer-atlas-release.md",
       "role": "Güncel belge ve yönlendirici",
-      "purpose": "GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını, detached worker tamamlama yarışı düzeltmesini ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder.",
+      "purpose": "GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını, detached worker tamamlama yarışı düzeltmesini ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder. Son CI job kanıtını, fast-forward birleşme doğrulamasını ve editable bağlantı nedeniyle ertelenen çalışma ağacı arşivini kaydeder.",
       "relationships": [
         "wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır."
       ],
-      "review_sha256": "ebe9b7c49057f7ea89d35d421997067ae585aea482fa3e2e2ac3ef84a5ced89f"
+      "review_sha256": "dcfbbd2a5b438cfd329000824bc355b0d870be3727e5c21944ffed0a8e6f8fb6"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-source-cleanup.md",
