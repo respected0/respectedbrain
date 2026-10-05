@@ -180,3 +180,26 @@ Independent narrow review found no introduced important issue. No product
 change or rebuild is needed for this follow-up. Discovery now includes 673.
 macOS's failed substage must be diagnosed and all final gates green before
 main publication; a local host pass cannot stand in for the other platforms.
+
+### Antigravity dependency review — 2026-10-05
+
+The narrow diff adds setuptools>=69 to dev extras, matching the existing
+build-system backend requirement, and adds a package contract regression.
+An independent isolated CPython 3.10 reproduction with setuptools 65.5.1
+failed wheel build --no-isolation because the backend requirement was unmet.
+Installing .[dev] upgraded that same disposable environment to setuptools
+84.0.0; all 38 compatibility-scope tests passed (7.785s, one existing host
+skip). Atlas coverage passed for 271 files and its 11 tests passed (1.705s).
+No blocking introduced issue was found. Antigravity reports a 674-test full
+pass; this review independently verifies the targeted scope, not that full
+run. Prior binaries are not proof of this final source revision.
+
+Read-only environment inspection also confirmed Antigravity installed the
+package editable in global Python 3.13, pointing at this worktree. The global
+environment was not modified by this review. Resolve that pointer before
+archiving the worktree, preserving the user's desired development setup.
+
+The user's CI method is recorded in the main foundation plan: push the reviewed
+feature revision, then stop. Do not poll/wait for CI or create a waiting agent
+or automation. The user will resume when results exist. Main publication,
+worktree archive and final platform approval remain dependent on those results.

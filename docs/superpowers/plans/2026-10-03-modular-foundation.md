@@ -45,6 +45,16 @@ timeline:
     learned: "Kurulum seçimleri/hız, 271 dosyalık atlas ve sekiz ölü hook temizliği çalışma dalında; gerçek platform CI son fixture düzeltmelerini doğruluyor. Önceki integration/source-cleanup durumu korunur; GitHub main henüz ilerletilmedi."
     source: "2026-10-04-installer-atlas-release.md; CI run 37234992142"
 
+## CI sonuçlarının kullanıcı çağrısıyla incelenmesi — 2026-10-05
+
+scope: project; confidence: verified; supersedes: ["Push sonrası otomatik CI bekleme/sorgulama varsayımı"]
+
+Kullanıcı push sonrasında sürekli GitHub CI sorgulayarak beklemeyi istemiyor.
+Kod incelemesi ve ilgili yerel doğrulama tamamlandıktan sonra çalışma dalı
+gönderilir ve tur biter. CI sonucu çıktığında kullanıcı yeniden çağırır;
+o çağrıda gerçek sonuç değerlendirilir. Bekleme ajanı/otomasyonu başlatılmaz.
+Main birleştirmesi için gerçek son platform kapılarının başarı şartı korunur.
+
 ## Kullanıcının devreye alma kararı — 2026-10-04
 
 Eski kasa kullanıcı tarafından en son yedeklenip ZIP arşivine alınacak; ardından

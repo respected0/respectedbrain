@@ -167,6 +167,20 @@ print(respectedbrain.__version__)
             self.assertFalse((directory / '.respectedbrain-version').exists())
         self.assertFalse(directory.exists())
 
+    def test_dev_dependencies_satisfy_build_system_requirements(self):
+        pyproject = ROOT / 'pyproject.toml'
+        self.assertTrue(pyproject.is_file(), 'An installable product package is required')
+        try:
+            import tomllib
+        except ModuleNotFoundError:
+            import tomli as tomllib
+        with open(pyproject, 'rb') as f:
+            data = tomllib.load(f)
+        build_requires = set(data.get('build-system', {}).get('requires', []))
+        dev_requires = set(data.get('project', {}).get('optional-dependencies', {}).get('dev', []))
+        for req in build_requires:
+            self.assertIn(req, dev_requires, f"build-system requirement {req!r} must be in dev optional-dependencies")
+
 
 if __name__ == '__main__':
     unittest.main()

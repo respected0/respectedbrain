@@ -230,3 +230,19 @@ hostta 3.10/3.13 tam dizisini native artifact ile çalıştırmaya devam eder.
 Gerçek native/smoke/kurucu/launcher/zamanlayıcı/dağıtım biçimi ve shell kapıları
 korunur. Yerel 3.10 erken 37 ve 3.12 değişen 19 vaka geçti; macOS wheel alt
 adımının nedeni hâlâ doğrulanmalıdır. Yeni ürün davranışı veya test atlaması yok.
+
+### Dar bağımlılık düzeltmesinin bağımsız incelemesi — 2026-10-05
+
+Antigravity'nin dev extras içine setuptools>=69 eklemesi mevcut build-system
+gereksinimini geliştirici ortamında da karşılıyor. İzole CPython 3.10 ortamında
+65.5.1 backend ile wheel --no-isolation işlemi gereksinim hatası verdi;
+aynı ortamda .[dev] kurulumu backend'i 84.0.0'a yükseltti. İlgili 38 test
+7,785 saniyede geçti (bir mevcut host skip). Atlas 271 dosya kapsamını
+doğruladı; 11 atlas testi 1,705 saniyede geçti. Yeni engelleyici bulgu yok.
+Harici AI'nın 674 testlik tam koşu beyanı bu incelemenin bağımsız tam koşu
+kanıtı olarak kullanılmaz; son platform sonucu kullanıcı çağrısında incelenir.
+
+Yerel ortam bulgusu: global Python 3.13 paket metadata'sı editable kurulumun
+installer-atlas çalışma ağacını gösterdiğini doğruladı. Bu inceleme global
+kurulumu değiştirmedi. Çalışma ağacını arşivlemeden önce bu bağlantı ele
+alınmalı; aksi halde global geliştirme komutu silinen kaynak yolunu gösterebilir.

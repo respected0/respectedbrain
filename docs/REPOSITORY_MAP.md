@@ -532,7 +532,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** AGENT RULE / DOCUMENTATION.
 
-**Amaç / sorumluluk:** Gelecek geliştirici ve AI oturumlarında her dosya ekleme/silme/sorumluluk değişikliğinde atlasın aynı görevde okunup güncellenmesini, inceleme hashlerini ve CI doğrulamasını zorunlu kılar.
+**Amaç / sorumluluk:** Gelecek geliştirici ve AI oturumlarında her dosya ekleme/silme/sorumluluk değişikliğinde atlasın aynı görevde okunup güncellenmesini, inceleme hashlerini ve CI doğrulamasını zorunlu kılar. Push sonrası CI beklemesini kullanıcı çağrısıyla sınırlar.
 
 **İlişkiler ve sınır:** Ana mimari planı aktif proje gerçeğine yönlendirir; tools/repository_map.py ve docs/repository_inventory.json üretim/inceleme sözleşmesini uygular.
 
@@ -566,7 +566,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Depo sözleşmesi.
 
-**Amaç / sorumluluk:** Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder.
+**Amaç / sorumluluk:** Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder. Dev backend RED/GREEN kanıtını ve global editable kurulum bulgusunu tarihlendirir.
 
 **İlişkiler ve sınır:** Atlas yapıyı anlatır; audit yürütülmüş incelemenin kanıtıdır; tarihi ve bağlamı dışında canlı platform garantisi vermez.
 
@@ -800,7 +800,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Güncel belge ve yönlendirici.
 
-**Amaç / sorumluluk:** Modüler dönüşümün ana yürütme sırası, global sınırlar, görev ekleri, kullanıcı devreye alma kararı ve son yürütme/temizlik kaydını tutar.
+**Amaç / sorumluluk:** Modüler dönüşümün ana yürütme sırası, global sınırlar, görev ekleri, kullanıcı devreye alma kararı ve son yürütme/temizlik kaydını tutar. Kullanıcının CI sonuçlarını yeni çağrıda inceletme tercihini de kaydeder.
 
 **İlişkiler ve sınır:** Core/services/delivery ekleri ayrıntılı iş adımlarıdır; specs tasarımı yetkili belirler; verification sonuç kanıtını tutar.
 
@@ -808,7 +808,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Güncel belge ve yönlendirici.
 
-**Amaç / sorumluluk:** GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar.
+**Amaç / sorumluluk:** GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder.
 
 **İlişkiler ve sınır:** wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır.
 
@@ -902,7 +902,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Depo sözleşmesi.
 
-**Amaç / sorumluluk:** respectedbrain 0.0.1 paketini, Python >=3.10 sınırını, sıfır zorunlu üçüncü taraf bağımlılığını, geliştirme araçlarını ve console script'i tanımlar; resources dosyalarını açıkça paketler.
+**Amaç / sorumluluk:** respectedbrain 0.0.1 paketini, Python >=3.10 sınırını, sıfır zorunlu üçüncü taraf bağımlılığını, build-system gereksinimleriyle eşleşen dev geliştirme araçlarını (setuptools>=69, build, wheel, pyinstaller, tomli) ve console script'i tanımlar; resources dosyalarını açıkça paketler.
 
 **İlişkiler ve sınır:** Setuptools src yerleşimini kurar; respectedbrain.cli:main kurulu giriş olur; build_installer sürümü buradan edinir.
 
@@ -2524,7 +2524,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Paket kaynaklarının checkout olmadan erişilmesini, import yan etkisizliğini, resource path escape reddini ve temporary materialization'ı sınar. Odak örnekleri: `test_resources_and_import_are_independent_of_checkout`, `test_resource_names_cannot_escape_package`, `test_materialized_template_is_temporary_and_complete`. Resource geçici tahsisinin gerçek directory junction/symlink altında kanonik ve safe_path uyumlu olduğunu doğrular; owned_temp_alias fixture helperını paylaşır. Başarısız wheel/venv/import/CLI subprocess adımında yalnız sabit whitelist stage etiketini CI annotationına taşır; tam exception/çıktı normal assert logunda kalır. Gerçek başarısız subprocess regresyonu özel mesajın bildirime sızmadığını doğrular.
+**Amaç / sorumluluk:** Paket kaynaklarının checkout olmadan erişilmesini, dev bağımlılıklarının build-system gereksinimlerini (setuptools>=69, wheel) eksiksiz karşıladığını, import yan etkisizliğini, resource path escape reddini ve temporary materialization'ı sınar. Odak örnekleri: `test_dev_dependencies_satisfy_build_system_requirements`, `test_resources_and_import_are_independent_of_checkout`, `test_resource_names_cannot_escape_package`, `test_materialized_template_is_temporary_and_complete`. Resource geçici tahsisinin gerçek directory junction/symlink altında kanonik ve safe_path uyumlu olduğunu doğrular; owned_temp_alias fixture helper'ını paylaşır. Başarısız wheel/venv/import/CLI subprocess adımında yalnız sabit whitelist stage etiketini CI annotation'ına taşır; tam exception/çıktı normal assert logunda kalır. Gerçek başarısız subprocess regresyonu özel mesajın bildirime sızmadığını doğrular.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.resources`.
 

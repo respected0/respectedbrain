@@ -28,3 +28,10 @@ Kullanıcının canlı programını veya not kasasını kaynak işi sırasında 
 tarifleri `packaging/`, geliştirici araçları `tools/` altında kalır. AppRoot,
 DataRoot ve VaultRoot birbirinden ayrıdır. Güncelleme/kaldırma insan notlarını
 üzerine yazmaz; sahiplik, işlem günlüğü ve geri alma korumaları korunur.
+
+## Push sonrası CI takibi
+
+Kullanıcı tercihi (2026-10-05): push sonrasında CI sonucunu sürekli sorgulayarak
+bekleme; bunun için ajan veya otomasyon başlatma. Sonuç çıktığında kullanıcı
+yeniden çağırır, o çağrıda sonucu incele. Doğrulanmamış CI sonucunu başarılı
+veya main birleştirmesini tamamlanmış olarak bildirme.

@@ -86,11 +86,11 @@
     {
       "path": "AGENTS.md",
       "role": "AGENT RULE / DOCUMENTATION",
-      "purpose": "Gelecek geliştirici ve AI oturumlarında her dosya ekleme/silme/sorumluluk değişikliğinde atlasın aynı görevde okunup güncellenmesini, inceleme hashlerini ve CI doğrulamasını zorunlu kılar.",
+      "purpose": "Gelecek geliştirici ve AI oturumlarında her dosya ekleme/silme/sorumluluk değişikliğinde atlasın aynı görevde okunup güncellenmesini, inceleme hashlerini ve CI doğrulamasını zorunlu kılar. Push sonrası CI beklemesini kullanıcı çağrısıyla sınırlar.",
       "relationships": [
         "Ana mimari planı aktif proje gerçeğine yönlendirir; tools/repository_map.py ve docs/repository_inventory.json üretim/inceleme sözleşmesini uygular."
       ],
-      "review_sha256": "71df6d4da008bf66e57102e0da5f628b92de28260edec52e0c8cc4fb5ef6fb98"
+      "review_sha256": "0da8ff87b67195736fc3ca004818c5158b4885b2b91da21bd5640c0ecb8e8610"
     },
     {
       "path": "LICENSE",
@@ -122,11 +122,11 @@
     {
       "path": "docs/REPOSITORY_AUDIT.md",
       "role": "Depo sözleşmesi",
-      "purpose": "Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder.",
+      "purpose": "Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder. Dev backend RED/GREEN kanıtını ve global editable kurulum bulgusunu tarihlendirir.",
       "relationships": [
         "Atlas yapıyı anlatır; audit yürütülmüş incelemenin kanıtıdır; tarihi ve bağlamı dışında canlı platform garantisi vermez."
       ],
-      "review_sha256": "39a24c8359eeb2cbb684cd3df7141e87af49e20e866ea0cd19e8e50dff6e7be0"
+      "review_sha256": "b5135d29984a0e308e11678f397b2c2713598e05674dacdae2ed068bb4309aa4"
     },
     {
       "path": "docs/REPOSITORY_MAP.md",
@@ -374,20 +374,20 @@
     {
       "path": "docs/superpowers/plans/2026-10-03-modular-foundation.md",
       "role": "Güncel belge ve yönlendirici",
-      "purpose": "Modüler dönüşümün ana yürütme sırası, global sınırlar, görev ekleri, kullanıcı devreye alma kararı ve son yürütme/temizlik kaydını tutar.",
+      "purpose": "Modüler dönüşümün ana yürütme sırası, global sınırlar, görev ekleri, kullanıcı devreye alma kararı ve son yürütme/temizlik kaydını tutar. Kullanıcının CI sonuçlarını yeni çağrıda inceletme tercihini de kaydeder.",
       "relationships": [
         "Core/services/delivery ekleri ayrıntılı iş adımlarıdır; specs tasarımı yetkili belirler; verification sonuç kanıtını tutar."
       ],
-      "review_sha256": "bb650afdccf4d45bf039d8f6ad82f35322bc4700d999cc198303d36e09d89b5d"
+      "review_sha256": "62423cf1c346bdd2e2a4dffbdd0add9dad5205ef08a7626ff4389540505acdc4"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-installer-atlas-release.md",
       "role": "Güncel belge ve yönlendirici",
-      "purpose": "GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar.",
+      "purpose": "GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder.",
       "relationships": [
         "wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır."
       ],
-      "review_sha256": "508e71cfe668c77498b69b0f3856651e14dc97e10b466571f93e1a4456a90813"
+      "review_sha256": "2f9039316608672a96ebf4fe2b9bedb82b8a6ba79cc4897b6fad6624b1eb5e51"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-source-cleanup.md",
@@ -473,11 +473,11 @@
     {
       "path": "pyproject.toml",
       "role": "Depo sözleşmesi",
-      "purpose": "respectedbrain 0.0.1 paketini, Python >=3.10 sınırını, sıfır zorunlu üçüncü taraf bağımlılığını, geliştirme araçlarını ve console script'i tanımlar; resources dosyalarını açıkça paketler.",
+      "purpose": "respectedbrain 0.0.1 paketini, Python >=3.10 sınırını, sıfır zorunlu üçüncü taraf bağımlılığını, build-system gereksinimleriyle eşleşen dev geliştirme araçlarını (setuptools>=69, build, wheel, pyinstaller, tomli) ve console script'i tanımlar; resources dosyalarını açıkça paketler.",
       "relationships": [
         "Setuptools src yerleşimini kurar; respectedbrain.cli:main kurulu giriş olur; build_installer sürümü buradan edinir."
       ],
-      "review_sha256": "4c52b3e1c554014c2a21b98585ddd1973bd8944a677e73b939b0b735631c6197"
+      "review_sha256": "a9150efea1aea4236811d3380f0a467761a0c5eaf63db15934906a4534a314d2"
     },
     {
       "path": "src/respectedbrain/__init__.py",
@@ -2200,12 +2200,12 @@
     {
       "path": "tests/package_contract_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Paket kaynaklarının checkout olmadan erişilmesini, import yan etkisizliğini, resource path escape reddini ve temporary materialization'ı sınar. Odak örnekleri: `test_resources_and_import_are_independent_of_checkout`, `test_resource_names_cannot_escape_package`, `test_materialized_template_is_temporary_and_complete`. Resource geçici tahsisinin gerçek directory junction/symlink altında kanonik ve safe_path uyumlu olduğunu doğrular; owned_temp_alias fixture helperını paylaşır. Başarısız wheel/venv/import/CLI subprocess adımında yalnız sabit whitelist stage etiketini CI annotationına taşır; tam exception/çıktı normal assert logunda kalır. Gerçek başarısız subprocess regresyonu özel mesajın bildirime sızmadığını doğrular.",
+      "purpose": "Paket kaynaklarının checkout olmadan erişilmesini, dev bağımlılıklarının build-system gereksinimlerini (setuptools>=69, wheel) eksiksiz karşıladığını, import yan etkisizliğini, resource path escape reddini ve temporary materialization'ı sınar. Odak örnekleri: `test_dev_dependencies_satisfy_build_system_requirements`, `test_resources_and_import_are_independent_of_checkout`, `test_resource_names_cannot_escape_package`, `test_materialized_template_is_temporary_and_complete`. Resource geçici tahsisinin gerçek directory junction/symlink altında kanonik ve safe_path uyumlu olduğunu doğrular; owned_temp_alias fixture helper'ını paylaşır. Başarısız wheel/venv/import/CLI subprocess adımında yalnız sabit whitelist stage etiketini CI annotation'ına taşır; tam exception/çıktı normal assert logunda kalır. Gerçek başarısız subprocess regresyonu özel mesajın bildirime sızmadığını doğrular.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.resources`."
       ],
-      "review_sha256": "98e6a7a350735fe8e12e7914ef5ca172acb87d36606986839774ad5a738ffd72"
+      "review_sha256": "eff59d49408533be3ba7cd61648059ff950803f7551e2f31db6e886c04644d2f"
     },
     {
       "path": "tests/profile_render_test.py",
