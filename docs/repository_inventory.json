@@ -378,7 +378,7 @@
       "relationships": [
         "Core/services/delivery ekleri ayrıntılı iş adımlarıdır; specs tasarımı yetkili belirler; verification sonuç kanıtını tutar."
       ],
-      "review_sha256": "3d37fc199af534d417dbeb444b035722c085dd3ee64a869c9f57e3bb96337b9d"
+      "review_sha256": "1d7ec088e06190a98b138b75f2bda1d85f82bea7d0ef5b0404427e5ef7a89b5d"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-installer-atlas-release.md",
@@ -387,7 +387,7 @@
       "relationships": [
         "wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır."
       ],
-      "review_sha256": "89a29eb8c9c3238e9a38b99e8d10fd7610dc5e5c8a23c9abceaf63dd40723335"
+      "review_sha256": "961f83bfe1d4a9f1ae50150e0f07464d92132b841bd2b31da4cb0bc4fa6215ab"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-source-cleanup.md",

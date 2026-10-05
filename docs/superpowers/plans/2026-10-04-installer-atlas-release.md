@@ -299,3 +299,9 @@ after checking the exact absolute target, no reparse point and zero children,
 failed because another process holds the directory open. No application was
 killed. The user was asked to close/switch the old Antigravity project or its
 terminal; only empty-directory removal remains, not source/worktree integration.
+
+The user then confirmed closing the old project/terminal and switching to
+primary. A second native removal rechecked the exact absolute path, no reparse
+point and zero children, and removed only that empty directory. Test-Path
+confirmed the retired checkout no longer exists; git worktree list still
+contains only primary. This completes the directory-lock follow-up.

@@ -59,9 +59,9 @@ Python 3.13 ve iki izole 3.10 editable bağlantısı ana projeye yönlendirildi,
 installer-atlas çalışma ağacı geri yüklenebilir biçimde arşivlendi. Arşiv
 sonrasında dört Python ortamının import/CLI kontrolü ana kaynakta geçti.
 Ayrıntılı kanıt devam planındadır; kaynak çalışma kökü ana secondbrain klasörüdür.
-Arşivden kalan boş dizinin fiziksel kaldırılması başka bir sürecin Windows
-directory kilidine takıldı; proje/terminal kapatılınca yalnız bu boş dizin
-temizlenir. Git çalışma ağacı kaydı ve kaynak dosyaları zaten arşivlenmiştir.
+Arşivden kalan boş dizinin ilk kaldırma girişimi Windows süreç kilidine
+takıldı. Kullanıcı eski projeyi/terminali kapattıktan sonra boş dizin de
+kaldırıldı; hedef yol artık yok, Git listesinde yalnız ana checkout var.
 
 scope: project; confidence: verified; supersedes: ["Push sonrası otomatik CI bekleme/sorgulama varsayımı"]
 
