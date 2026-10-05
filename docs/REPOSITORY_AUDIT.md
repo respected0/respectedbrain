@@ -262,3 +262,19 @@ Canlı program/kasa değişmedi. Global Python editable bağlantısının bozulm
 için çalışma ağacı ve yerel kanıtları şimdilik korundu; bağlantı çözülmeden
 arşivlenmez. Mevcut ana dist önceki yerel derlemedir; son kaynak sürümünün
 paket kanıtı bu başarılı CI'ın native artifact'larıdır.
+
+### Çalışma ağacı bağlantısının giderilmesi — 2026-10-05
+
+Kullanıcının açık temizlik isteğiyle, geçici ağacı koruma gerekçesi giderildi.
+Global Python 3.13 ve iki izole Python 3.10 editable bağlantısı ana checkout'a
+--no-deps --no-build-isolation --no-index kurulumu ile yönlendirildi; önceki
+metadata/launcher dosyaları yedeklendi. Bağımlılık indirme/yükseltme yapılmadı.
+Ana Python 3.12 venv bağlantısı zaten doğruydu. Önceki canlı program/kasa
+koruma sınırı devam etti.
+
+Ignored .superpowers ve dist altındaki 2.148 dosya ana klasörde korundu ve
+SHA256 eşleşmesi doğrulandı. Managed arşiv, çalışma ağacının geri yüklenebilir
+snapshot'ını kaydetti; yalnız ana checkout aktif kaldı. Arşiv sonrası dört
+Python ortamının import ve CLI sürüm kontrolü PYTHONPATH override olmadan
+ana kaynakta geçti. İşlem kanıtı ana ignored task dizinindeki
+worktree-retirement-631c37e altında, ayrıntılı devir devam planındadır.

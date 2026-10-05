@@ -52,9 +52,16 @@ Kapanış kaydı: `631c37e` kaynak commit'i için [37318525236 CI koşusunun](ht
 doğrulandı; önceki staging durumu bu kanıtla kapandı. `main`, onaylı çalışma
 dalına fast-forward ile ilerletildi; birleşmiş ana klasörde 19 recovery/atlas
 testi ve 271 dosya atlas kontrolü geçti. Kapanış belgeleri ürün kodunu değiştirmez.
-Canlı kurulum/kasa geçişi kullanıcının sonraki aşamasıdır. Global Python'un
-editable kaynak bağlantısı nedeniyle geçici çalışma ağacı şimdilik korunur;
-bağlantı ele alınmadan arşivlenmez. Ayrıntılı kanıt devam planındadır.
+Canlı kurulum/kasa geçişi kullanıcının sonraki aşamasıdır. Önceki geçici ağacı
+koruma gerekçesi, kullanıcının 2026-10-05 temizlik isteğiyle giderildi: global
+Python 3.13 ve iki izole 3.10 editable bağlantısı ana projeye yönlendirildi,
+2.148 ignored kanıt/derleme dosyası SHA256 eşleşmesiyle korundu ve managed
+installer-atlas çalışma ağacı geri yüklenebilir biçimde arşivlendi. Arşiv
+sonrasında dört Python ortamının import/CLI kontrolü ana kaynakta geçti.
+Ayrıntılı kanıt devam planındadır; kaynak çalışma kökü ana secondbrain klasörüdür.
+Arşivden kalan boş dizinin fiziksel kaldırılması başka bir sürecin Windows
+directory kilidine takıldı; proje/terminal kapatılınca yalnız bu boş dizin
+temizlenir. Git çalışma ağacı kaydı ve kaynak dosyaları zaten arşivlenmiştir.
 
 scope: project; confidence: verified; supersedes: ["Push sonrası otomatik CI bekleme/sorgulama varsayımı"]
 

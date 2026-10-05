@@ -257,11 +257,45 @@ and generated inventory/map are changed after the tested code revision.
 Publication is an ordinary main push; no release tag or live installation.
 The user-triggered CI method remains in force after publication.
 
-The managed installer-atlas worktree is intentionally retained: read-only
-metadata again confirms global Python 3.13's editable installation points
-there. Its ignored proofs/builds also remain preserved. Repoint/remove that
-development installation according to the desired environment and preserve
-needed ignored artifacts before eventual archive. No global environment was
-changed during this integration. The primary dist is an earlier local build;
+At the main-integration step the managed installer-atlas worktree was retained:
+read-only metadata confirmed global Python 3.13's editable installation pointed
+there. Its ignored proofs/builds were preserved. The development connection and
+needed ignored artifacts had to be addressed before archive. No global
+environment was changed during that integration. The primary dist is an earlier local build;
 fresh CI native artifacts provide this code revision's platform proof, and
 the older local installer must not be presented as this final build.
+
+### Authorized worktree retirement — 2026-10-05
+
+The user explicitly asked to resolve the remaining temporary worktree.
+Inspection found three editable connections to it: global Python 3.13,
+isolated backend-red Python 3.10 and isolated portable CPython 3.10. The
+primary Python 3.12 .venv already pointed to the primary checkout.
+Before changing connections, their package metadata/editable launcher files
+were backed up under the primary ignored task evidence directory
+`.superpowers/sdd/2026-10-04-installer-atlas-release/worktree-retirement-631c37e/python-before`.
+
+All three package connections were repointed to primary using pip editable
+installation with --no-deps --no-build-isolation --no-index; no dependency
+download or upgrade. Their import origins, direct_url metadata, module CLI
+and installed console launcher version checks passed at the primary source.
+The live application, vault and provider settings were not modified.
+
+All 2,148 files from the worktree's ignored .superpowers proofs and dist were
+copied to that evidence directory's artifacts subdirectory and verified by
+SHA256; artifact-manifest.json records every relative path, size and digest.
+Generated build caches are reproducible and were not treated as unique evidence.
+The feature commit was already an ancestor of main, and the worktree was clean.
+The managed archive tool archived installer-atlas with a recoverable snapshot;
+the attached artifact is now archived_worktree and git worktree list contains
+only primary. Afterwards, all four Python imports and module CLI version
+checks passed without PYTHONPATH overrides. Evidence is stored in
+python-repoint-results.json, individual repoint logs and after-archive-verification.json.
+Development work now uses the primary checkout. No CI waiting loop is started.
+
+The archive removed the Git worktree registration and checkout files, but an
+empty checkout directory remained. A bounded native Remove-Item attempt,
+after checking the exact absolute target, no reparse point and zero children,
+failed because another process holds the directory open. No application was
+killed. The user was asked to close/switch the old Antigravity project or its
+terminal; only empty-directory removal remains, not source/worktree integration.

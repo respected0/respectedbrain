@@ -566,7 +566,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Depo sözleşmesi.
 
-**Amaç / sorumluluk:** Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder. Dev backend RED/GREEN kanıtını ve global editable kurulum bulgusunu tarihlendirir. Son 12 başarılı platform kapısı ile birleşmiş ana checkout doğrulamasını tarihlendirir.
+**Amaç / sorumluluk:** Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder. Dev backend RED/GREEN kanıtını ve global editable kurulum bulgusunu tarihlendirir. Son 12 başarılı platform kapısı ile birleşmiş ana checkout doğrulamasını tarihlendirir. Kullanıcı onaylı editable bağlantı düzeltmesi ve geri yüklenebilir çalışma ağacı arşivinin kanıtını kaydeder.
 
 **İlişkiler ve sınır:** Atlas yapıyı anlatır; audit yürütülmüş incelemenin kanıtıdır; tarihi ve bağlamı dışında canlı platform garantisi vermez.
 
@@ -808,7 +808,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Güncel belge ve yönlendirici.
 
-**Amaç / sorumluluk:** GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını, detached worker tamamlama yarışı düzeltmesini ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder. Son CI job kanıtını, fast-forward birleşme doğrulamasını ve editable bağlantı nedeniyle ertelenen çalışma ağacı arşivini kaydeder.
+**Amaç / sorumluluk:** GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını, detached worker tamamlama yarışı düzeltmesini ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder. Son CI job kanıtını, fast-forward birleşme doğrulamasını ve editable bağlantıların giderilmesini ve tamamlanan çalışma ağacı arşivini kaydeder.
 
 **İlişkiler ve sınır:** wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır.
 

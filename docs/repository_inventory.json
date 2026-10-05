@@ -122,11 +122,11 @@
     {
       "path": "docs/REPOSITORY_AUDIT.md",
       "role": "Depo sözleşmesi",
-      "purpose": "Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder. Dev backend RED/GREEN kanıtını ve global editable kurulum bulgusunu tarihlendirir. Son 12 başarılı platform kapısı ile birleşmiş ana checkout doğrulamasını tarihlendirir.",
+      "purpose": "Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder. Dev backend RED/GREEN kanıtını ve global editable kurulum bulgusunu tarihlendirir. Son 12 başarılı platform kapısı ile birleşmiş ana checkout doğrulamasını tarihlendirir. Kullanıcı onaylı editable bağlantı düzeltmesi ve geri yüklenebilir çalışma ağacı arşivinin kanıtını kaydeder.",
       "relationships": [
         "Atlas yapıyı anlatır; audit yürütülmüş incelemenin kanıtıdır; tarihi ve bağlamı dışında canlı platform garantisi vermez."
       ],
-      "review_sha256": "62996f65c636dd2b5aea4cda24146835a733b3722ef13911271a00f0fe453180"
+      "review_sha256": "48011888521613d6aa080897d975fa7542c4d37b4ba49de0f39320abc8bdd0b8"
     },
     {
       "path": "docs/REPOSITORY_MAP.md",
@@ -378,16 +378,16 @@
       "relationships": [
         "Core/services/delivery ekleri ayrıntılı iş adımlarıdır; specs tasarımı yetkili belirler; verification sonuç kanıtını tutar."
       ],
-      "review_sha256": "4ba5bf6c997e4426412080cf6a2db271e52a191543e50b03c956df6305923c53"
+      "review_sha256": "3d37fc199af534d417dbeb444b035722c085dd3ee64a869c9f57e3bb96337b9d"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-installer-atlas-release.md",
       "role": "Güncel belge ve yönlendirici",
-      "purpose": "GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını, detached worker tamamlama yarışı düzeltmesini ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder. Son CI job kanıtını, fast-forward birleşme doğrulamasını ve editable bağlantı nedeniyle ertelenen çalışma ağacı arşivini kaydeder.",
+      "purpose": "GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını, detached worker tamamlama yarışı düzeltmesini ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder. Son CI job kanıtını, fast-forward birleşme doğrulamasını ve editable bağlantıların giderilmesini ve tamamlanan çalışma ağacı arşivini kaydeder.",
       "relationships": [
         "wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır."
       ],
-      "review_sha256": "dcfbbd2a5b438cfd329000824bc355b0d870be3727e5c21944ffed0a8e6f8fb6"
+      "review_sha256": "89a29eb8c9c3238e9a38b99e8d10fd7610dc5e5c8a23c9abceaf63dd40723335"
     },
     {
       "path": "docs/superpowers/plans/2026-10-04-source-cleanup.md",
