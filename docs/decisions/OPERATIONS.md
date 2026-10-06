@@ -12,9 +12,12 @@ timeline:
     source: "the human partner reviews and approves the written spec"
 ---
 
+> Tarihli karar/işlem kaydı. Eski durum ve komutlar bu tarihin bağlamındadır; güncel yapılacaklar değildir. Bağlantılar ve araç talimatları 2026-10-05 belge düzenine uyarlandı; ham başlangıç kopyası yerel documentation-before ZIP arşivindedir. Eski süreç/klasör adları nötr tanımlara çevrildi; bu tarihsel tanımlar bugünkü dosya yolu değildir. [Aktif durum](../PROJECT_STATUS.md).
+
+
 # Kurulum ve Geçiş Sözleşmeleri
 
-Bu belge [modüler temel tasarımının](2026-10-03-modular-foundation-design.md)
+Bu belge [modüler temel tasarımının](MODULAR_FOUNDATION.md)
 parçasıdır. Program/veri/kasa konumları ve modül sınırları ana sözleşmede
 yaşar; burada komut, kurulum, veri koruma ve kabul koşulları tanımlanır.
 Yazılı sözleşme 2026-10-03 tarihinde kullanıcı tarafından onaylandı; canlı

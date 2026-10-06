@@ -1,6 +1,7 @@
+> Tarihli karar/işlem kaydı. Eski durum ve komutlar bu tarihin bağlamındadır; güncel yapılacaklar değildir. Bağlantılar ve araç talimatları 2026-10-05 belge düzenine uyarlandı; ham başlangıç kopyası yerel documentation-before ZIP arşivindedir. Eski süreç/klasör adları nötr tanımlara çevrildi; bu tarihsel tanımlar bugünkü dosya yolu değildir. [Aktif durum](../../PROJECT_STATUS.md).
+
 # Installer, Repository Atlas and Publication Implementation Plan
 
-> For agentic workers: use executing-plans with focused independent investigations and a fresh final review. The user authorized this sequence on 2026-10-04.
 
 **Goal:** Preserve GUI setup selections, improve measured installation throughput, explain every project file, audit repository contents and publish verified code to GitHub.
 
@@ -40,7 +41,7 @@ Files: installation/transaction.py, tests/transaction_performance_test.py; evide
 
 ## Task 3: Atlas and repository audit
 
-Files: docs/REPOSITORY_MAP.md, tools/repository_map.py, docs/repository_inventory.json, tests/repository_map_test.py, .github/workflows/ci.yml, README.md, docs/REPOSITORY_AUDIT.md.
+Files: docs/REPOSITORY_MAP.md, tools/repository_map.py, docs/repository_inventory.json, tests/repository_map_test.py, .github/workflows/ci.yml, README.md, docs/records/2026-10-installer-release/REPOSITORY_AUDIT.md.
 
 - [x] Read every tracked file and annotate its role, responsibility and relationships in the inventory.
 - [x] Add failing coverage/ghost/duplicate/stale-description tests; implement deterministic generation and --check (11 tests passed).
@@ -59,7 +60,7 @@ Files: docs/REPOSITORY_MAP.md, tools/repository_map.py, docs/repository_inventor
 
 Full source suite completed: **650 tests, 868.972s, OK (15 skips)**. Discovery occurred before the last four GUI and two atlas regressions were added; those final files were separately verified in the 33-test GUI/setup suite and 11-test atlas suite. Final source discovery has 656 tests; remote native jobs will discover that final tree. Frozen distribution verification and the Windows host smoke passed (all 16 checks; fresh package install 35.303s, two updates and owned-only uninstall preserve notes and restore test registrations). After the final hook removal and GUI action fix, a fresh Windows build and native acceptance are required and tracked above.
 
-Fresh independent review passed after the action-time vault-profile fix: 32 setup/operations/locking/runtime cases and 38 focused cases (5 host skips); no outstanding introduced findings. Shell hook cases 8/8 and temporary Git upstream scenarios 9/9 passed. Existing hardening limitations are recorded in [the audit](../../REPOSITORY_AUDIT.md); this change does not claim to close them.
+Fresh independent review passed after the action-time vault-profile fix: 32 setup/operations/locking/runtime cases and 38 focused cases (5 host skips); no outstanding introduced findings. Shell hook cases 8/8 and temporary Git upstream scenarios 9/9 passed. Existing hardening limitations are recorded in [the audit](REPOSITORY_AUDIT.md); this change does not claim to close them.
 
 ## Platform staging follow-up — 2026-10-05
 
@@ -273,7 +274,7 @@ isolated backend-red Python 3.10 and isolated portable CPython 3.10. The
 primary Python 3.12 .venv already pointed to the primary checkout.
 Before changing connections, their package metadata/editable launcher files
 were backed up under the primary ignored task evidence directory
-`.superpowers/sdd/2026-10-04-installer-atlas-release/worktree-retirement-631c37e/python-before`.
+`yerel-arşiv:sdd/2026-10-04-installer-atlas-release/worktree-retirement-631c37e/python-before`.
 
 All three package connections were repointed to primary using pip editable
 installation with --no-deps --no-build-isolation --no-index; no dependency
@@ -281,7 +282,7 @@ download or upgrade. Their import origins, direct_url metadata, module CLI
 and installed console launcher version checks passed at the primary source.
 The live application, vault and provider settings were not modified.
 
-All 2,148 files from the worktree's ignored .superpowers proofs and dist were
+All 2,148 files from the worktree's ignored yerel-kanıt-alanı proofs and dist were
 copied to that evidence directory's artifacts subdirectory and verified by
 SHA256; artifact-manifest.json records every relative path, size and digest.
 Generated build caches are reproducible and were not treated as unique evidence.

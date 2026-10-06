@@ -1,7 +1,8 @@
 # Respected Brain kaynak deposu çalışma kuralları
 
-Proje gerçeğini güncel dosyalardan doğrula. Kalıcı mimari ve devreye alma
-kararı `docs/superpowers/plans/2026-10-03-modular-foundation.md` içindedir.
+Proje gerçeğini güncel dosyalardan doğrula. Onaylı mimari `docs/decisions/`,
+aktif ürün durumu `docs/PROJECT_STATUS.md` içindedir. Bu bilgisayara özel
+devreye alma kararı Git dışındaki `.local/ROLLOUT.md` kaydındadır.
 Kullanıcının canlı programını veya not kasasını kaynak işi sırasında değiştirme.
 
 ## Dosya haritasını aynı değişiklikte güncelle
@@ -35,3 +36,7 @@ Kullanıcı tercihi (2026-10-05): push sonrasında CI sonucunu sürekli sorgulay
 bekleme; bunun için ajan veya otomasyon başlatma. Sonuç çıktığında kullanıcı
 yeniden çağırır, o çağrıda sonucu incele. Doğrulanmamış CI sonucunu başarılı
 veya main birleştirmesini tamamlanmış olarak bildirme.
+
+## Belge düzeni
+
+Kullanıcı süreç aracı adı taşıyan repo/yerel klasör istemiyor. Yeni çalışma kararları docs/decisions, tamamlanmış uygulama/kanıt kayıtları docs/records altında tutulur. Yerel ikili yedek ve test kanıtları .local/archives içindedir; kaynak envanteri veya kişisel kasa değildir. Aktif durum yalnız docs/PROJECT_STATUS.md içindedir. Yeni belgeler doğrulanmış kod ile hedef/tarihsel kaydı ayırır; dosya atlası korunur. Kullanıcı istemedikçe paralel ajan çalıştırma.

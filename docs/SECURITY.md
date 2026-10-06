@@ -1,14 +1,14 @@
-# Respected Brain — güvenlik sınırları
+# 🔐 Respected Brain — Güvenlik Sınırları
 
 scope: project; confidence: verified; supersedes: [önceki scripts tabanlı güvenlik açıklaması]
 
-Bu belge 2026-10-04 kaynak ağacındaki korumaları ve sınırlarını açıklar.
-Tasarım kaynağı [modüler temel](superpowers/specs/2026-10-03-modular-foundation-design.md),
-çalıştırılmış test kanıtı [doğrulama raporudur](superpowers/verification/2026-10-04-modular-foundation.md).
+Bu belge 2026-10-04 kaynak denetiminin korumalarını ve 2026-10-05 belge incelemesindeki davranış sınırlarını açıklar.
+Tasarım kaynağı [modüler temel](decisions/MODULAR_FOUNDATION.md),
+çalıştırılmış test kanıtı [doğrulama raporudur](records/2026-10-modular-foundation/VERIFICATION.md).
 Transkriptler, günlükler, web içeriği ve model yanıtları güvenilmeyen veridir.
 Modelin talimatlara uyması veya bir isteği reddetmesi güvenlik sınırı sayılmaz.
 
-## Yerel sağlayıcı çalıştırma
+## 1. Yerel sağlayıcı çalıştırma
 
 `src/respectedbrain/providers/runner.py` sağlayıcıları argüman dizileriyle,
 `shell=True` kullanmadan çağırır. Bu uygulamanın shell string birleştirmesinden
@@ -36,7 +36,7 @@ mekanizmasına ve kullanıcı hesabının işletim sistemi yetkilerine bağlıd�
 sınar; reddedilen çıktı günlük özeti olarak yazılmaz. Biçim doğrulaması tek
 başına bütün anlamsal prompt injection girişimlerini saptayan bir mekanizma değildir.
 
-## Derleme ve dosya terfisi
+## 2. Derleme ve dosya terfisi
 
 `src/respectedbrain/memory/compile.py` derlemeyi aktif kasa yerine geçici bir
 staging dizininde başlatır. POSIX'te staging için `0700` uygulanır. Bu izin,
@@ -56,7 +56,7 @@ uygulamanın yaptığı terfiyi sınırlar; bağımsız olarak yeterli yetkiye s
 sağlayıcı sürecinin staging dışında yazmasını önleyen bir sandbox değildir.
 Kasa yazıcıları UUID bazında ortak kilit protokolünü kullanır.
 
-## Web alımı ve SSRF
+## 3. Web alımı ve SSRF
 
 `src/respectedbrain/maintenance/ingestion/url_safety.py` HTTP/HTTPS, port 80/443,
 kimlik bilgisiz URL ve genel IP adresi kontrollerini uygular. Loopback, özel,
@@ -75,7 +75,7 @@ Bu alanın sertleştirilmesi için bağlantıda doğrulanmış adres/peer kontro
 uygun proxy politikası gerekir; mevcut testler böyle bir transport garantisi
 sağlamaz.
 
-## Kurulum, güncelleme ve kaldırma
+## 4. Kurulum, güncelleme ve kaldırma
 
 Native paket `distribution.json` içindeki SHA-256 envanteriyle doğrulanır.
 Yol ve sahiplik kontrolleri, işlem günlüğü ve byte yedekleri kurulum servislerinde
@@ -91,7 +91,7 @@ uyuşmazlığı conflict olarak korunur. Migration varsayılan olarak önizlemed
 `--apply` değişiklik yapar. Setup/update/uninstall aynı varsayılan preview
 sözleşmesine sahip değildir.
 
-## Gizli bilgiler ve yedekler
+## 5. Gizli bilgiler ve yedekler
 
 Kök `.gitignore` `.env` biçimlerini, anahtar/sertifika dosyalarını, yerel ayarları,
 yedekleri ve çalışma çıktılarını dışlar. Ignore kuralları zaten takip edilen
@@ -105,10 +105,18 @@ push çalıştırır. Bu işlem not gövdesindeki sırları taramaz ve dışlanm
 önceden takip edilen içerikler için tam koruma sağlamaz. Önizleme commit/push
 çalıştırmaz; dal durumunu okumak için `git fetch` çalıştırabilir.
 
-## Regresyon kanıtı
+## 6. Regresyon kanıtı
 
 `tests/scripts_test.py`, `tests/zero_trust_security_test.py`,
 `tests/backup_and_snapshot_test.py`, `tests/vault_hygiene_test.py` ve
 `tests/foundation_*test.py` ilgili davranışları sınar. Testlerin geçtiği host,
 paket ve atlamalar tarihli doğrulama raporlarında belirtilir. Simülasyon veya
 CI matrisinin varlığı, fiziksel host/oturum açmış sağlayıcı kanıtı değildir.
+
+## 7. Yerel panelin erişim sınırı
+
+`gateway/server.py` HTTP sunucusunu `127.0.0.1` üzerine bağlar. Kaynakta permissive `Access-Control-Allow-Origin: *` CORS yanıtları vardır; bağımsız kullanıcı auth/CSRF koruması varsayılmaz. Loopback bind internet yayını için güvenlik tasarımı değildir. Bu belge panel koduna yeni koruma eklemez.
+
+## 8. Sağlayıcı fallback açıklamasının kapsamı
+
+Genel auto çağrıda auth/config dahil nonzero/stream hatasında sonraki aday denenebilir. Açık tercih dalı farklıdır. Ayrıntılı gerçek davranış [çoklu AI rehberinde](guides/MULTI_AI.md); eski auth hatasında daima durur açıklaması bütün çağrılar için geçerli değildir.

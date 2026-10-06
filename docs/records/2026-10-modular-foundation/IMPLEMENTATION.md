@@ -1,6 +1,7 @@
+> Tarihli karar/işlem kaydı. Eski durum ve komutlar bu tarihin bağlamındadır; güncel yapılacaklar değildir. Bağlantılar ve araç talimatları 2026-10-05 belge düzenine uyarlandı; ham başlangıç kopyası yerel documentation-before ZIP arşivindedir. Eski süreç/klasör adları nötr tanımlara çevrildi; bu tarihsel tanımlar bugünkü dosya yolu değildir. [Aktif durum](../../PROJECT_STATUS.md).
+
 # Modular Foundation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Mevcut işlevleri koruyarak tek paket ve birbirinden bağımsız program/veri/not kasası yerleşimine geçmek.
 
@@ -8,7 +9,7 @@
 
 **Tech Stack:** Python, stdlib unittest/argparse/importlib.resources/sqlite3, setuptools wheel, PyInstaller onedir, Inno Setup, PowerShell ve POSIX kabukları. Mevcut Python 3.10+ desteği korunur (`requires-python = ">=3.10"`); kaynak/wheel CI 3.10 ve 3.13, frozen build 3.13. Yeni işlev bağımlılığı eklenmez; build araçları geliştirme bağımlılığıdır.
 
-**Spec:** [Ana sözleşme](../specs/2026-10-03-modular-foundation-design.md) ve [kurulum/geçiş sözleşmesi](../specs/2026-10-03-modular-foundation-operations.md), kullanıcı onayı 2026-10-03.
+**Spec:** [Ana sözleşme](../../decisions/MODULAR_FOUNDATION.md) ve [kurulum/geçiş sözleşmesi](../../decisions/OPERATIONS.md), kullanıcı onayı 2026-10-03.
 
 scope: project; confidence: verified; supersedes: ["Canlı devreye alma için eski kasanın migration çakışmalarını çözme zorunluluğu", "installer-atlas-platform-staging"]; status: integration-verified, source-cleanup-verified, installer-atlas-platform-verified, source-published, fresh-vault-selected, rollout-deferred-by-user (as of 2026-10-05).
 
@@ -20,7 +21,7 @@ timeline:
   - from: 2026-10-03
     until: 2026-10-04
     learned: "Onaylı plan ayrı çalışma ağacında uygulandı; kaynak ve Windows native doğrulaması tamamlandı."
-    source: "../verification/2026-10-04-modular-foundation.md"
+    source: "VERIFICATION.md"
   - from: 2026-10-04
     until: 2026-10-04
     learned: "Kullanıcı yerel birleştirmeyi onayladı; main dalı 3b45460'a fast-forward ile ilerletildi. Birleşmiş kaynak doğrulaması başladı."
@@ -28,12 +29,12 @@ timeline:
   - from: 2026-10-04
     until: 2026-10-04
     learned: "Ana klasörde tam 630 testlik paket OK (15 atlama); test cleanup yarışı düzeltildi ve ayrı worktree kanıtları korunarak arşivlendi."
-    source: "../verification/2026-10-04-modular-foundation.md#yerel-birleştirme--2026-10-04"
+    source: "VERIFICATION.md#yerel-birleştirme--2026-10-04"
 
   - from: 2026-10-04
     until: 2026-10-04
     learned: "Önceki durum source-cleanup-gaps idi; onaylı son temizlik eski girişleri kaldırdı ve yayın tarifini native build sözleşmesine bağladı."
-    source: "../verification/2026-10-04-source-cleanup.md"
+    source: "../2026-10-source-cleanup/VERIFICATION.md"
 
   - from: 2026-10-04
     until: 2026-10-04
@@ -43,7 +44,7 @@ timeline:
   - from: 2026-10-04
     until: 2026-10-05
     learned: "Kurulum seçimleri/hız, 271 dosyalık atlas ve sekiz ölü hook temizliği çalışma dalında; gerçek platform CI son fixture düzeltmelerini doğruluyor. Önceki integration/source-cleanup durumu korunur; GitHub main henüz ilerletilmedi."
-    source: "2026-10-04-installer-atlas-release.md; CI run 37234992142"
+    source: "../2026-10-installer-release/EXECUTION.md; CI run 37234992142"
 
 ## CI sonuçlarının kullanıcı çağrısıyla incelenmesi — 2026-10-05
 
@@ -94,7 +95,7 @@ ajanla son inceleme yapılır. Aynı dosyada eşzamanlı düzenleme yapılmaz.
 
 ## Yürütme sonucu — 2026-10-04
 
-Görev 1–13 uygulandı ve doğrulandı. [Test ve canlı envanter kanıtı](../verification/2026-10-04-modular-foundation.md)
+Görev 1–13 uygulandı ve doğrulandı. [Test ve canlı envanter kanıtı](VERIFICATION.md)
 627 kaynak testi (15 gerekçeli atlama), gerçek Windows kurucu/güncelleme/kaldırma,
 launcher/zamanlayıcı ve 17 kontrolün tamamını geçen fiziksel smoke sonuçlarını içerir.
 Linux/macOS/gerçek WSL fiziksel doğrulaması bu yerel çalışmada yoktur.
@@ -116,9 +117,8 @@ Aşağıdaki gözlemler temizlik öncesinin tarihsel kaydıdır. Kullanıcının
 onaylamasıyla eski kaynak ağacı ve setup girişleri kaldırıldı; release akışı
 native build/verify/test/smoke araçlarına bağlandı. 629 testlik paket OK
 (15 atlama), wheel/sdist ve gerçek Windows native paket doğrulaması başarılıdır.
-[Son temizlik planı](2026-10-04-source-cleanup.md) işlemleri,
-[tarihli kanıt](../verification/2026-10-04-source-cleanup.md) doğrulamayı kaydeder.
-Gerçek ürün kurulumu uygulanmadı. Eski migration önizlemesinin çakışmaları
+[Son kaynak temizliği doğrulaması](../2026-10-source-cleanup/VERIFICATION.md) işlemleri ve
+tarihli kanıtı kaydeder. Gerçek ürün kurulumu uygulanmadı. Eski migration önizlemesinin çakışmaları
 tarihsel kanıttır; güncel kullanıcı yolu yukarıdaki devreye alma kararındadır.
 
 Kullanıcının hedef ağaç ile mevcut klasörü karşılaştırması üzerine salt okunur
@@ -259,11 +259,16 @@ Test sınıfları TemporaryDirectory içinde `app`, `data`, `Türkçe 🧠 Vault
 kullanılmaz. Gerçek native kayıt testleri yalnız geçici kullanıcı dosyası ve
 benzersiz task adıyla, finally temizliğiyle çalışır.
 
-## Görev ekleri
+## Görevlerin uygulanması ve temel sözleşmeler
 
-- [Görev 1–5: paket, bağlam ve temel işlevler](2026-10-03-modular-foundation-core.md)
-- [Görev 6–10: hizmetler, entegrasyon ve kurulum](2026-10-03-modular-foundation-services.md)
-- [Görev 11–14: migration, dağıtım ve devreye alma](2026-10-03-modular-foundation-delivery.md)
+Görev 1–13'ün kaynak/paket çalışmaları ve görev 14'ün salt okunur önizlemesi [doğrulama raporunda](VERIFICATION.md) kayıtlıdır. Görev 14'ün gerçek canlı kurulumu uygulanmadı. Kaldırılan üç ayrıntılı görev planının ham metni `.local/archives/docs-cleanup-baseline-2026-10-05.zip` içinde korunur; aşağıdaki özet onların tüm adım ve örneklerini tekrar etmez.
+
+- **Görev 1–3 (Temel, Yol, Config):** `ResourceCatalog`, `Roots`, `AppPaths`, `AppContext`, `ConfigStore`, `VaultRegistry` ile bağımsız AppRoot/DataRoot/VaultRoot ayrımı ve kalıcı UUID kasa kimliği kuruldu.
+- **Görev 4–5 (Hafıza, Arama, Brifing):** `ModelRunner`, `compile_memory`, `flush_transcript`, `SearchEngine` ve `run_if_due` bağlam altına taşındı; veri izolasyonu sağlandı.
+- **Görev 6–7 (Servisler, CLI):** `gateway/server`, `orchestration/runner`, `maintenance` araçları ve tek composition root `bootstrap.py` üzerinden dispatch eden `cli.py` tamamlandı.
+- **Görev 8–10 (Entegrasyonlar, Kurulum İşlemleri):** `IntegrationBackend`, `plan_integrations`, hook köprüsü, `OwnershipManifest` ve `Transaction` ile geri alınabilir `setup`, `update`, `repair`, `uninstall` işlemleri kuruldu.
+- **Görev 11–13 (Migration ve Dağıtım):** `inventory_legacy`, `plan_migration`, `apply_migration`, `tools/build_installer.py`, `tools/verify_distribution.py` ve native CI paketleme akışı tamamlandı.
+- **Görev 14 (Devreye Alma):** Salt okunur önizleme doğrulanmış; gerçek canlı geçiş kullanıcının [devreye alma kararına](#kullanıcının-devreye-alma-kararı--2026-10-04) ve yerel `.local/ROLLOUT.md` kaydına bırakılmıştır.
 
 ## Plan öz incelemesi
 
@@ -280,11 +285,12 @@ README'deki 3.10+ ile eşlendi, sürüm tabanı yükseltilmedi.
 ## For future agent
 
 2026-10-04 kurulum seçenekleri/hız, eksiksiz dosya atlası, kaynak denetimi ve
-GitHub platform doğrulaması için [devam planını](2026-10-04-installer-atlas-release.md)
+GitHub platform doğrulaması için [devam planını](../2026-10-installer-release/EXECUTION.md)
 oku. Bu devam işi canlı kullanıcı kurulumunu veya kasayı değiştirmez; kişisel
-devreye alma kararı bu ana plandaki kullanıcı tercihidir.
+devreye alma tercihi Git dışındaki `.local/ROLLOUT.md`, aktif ürün durumu
+[PROJECT_STATUS](../../PROJECT_STATUS.md) içindedir; bu plan tarihli kayıttır.
 
-Spec ve karma yürütme yöntemi kullanıcı tarafından onaylandı. Görev eklerini
-bağımlılık sırasıyla uygula; çalışma ağacındaki onarımları koru.
+Spec ve karma yürütme yöntemi kullanıcı tarafından onaylandı. Tamamlanan görevleri
+yeniden uygulama; aktif işi PROJECT_STATUS ve mevcut kullanıcı talimatından al.
 Canlı kurulum değişikliğine görev 14'ün önizleme ve geri alma kontrolleri
 tamamlanmadan geçme.

@@ -16,7 +16,7 @@ import sys
 INVENTORY = "docs/repository_inventory.json"
 MAP = "docs/REPOSITORY_MAP.md"
 GENERATED = {INVENTORY, MAP}
-EXCLUDED_PARTS = {".git", ".venv", "venv", "env", "ENV", "node_modules", "build", "dist", "release-assets", "release-stage", ".superpowers", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", ".nox"}
+EXCLUDED_PARTS = {".git", ".venv", "venv", "env", "ENV", "node_modules", "build", "dist", "release-assets", "release-stage", ".local", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", ".nox"}
 
 
 def project_files(root: Path) -> list[str]:

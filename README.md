@@ -1,24 +1,103 @@
-# Respected Brain
+<div align="center">
 
-Claude Code, Codex, Cursor, Antigravity ve Gemini CLI için yerel ortak hafıza. Konuşmalar Markdown günlüklerine, kalıcı bilgiler bağlantılı notlara dönüşür. Obsidian kasanız adını ve konumunu korur.
+# 🧠 Respected Brain
 
-## Üç ayrı konum
+### Ajanlar değişir. Ortak hafıza sizin kasanızda kalır.
 
-| Ne? | Windows varsayılanı | İçinde ne var? |
+Claude Code · Codex · Cursor · Antigravity · Gemini CLI
+
+</div>
+
+Respected Brain, yerel bir Markdown not kasasını AI araçlarına bağlayan açık kaynak bir hafıza programıdır. Desteklenen hook olayları sohbetlerden günlük özet üretir; bilgi derleyicisi bunları bağlantılı notlara dönüştürür. [Obsidian](https://obsidian.md) kasayı okumak ve düzenlemek için kullanılabilir.
+
+**Taşınan şey iş bağlamıdır:** kararlar, kurallar, günlük özetleri ve notlar. Sağlayıcıların özel sohbet ekranları, hesapları ve bütün ham geçmişleri birbiriyle birleştirilmez. Model çağrıları yerel CLI üzerinden sağlayıcıya gider; “yerel kasa” bütün AI işlemlerinin çevrimdışı olduğu anlamına gelmez.
+
+---
+
+## 1. Nasıl çalışır?
+
+```mermaid
+flowchart LR
+    A[AI ajanı] --> H[Desteklenen hook]
+    H --> F[Oturum özeti]
+    F --> D[daily günlükleri]
+    D --> K[knowledge derlemesi]
+    K --> C[Yeni oturum bağlamı]
+    V[Core / Kurallar / Threads] --> C
+    C --> A
+```
+
+Örnek: Antigravity ile çalışırken alınan karar ortak kasaya yazılır. Codex aynı kasaya bağlandığında bu notlardan bağlam alabilir. Bunun çalışması için ilgili entegrasyonun kurulmuş, hook'un etkin/güvenilmiş ve özetleme CLI'ının kullanılabilir olması gerekir. Her sohbetin eksiksiz yakalandığı veya otomatik özetlerin hatasız olduğu garanti edilmez.
+
+## 2. Program, ayarlar ve notlar nerede?
+
+| Alan | Windows varsayılanı | İçerik |
 | --- | --- | --- |
-| Program | `%LOCALAPPDATA%\Programs\RespectedBrain` | `respectedbrain.exe`, `app/` bağımlılıklar/paket kaynakları, `uninstall/` |
-| Ayarlar ve teknik veri | `%LOCALAPPDATA%\RespectedBrain` | `config.json`, `install-manifest.json`, `logs/`, `backups/`, `vaults/<UUID>/state`, `cache`, `overrides` |
-| Notlarınız | Örneğin `Documents\RespectedOS` | `daily/`, `knowledge/`, Companion, projeler, Templates, `.obsidian`, taşınabilir `.respected.json` kimliği |
+| **Program — AppRoot** | `%LOCALAPPDATA%\Programs\RespectedBrain` | `respectedbrain.exe`, `app/` içindeki paket/çalışma ortamı, hazır içerikler, `uninstall/` |
+| **Teknik veri — DataRoot** | `%LOCALAPPDATA%\RespectedBrain` | `config.json`, sahiplik manifesti, log, işlem yedekleri, kasa UUID'sine bağlı state/cache/overrides |
+| **Not kasası — VaultRoot** | Kurulumda seçtiğiniz yol | İnsan notları, daily, knowledge, Companion, projeler, Templates, `.obsidian`, `.respected.json` |
 
-Furkan'ın bilgisayarında ilk iki yol `C:\Users\Furkan\AppData\Local` altındadır. Belgeler konumu Windows'un yapılandırdığı klasörden alınır; başka diske yönlendirilmiş olabilir. Mevcut kasa taşınmaz.
+```text
+Program klasörü                  Teknik veri klasörü          Seçtiğiniz not kasası
+RespectedBrain/                  RespectedBrain/              BenimBeynim/
+├── respectedbrain.exe           ├── config.json              ├── daily/
+├── app/                         ├── logs/                    ├── knowledge/
+│   └── respectedbrain/          ├── backups/                 ├── 🔮 850-Companion/
+│       └── resources/           └── vaults/<UUID>/           ├── 🏰 300-Projects/
+└── uninstall/                       ├── state/               └── .respected.json
+                                    ├── cache/
+                                    └── overrides/
+```
 
-## Kurulum
+**Runtime** programı çalıştıran motor ve bağımlılıklardır; kurulu paketin içindedir. **Template** yeni boş kasaya bir kez verilen başlangıç notlarıdır. Güncelleme mevcut notları şablonla yeniden yazmaz. **Kasa adı** sizin seçiminizdir; `RespectedOS` olmak zorunda değildir. Tam platform yolları [mimari rehberinde](docs/ARCHITECTURE.md).
 
-Windows native kurucusu `RespectedBrain-Windows-Setup.exe` dosyasıdır. Program klasörü ve not kasası ayrı seçilir. Native dağıtım kendi çalışma ortamını içerir; son kullanıcıya Python kurulumu gerekmez. AI özetleme için tercih ettiğiniz sağlayıcı CLI'ı kurulu ve oturum açmış olmalıdır.
+## 3. Kurulum ve ilk kullanım
 
-[Kurulum](docs/guides/SETUP.md), [Windows](docs/guides/SETUP-WINDOWS.md), [çoklu AI](docs/guides/MULTI_AI.md), [güncelleme](docs/guides/UPDATE.md), [kaldırma](docs/guides/UNINSTALL.md).
+Windows native kurucu adı `RespectedBrain-Windows-Setup.exe`; macOS dağıtımı DMG, Linux dağıtımı `.run` olarak üretilir. Native program kendi çalışma ortamını içerir; son kullanıcı ayrıca Python kurmak zorunda değildir. AI özetleme için kullanmak istediğiniz yerel sağlayıcı CLI'ında oturum açmanız gerekir.
 
-[Kaynak kod](https://github.com/respected0/respectedbrain) üzerinde geliştirme ve native dağıtım üretimi:
+| Yapacağınız iş | Rehber |
+| --- | --- |
+| İlk kurulum / kaynak ile native paket farkı | [Kurulum](docs/guides/SETUP.md) |
+| Windows program ve kasa seçimi | [Windows kurulumu](docs/guides/SETUP-WINDOWS.md) |
+| macOS / Linux paket ve konumları | [POSIX kurulumu](docs/guides/SETUP-POSIX.md) |
+| Kurulumdan sonraki ilk konuşma | [İlk çalıştırma](docs/guides/BOOTSTRAP.md) |
+| Notlar, günlük, brifing, arama, panel | [Günlük kullanım](docs/guides/DAILY_USE.md) |
+| Claude Code, Codex, Cursor, Antigravity, Gemini CLI bağlantıları | [Çoklu AI](docs/guides/MULTI_AI.md) |
+| Ayarların yeri ve kasa seçimi | [Yapılandırma](docs/guides/CONFIGURATION.md) |
+| Güncelleme / onarım / eski kurulum | [Güncelleme](docs/guides/UPDATE.md) |
+| Veri yedekleme | [Yedekleme](docs/guides/BACKUP.md) |
+| Kaldırma | [Kaldırma](docs/guides/UNINSTALL.md) |
+| Bir şey çalışmıyorsa | [Sorun giderme](docs/guides/TROUBLESHOOTING.md) |
+
+Paket üretim tarifi, indirilebilir bir sürümün yayımlandığı kanıtı değildir. Kaynak `main`, CI artifact'ı ve herkese açık release farklı şeylerdir. [Güncel durum](docs/PROJECT_STATUS.md) bunların kapsamını ayırır.
+
+## 4. Sık sorulanlar
+
+**Ek API anahtarı gerekir mi?** Çekirdek ek anahtar deposu istemez; model işleri yerel sağlayıcı CLI'ını kullanır. CLI'ın hesabı, aboneliği/kotası ve ağ erişimi geçerlidir. Arka plan işlemleri ücretsiz/sınırsız model kullanımı sağlamaz.
+
+**Özetleyiciyi değiştirebilir miyim?** `respectedbrain configure --summary-provider codex` tercihi ayarlara kaydeder. Bu komut kod yazdığınız ajanı değiştirmez. `auto` ve hata/fallback ayrımı [çoklu AI rehberinde](docs/guides/MULTI_AI.md).
+
+**İki ajan aynı kasayı kullanabilir mi?** Evet; program yazıcıları ortak kilit protokolünü kullanır. Aynı notu iki editörde elle değiştirmek yine çakışabilir. Başka programların kilit protokolüne uyduğu garanti edilmez.
+
+**Arama anlamsal mı?** Mevcut motor SQLite FTS5/BM25 tam metin aramasıdır; embedding/vector veritabanı değildir. Model derlemesi ve bilgi bağlantıları, aramanın kendisini embedding araması yapmaz.
+
+**Programı güncellersem/kaldırırsam?** Güncelleme sahipli program dosyalarını yönetir. Kaldırma not kasasını hedeflemez; teknik veri varsayılan korunur. Çakışmış veya sonradan değişmiş dosyalarda işlem durabilir; “her durumda hiçbir hata olmaz” garantisi verilmez.
+
+**Platform doğrulandı mı?** Tarihli [test kanıtına](docs/TEST-MATRIX.md) bakın. CI'da gerçek OS çalıştırması, fixture ve giriş yapılmış sağlayıcı oturumu farklı doğrulamalardır. Sadece Windows testi fiziksel macOS/Linux/WSL kanıtı sayılmaz.
+
+## 5. Geliştirici için
+
+```text
+secondbrain/
+├── src/respectedbrain/     Program modülleri ve resources
+├── packaging/             Windows / macOS / Linux paket tarifleri
+├── tools/                 Build, dağıtım doğrulama, atlas araçları
+├── tests/                 Kaynak / paket / platform testleri
+├── docs/                  Kullanım, mimari, kanıt ve tarihli kayıtlar
+└── pyproject.toml         Paket sürümü ve bağımlılık tanımı
+```
+
+Kaynak geliştirme **Python 3.10+** ister. Çekirdek zorunlu üçüncü taraf Python bağımlılığı içermez; build araçları `dev` extras, sağlayıcı CLI'ları/Restic ise kullanılan özellik için harici programlardır.
 
 ```powershell
 python -m pip install -e ".[dev]"
@@ -27,75 +106,12 @@ python tools/build_installer.py --platform windows --output dist
 python tools/verify_distribution.py --distribution dist/RespectedBrain --platform windows
 ```
 
-Kurulum/güncelleme doğrulanmış native paket gerektirir. Kaynaktan çalıştırmak ile bilgisayara ürün kurmak ayrı işlemlerdir.
+Bu build komutlarını uygun Windows geliştirme ortamında çalıştırın; Inno Setup gerekir. Diğer platformların native paketi o platformda üretilir. Geliştirme ayrıntıları [geliştirici rehberinde](docs/development/README.md).
 
-## Önce / sonra
+[📚 Belge merkezi](docs/README.md) · [🗺️ Eksiksiz dosya atlası](docs/REPOSITORY_MAP.md) · [🔐 Güvenlik sınırları](docs/SECURITY.md)
 
-| Önceki düzen | Modüler düzen |
-| --- | --- |
-| `runtime/` ve kasada `.beyin/` motor kopyaları | Tek `src/respectedbrain/` paketi; kurulumda tek AppRoot |
-| `template/`, ayrı instructions/skills kopyaları | Tek `src/respectedbrain/resources/` kaynağı |
-| Motor/cache kasa içine karışabiliyordu | Teknik durum DataRoot'ta; kasa notlar için |
-| Eski betiklerde ayrı kurulum davranışları | Tek CLI ve ortak installation servisi |
+## Atıf ve lisans
 
-## Kaynak proje düzeni
+Bilgi derleme yaklaşımı [Andrej Karpathy'nin LLM bilgi tabanı deseninden](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) ilham alır. Proje [Avenox Beyin](https://github.com/avenoxai/avenoxbeyin) MIT lisanslı geçmişinden doğdu; commit geçmişi ve atıf korunur. [MIT lisansı](LICENSE).
 
-Programın tek kaynağı `src/respectedbrain/` olur. Modüller görevlerine göre
-`memory`, `search`, `providers`, `integrations`, `installation` ve diğer paketlere
-ayrılır. Hazır içerikler `resources/` içindedir. Kurulum tarifleri `packaging/`,
-geliştirici araçları `tools/`, testler `tests/`, belgeler `docs/` altındadır.
-
-[Ayrıntılı depo atlası](docs/REPOSITORY_MAP.md), en küçük paket işaretçisi dahil
-her proje dosyasının görevini, ilişkilerini, tam ağacı ve yerel üretim çıktılarının
-yerini açıklar. [Depo denetimi](docs/REPOSITORY_AUDIT.md) inceleme ve test kanıtını tutar.
-
-Atlasın açıklama kaynağı `docs/repository_inventory.json` olur. Yeni veya değişmiş
-dosya aynı iş içinde okunup açıklanır; otomatik keşif yeni kodun sorumluluğunu tahmin
-etmez. Bakım ve CI kapısı:
-
-```powershell
-python tools/repository_map.py --update
-# Envanterde yeni dosyanın rol/amaç/ilişkilerini doldurun; değişeni gözden geçirin.
-python tools/repository_map.py --accept-reviewed "path/to/changed.py"
-python tools/repository_map.py --write
-python tools/repository_map.py --check
-```
-
-`--check` eksik/fazla/çift dosya, açıklama gerektiren yeni kayıt, içerik hash'iyle
-eskimiş açıklama ve üretilmiş Markdown farkını reddeder. Kişisel vault'u taramaz.
-
-Eski kök `runtime/`, `installer/`, `template/` ve `setup.py/setup/setup.command`
-girişleri kaldırılmıştır. Geliştirmede `python -m respectedbrain`, paketlemede
-`python tools/build_installer.py` kullanılır. `.venv/`, `build/` ve `dist/` yerel
-geliştirme/üretim çıktılarıdır; ürün kaynak ağacının parçası değildir.
-
-Eski canlı kurulumları okuyabilen migration kodu korunur. Kaynak temizliği,
-bilgisayardaki mevcut ürünün veya not kasasının otomatik dönüştürülmesi değildir.
-
-Kişisel talimat/skill değişiklikleri migration sırasında UUID'ye bağlı `overrides/` alanına korunur. Bilinmeyen dosyalar silinmez; eski kaldırıcı çalıştırılmaz. Geçiş varsayılan olarak salt okunur önizlemedir.
-
-## Sık sorulanlar
-
-**Runtime nedir?** Programı çalıştıran motor ve bağımlılıklardır. AppRoot'ta yaşar. DataRoot'ta ayrı `runtime/` veya `scripts/` motoru yoktur.
-
-**Template nedir?** Yeni boş kasaya başlangıç notları sağlar. Paket içinde kaynaktır. Mevcut notlar güncellemede şablonla değiştirilmez.
-
-**Ayarlarım nerede?** Program tercihleri DataRoot/config.json içindedir. İnsanların okuduğu hafıza notları kasadadır. Kasa adı `RespectedOS` olmak zorunda değildir.
-
-**Güncellersem notlarım ne olur?** Sahipli program dosyaları hash kontrolüyle güncellenir, notlar korunur. Hata halinde işlem günlüğüyle geri alınır; sonradan yapılmış kullanıcı değişiklikleri üzerine yazılmaz.
-
-**Kaldırırsam notlarım silinir mi?** Hayır. Varsayılan kaldırma ayarları da korur. `--purge-data` yalnız doğrulanmış sahipli teknik dosyaları hedefler; not kasasını hedeflemez.
-
-**Birden fazla kasa/ajan olabilir mi?** Kasalar UUID ile seçilir. Yazıcılar ortak kilit protokolünü kullanır. Aynı notu iki kişinin elle düzenlemesi yine dosya çakışması yaratabilir.
-
-**Ek API anahtarı gerekir mi?** Çekirdek gerek duymaz; özetleme yerel AI CLI oturumlarını kullanır. Sağlayıcının kotası ve kullanım koşulları geçerlidir.
-
-**Özetleyiciyi nasıl değiştiririm?** Örneğin `respectedbrain configure --summary-provider codex`. Tercih ayarlara kaydedilir; mevcut notlar ve kasa kimliği değişmez.
-
-**Platform doğrulandı mı?** Tarihli test kanıtına bakılır. CI matrisi veya profil fixture'ı fiziksel macOS/Linux/WSL kanıtı sayılmaz.
-
-[Yetkili mimari sözleşme](docs/superpowers/specs/2026-10-03-modular-foundation-design.md) ve [uygulama planı](docs/superpowers/plans/2026-10-03-modular-foundation.md) tasarım/devreye alma kapılarını tanımlar. Eski rehberlerin tam metni [tarihsel arşivde](docs/history/2026-10-03/README.md) korunur.
-
-## Credits ve lisans
-
-Bilgi derleme [Andrej Karpathy'nin LLM bilgi tabanı deseninden](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) ilham alır. Proje [Avenox Beyin](https://github.com/avenoxai/avenoxbeyin) MIT lisanslı geçmişinden doğdu; atıf ve commit geçmişi korunur. [MIT lisansı](LICENSE).
+Hazır paket içeriğinin kaynak yolu `src/respectedbrain/resources/` olur.

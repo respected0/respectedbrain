@@ -1,17 +1,44 @@
-# Güncelleme ve migration
+# 🔄 Güncelleme, Onarım ve Eski Kurulum
 
-`respectedbrain update --package "<yeni dağıtım>"` doğrulanmış native paketle programı günceller; kasa kimliği ve tercihleri korur. Windows'ta pending sonuç son makbuz beklenmeden tamamlandı sayılmaz.
+> Paket güncellemesi program dosyalarını değiştirir; notların yerini ve kimliğini korur. Önce [yedekleme](BACKUP.md), sözleşme için [SPECIFICATION](../SPECIFICATION.md).
 
-Eski düzen için salt okunur plan:
+## 1. Güncel native programı güncelleme
 
 ```text
-respectedbrain migrate --legacy-root "<eski kök>" --vault "<mevcut kasa>"
+respectedbrain update --vault-id <UUID> --package "<yeni doğrulanmış native dağıtım>"
 ```
 
-Plan kaynak/hedef/hash/sahiplik ve korunacak dosyaları gösterir; config/state/log/backup oluşturmaz. Conflict varsa geçiş yapılmaz. İsim veya .py uzantısı sahiplik kanıtı değildir.
+Paket doğru OS için `distribution.json` ve hash'lerle doğrulanır. Kaynak `src/`, wheel dosyası veya rastgele klasör native dağıtım yerine geçmez. Program sahipliği ve değişmemiş hash kontrolü kullanılır; notlar, `.obsidian`, Templates ve kişisel override alanları fresh template ile yeniden yazılmaz.
 
-Doğrulanmış plan/paketle `migrate ... --package "<yeni dağıtım>" --apply` değişiklik yapar. Hash'ler kilit alındıktan sonra tekrar doğrulanır. Kişisel overrides, notlar, .obsidian ve Templates korunur. Eski uninstaller çalıştırılmaz.
+Windows frozen launcher kendisini değiştirmek için exit sonrası helper'a işi devredebilir. Çıktıda `pending` varsa receipt yolunu kontrol edin; process exit 0 son kurulumun bittiğini tek başına göstermez. OperationResult alanları `success`, `pending`, `tx_id`, `conflicts` olur; ayrı bir receipt alanı yoktur. Deferred makbuz yolu DataRoot altında `backups/<tx_id>/result.json` olarak çözülür; [Windows rehberi](SETUP-WINDOWS.md).
 
-DataRoot/backups/<işlem>/ journal ve byte yedekleri değişiklikleri izler. Hata otomatik geri alır. Yarım işlemler `respectedbrain recover` ile hash kontrolü üzerinden kurtarılır; sonradan değişmiş kullanıcı dosyası zorla geri çevrilmez. `repair` sahipli program/bağlantı alanlarını onarır.
+## 2. Onarım ve recovery
 
-Eski kökle yeni AppRoot aynı seçilmez. Aktif yazıcılar tamamlandıktan sonra kilit alınır; kilit conflict'i zorla aşılmaz.
+```text
+respectedbrain repair --vault-id <UUID>
+respectedbrain recover
+```
+
+Repair sahipli uygulama/desired bağlantıları onarır; kişisel hafıza reset'i değildir. Recover DataRoot'taki yarım transaction'ları inceler. Journal/byte yedeği ve compare-and-swap ile geri alma yapılır; kullanıcının işlemden sonra değiştirdiği dosya zorla eski haline getirilmez. Conflicts varsa log/backup kimliğini koruyup [sorun giderme](TROUBLESHOOTING.md) akışını izleyin.
+
+## 3. Eski layout: önce salt okunur migration planı
+
+```text
+respectedbrain migrate --legacy-root "<eski program kökü>" --vault "<mevcut eski kasa>"
+```
+
+Bu plan source/target/action/hash/ownership, korunacak dosyalar ve conflict'leri gösterir. Varsayılan dry-run config/state/log/backup yazmaz. İsim, `.py` uzantısı veya klasör konumu sahiplik kanıtı değildir. Farklı state kopyaları, aktif yazıcı veya path/reparse kaçışı conflict üretir; force ile geçilmez.
+
+Somut plan ve doğrulanmış paketle:
+
+```text
+respectedbrain migrate --legacy-root "<eski program kökü>" --vault "<mevcut eski kasa>" --package "<yeni native dağıtım>" --apply
+```
+
+Apply mutasyon yapar; source/target/external hash'ler kilit sonrası tekrar doğrulanır, yedekler/journal yazılır. Eski geniş temizlik yapan uninstaller çalıştırılmaz. Yalnız unchanged owned artıklara cleanup uygulanır, bilinmeyen kullanıcı dosyası kalır. Cache yeniden üretilebilir; idempotency state sıradan cache gibi silinmez.
+
+## 4. Yeni boş kasa seçiyorsanız
+
+Eski kasayı aktarmak zorunlu değildir. Eski kasanın doğrulanmış yedeğini ayrı tutup yeni boş kasayı [SETUP](SETUP.md) ile kurabilirsiniz. Eski AppRoot/DataRoot ve global notify/MCP/scheduler kayıtları yine ayrı ele alınır; eski kasayı ZIP'lemek bunları otomatik temizlemez. Genel devreye alma sınırları [PROJECT_STATUS](../PROJECT_STATUS.md) içindedir; bu bilgisayara özel tercih Git dışındaki `.local/ROLLOUT.md` kaydındadır.
+
+**Süre ne kadar?** Paket/disk/OS/antivirüs etkiler. Tarihsel profilli hız ölçümü gerçek kullanıcı kurulumu için sabit süre vaadi değildir; [test kanıtı](../TEST-MATRIX.md).

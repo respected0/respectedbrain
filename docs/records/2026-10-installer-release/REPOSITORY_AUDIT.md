@@ -1,10 +1,12 @@
+> Tarihli karar/işlem kaydı. Eski durum ve komutlar bu tarihin bağlamındadır; güncel yapılacaklar değildir. Bağlantılar ve araç talimatları 2026-10-05 belge düzenine uyarlandı; ham başlangıç kopyası yerel documentation-before ZIP arşivindedir. Eski süreç/klasör adları nötr tanımlara çevrildi; bu tarihsel tanımlar bugünkü dosya yolu değildir. [Aktif durum](../../PROJECT_STATUS.md).
+
 # Kaynak deposu denetimi — 2026-10-04
 
 scope: project; confidence: verified; supersedes: []
 
 Bu denetim `installer-atlas` worktree'sinin kaynak dosyalarını kapsar. Canlı
 RespectedOS kasası, kullanıcı profillerindeki sağlayıcı ayarları ve canlı kurulum
-değiştirilmedi. Dosya görevlerinin fihristi [depo haritasında](REPOSITORY_MAP.md)
+değiştirilmedi. Dosya görevlerinin fihristi [depo haritasında](../../REPOSITORY_MAP.md)
 tutulur. Bu belge bulgular ve doğrulama sınırları içindir.
 
 ## Kapsam ve yöntem
@@ -34,7 +36,7 @@ tutulur. Bu belge bulgular ve doğrulama sınırları içindir.
 | IDE artık olmayan motor yollarını kullanıyordu | `.vscode/settings.json` içindeki `./scripts` ve `./template/.beyin/*` analysis yolları mevcut `./src` ile değiştirildi. |
 | Yeni kasa Dashboard bağlantıları yanlış klasöre gidiyordu | `🎯 100-Command-Center/Dashboard.md` içindeki Capture/Projeler/Bilgi yolları aynı klasörde arama yapıyordu; hedefler doğrulanarak `../` eklendi. |
 | Güvenlik politikası kaldırılmış script adlarını ve uygulanmayan garantileri taşıyordu | `docs/SECURITY.md` güncel modüllere yönlendirildi. Sağlayıcı izin farkları, staging'in OS sandbox olmaması, DNS adresinin bağlantıya sabitlenmemesi ve package hash'inin yayıncı imzası olmaması açıklandı. |
-| Eski platform kanıtı güncel native ürün kanıtı gibi okunabiliyordu | `docs/TEST-MATRIX.md` 2026-09-14 kanıtını tarihsel olarak işaretler ve güncel tarihli raporlara link verir. Eksik `MANUAL-ACCEPTANCE-0.0.1.md` bağlantısı mevcut smoke rehberine yönlendirildi. Eski test sonuçları silinmedi veya güncel test sonucu olarak yeniden yazılmadı. |
+| Eski platform kanıtı güncel native ürün kanıtı gibi okunabiliyordu | `docs/records/2026-09-legacy/TEST-MATRIX.md` 2026-09-14 kanıtını tarihsel olarak işaretler ve güncel tarihli raporlara link verir. Eksik `MANUAL-ACCEPTANCE-0.0.1.md` bağlantısı mevcut smoke rehberine yönlendirildi. Eski test sonuçları silinmedi veya güncel test sonucu olarak yeniden yazılmadı. |
 | Template ignore yorumu kaldırılmış bir korumayı vaat ediyordu | `vault-template/.gitignore` başındaki `assert_no_secret_staged` iddiası çıkarıldı. Ignore kuralları değişmedi; önceden takip edilen dosyalar ve not gövdesindeki sırlar için sınırlama belirtildi. |
 | Wheel izolasyon testi kaynak `PYTHONPATH` ile yanlış sonuç veriyordu | `tests/package_contract_test.py`: `pip --python` kaynak egg-info'sunu görünce aynı sürümü zaten kurulu sayabiliyordu. Sonraki temiz probe `ModuleNotFoundError` veriyordu. Venv/pip/probe ortamlarından `PYTHONPATH` ve `PYTHONHOME` çıkarıldı. Aynı 32 test temiz ortamda önce geçti; kaynak `PYTHONPATH` ile ilk koşu aynı probe'da başarısız oldu. |
 
@@ -127,7 +129,7 @@ Exact hash eşleşmeleri şu meşru gruplarla sınırlı:
 - `.gitkeep` dosyaları: başlangıç kasasının boş dizin sözleşmesi; package-data
   listesine dahildir ve silinirse seed yapısı değişir.
 
-`docs/history/`, eski tasarım/uygulama/kanıt notları ve ignored `.superpowers`
+`docs/history/`, eski tasarım/uygulama/kanıt notları ve ignored `yerel-kanıt-alanı`
 içindeki recoverable yedekler korunur. `build/`, `dist/`, egg-info ve
 `__pycache__` üretilen yerel çıktıdır; kaynak veya kullanıcı notu sayılmaz.
 Root hidden metadata `.github`, `.vscode`, `.gitattributes`, `.gitignore` ve
@@ -272,7 +274,7 @@ metadata/launcher dosyaları yedeklendi. Bağımlılık indirme/yükseltme yapı
 Ana Python 3.12 venv bağlantısı zaten doğruydu. Önceki canlı program/kasa
 koruma sınırı devam etti.
 
-Ignored .superpowers ve dist altındaki 2.148 dosya ana klasörde korundu ve
+Ignored yerel-kanıt-alanı ve dist altındaki 2.148 dosya ana klasörde korundu ve
 SHA256 eşleşmesi doğrulandı. Managed arşiv, çalışma ağacının geri yüklenebilir
 snapshot'ını kaydetti; yalnız ana checkout aktif kaldı. Arşiv sonrası dört
 Python ortamının import ve CLI sürüm kontrolü PYTHONPATH override olmadan

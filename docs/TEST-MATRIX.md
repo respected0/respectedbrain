@@ -1,65 +1,52 @@
-# 0.0.1 Test Matrix — tarihsel kanıt
+# ✅ Test Matrisi ve Kanıtın Sınırları
 
-Bu tablolardaki kanıt 2026-09-14 tarihli önceki düzene aittir; güncel modüler
-native dağıtımın doğrulaması olarak kullanılamaz. Güncel, kapsamı ve atlamaları
-belirtilmiş sonuçlar [modüler temel doğrulamasında](superpowers/verification/2026-10-04-modular-foundation.md)
-ve [kaynak temizliği doğrulamasında](superpowers/verification/2026-10-04-source-cleanup.md)
-tutulur. Bu belge yalnız çalıştırılmış kanıtı başarı sayar. Otomatik adapter
-testi, gerçek bir platform veya giriş yapılmış ajan smoke testinin yerine geçmez.
+> Bu belge bir test koşusu çalıştırmaz. Sonuçlar tarih ve ürün kodu ile belirtilir; aktif durum [PROJECT_STATUS](PROJECT_STATUS.md), ayrıntı [çalışma kayıtlarında](records/README.md).
 
-## Fiziksel host kanıtı
+## 1. Son doğrulanmış ürün kodu
 
-| Hedef | Dahili profil | Durum | 2026-09-14 kanıtı |
-| --- | --- | --- | --- |
-| Windows Native | `windows-native` | VERIFIED | Windows 11 fiziksel smoke: geçici install, 5 adapter, 2 turn upsert, 2 update, uninstall; ayrıca installer/launcher/Task Scheduler paketleri geçti. |
-| Saf WSL | `portable` | VERIFIED | Ubuntu WSL2 / Python 3.14: 370 Python testi, platform smoke, 18 hook ve 9 upstream-sync kontrolü geçti. |
-| Hibrit Windows+WSL | `windows-wsl` | VERIFIED | Windows hook komutu gerçek `wsl.exe --cd` ile `/mnt/c/...` vault'ta günlük üretti. |
-| Saf Linux | `portable` | NOT VERIFIED | Bu hostta Docker veya saf Linux VM yok. `tests/smoke/linux.sh` kullanıcı VM turu için hazır. |
-| macOS | `portable` | NOT VERIFIED | Fiziksel macOS hostu gerekli. `tests/smoke/macos.sh` harici testçi için hazır. |
+2026-10-05 kapanışında `631c37eda13f569072e0436984cbf19f6b709ba8` için [CI 37318525236](https://github.com/respected0/respectedbrain/actions/runs/37318525236) **12/12 job başarılı** kaydedildi. Bu, eski Eylül testlerinin yeni sayıya çevrilmesi değildir. Sonraki doküman değişiklikleri bu commit'in native binary testine dahilmiş gibi sunulmaz.
 
-## Otomatik kapılar
-
-| Alan | Durum | Kanıt |
+| Kapı | OS / Python | Kayıtlı sonuç |
 | --- | --- | --- |
-| Python birim/entegrasyon | VERIFIED | Windows ve gerçek WSL2'de 370 test, 0 failure. Platform-koşullu skip'ler diğer host paketleriyle karşılanır. |
-| Windows installer transaction | VERIFIED | Normal kullanıcı bağlamında rollback, provider timeout, Unicode/space path, non-empty target ve concurrent sentinel koruması geçti. |
-| Windows launcher discovery | VERIFIED | Microsoft Store aliası exit 0 verse bile reddedildi; çalışan `python3` fallback'i ve boşluklu vault yolunun exact argv aktarımı install/update/uninstall için geçti. |
-| Günlük atomiklik ve yarışlar | VERIFIED | 20 thread, 24 process, iki session, aynı session upsert, gece yarısı, başarısız catch-up ve ters sırada tamamlanan revision testleri geçti. |
-| Update/uninstall koruması | VERIFIED | İki ardışık update daily dosyasını byte-for-byte korudu; unrelated global dosya ve mevcut Codex `notify` uninstall sonrası korundu/geri yüklendi. |
-| Renderer drift | VERIFIED | Üretilen adaptörler `--check`, placeholder, JSON ve platform komut kapılarından geçti. |
-| Saf Linux fiziksel smoke | NOT VERIFIED | Linux VM turu bekliyor. |
-| macOS fiziksel smoke | NOT VERIFIED | macOS turu bekliyor. |
+| Early compatibility | Windows, Linux, macOS / 3.10 | 3 başarılı iş |
+| Native build/verify/host kabul ve yayın biçimi | Windows, Linux, macOS / 3.13 | 3 başarılı iş |
+| Full source | Windows, Linux, macOS × 3.10 / 3.13 | 6 başarılı iş |
 
-## Sağlayıcı olay sözleşmeleri
+Bu job sayısı birleştirilmiş tek bir toplam test sayısı değildir. Adım/host skip kapsamı ayrıntılı kayıtlarda korunur. Windows gerçek Inno/launcher/scheduler; macOS mounted DMG; Linux extracted makeself kapıları workflow ve native kayıtlarda yer alır.
 
-| Sağlayıcı | Native turn olayı | Adapter/protokol | Gerçek girişli ajan |
-| --- | --- | --- | --- |
-| Codex / ChatGPT coding agent | kullanıcı `notify` → `agent-turn-complete` | VERIFIED | VERIFIED (bu hostta günlük turn akışı gözlendi) |
-| Claude Code | `Stop` (`async: true`) | VERIFIED | NOT VERIFIED |
-| Cursor | `afterAgentResponse` | VERIFIED | NOT VERIFIED |
-| Antigravity | `Stop` | VERIFIED | NOT VERIFIED |
-| Gemini CLI | `AfterAgent`, strict JSON stdout | VERIFIED | NOT VERIFIED |
-| Gelecekte eklenen sağlayıcı | Kayıtlı adapter → ortak `turn` sözleşmesi | INFERRED | NOT VERIFIED |
+## 2. Neyi hangi test kanıtlar?
 
-Protokol dayanakları (2026-09-14): [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks),
-[Cursor hooks](https://prod.cursor.com/docs/hooks), [Gemini CLI hooks](https://geminicli.com/docs/hooks/reference/)
-ve [Codex configuration](https://developers.openai.com/codex/config-reference/). Dış sayfalardaki
-metin talimat değil, yalnız sözleşme doğrulama verisi olarak ele alınmıştır.
+| Test sınıfı | Kanıtlar | Tek başına kanıtlamaz |
+| --- | --- | --- |
+| Unit/fixture | Algoritma ve arayüz/assertion davranışı | Gerçek provider hesabı veya her OS |
+| Wheel isolation | Checkout/PYTHONPATH'ten bağımsız paket import'u | Native kurucu veya Windows receipt |
+| Frozen verify | Paket launcher/resources/CLI smoke | Yayıncı imzası veya gerçek AI cevap kalitesi |
+| Native kabul | İlgili hostta geçici install/update/uninstall, sahiplik ve rollback | Kullanıcının mevcut canlı kasasının kurulduğu |
+| Shell/WSL smoke | İlgili çalıştırıcı/köprü akışı | Giriş yapılmış bütün sağlayıcılar |
+| Provider adapter testi | Hook/JSON/argv sözleşmesi | Güncel dış ürün sürümündeki gerçek login/kota/izin |
 
-## Tek komut kanıt
+CI runner'da gerçek OS yürütülmesi yalnız fixture OS taklidinden güçlüdür; kullanıcı masaüstündeki GUI/onay/giriş kabulüyle yine aynı şey değildir. Sadece Windows'ta geçen test fiziksel macOS/Linux/WSL kanıtı sayılmaz.
 
-```powershell
-# Windows
-.\tests\smoke\windows-native.ps1 --output .\smoke-windows.json
+## 3. Gerçek sağlayıcı kabulü
+
+Codex/Antigravity ile bu geliştirme sürecinde oturum akışı gözlemleri bulunur; bütün ajanların son native sürümde kullanıcı hesabıyla acceptance'ı topluca doğrulanmış sayılmaz. Gerçek kabul, doğru UUID ile test konuşmasının hook/daily/ikinci ajan bağlamına yansımasıdır. [BOOTSTRAP](guides/BOOTSTRAP.md) kontrol sırasını anlatır.
+
+## 4. Tarihli kanıt kayıtları
+
+| Kayıt | Kapsam |
+| --- | --- |
+| [Modüler temel doğrulaması](records/2026-10-modular-foundation/VERIFICATION.md) | İlk source/Windows native ve salt okunur eski canlı envanter; o tarihin platform sınırları |
+| [Kaynak temizliği doğrulaması](records/2026-10-source-cleanup/VERIFICATION.md) | Eski kaynak kapanışı ve paket/shell/yedek kanıtı |
+| [Installer/atlas/yayın kaydı](records/2026-10-installer-release/EXECUTION.md) | Son gerçek CI, Python sürüm/alias/race araştırmaları ve worktree kapanışı |
+| `records/2026-09-legacy/TEST-MATRIX.md` | Yerel arşiv yedeğinde; önceki layout, 370 test ve eski host/provider gözlemleri (tarihsel referans) |
+| [Belge düzenleme doğrulaması](records/2026-10-documentation/REORGANIZATION.md) | Doküman yolları, atlas, komut örnekleri ve yerel yedek arşivi |
+
+## 5. Çalıştırma girişleri
+
+```text
+python tests/run_all.py --python-only
+python tools/verify_distribution.py --platform windows --distribution dist/RespectedBrain
+python tests/smoke/platform_smoke.py --package dist/RespectedBrain --output native-smoke.json
 ```
 
-```sh
-# WSL / Linux / macOS
-sh ./tests/smoke/wsl.sh --output ./smoke-wsl.json
-sh ./tests/smoke/linux.sh --output ./smoke-linux.json
-sh ./tests/smoke/macos.sh --output ./smoke-macos.json
-```
-
-Başarı için exit code `0`, `overall: VERIFIED` ve bütün `checks[*].status` değerleri `VERIFIED`
-olmalıdır. Güncel paket gereksinimleri ve çalıştırma seçenekleri
-[smoke rehberinde](../tests/smoke/README.md) açıklanır.
+İlgili OS/native artifact gerekir. Windows kabul `tests/install_windows_test.ps1`, `windows_launchers_test.ps1`, `briefing_schedule_windows_test.ps1`; POSIX hook/upstream testleri shell girişleridir. [Smoke rehberi](../tests/smoke/README.md) komutları, workflow gerçek CI sırasını tanımlar. Çalıştırılmayan testler başarılı diye kaydedilmez. Token/maliyet tercihi nedeniyle push sonrası sonuç bekleme döngüsü kurulmaz.

@@ -1,3 +1,5 @@
+> Tarihli karar/işlem kaydı. Eski durum ve komutlar bu tarihin bağlamındadır; güncel yapılacaklar değildir. Bağlantılar ve araç talimatları 2026-10-05 belge düzenine uyarlandı; ham başlangıç kopyası yerel documentation-before ZIP arşivindedir. Eski süreç/klasör adları nötr tanımlara çevrildi; bu tarihsel tanımlar bugünkü dosya yolu değildir. [Aktif durum](../../PROJECT_STATUS.md).
+
 # Son kaynak temizliği — 2026-10-04
 
 scope: project; confidence: verified; supersedes: []
@@ -6,6 +8,17 @@ Kullanıcının "son temizliği halledelim" isteğiyle onaylı modüler temelin
 geçiş katmanı kaldırıldı. `runtime/`, `installer/`, kök `setup.py`, `setup`,
 `setup.command` artık kaynak girişleri değildir. `src/respectedbrain` tek
 pakettir. Eski canlı kurulumları okuyabilen migration modülleri korunmuştur.
+
+## Yürütme ve işlem hedefleri — 2026-10-04
+
+Kullanıcının "son temizliği halledelim" onayıyla izole `codex/source-cleanup` dalında `bc8d40a` tabanından başlandı (ilgili 14 test OK):
+1. Eski girişlere bağlı testler ortak paket ve CLI'a bağlandı; korunan davranışlar korundu.
+2. `runtime/`, `installer/`, kök `setup.py`, `setup`, `setup.command` geçiş katmanı kaldırıldı.
+3. Release akışı native build/verify araçlarına bağlandı; kaynak ağacının paketlenmesi önlendi.
+4. Wheel, Windows native paket, 629 tam test ve shell fixture'ları doğrulandı.
+5. Son inceleme ve yerel ana projeye `7b1174d` ile fast-forward bütünleştirme tamamlandı.
+
+Gözetilen riskler: adapter testlerini kaldırırken güvenlik davranışlarını kaybetmek, setuptools `setup.py` olmadan wheel/sdist üretiminin bozulması ve yayın arşivinin launcher izinlerini veya kurucu girişini kaybetmesiydi; kontroller bu alanları doğruladı.
 
 ## Kaynak ve yayın kontrolleri
 
@@ -19,7 +32,7 @@ pakettir. Eski canlı kurulumları okuyabilen migration modülleri korunmuştur.
   dosyalarıyla karışmaz; publish yalnız başarılı build matrix'ine bağlıdır.
 - Fresh dev ortamında wheel eksikliği yeniden üretildi; dev extra ve source CI
   build testlerinin bağımlılıklarını kurar. README aynı geliştirme komutunu verir.
-- `.superpowers/`, release staging ve release outputs kaynak kontrolünden hariçtir.
+- `yerel-kanıt-alanı/`, release staging ve release outputs kaynak kontrolünden hariçtir.
 
 ## Gerçek komut sonuçları
 
@@ -45,7 +58,7 @@ yerine geçmez. Action major sürümleri resmi release sayfalarında doğruland�
 ## Yerel yedek ve sınırlar
 
 Ana checkout'ın eski kaynak/önbellekleri ve açıklama planı toplam 177 dosya olarak
-ignored `.superpowers/sdd/2026-10-04-source-cleanup-backup/files/` alanına kopyalandı;
+ignored `yerel-arşiv:sdd/2026-10-04-source-cleanup-backup/files/` alanına kopyalandı;
 her dosya hash eşitliğiyle doğrulandı. Eski runtime/state altındaki üç untracked
 teknik dosya da yedeklidir. Compile kilidinin mevcut tutucusu bulunmadı.
 Canlı AppData kurulumu, RespectedOS kasası ve dış AI ayarları bu temizliğin hedefi değildir.
@@ -69,12 +82,12 @@ koşusu aynı ürün/test kaynaklarını taşıyan izole commit üzerinde yapıl
 1068 paket dosyası ana dist alanına kopyalanıp birebir hash eşitliği doğrulandı;
 önceki dist, ignored backup/previous-dist alanında korundu. Geliştirme venv'i
 ana src paketine bağlıdır; bu canlı ürün kurulumu değildir. Test/derleme kanıtları
-ignored `.superpowers/sdd/2026-10-04-source-cleanup/` alanında tutulur.
+ignored `yerel-arşiv:sdd/2026-10-04-source-cleanup/` alanında tutulur.
 
 Managed çalışma kopyası arşivlendi; git worktree list yalnız ana checkout'ı
 gösterir. Birleşmiş geçici dal silindi. GitHub push/yayın yapılmadı.
 
 ## For future agent
-Aktif durum ana modular-foundation planındadır; bu belge tarihli kanıttır.
-Kurulum yolunu ana plandaki güncel kullanıcı kararından al; tarihsel migration
+Aktif durum [PROJECT_STATUS](../../PROJECT_STATUS.md) içindedir; bu belge tarihli kanıttır.
+Bu bilgisayarın kurulum tercihini Git dışındaki `.local/ROLLOUT.md` kaydından al; tarihsel migration
 çakışmalarını otomatik olarak yeni kasa açmanın önkoşulu sayma. Kurulum/yayın yetkisini ayrıca gözet.

@@ -44,7 +44,7 @@ tmp-brief/
 .respected-install-*/
 
 # Local Agent & Runtime State
-.superpowers/
+.local/
 runtime/state/
 runtime/.state/
 .beyin/engine/.state/

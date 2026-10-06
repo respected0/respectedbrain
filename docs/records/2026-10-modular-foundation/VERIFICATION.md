@@ -1,9 +1,11 @@
+> Tarihli karar/işlem kaydı. Eski durum ve komutlar bu tarihin bağlamındadır; güncel yapılacaklar değildir. Bağlantılar ve araç talimatları 2026-10-05 belge düzenine uyarlandı; ham başlangıç kopyası yerel documentation-before ZIP arşivindedir. Eski süreç/klasör adları nötr tanımlara çevrildi; bu tarihsel tanımlar bugünkü dosya yolu değildir. [Aktif durum](../../PROJECT_STATUS.md).
+
 # Modüler temel doğrulaması — 2026-10-04
 
 scope: project; confidence: verified; supersedes: []
 
-Tasarımın tek kaynağı [onaylı sözleşme](../specs/2026-10-03-modular-foundation-design.md),
-görev durumu [uygulama planı](../plans/2026-10-03-modular-foundation.md).
+Tasarımın tek kaynağı [onaylı sözleşme](../../decisions/MODULAR_FOUNDATION.md),
+görev durumu [uygulama planı](IMPLEMENTATION.md).
 Bu dosya test kanıtı ve canlı envanter raporudur.
 
 ## Doğrulama
@@ -95,7 +97,7 @@ eklenmez; yalnız ignored çalışma kanıtı alanında tutulur.
 
 Gerçek kurulum/migration **uygulanmadı**. Eski uninstaller çalıştırılmadı, kasa taşınmadı.
 Bu önizlemenin eski veriyi aktaran yolu üç çatışmayı çözen plan gerektiriyordu.
-Kullanıcının güncel devreye alma tercihi [ana plandadır](../plans/2026-10-03-modular-foundation.md#kullanıcının-devreye-alma-kararı--2026-10-04);
+Kullanıcının güncel devreye alma tercihi [ana plandadır](IMPLEMENTATION.md#kullanıcının-devreye-alma-kararı--2026-10-04);
 bu tarihsel önizleme yeni kasa seçiminin önkoşulu olarak okunmamalıdır.
 
 ## Bilinen sınırlar
@@ -122,7 +124,7 @@ GitHub'a push ve gerçek ürün kurulumu yapılmadı.
 karşılaştırıldı: fark veya yeni dosya yoktu. Eski yapıyı yeniden canlandıracak bir
 stash pop uygulanmadı. 41 birebir byte yedeği SHA-256 ile tekrar doğrulandı;
 geri dönüş Git stash kaydı da korunuyor. Yedeklerin konumu Git'ten dışlanan
-`.superpowers/sdd/2026-10-04-local-integration/` alanıdır.
+`yerel-arşiv:sdd/2026-10-04-local-integration/` alanıdır.
 
 Worktree'nin ignored deney/test kanıtları ana projeye kopyalandı ve 1290 dosyanın
 hash eşitliği doğrulandı. Native dağıtım ana projenin `dist/` alanına kopyalanıp
@@ -149,7 +151,8 @@ doğrulandı; `git worktree list` yalnız ana projeyi gösterir. Kişisel not ka
 
 ## For future agent
 
-Önce ana planın güncel devreye alma kararını ve bu tarihsel kanıtı oku.
+Önce [aktif ürün durumunu](../../PROJECT_STATUS.md), bu bilgisayara özel
+Git dışındaki `.local/ROLLOUT.md` tercihini ve bu tarihsel kanıtı oku.
 Eski veri aktarımı seçilirse state çakışmalarını zorla aşma; dış Codex wrapper bağlantısını koru.
 Test paketini derlerken eşzamanlı native test çalıştırma. Test başarılarını gerçek
 kurulumun uygulanmış olmasıyla karıştırma; not kasasının mevcut konumu korunur.

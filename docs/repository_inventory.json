@@ -3,7 +3,7 @@
   "sections": [
     {
       "title": "Nasıl okunur ve nereden başlanır",
-      "body": "Bu atlas kaynak deposunun tek ayrıntılı dosya haritasıdır. Kullanıcı ürünü kuracaksa `README.md → docs/guides/SETUP.md → ilgili platform rehberi`; geliştirici davranışı anlayacaksa `docs/superpowers/specs/2026-10-03-modular-foundation-design.md → operations eki → aşağıdaki dosya kayıtları` rotasını izler. İlk kez kod okunuyorsa `pyproject.toml → src/respectedbrain/__main__.py → cli.py → bootstrap.py → core/context.py` akışı giriş sağlar.\n\nDosya ağaçta yoksa önce Git indeksini ve `.gitignore` kuralını kontrol edin. Bu atlas depo dışındaki kurulu uygulamayı veya kişinin gerçek vault içeriğini taramaz. Kaynak depoda canlı kişisel hafıza, kimlik bilgisi ve günlük bulunmamalıdır. Büyük tek atlas, kullanıcı açıkça bütün dosyaları tek belgede istediği için repository artifact olarak tutulur; vault note bölme kuralı kişisel bilgi note'larına uygulanır."
+      "body": "Bu atlas kaynak deposunun tek ayrıntılı dosya haritasıdır. Kullanıcı ürünü kuracaksa `README.md → docs/guides/SETUP.md → ilgili platform rehberi`; geliştirici davranışı anlayacaksa `docs/decisions/MODULAR_FOUNDATION.md → docs/decisions/OPERATIONS.md → aşağıdaki dosya kayıtları` rotasını izler. İlk kez kod okunuyorsa `pyproject.toml → src/respectedbrain/__main__.py → cli.py → bootstrap.py → core/context.py` akışı giriş sağlar.\n\nDosya ağaçta yoksa önce Git indeksini ve `.gitignore` kuralını kontrol edin. Bu atlas depo dışındaki kurulu uygulamayı veya kişinin gerçek vault içeriğini taramaz. Kaynak depoda canlı kişisel hafıza, kimlik bilgisi ve günlük bulunmamalıdır. Büyük tek atlas, kullanıcı açıkça bütün dosyaları tek belgede istediği için repository artifact olarak tutulur; vault note bölme kuralı kişisel bilgi note'larına uygulanır.\n\nBelge merkezi `docs/README.md`; aktif durum yalnız `docs/PROJECT_STATUS.md` içinde tutulur. Tarihli kararlar `docs/decisions`, uygulama/kanıt kayıtları `docs/records` altında korunur."
     },
     {
       "title": "Üç kök: kaynak, kurulu program ve kullanıcı hafızası",
@@ -15,26 +15,26 @@
     },
     {
       "title": "Önemli çalışma akışları",
-      "body": "1. **Komut:** module/console/frozen launcher → CLI → bootstrap → kayıtlı UUID AppContext → tek feature servisi. Hook ve MCP protokol stdout'ı bilgi mesajıyla kirletilmez.\n2. **Oturum:** provider hook → bridge/notify normalization → lifecycle context/count/turn → detached package flush → transcript extraction/model summary validation → locked daily upsert → immutable event → Companion projection. Teknik idempotency/state vault note'undan ayrıdır.\n3. **Derleme:** compile changed daily hashes → UUID cache isolated stage → allowlisted knowledge çıktıları → concurrent source/live revalidation → atomic promotion → ingest receipt/health. Modelin stage dışı write'ı veya aynı anda değişmiş note overwrite'i reddedilir.\n4. **Sabah:** UUID scheduler installed launcher'ı çalıştırır → run_if_due 08:00/gün/lock gate → validated briefing → yalnız Dashboard managed section. Provider scheduler'da sabitlenmez, config'ten okunur.\n5. **Kurulum/bakım:** payload manifest/hash doğrulama → sahiplik/kök ve external readonly plan → writer quiescence → durable WAL before-image → apply/checkpoint/health → commit manifest. Hata/crash recovery compare-and-swap rollback uygular; kullanıcı sonradan değiştirmişse korur.\n6. **Eski geçiş:** readonly LegacyInventory + hash'li MigrationPlan → açık apply ve source/target/external tekrar proof → owned app aktivasyonu ve kişisel override/state taşıma → kanıtlı cleanup. Unknown eski dosya kalır, eski uninstaller çalıştırılmaz.\n7. **Kod işçisi:** explicit code project ve owned dosya kapsamı → isolated worktree baseline → worker → acceptance/scope → patch evidence → açık apply/reject. Worker ana checkout'u veya note kasasını çalışma alanı yapmaz."
+      "body": "1. **Komut:** module/console/frozen launcher → CLI → bootstrap → kayıtlı UUID AppContext → tek feature servisi. Hook ve MCP protokol stdout'ı bilgi mesajıyla kirletilmez.\n2. **Oturum:** provider hook → bridge/notify normalization → lifecycle context/count/turn → detached package flush → transcript extraction/model summary validation → locked daily upsert → immutable event → Companion projection. Teknik idempotency/state vault note'undan ayrıdır.\n3. **Derleme:** compile changed daily hashes → UUID cache isolated stage → allowlisted knowledge çıktıları → concurrent source/live revalidation → atomic promotion → ingest receipt/health. Terfi sırasında izin dışı staging değişiklikleri ve eşzamanlı not değişiklikleri reddedilir; bu kontroller sağlayıcı sürecinin staging dışında yazmasını önleyen genel bir OS sandbox değildir.\n4. **Sabah:** UUID scheduler installed launcher'ı çalıştırır → run_if_due 08:00/gün/lock gate → validated briefing → yalnız Dashboard managed section. Provider scheduler'da sabitlenmez, config'ten okunur.\n5. **Kurulum/bakım:** payload manifest/hash doğrulama → sahiplik/kök ve external readonly plan → writer quiescence → durable WAL before-image → apply/checkpoint/health → commit manifest. Hata/crash recovery compare-and-swap rollback uygular; kullanıcı sonradan değiştirmişse korur.\n6. **Eski geçiş:** readonly LegacyInventory + hash'li MigrationPlan → açık apply ve source/target/external tekrar proof → owned app aktivasyonu ve kişisel override/state taşıma → kanıtlı cleanup. Unknown eski dosya kalır, eski uninstaller çalıştırılmaz.\n7. **Kod işçisi:** explicit code project ve owned dosya kapsamı → isolated worktree baseline → worker → acceptance/scope → patch evidence → açık apply/reject. Worker ana checkout'u veya note kasasını çalışma alanı yapmaz."
     },
     {
       "title": "Yerel ve ignore edilen artifact’ler",
-      "body": "Aşağıdaki kategoriler dosya bazında atlas kapsamı dışındadır. Bunlar kaynak sayfası değildir; her checkout'ta bulunmaları gerekmez. `.gitignore` ve üretim komutları kategorinin yetkili tanımıdır. Üçüncü taraf runtime/venv içindeki binlerce dosyayı proje implementasyonu gibi belgelemek amaç değildir.\n\n| Yerel konum/tür | Kaynak mı? | Nereden gelir / nasıl düşünülür? |\n| --- | --- | --- |\n| `.git/` veya worktree `.git` pointer | Hayır | Commit/index/ref/object metadata; elle silinmez. Index staged deletion envanter kapsamını belirler. |\n| `.venv/`, `venv/`, `env/` | Hayır | pip/development Python ortamı; üçüncü taraf interpreter/site-packages. Yeni checkout'ta yeniden oluşturulur. |\n| `__pycache__/`, pyc, unittest/pytest/coverage/typecheck caches | Hayır | Import/test/tool hızlandırma ve raporları; kaynakla karıştırılmaz. |\n| `build/` | Hayır | PyInstaller/setuptools ara tree, spec/work/intermediate dosyaları; tools/build_installer oluşturur. |\n| `dist/` | Hayır | Native RespectedBrain veya .app tree, distribution.json hashes, installer/archive/wheel çıktıları. Kaynak değişince yeniden üretip verify edin. |\n| `release-assets/`, `release-stage/`, kök setup.exe | Hayır | Yayın üretimi/staging çıktıları; ordinary source commit'e eklenmez. |\n| `*.egg-info/` | Hayır | Editable install metadata; paket version/console script çözümü içindir, generated'dır. |\n| `.superpowers/sdd/<plan>/` | Hayır | Bu planın ledger/brief/profil/timing/review scratch alanı. Sibling plan kayıtlarına dokunulmaz. |\n| tmp, logs, *.tmp/*.log, *.bak/*.orig/*.yedek | Hayır | Yerel geçici tanı/rollback/backup; yedeği doğrulamadan silme gerekçesi değildir. |\n| `.env`, keys/certs, token/auth/local-settings JSON | Hayır | Secret ve kişisel auth; atlas bunların içeriğini okumaz/yayımlamaz. |\n| state/cache/DB/sqlite ve eski .beyin teknik çıktıları | Hayır | Kurulu ürünün teknik durumu normalde DataRoot'tadır; legacy örnekler yalnız migration/test uyumluluğudur. |\n| `.obsidian/workspace*`, editor local settings, OS garbage | Hayır | Cihaz/oturum arayüz durumu; package seed CSS ile ayrı tutulur. |\n\nKaynağa yeni eklenen ignore edilmeyen proje dosyası otomatik keşfedilir. Ignore edilen yeni bir artifact kategorisi mimari olarak anlamlı hale gelirse bu tabloyu JSON section'ında aynı görev içinde güncelleyin. İstenmeyen ignore dosyası Git'e force-add edilirse bilinen dependency/build ağaçları yine kapsam dışıdır; kaynak dosyaları yanlış bir kategoriye saklamayın."
+      "body": "Aşağıdaki kategoriler dosya bazında atlas kapsamı dışındadır. Bunlar kaynak sayfası değildir; her checkout'ta bulunmaları gerekmez. `.gitignore` ve üretim komutları kategorinin yetkili tanımıdır. Üçüncü taraf runtime/venv içindeki binlerce dosyayı proje implementasyonu gibi belgelemek amaç değildir.\n\n| Yerel konum/tür | Kaynak mı? | Nereden gelir / nasıl düşünülür? |\n| --- | --- | --- |\n| `.git/` veya worktree `.git` pointer | Hayır | Commit/index/ref/object metadata; elle silinmez. Index staged deletion envanter kapsamını belirler. |\n| `.venv/`, `venv/`, `env/` | Hayır | pip/development Python ortamı; üçüncü taraf interpreter/site-packages. Yeni checkout'ta yeniden oluşturulur. |\n| `__pycache__/`, pyc, unittest/pytest/coverage/typecheck caches | Hayır | Import/test/tool hızlandırma ve raporları; kaynakla karıştırılmaz. |\n| `build/` | Hayır | PyInstaller/setuptools ara tree, spec/work/intermediate dosyaları; tools/build_installer oluşturur. |\n| `dist/` | Hayır | Native RespectedBrain veya .app tree, distribution.json hashes, installer/archive/wheel çıktıları. Kaynak değişince yeniden üretip verify edin. |\n| `release-assets/`, `release-stage/`, kök setup.exe | Hayır | Yayın üretimi/staging çıktıları; ordinary source commit'e eklenmez. |\n| `*.egg-info/` | Hayır | Editable install metadata; paket version/console script çözümü içindir, generated'dır. |\n| `.local/archives/` | Hayır | Hash doğrulamalı yerel test/log/yedek ZIP ve manifestleri; tarihsel sanal ortamlar aktif kurulum değildir. |\n| tmp, logs, *.tmp/*.log, *.bak/*.orig/*.yedek | Hayır | Yerel geçici tanı/rollback/backup; yedeği doğrulamadan silme gerekçesi değildir. |\n| `.env`, keys/certs, token/auth/local-settings JSON | Hayır | Secret ve kişisel auth; atlas bunların içeriğini okumaz/yayımlamaz. |\n| state/cache/DB/sqlite ve eski .beyin teknik çıktıları | Hayır | Kurulu ürünün teknik durumu normalde DataRoot'tadır; legacy örnekler yalnız migration/test uyumluluğudur. |\n| `.obsidian/workspace*`, editor local settings, OS garbage | Hayır | Cihaz/oturum arayüz durumu; package seed CSS ile ayrı tutulur. |\n\nKaynağa yeni eklenen ignore edilmeyen proje dosyası otomatik keşfedilir. Ignore edilen yeni bir artifact kategorisi mimari olarak anlamlı hale gelirse bu tabloyu JSON section'ında aynı görev içinde güncelleyin. İstenmeyen ignore dosyası Git'e force-add edilirse bilinen dependency/build ağaçları yine kapsam dışıdır; kaynak dosyaları yanlış bir kategoriye saklamayın."
     },
     {
       "title": "Değişiklik için gezinme rehberi",
-      "body": "| Yapılacak iş / sorun | İlk dosyalar | Kanıt ve etkilediği sınır |\n| --- | --- | --- |\n| CLI/GUI seçimi kayboluyor | cli.py, installation/wizard.py, setup.py | wizard_options_test, wizard_test; explicit false/package/profile |\n| Kasa/ayar yolu veya UUID yanlış | bootstrap.py, core/paths.py, core/config.py, vault/registry.py | foundation_paths/vault_registry; üç kök/identity |\n| Flush/summary kaybı veya tekrar | memory/flush.py, lifecycle.py, events.py | turn_log_pipeline/output_normalization/event_log; durable daily/projection |\n| Compiler yanlış note yazıyor | memory/compile.py | foundation_memory/adversarial/knowledge_domain; allowlist/concurrent edits |\n| Model/fallback/WSL | providers/runner.py, core/platform.py | adversarial/runtime_platform/multiai; auth/output sınırlaması |\n| Hook/global/MCP/editor bağlantısı | integrations/rendering.py, global_config.py, hooks/, mcp/ | foundation_integrations/profile_render/mcp_registration; kullanıcı ayar koruması |\n| Brifing/scheduler | briefing/service.py, scheduling/service.py, backend.py | morning_briefing/briefing_schedule; günde tek çıktı/native task |\n| Setup/update/migration/uninstall | installation/{setup,update,migration,ownership,transaction,windows}.py | foundation_*; hash/mode/WAL/recovery/user-note koruması |\n| Arama/graph/recall | search/engine.py, memory/graph/, bounded_recall.py | graph_and_session/smart_tools/mcp_and_features; index/cache/prompt bütçesi |\n| Web görünümü/yerel API | gateway/server.py, resources/gateway/web/index.html | foundation_services/maintenance_orchestration; explicit UUID/context |\n| Yeni seed/talimat/skill | resources/, core/resources.py, pyproject.toml package-data | package_contract/foundation_packaged_commands; immutable seed/override ayrımı |\n| Native package veya yayın | packaging/, tools/build_installer.py, verify_distribution.py, workflows | distribution/native_install/smoke; platform üzerinde gerçek binary kanıtı |\n| Depo büyüdü veya file moved | repository_inventory.json, tools/repository_map.py | repository_map_test ve --check; güncel tek dosya atlası |\n\nTestlerin ayrıntılı açıklaması aşağıdaki her dosya kaydında bulunur. Python discovery için `python -m unittest discover -s tests -p '*test*.py'`; bütün native/shell/host kapıları için önce package build/verify sonra `python tests/run_all.py` kullanılır. Mevcut Windows çalıştırması diğer platformları doğrulamaz. Tarihli verification/audit belgelerini bugünkü canlı kurulum durumu olarak kopyalamayın."
+      "body": "| Yapılacak iş / sorun | İlk dosyalar | Kanıt ve etkilediği sınır |\n| --- | --- | --- |\n| CLI/GUI seçimi kayboluyor | src/respectedbrain/cli.py, src/respectedbrain/installation/wizard.py, src/respectedbrain/installation/setup.py | wizard_options_test, wizard_test; explicit false/package/profile |\n| Kasa/ayar yolu veya UUID yanlış | bootstrap.py, core/paths.py, core/config.py, vault/registry.py | foundation_paths/vault_registry; üç kök/identity |\n| Flush/summary kaybı veya tekrar | memory/flush.py, lifecycle.py, events.py | turn_log_pipeline/output_normalization/event_log; durable daily/projection |\n| Compiler yanlış note yazıyor | memory/compile.py | foundation_memory/adversarial/knowledge_domain; allowlist/concurrent edits |\n| Model/fallback/WSL | providers/runner.py, core/platform.py | adversarial/runtime_platform/multiai; auth/output sınırlaması |\n| Hook/global/MCP/editor bağlantısı | integrations/rendering.py, global_config.py, hooks/, mcp/ | foundation_integrations/profile_render/mcp_registration; kullanıcı ayar koruması |\n| Brifing/scheduler | briefing/service.py, scheduling/service.py, backend.py | morning_briefing/briefing_schedule; günde tek çıktı/native task |\n| Setup/update/migration/uninstall | installation/{setup,update,migration,ownership,transaction,windows}.py | foundation_*; hash/mode/WAL/recovery/user-note koruması |\n| Arama/graph/recall | search/engine.py, memory/graph/, bounded_recall.py | graph_and_session/smart_tools/mcp_and_features; index/cache/prompt bütçesi |\n| Web görünümü/yerel API | gateway/server.py, resources/gateway/web/index.html | foundation_services/maintenance_orchestration; explicit UUID/context |\n| Yeni seed/talimat/skill | resources/, core/resources.py, pyproject.toml package-data | package_contract/foundation_packaged_commands; immutable seed/override ayrımı |\n| Native package veya yayın | packaging/, tools/build_installer.py, verify_distribution.py, workflows | distribution/native_install/smoke; platform üzerinde gerçek binary kanıtı |\n| Depo büyüdü veya file moved | repository_inventory.json, tools/repository_map.py | repository_map_test ve --check; güncel tek dosya atlası |\n\nTestlerin ayrıntılı açıklaması aşağıdaki her dosya kaydında bulunur. Python discovery için `python -m unittest discover -s tests -p '*test*.py'`; bütün native/shell/host kapıları için önce package build/verify sonra `python tests/run_all.py` kullanılır. Mevcut Windows çalıştırması diğer platformları doğrulamaz. Tarihli verification/audit belgelerini bugünkü canlı kurulum durumu olarak kopyalamayın."
     }
   ],
   "files": [
     {
       "path": ".gitattributes",
       "role": "Depo sözleşmesi",
-      "purpose": "Metin dosyalarının satır sonlarını türlerine göre LF/CRLF olarak sabitler, ikili dosyalara metin dönüşümünü kapatır ve dağıtım export sınırlarını tanımlar.",
+      "purpose": "Metin dosyalarının satır sonlarını türlerine göre LF/CRLF olarak sabitler, ikili dosyalara metin dönüşümünü kapatır ve dağıtım export sınırlarını tanımlar. Tarihli records metinlerindeki korunmuş whitespace için istisna tanımlar.",
       "relationships": [
         "Shell shebang'leri, Windows PowerShell ve tarihsel belge bütünlüğünü Git checkout/commit sırasında korur."
       ],
-      "review_sha256": "96ab5bdb90ef9cffe647bffe040e2a0ca6bf828c1ce2116dd601d2a29f2d929c"
+      "review_sha256": "42114a8b52dd63bc77194d4ad1116d7b31f7b4dbb8990393c982e74aaba9863b"
     },
     {
       "path": ".github/workflows/ci.yml",
@@ -59,11 +59,11 @@
     {
       "path": ".gitignore",
       "role": "Depo sözleşmesi",
-      "purpose": "Kimlik bilgileri, kişisel ayarlar, teknik state, veritabanı, sanal ortam ve build çıktılarının Git'e girmesini engeller; paketlenmiş başlangıç kaynaklarını dışlamaz.",
+      "purpose": "Kimlik bilgileri, kişisel ayarlar, teknik state, veritabanı, sanal ortam ve build çıktılarının Git'e girmesini engeller; paketlenmiş başlangıç kaynaklarını dışlamaz. Yerel geliştirici kanıtı .local/ altında dışlanır.",
       "relationships": [
         "Git keşif aracı --exclude-standard ile bu kuralları kullanır; vault-template/.gitignore yeni kullanıcı kasası için ayrı kurallardır."
       ],
-      "review_sha256": "17387dc391594f80e4672c583553c30b02db8c32e53eae66204e1d2c88002f67"
+      "review_sha256": "ed55bb6957a3ee1da09f89c6a10f08781b80852aa76378d3defe77bd620ac621"
     },
     {
       "path": ".vscode/extensions.json",
@@ -86,11 +86,11 @@
     {
       "path": "AGENTS.md",
       "role": "AGENT RULE / DOCUMENTATION",
-      "purpose": "Gelecek geliştirici ve AI oturumlarında her dosya ekleme/silme/sorumluluk değişikliğinde atlasın aynı görevde okunup güncellenmesini, inceleme hashlerini ve CI doğrulamasını zorunlu kılar. Push sonrası CI beklemesini kullanıcı çağrısıyla sınırlar.",
+      "purpose": "Atlasın her dosya değişikliğinde anlamsal incelemeyle güncellenmesini zorunlu kılar; onaylı mimari, aktif ürün durumu ve yerel rollout otoritelerini ayırır; canlı veri sınırı ve kullanıcı CI/ajan tercihlerini tutar.",
       "relationships": [
-        "Ana mimari planı aktif proje gerçeğine yönlendirir; tools/repository_map.py ve docs/repository_inventory.json üretim/inceleme sözleşmesini uygular."
+        "docs/decisions onaylı mimari, docs/PROJECT_STATUS.md aktif ürün durumu, Git dışındaki .local/ROLLOUT.md kişisel tercihtir; tools/repository_map.py atlas bakımını yönetir."
       ],
-      "review_sha256": "0da8ff87b67195736fc3ca004818c5158b4885b2b91da21bd5640c0ecb8e8610"
+      "review_sha256": "0a24edf464942f5b7c85b0ed92c7612d5c98722c25159323d276e2873dd56e84"
     },
     {
       "path": "LICENSE",
@@ -103,30 +103,39 @@
     },
     {
       "path": "README.md",
-      "role": "Depo sözleşmesi",
-      "purpose": "Ürünün amacını, üç ayrı kurulum konumunu, native kurulum/build komutlarını ve temel veri koruma davranışlarını açıklayan ilk giriş sayfasıdır.",
+      "role": "Güncel belge / rehber",
+      "purpose": "Ürün girişini eski anlatım tarzıyla yeniden kurar; ortak hafıza sınırı, üç kök, runtime/template, maliyet, arama, platform kanıtı, komutlar, rehber rotası ve özgün atfı açıklar.",
       "relationships": [
-        "Güncel guides ve yetkili modular-foundation sözleşmelerine yönlendirir; bu atlas ayrıntılı dosya rehberidir."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "9aa741cf7c59b92c4519650e751c08d348084c4ecad25fb428642f2c4de0e6e0"
+      "review_sha256": "85640d1dac9cb437b262fe5028d94bdbe95a403674b1003e1edc140bac35fa0f"
     },
     {
       "path": "docs/ARCHITECTURE.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Modüler temel ve işletim ekini yetkili mimari kaynak olarak işaretler; src katmanlarının ve üç kökün kısa girişini verir.",
+      "role": "Güncel belge / rehber",
+      "purpose": "Üç platformun AppRoot/DataRoot/VaultRoot konumlarını, modül/veri akışını, template/override ayrımını açıklar; compile tarih filtresi ile filtresiz briefing ve hata sonrası dosya varlığı sınırlarını belirtir.",
       "relationships": [
-        "Ayrıntılı davranış specs belgelerinde, dosya rolleri REPOSITORY_MAP.md içinde; eski ARCHITECTURE tarihsel arşivdedir."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "9db1cfd680e58eb83681651ed7470cac69f6b1af69c015e9144dbb9f066c6008"
+      "review_sha256": "fe6992b758b135221a8cf568885f2947daf8c6614fba97121f139c4574607995"
     },
     {
-      "path": "docs/REPOSITORY_AUDIT.md",
-      "role": "Depo sözleşmesi",
-      "purpose": "Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder. Dev backend RED/GREEN kanıtını ve global editable kurulum bulgusunu tarihlendirir. Son 12 başarılı platform kapısı ile birleşmiş ana checkout doğrulamasını tarihlendirir. Kullanıcı onaylı editable bağlantı düzeltmesi ve geri yüklenebilir çalışma ağacı arşivinin kanıtını kaydeder.",
+      "path": "docs/PROJECT_STATUS.md",
+      "role": "Güncel belge / rehber",
+      "purpose": "Tek aktif ürün durumu otoritesidir; tarihli main/CI/yayın kapsamını ve açık işleri tutar, kişisel rollout tercihini kopyalamadan Git dışındaki .local/ROLLOUT.md kaydına ve çalışma disiplinini AGENTS.md dosyasına yönlendirir.",
       "relationships": [
-        "Atlas yapıyı anlatır; audit yürütülmüş incelemenin kanıtıdır; tarihi ve bağlamı dışında canlı platform garantisi vermez."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "48011888521613d6aa080897d975fa7542c4d37b4ba49de0f39320abc8bdd0b8"
+      "review_sha256": "844a9cdb70fd6008c33233bc5ee8763dcfa2107511773db2071dc2ef2af52784"
+    },
+    {
+      "path": "docs/README.md",
+      "role": "Güncel belge / rehber",
+      "purpose": "Belge gruplarının okuma rotasını ve bakım standardını verir; güncel ürün durumu, onaylı mimari, yerel kişisel rollout, tarihli kanıt ve otomatik atlasın ayrı sorumluluklarını açıklar.",
+      "relationships": [
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
+      ],
+      "review_sha256": "6eaa8a6b383b9e6da4296c16321974033f698ca1fac09181e299f2367040d397"
     },
     {
       "path": "docs/REPOSITORY_MAP.md",
@@ -139,201 +148,237 @@
     },
     {
       "path": "docs/SECURITY.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Güncel provider argv izin farklarını, isolated staging ile OS sandbox ayrımını, SSRF DNS rebinding sınırını, snapshot secret guard kapsamını ve package hash ile publisher signature ayrımını kaynak/test referanslarıyla açıklar.",
+      "role": "Güncel belge / rehber",
+      "purpose": "Provider argv izinlerini OS sandbox ile karıştırmadan, staging terfi kontrolleri, SSRF transport, sahiplik, snapshot secret, gateway CORS/auth ve fallback sınırlarını kaynaklara göre açıklar.",
       "relationships": [
-        "zero_trust/adversarial/boundary testleri uygulanabilir kanıt üretir; yalnız politika metni PASS sayılmaz."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "23ba51d78c3a49f994c2d61a7e608155b83d4d2886c6a088654ee2cea7d5fe44"
+      "review_sha256": "49c685e6f0255af6fa3c1269f132d60bbbfe57fd1802e8c4d2d382fcfa6c4de5"
     },
     {
       "path": "docs/SPECIFICATION.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Schema3 UUID, tek paket sürümü ve ownership/operations yetkili sözleşmelerine yönlendiren davranış giriş sayfasıdır.",
+      "role": "Güncel belge / rehber",
+      "purpose": "Mevcut schema3 UUID/config, kasa seçimi, kurulum yaşam döngüsü, işlem korumaları, protokol/hafıza ve test kanıtı sözleşmelerini açıklar; kabul edilen karar kayıtlarına bağlanır.",
       "relationships": [
-        "pyproject ve runtime __version__ birlikte doğrulanır; güncel gerçek specs/operations'tadır."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "b66ec348b127c65c3dbf998330b6d409af6ee77baacab4681fcb40462e97eaec"
+      "review_sha256": "ac282c57ab0dd1120971636ec634e7157d29e918f8e3e8d3c3c5fcf90f091696"
     },
     {
       "path": "docs/TEST-MATRIX.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Platform/provider otomatik kapılarını tarihli fiziksel host kanıtından ayırır; eski Eylül sonuçlarını tarihsel damgalar, güncel modular verification ve gerçek smoke girişlerine yönlendirir.",
+      "role": "Güncel belge / rehber",
+      "purpose": "Son ürün commitinin 12 CI işini tarihlendirir; unit/wheel/frozen/native/WSL ve gerçek provider kanıtını ayırır, tarihli kayıtları ve gerçek smoke komutlarını indeksler.",
       "relationships": [
-        "Tarihli durum kaydıdır; yeni CI veya yeni host çalıştırması doğrulanmadıkça eski kanıt bugünkü platform sonucu değildir."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "8eba30bff4ba6563c93c99590cfc7d1b175cdbbb19449fbe7463a8b76e8b4054"
+      "review_sha256": "8c93243fd5ffdd7baf1150960b79c60e2eeb79f7844ea2c41836d1bafcbcc72a"
+    },
+    {
+      "path": "docs/decisions/MODULAR_FOUNDATION.md",
+      "role": "Tarihli karar kaydı",
+      "purpose": "Yetkili modüler tasarım sözleşmesi: AppRoot/DataRoot/VaultRoot, sahiplik, src modülleri, UUID/config ve dependency sırasını tanımlar. Bağlantıları 2026-10-05 düzenine uyarlanmıştır; bugünün yapılacaklar listesi değildir.",
+      "relationships": [
+        "Aktif durum docs/PROJECT_STATUS.md; karar ve kayıt indeksleri bu dosyanın tarihsel bağlamına yönlendirir."
+      ],
+      "review_sha256": "e4693e7ccf448de6070a0fddebe844ee4288a2001f4fb7648167177e7a4e8a68"
+    },
+    {
+      "path": "docs/decisions/OPERATIONS.md",
+      "role": "Tarihli karar kaydı",
+      "purpose": "Tek CLI/entegrasyon, template/kişisel override, setup/update/repair/uninstall ve eski kurulum migration güvenlik/kabul davranışını tanımlar. Bağlantıları 2026-10-05 düzenine uyarlanmıştır; bugünün yapılacaklar listesi değildir.",
+      "relationships": [
+        "Aktif durum docs/PROJECT_STATUS.md; karar ve kayıt indeksleri bu dosyanın tarihsel bağlamına yönlendirir."
+      ],
+      "review_sha256": "5b2bbd117ddd762da28703872b947909ae99e7309d8a29061be0b635b89f86a8"
+    },
+    {
+      "path": "docs/decisions/README.md",
+      "role": "Güncel belge / rehber",
+      "purpose": "İki kabul edilmiş modüler tasarım/işletim kararını indeksler; tasarım kabulünün otomatik uygulama/test kanıtı olmadığını belirtir.",
+      "relationships": [
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
+      ],
+      "review_sha256": "5f30cf31f572300c2461e41866be0ee6c77a0c8b82afaac0b20727b233bc7644"
+    },
+    {
+      "path": "docs/development/CLI.md",
+      "role": "Güncel belge / rehber",
+      "purpose": "Mevcut argparse tanımlarından 18 public komut ve vault alt komutlarının seçenek/varsayılan kataloğunu verir; dokuz bakım aracı, yan etkiler, çıkış kodları ve iç OS protokollerini ayırır.",
+      "relationships": [
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
+      ],
+      "review_sha256": "3c52e261788b2ce745c69bd62433f2ff7b06fdc6a5050015e064422e73262ec4"
+    },
+    {
+      "path": "docs/development/README.md",
+      "role": "Güncel belge / rehber",
+      "purpose": "Windows ve POSIX için venv/editable geliştirme ve venv çalıştırıcılı build/test/atlas komutlarını, kod okuma sırasını, native doğrulama kapsamını ve yayın/canlı veri sınırlarını açıklar.",
+      "relationships": [
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
+      ],
+      "review_sha256": "38cd61cfb2da90d07d438d3ee1031b551c50e543626756409c85b8b194ff1249"
+    },
+    {
+      "path": "docs/guides/BACKUP.md",
+      "role": "Güncel belge / rehber",
+      "purpose": "Kasa/teknik veri/transaction/geliştirici yedeğini ayırır; bağımsız ZIP restore kontrolü, Restic preview/apply ve doğrulama sınırı ile Git snapshot yayın/secret sınırını gösterir.",
+      "relationships": [
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
+      ],
+      "review_sha256": "2340d8f375605b151e07f7d970d3de892ea2432d91f776df153afbe4715386d1"
     },
     {
       "path": "docs/guides/BOOTSTRAP.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Native kurulum sonrası UUID listeleme, maps ve Companion kişisel Core/Kurallar başlangıç adımlarını anlatır.",
+      "role": "Güncel belge / rehber",
+      "purpose": "Kurulum sonrası doğru UUID ve maps kontrolü, Companion kişiselleştirmesi, CLI oturumu/hook güveni ve gerçek konuşma kabulü adımlarını açıklar.",
       "relationships": [
-        "SETUP rehberi ve packaged vault-template genesis notlarıyla bağlanır; kurulu launcher ile kaynak checkout ayrımını korur."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "547d7637c8cc8b55239d9cdca10763909c0e41cf14e5b8a76d656414f856efbe"
+      "review_sha256": "b2678800e6774e7414ba6e28cb8a22453bccae251bce203f2dab321077d828c5"
+    },
+    {
+      "path": "docs/guides/CONFIGURATION.md",
+      "role": "Güncel belge / rehber",
+      "purpose": "Config/manifest/marker/state/cache/override rollerini, yazan ve okuyan komutları, kasa seçim sırasını, gerçek environment değişkenlerini ve mevcut CLI tercih sınırını açıklar.",
+      "relationships": [
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
+      ],
+      "review_sha256": "9d26c2d52256cc065f048d9dbc0bff9e73e869b856a3eeb87fb0c0cfa7b0e552"
+    },
+    {
+      "path": "docs/guides/DAILY_USE.md",
+      "role": "Güncel belge / rehber",
+      "purpose": "Kasa alanlarını, FTS/maps, compile tarih filtresini, teknik I/O yapabilen dry-run ve filtresiz briefing davranışını açıklar; hata sonrası yazılmış brifingin tekrar denemeyi atlatmasını ve panel/bakım/kod işçisi komutlarını belirtir.",
+      "relationships": [
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
+      ],
+      "review_sha256": "008dc33656aedac849aba1a389cc795a352e8aea5a90acadc68b2c46aaeea98f"
     },
     {
       "path": "docs/guides/MULTI_AI.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Beş ajan için tek talimat/skill kaynağı, UUID overrides, optional global/MCP/schedule/shortcut bayrakları ve repair davranışını açıklar.",
+      "role": "Güncel belge / rehber",
+      "purpose": "Beş sağlayıcının kaynak adaptörlerini, tek instruction/skill ve overrides düzenini, dört bağlantıyı, genel auto ile açık tercih fallback farklarını, WSL profili ve yedi MCP aracını açıklar.",
       "relationships": [
-        "integrations.rendering/backend bu seçenekleri uygular; talimat kaynağı resources/instructions/default.md'dir."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "0d4649e8156353f059e90c08dbd5c44931db7ae1f3f457c97219634c71d2c1aa"
+      "review_sha256": "2b4ab564ffd7059eaabca702898b844e60171f52ab863ff9a9a24eeb62655ba7"
+    },
+    {
+      "path": "docs/guides/SETUP-POSIX.md",
+      "role": "Güncel belge / rehber",
+      "purpose": "macOS/Linux native köklerini, mevcut setup.command/setup.sh ve .run kabuklarını, aktarılan CLI seçeneklerini, POSIX bağlantı/izin sınırlarını ve ilk kontrol/kanıt kapsamını açıklar.",
+      "relationships": [
+        "packaging/macos/setup.command ve packaging/linux/setup.sh ortak CLI setup hizmetine bağlanır; guides/SETUP.md ve MULTI_AI.md profil/ortam ayrımını açıklar."
+      ],
+      "review_sha256": "a7ab4aa323208350f570bf0a6494d8d72038337ca683fe83a99854619d73d861"
     },
     {
       "path": "docs/guides/SETUP-WINDOWS.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Windows native Inno program/vault seçimlerini, ayrı LocalAppData köklerini ve shared service/health/shell uninstall sınırını anlatır.",
+      "role": "Güncel belge / rehber",
+      "purpose": "Inno dizin penceresi ile Python GUI seçeneklerini ayırır; program/veri/kasa yerleşimi, gerçek /VAULT /DATA silent parametreleri ve tx_id üzerinden pending makbuz kontrolünü açıklar.",
       "relationships": [
-        "respected_setup.iss kullanıcı kabuğu; installation/windows ve setup ortak sahiplik davranışıdır."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "0abc49aa12eb513d7f534695ec7b01ca9e5e6dbb182ca3e78747ca52e12ded69"
+      "review_sha256": "fae5a35ccb25a9735eefe2dfc5a31db5b3c5b8b526295dbbd79f608657653e34"
     },
     {
       "path": "docs/guides/SETUP.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Her platform için native paket gereksinimini, kaynak geliştirme Python sınırını ve explicit setup/GUI seçeneklerini açıklar.",
+      "role": "Güncel belge / rehber",
+      "purpose": "Native dağıtım ile kaynak geliştirmeyi ayırır; boş/kayıtlı kasa, dört BooleanOptional kurulum seçeneği, platform kökleri ve ilk kontrol akışını gösterir.",
       "relationships": [
-        "README kök ayrımı, Windows eki ve package build komutlarına yönlendirir; end user sistem Python'u kurmak zorunda değildir."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "30cd65b6151271c41ebec9e21186dac1028654e81563dbd324f931c65a3c61c7"
+      "review_sha256": "f64ed8f4e8a85e86ef2384e093b1a85b9bcd3cc4f37fa5c0d3633244d78e7eb9"
+    },
+    {
+      "path": "docs/guides/TROUBLESHOOTING.md",
+      "role": "Güncel belge / rehber",
+      "purpose": "Kök/UUID/executable kontrolü, belirtiye göre hook/model/panel/recovery tanısı, mevcut bakım araçları ve kişisel bilgiden arındırılmış hata raporu alanlarını gösterir.",
+      "relationships": [
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
+      ],
+      "review_sha256": "c3144202ac47d52e37126d264e534ddfb4b5702ae58a8aa8a9baa0893b67efd9"
     },
     {
       "path": "docs/guides/UNINSTALL.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Owned unchanged dosya/link kaldırılması, changed-file conflict, varsayılan DataRoot koruma ve yalnız explicit purge-data sınırını açıklar.",
+      "role": "Güncel belge / rehber",
+      "purpose": "Sahipli unchanged program/external kayıt kaldırılması, değişmiş dosya conflict ve korunacak notlar/teknik veri ayrımını; explicit purge-data ve Windows pending sınırını açıklar.",
       "relationships": [
-        "installation.uninstall ortak davranışı uygular; vault note'ları hiçbir uninstall/purge hedefi değildir."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "06e95701d25812344c6f6475b17e133ee1b3418e320c6ab827d66db5f8fdc4f2"
+      "review_sha256": "fc42480eef8e1e802b43a5957b5ea0c71ba3577014c79947fba61ff985faa6e4"
     },
     {
       "path": "docs/guides/UPDATE.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Verified-package update, pending receipt ve eski düzen için salt okunur migrate preview/explicit apply akışını gösterir.",
+      "role": "Güncel belge / rehber",
+      "purpose": "Verified native update, OperationResult ve pending makbuzu, repair/recovery, salt okunur migration ve açık apply akışlarını açıklar; yeni boş kasa seçimiyle genel kurulum sınırını ve yerel kişisel rollout kaydını ayırır.",
       "relationships": [
-        "installation.update/deferred/migration hash ve recovery sözleşmesini uygular; eski uninstaller çalıştırılmaz."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "389611d365c8b94c2eac4714788405a97c6d435e016d1f54ecfc4045e85d3f59"
+      "review_sha256": "dac268d7600b14746d0a2999af8f707eb3500aa755f6255693c1addabec56477"
     },
     {
-      "path": "docs/history/2026-10-03/ARCHITECTURE.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "Eski engine/template kaynak düzeninin katmanlarını, hafıza lifecycle/fallback/platform tasarımını kayıpsız saklar.",
+      "path": "docs/records/2026-10-documentation/REORGANIZATION.md",
+      "role": "Tarihli uygulama/kanıt kaydı",
+      "purpose": "Belge mimarisinin düzenlenmesini, taşınan belgeleri, yerel arşiv yedeğini ve ikinci aşama sadeleştirmesini kaydeder; bağımsız incelemenin otorite, brifing, görev 14 ve venv açıklama düzeltmelerini tarihli tutar.",
       "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "d950e52347bb82ec12205804b57c5b7d5bf86a9465415c9a9ef5415da7cc0ecd"
+      "review_sha256": "1b090bafcf4c371dd4be5bc8b364a9da334f7954391e499c7efb2077e3cba2c0"
     },
     {
-      "path": "docs/history/2026-10-03/README-part-01.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "Eski README ürün/kurulum seçenekleri, MCP, özetleme, update/migration ve yöntem karşılaştırması metninin ilk bölümünü saklar.",
+      "path": "docs/records/2026-10-installer-release/EXECUTION.md",
+      "role": "Tarihli uygulama/kanıt kaydı",
+      "purpose": "GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını, detached worker tamamlama yarışı düzeltmesini ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder. Son CI job kanıtını, fast-forward birleşme doğrulamasını ve editable bağlantıların giderilmesini ve tamamlanan çalışma ağacı arşivini kaydeder. Bağlantıları 2026-10-05 düzenine uyarlanmıştır; bugünün yapılacaklar listesi değildir.",
       "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
+        "Aktif durum docs/PROJECT_STATUS.md; karar ve kayıt indeksleri bu dosyanın tarihsel bağlamına yönlendirir."
       ],
-      "review_sha256": "b47136f7cf2d72963c0c475b64a738157d10b1a909c087d4edd317f7220c9492"
+      "review_sha256": "4baf357a6ff662a690009e5343c3f8ac8271828002efb49b80a8390f3d22e2c6"
     },
     {
-      "path": "docs/history/2026-10-03/README-part-02.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "Eski README mimari akış, maliyet/sınırlar, ajan uyumluluğu, SSS, attribution/lisans ve İngilizce girişin devamını saklar.",
+      "path": "docs/records/2026-10-installer-release/REPOSITORY_AUDIT.md",
+      "role": "Tarihli uygulama/kanıt kaydı",
+      "purpose": "Bu değişiklikte dosya/reference/paket kapsamı incelemesini, düzeltilmiş bulguları, performans ve test kanıtını ve açık doğrulama sınırlarını kaydeder. Dev backend RED/GREEN kanıtını ve global editable kurulum bulgusunu tarihlendirir. Son 12 başarılı platform kapısı ile birleşmiş ana checkout doğrulamasını tarihlendirir. Kullanıcı onaylı editable bağlantı düzeltmesi ve geri yüklenebilir çalışma ağacı arşivinin kanıtını kaydeder. Bağlantıları 2026-10-05 düzenine uyarlanmıştır; bugünün yapılacaklar listesi değildir.",
       "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
+        "Aktif durum docs/PROJECT_STATUS.md; karar ve kayıt indeksleri bu dosyanın tarihsel bağlamına yönlendirir."
       ],
-      "review_sha256": "7ec140935cd311f738a435361a938ed6094eb784af32d61e2b5dc2dade979775"
+      "review_sha256": "d778a3f59f27d0ed258c65dc4d407ba6b466cb16c2803369fece49946f215935"
     },
     {
-      "path": "docs/history/2026-10-03/README.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "25 KB üstündeki tarihsel README tam metnini iki bölüme bağlar ve birleştirilmiş kaynak SHA256 doğrulamasını korur.",
+      "path": "docs/records/2026-10-modular-foundation/IMPLEMENTATION.md",
+      "role": "Tarihli uygulama/kanıt kaydı",
+      "purpose": "Modüler dönüşümün görev 1–13 kaynak/paket sözleşmelerini ve görev 14 salt okunur önizlemesini özetler; uygulanmamış canlı kurulumu ve ayrıntılı planların yerel arşivini ayırır; tarihli yürütme, CI, bütünleştirme ve temizlik kayıtlarını tutar.",
       "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
+        "Aktif durum docs/PROJECT_STATUS.md; karar ve kayıt indeksleri bu dosyanın tarihsel bağlamına yönlendirir."
       ],
-      "review_sha256": "fccd306c800184dcb2533e1be4933282d78e918a195f909a79832dd745cb205d"
+      "review_sha256": "8e29fcd6a5b8cd5f3079c4c6cd6efad49ecda18a6f011d4e86c5f4fb3746eb5b"
     },
     {
-      "path": "docs/history/2026-10-03/SPECIFICATION.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "Eski runtime manifest/version/migration ve managed dosya kategorilerinin teknik sözleşmesini kayıpsız saklar.",
+      "path": "docs/records/2026-10-modular-foundation/VERIFICATION.md",
+      "role": "Tarihli uygulama/kanıt kaydı",
+      "purpose": "Modüler temel için çalıştırılmış test/build/native senaryo, read-only canlı preview, netleşmiş sözleşme ve kalan platform sınırlarını tarihli kaydeder. Bağlantıları 2026-10-05 düzenine uyarlanmıştır; bugünün yapılacaklar listesi değildir.",
       "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
+        "Aktif durum docs/PROJECT_STATUS.md; karar ve kayıt indeksleri bu dosyanın tarihsel bağlamına yönlendirir."
       ],
-      "review_sha256": "28f42418d1aa8c1dd62cdbe0e7527a657bedc045afcc0c5c62a4933b7a057b17"
+      "review_sha256": "f08627a61d496b796fa5757a49919cf9cbfbc9a573ccaf12f6e0d8f93676a7c8"
     },
     {
-      "path": "docs/history/2026-10-03/guides/BOOTSTRAP.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "Eski AI-native installer preflight, parametre/komut ve global/MCP/shortcut/schedule kurulum doğrulama rehberini saklar.",
+      "path": "docs/records/2026-10-source-cleanup/VERIFICATION.md",
+      "role": "Tarihli uygulama/kanıt kaydı",
+      "purpose": "Son kaynak temizliğinin yürütme hedeflerini, kaynak/yayın kontrollerini, gerçek komut sonuçlarını, yerel recovery backup ve bütünleştirme sınırlarını tarihli kaydeder.",
       "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
+        "Aktif durum docs/PROJECT_STATUS.md; karar ve kayıt indeksleri bu dosyanın tarihsel bağlamına yönlendirir."
       ],
-      "review_sha256": "3aaef79269aae21267d81e7fe234ef412514c5dfbc8527dbb540bf11178230a8"
+      "review_sha256": "d18bf89ed360aba2454ba8aa96bc0b0ce5eda327af9afbff3866b0dbb58d8cd9"
     },
     {
-      "path": "docs/history/2026-10-03/guides/MULTI_AI.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "Eski ortak kasaya çoklu AI bağlantıları, eski sürüm tamamlayıcı kurulumu ve background compiler tercih açıklamasını saklar.",
+      "path": "docs/records/README.md",
+      "role": "Tarihli uygulama/kanıt kaydı",
+      "purpose": "Modüler temel, kaynak temizliği, kurucu/yayın ve belge düzenleme kayıtlarını dönem/sorumluluk tablosuyla indeksler; tarihli kanıtın nasıl yorumlanacağını açıklar.",
       "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
+        "Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır."
       ],
-      "review_sha256": "2932d80ce60b43037042edb06c763b197262b1b63f61c21eb465a784406bdada"
-    },
-    {
-      "path": "docs/history/2026-10-03/guides/SETUP-WINDOWS.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "Eski Windows native/WSL kurulum gereksinim ve launcher dizin rehberini karşılaştırma için saklar.",
-      "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
-      ],
-      "review_sha256": "75f178a8a85a223c165dc78f9d8addb240b35decb197f8fdc6283b1ec426be17"
-    },
-    {
-      "path": "docs/history/2026-10-03/guides/SETUP-part-01.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "Eski agent runbook'un Mode A fresh-install, kullanıcı interview, prerequisites, platform/global/schedule/Git/desktop ve optional mem0 kurulum fazlarını tam metin olarak saklar.",
-      "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
-      ],
-      "review_sha256": "c4e6d3f5e473690fa71e2b9ef8a227c82a68309824c1889275e08110ec4c7682"
-    },
-    {
-      "path": "docs/history/2026-10-03/guides/SETUP-part-02.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "Eski agent runbook'un Phase 8 verification, Mode B update/preview/apply, global erişim, demo lifecycle ve timing/quota açıklamalarını tam metin devamı olarak saklar.",
-      "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
-      ],
-      "review_sha256": "a6bd4c60126fdec853fbded7b010267112832d10ede2769beaf9d8e82bb3df62"
-    },
-    {
-      "path": "docs/history/2026-10-03/guides/SETUP.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "25 KB barajındaki eski kurulum tam metnini bölümlere bağlayan kaynak bütünlüğü/gezinti indeksidir.",
-      "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
-      ],
-      "review_sha256": "e452a93756e4c83ec25562765ebfed591c95f425e188eef69634cd72daaabbb5"
-    },
-    {
-      "path": "docs/history/2026-10-03/guides/UNINSTALL.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "Eski remover dosya/kayıt kategorileri ve kullanıcı veri koruma akışını tarihsel karşılaştırma için saklar.",
-      "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
-      ],
-      "review_sha256": "ba5c5e6a2d25187916893eca85d292a2bf235c3f136d9988cd3b9131fd7fceb7"
-    },
-    {
-      "path": "docs/history/2026-10-03/guides/UPDATE.md",
-      "role": "Kayıpsız tarihsel belge",
-      "purpose": "Eski source/runtime update ve migration preview/apply davranışını tarihsel karşılaştırma için saklar.",
-      "relationships": [
-        "2026-10-03 öncesi yerleşimin karar/kanıt arşividir; güncel README/guides ve modular-foundation specs kullanılmalıdır. İçindeki emekli komut/yollar canlı kurulum yönlendirmesi değildir."
-      ],
-      "review_sha256": "33d39bb510eab8c92e114cb5b98d96dfd41def323fe7d4aad688c7e0b521ea35"
+      "review_sha256": "f5ffc4c5662abb272fc46cf20ced6106b6a3b988bd00930a3d44a4906d133f4e"
     },
     {
       "path": "docs/repository_inventory.json",
@@ -343,96 +388,6 @@
         "repository_map.py otomatik keşif yapar; yeni kodun açıklamasını insan/ajan doldurur; JSON kendisini hash'lememek için generated damgasındadır."
       ],
       "review_sha256": "generated"
-    },
-    {
-      "path": "docs/superpowers/plans/2026-10-03-modular-foundation-core.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Görev 1–5 için tek paket/resources, pure roots/context, config/UUID registry, hafıza/provider ve arama/brifing/maps uygulama adımlarını tutar.",
-      "relationships": [
-        "Ana planın core eki; src/core/memory/providers/search/vault değişiklik sırasını ve test hedeflerini bağlar."
-      ],
-      "review_sha256": "5faa7b40afcedf4b1f3d8bbfcdd910435db021347a99b86739f098df264e1538"
-    },
-    {
-      "path": "docs/superpowers/plans/2026-10-03-modular-foundation-delivery.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Görev 11–14 için readonly legacy preview, hash-controlled migration, native build/CI ve gerçek bilgisayar devreye alma kapılarını tutar.",
-      "relationships": [
-        "Ana planın teslim eki; kişisel vault'a geçiş kanıt/onay sırası kaynak uygulamasından ayrı tutulur."
-      ],
-      "review_sha256": "12480af302eaab07014ed7378c22daa6fa67f44d231276f6d9847acc13bf358c"
-    },
-    {
-      "path": "docs/superpowers/plans/2026-10-03-modular-foundation-services.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Görev 6–10 için gateway/maintenance/orchestration, tek CLI, entegrasyonlar, WAL setup ve update/repair/uninstall adımlarını tutar.",
-      "relationships": [
-        "Ana planın service eki; explicit AppContext ve installation/integration ortak davranış sınırını uygulamaya bağlar."
-      ],
-      "review_sha256": "9169fcd02b15da26bafd1918a492e1884045d6b37c19c8e9dd798adf3a3f852f"
-    },
-    {
-      "path": "docs/superpowers/plans/2026-10-03-modular-foundation.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Modüler dönüşümün ana yürütme sırası, global sınırlar, görev ekleri, kullanıcı devreye alma kararı ve son yürütme/temizlik kaydını tutar. Kullanıcının CI sonuçlarını yeni çağrıda inceletme tercihini de kaydeder. Son 12 platform kapısının doğrulanması ve main kaynak yayınının yetkili durumunu tutar.",
-      "relationships": [
-        "Core/services/delivery ekleri ayrıntılı iş adımlarıdır; specs tasarımı yetkili belirler; verification sonuç kanıtını tutar."
-      ],
-      "review_sha256": "1d7ec088e06190a98b138b75f2bda1d85f82bea7d0ef5b0404427e5ef7a89b5d"
-    },
-    {
-      "path": "docs/superpowers/plans/2026-10-04-installer-atlas-release.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "GUI seçim düzeltmesi, measured transaction throughput, ayrıntılı atlas/audit ve doğrulanmış GitHub publication işlerinin plan/kısıt/kanıt sırasını tutar. Harici AI bağımlılık düzeltmesinin bağımsız doğrulamasını, detached worker tamamlama yarışı düzeltmesini ve worktree arşivleme öncesi editable bağlantı sınırını kaydeder. Son CI job kanıtını, fast-forward birleşme doğrulamasını ve editable bağlantıların giderilmesini ve tamamlanan çalışma ağacı arşivini kaydeder.",
-      "relationships": [
-        "wizard_options_test, transaction_performance_test ve atlas gate bu görevin kapılarıdır; canlı AppData/vault deploy kapsam dışıdır."
-      ],
-      "review_sha256": "961f83bfe1d4a9f1ae50150e0f07464d92132b841bd2b31da4cb0bc4fa6215ab"
-    },
-    {
-      "path": "docs/superpowers/plans/2026-10-04-source-cleanup.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Emekli runtime/installer/template kaynak girişlerinin kapanışı, korunacak compatibility ve yerel yedek sınırları için son temizlik yürütme kaydıdır.",
-      "relationships": [
-        "source_cleanup_test ve source-cleanup verification ile doğrulanır; docs/history metinleri kayıpsız korunur."
-      ],
-      "review_sha256": "f9b52331d802e3ade652f0aceee99299e4c20de28b4e18985c56c1631f3552ec"
-    },
-    {
-      "path": "docs/superpowers/specs/2026-10-03-modular-foundation-design.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Yetkili modüler tasarım sözleşmesi: AppRoot/DataRoot/VaultRoot, sahiplik, src modülleri, UUID/config ve dependency sırasını tanımlar.",
-      "relationships": [
-        "operations eki yaşam döngüsü/migration kabul kriterlerini ayrıntılar; ARCHITECTURE/SPECIFICATION buraya yönlendirir."
-      ],
-      "review_sha256": "5df95f5a5affc3e7f6ec136b7de9343d1963bab803cc3320e507ad35b8c89c93"
-    },
-    {
-      "path": "docs/superpowers/specs/2026-10-03-modular-foundation-operations.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Tek CLI/entegrasyon, template/kişisel override, setup/update/repair/uninstall ve eski kurulum migration güvenlik/kabul davranışını tanımlar.",
-      "relationships": [
-        "Design sözleşmesinin işletim ekidir; installation/integrations testleri bu kuralları executable hale getirir."
-      ],
-      "review_sha256": "8945a50216d95894583c29a802fcc11912866d8c9791c5db22d1e680b0de392d"
-    },
-    {
-      "path": "docs/superpowers/verification/2026-10-04-modular-foundation.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Modüler temel için çalıştırılmış test/build/native senaryo, read-only canlı preview, netleşmiş sözleşme ve kalan platform sınırlarını tarihli kaydeder.",
-      "relationships": [
-        "Plan yürütmesinin kanıtıdır; kaynak ve testin bugün yeniden çalıştırılmasının yerine geçmez."
-      ],
-      "review_sha256": "678e1be9ba86e58caa5bd4af2372d2189c2f6f3bbc2e21d6a79dda549b29ba05"
-    },
-    {
-      "path": "docs/superpowers/verification/2026-10-04-source-cleanup.md",
-      "role": "Güncel belge ve yönlendirici",
-      "purpose": "Son source cleanup'ın kaynak/yayın kontrollerini, gerçek komut sonuçlarını, yerel recovery backup ve birleştirme sınırlarını tarihli kaydeder.",
-      "relationships": [
-        "source-cleanup planı ve source_cleanup_test ile bağlanır; recoverable tarih arşivi silme için izin değildir."
-      ],
-      "review_sha256": "c55b133e69afcfa8de24cea60a90aa0a8911decb9972da7edf02185d7cf0996b"
     },
     {
       "path": "packaging/entrypoint.py",
@@ -2509,11 +2464,11 @@
     {
       "path": "tools/repository_map.py",
       "role": "Depo sözleşmesi",
-      "purpose": "Git indeksini ve ignore edilmeyen yeni dosyaları keşfeder; açıklamaların rol/amaç/ilişkiler alanlarını ve inceleme hash'ini kontrol edip tek Türkçe atlas üretir.",
+      "purpose": "Git indeksini ve ignore edilmeyen yeni dosyaları keşfeder; açıklamaların rol/amaç/ilişkiler alanlarını ve inceleme hash'ini kontrol edip tek Türkçe atlas üretir. Nötr .local yerel kanıt dizini kapsam dışıdır; docs katmanları kaynak envanterine dahildir.",
       "relationships": [
         "repository_inventory.json anlamsal kaynak, REPOSITORY_MAP.md çıktıdır; repository_map_test ve CI eksik/ghost/çift/eski açıklama/render drift kapılarını doğrular."
       ],
-      "review_sha256": "e8b1dd55028eb3183bee05621b4e41a53651972d0d8038e759d20fd2f518b4c9"
+      "review_sha256": "23511e74797cb5664e3159f3f8c9737c0b146d3133d2fd1939f2e7a82fb290ba"
     },
     {
       "path": "tools/upstream_sync.sh",

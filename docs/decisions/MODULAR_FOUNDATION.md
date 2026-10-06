@@ -13,8 +13,11 @@ timeline:
   - from: 2026-10-03
     until: 2026-10-04
     learned: "Önceki kişisel açıklama notların mevcut RespectedOS kasasında kalacağını söylüyordu; kasa koruma sözleşmesi ile kullanıcıya özel devreye alma yolu ayrıldı."
-    source: "../plans/2026-10-03-modular-foundation.md#kullanıcının-devreye-alma-kararı--2026-10-04"
+    source: "../records/2026-10-modular-foundation/IMPLEMENTATION.md#kullanıcının-devreye-alma-kararı--2026-10-04"
 ---
+
+> Tarihli karar/işlem kaydı. Eski durum ve komutlar bu tarihin bağlamındadır; güncel yapılacaklar değildir. Bağlantılar ve araç talimatları 2026-10-05 belge düzenine uyarlandı; ham başlangıç kopyası yerel documentation-before ZIP arşivindedir. Eski süreç/klasör adları nötr tanımlara çevrildi; bu tarihsel tanımlar bugünkü dosya yolu değildir. [Aktif durum](../PROJECT_STATUS.md).
+
 
 # Respected Brain — Modüler Temel ve Kurulum Sözleşmesi
 
@@ -32,7 +35,7 @@ kurulumun bugün bu şekilde çalıştığı anlamına gelmez.
 4. Mevcut kasalar korunacak; kullanıcı yeni boş kasa seçebilir. Motor/cache notlardan ayrı olacak.
 5. Bütün kurucular aynı işlemleri kullanacak; eski veri önce yedeklenecek.
 
-Kullanıcıya özel devreye alma yolu [ana uygulama planında](../plans/2026-10-03-modular-foundation.md#kullanıcının-devreye-alma-kararı--2026-10-04)
+Kullanıcıya özel devreye alma yolu [ana uygulama planında](../records/2026-10-modular-foundation/IMPLEMENTATION.md#kullanıcının-devreye-alma-kararı--2026-10-04)
 tutulur. Mevcut kasa koruma sözleşmesi, kullanıcının mutlaka eski kasayı aktarmasını gerektirmez.
 
 Program güncellemesi programı değiştirecek; kullanıcının notlarını şablonla
@@ -354,14 +357,14 @@ yeni kasa olarak kaydetme UUID değişimini açık işlem olarak yapar.
 
 ## 7. Komut, kurulum ve geçiş sözleşmeleri
 
-[Kurulum ve geçiş sözleşmeleri](2026-10-03-modular-foundation-operations.md)
+[Kurulum ve geçiş sözleşmeleri](OPERATIONS.md)
 bu tasarımın ayrılmaz parçasıdır. CLI, template davranışı, install/update/
 repair/uninstall, legacy migration ve kabul kriterleri bu alt belgede tek
 kaynak olarak tanımlanır. Yapısal bölünmede içerik budanmadı.
 
 ## 8. Uygulama sırası için bağımlılıklar
 
-[Uygulama planı](../plans/2026-10-03-modular-foundation.md) şu sırayı somut
+[Uygulama planı](../records/2026-10-modular-foundation/IMPLEMENTATION.md) şu sırayı somut
 görev/komut/testlerle açar; planın inceleme durumu kendi belgesindedir:
 
 1. Tek paket, kaynak envanteri ve ortak AppPaths/config/UUID sözleşmesi.
