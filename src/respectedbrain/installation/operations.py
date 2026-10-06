@@ -83,6 +83,9 @@ def plan_connections(ctx, backend, previous):
     return (*disabled, *changes), tuple(owned.values())
 
 
-def operation_manifest(ctx, files, external):
+def operation_manifest(ctx, files, external, *, previous=None):
     config_path = ctx.paths.data_root / "config.json"
-    return OwnershipManifest(3, tuple(files) + (OwnedFile(config_path, digest(config_path), "technical"),), tuple(external))
+    owned = {item.path: item for item in previous.files if item.role == "technical"} if previous is not None else {}
+    owned.update({item.path: item for item in files})
+    owned[config_path] = OwnedFile(config_path, digest(config_path), "technical")
+    return OwnershipManifest(3, tuple(owned.values()), tuple(external))

@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from respectedbrain.core.context import AppContext
 from .runner import validate_project
+from respectedbrain.core.platform import path_within_vault
+from uuid import uuid4
 
 import argparse
 from dataclasses import dataclass
@@ -16,7 +18,6 @@ import os
 from pathlib import Path
 import re
 import shutil
-import stat
 import subprocess
 import sys
 import time
@@ -193,6 +194,8 @@ def load_policy(path: Path) -> Policy:
     data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("schema_version") != 1:
         raise ValueError("unsupported orchestration policy schema")
+    if type(data.get('dangerously_skip_permissions')) is not bool:
+        raise ValueError('Permission bypass policy must be a boolean')
     return Policy(
         schema_version=1,
         worker_executable_candidates=tuple(data["worker_executable_candidates"]),
@@ -451,6 +454,7 @@ def run_worker(
     lane: Lane,
     agy_path: Path,
     timeout_seconds: float | None = None,
+    *, dangerously_skip_permissions: bool = True,
 ) -> WorkerResult:
     lane.run_root.mkdir(parents=True, exist_ok=True)
     brief = render_brief(request, lane)
@@ -467,8 +471,9 @@ def run_worker(
         "json",
         "--print-timeout",
         print_timeout,
-        "--dangerously-skip-permissions",
     ]
+    if dangerously_skip_permissions:
+        command.append('--dangerously-skip-permissions')
     timed_out = False
     returncode: int | None
     stdout = ""
@@ -618,7 +623,7 @@ def collect_worker_changes(lane: Lane) -> ChangeSet:
         statuses[path] = "?"
     for path in statuses:
         target = lane.worktree / path
-        if target.exists() and _is_unsafe_link(target):
+        if not path_within_vault(target, lane.worktree):
             unsafe.append(path)
     return ChangeSet(
         paths=tuple(sorted(statuses)),
@@ -925,7 +930,8 @@ def _run_cli(args: argparse.Namespace) -> int:
             if args.timeout_seconds <= 0:
                 raise ValueError("timeout must be positive")
             worker_timeout = min(worker_timeout, args.timeout_seconds)
-        worker = run_worker(request, lane, agy_path, timeout_seconds=worker_timeout)
+        worker = run_worker(request, lane, agy_path, timeout_seconds=worker_timeout,
+                            dangerously_skip_permissions=policy.dangerously_skip_permissions)
         if worker.status is not RunStatus.COMPLETE:
             _write_verification(lane.run_root, worker.status)
             return 20
@@ -954,6 +960,16 @@ def _run_cli(args: argparse.Namespace) -> int:
                 RunStatus.TEST_FAILED,
                 changed_files=list(changes.paths),
             )
+            return 21
+
+        # Acceptance commands may mutate files after the initial scope check.
+        changes = collect_worker_changes(lane)
+        scope = validate_change_scope(changes, request.ownership, request.forbidden)
+        if request.kind is TaskKind.READ and changes.paths:
+            scope = ScopeResult(False, changes.paths)
+        if not scope.allowed:
+            _write_verification(lane.run_root, RunStatus.SCOPE_VIOLATION,
+                                changed_files=list(changes.paths), violations=list(scope.violations))
             return 21
 
         if request.kind is TaskKind.WRITE:
@@ -990,7 +1006,7 @@ def _workspace_root(repo_root: Path, policy: Policy) -> Path:
 
 def _new_run_id(slug: str) -> str:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    return f"{stamp}-{slug}"
+    return f"{stamp}-{slug}-{uuid4().hex[:12]}"
 
 
 def _write_verification(run_root: Path, status: RunStatus, **details: object) -> None:
@@ -1157,10 +1173,3 @@ def _git_path_list(cwd: Path, *args: str) -> tuple[str, ...]:
         for item in completed.stdout.split(b"\0")
         if item
     )
-
-
-def _is_unsafe_link(path: Path) -> bool:
-    if path.is_symlink():
-        return True
-    attributes = getattr(path.lstat(), "st_file_attributes", 0)
-    return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))

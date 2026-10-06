@@ -14,15 +14,14 @@ from pathlib import Path
 import re
 import shutil
 import stat
-import subprocess
 import tempfile
 import time
-import sys
-from typing import Any, Sequence
+from typing import Any
 
 
 from ..core import platform as runtime_platform
 from ..core.context import AppContext, ModelService
+from ..core.config import atomic_write_json as _atomic_write_json
 
 
 DEFAULT_MAX_CALLS = 3
@@ -121,24 +120,8 @@ class NoChangesError(ValueError):
     """The model exited successfully without an allowed content change."""
 
 
-def _iso_now() -> str:
-    return dt.datetime.now().astimezone().isoformat(timespec="seconds")
-
-
-def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    try:
-        temporary.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(temporary, path)
-    finally:
-        try:
-            temporary.unlink()
-        except FileNotFoundError:
-            pass
+class PromotionRecoveryError(PolicyError):
+    """A failed promotion needs its retained staging preimages for recovery."""
 
 
 def write_health(state_dir: Path, error: str, warning: bool = False) -> None:
@@ -146,6 +129,8 @@ def write_health(state_dir: Path, error: str, warning: bool = False) -> None:
     try:
         payload: dict[str, Any] = {}
         health_path = state_dir / "health.json"
+        if not _path_within(health_path, state_dir):
+            return
         if health_path.exists():
             try:
                 loaded = json.loads(health_path.read_text(encoding="utf-8"))
@@ -360,7 +345,7 @@ def _prepare_stage(
             destination = knowledge_stage / name
             if source.exists() or source.is_symlink():
                 _copy_source_file(source, destination, vault_root)
-                live_baseline[f"knowledge/{name}"] = _sha256(source)
+                live_baseline[f"knowledge/{name}"] = _sha256(destination)
             else:
                 destination.write_text("", encoding="utf-8")
                 live_baseline[f"knowledge/{name}"] = None
@@ -373,8 +358,7 @@ def _prepare_stage(
                 for copied in destination.rglob("*"):
                     if copied.is_file():
                         relative = copied.relative_to(stage).as_posix()
-                        original = vault_root / relative
-                        live_baseline[relative] = _sha256(original)
+                        live_baseline[relative] = _sha256(copied)
 
         daily_destination = stage / "daily" / daily_path.name
         _copy_source_file(daily_path, daily_destination, vault_root)
@@ -505,7 +489,8 @@ def _validate_live_destination(
     return destination
 
 
-def _atomic_copy(source: Path, destination: Path) -> None:
+def _atomic_copy(source: Path, destination: Path, *, vault_root: Path | None = None,
+                 expected_digest: str | None = None) -> None:
     existing_mode = 0o644
     if destination.exists():
         existing_mode = stat.S_IMODE(destination.stat().st_mode)
@@ -521,6 +506,8 @@ def _atomic_copy(source: Path, destination: Path) -> None:
             target.flush()
             os.fsync(target.fileno())
         temporary.chmod(existing_mode)
+        if vault_root is not None:
+            _validate_live_destination(vault_root, destination.relative_to(vault_root).as_posix(), expected_digest)
         os.replace(temporary, destination)
     finally:
         try:
@@ -536,7 +523,9 @@ def _promote_changes(
     live_baseline: dict[str, str | None],
 ) -> None:
     destinations = []
-    for relative in changed_files:
+    backup_dir = stage / ".promotion-backup"
+    backup_dir.mkdir(mode=0o700)
+    for index, relative in enumerate(changed_files):
         if relative not in live_baseline:
             live_baseline[relative] = None
         destination = _validate_live_destination(
@@ -544,9 +533,44 @@ def _promote_changes(
             relative,
             live_baseline[relative],
         )
-        destinations.append((stage / relative, destination))
-    for source, destination in destinations:
-        _atomic_copy(source, destination)
+        backup = None
+        if live_baseline[relative] is not None:
+            backup = backup_dir / str(index)
+            shutil.copy2(destination, backup)
+            if _sha256(backup) != live_baseline[relative]:
+                raise PolicyError(f"live-target-changed:{relative}")
+        source = stage / relative
+        destinations.append((relative, source, destination, backup, _sha256(source)))
+    attempted = []
+    published = set()
+    try:
+        for relative, source, destination, backup, output_digest in destinations:
+            attempted.append((relative, source, destination, backup, output_digest))
+            _atomic_copy(source, destination, vault_root=vault_root, expected_digest=live_baseline[relative])
+            published.add(relative)
+    except Exception:
+        recovery_needed = False
+        for relative, source, destination, backup, output_digest in reversed(attempted):
+            try:
+                # Restore only our bytes; a concurrent human edit remains owned by them.
+                if not _path_within(destination, vault_root):
+                    raise PolicyError("unsafe-rollback-target")
+                current = _sha256(destination) if destination.exists() else None
+                if current == live_baseline[relative]:
+                    continue
+                if current != output_digest:
+                    if relative in published:
+                        recovery_needed = True
+                    continue
+                if backup is None:
+                    _validate_live_destination(vault_root, relative, output_digest).unlink()
+                else:
+                    _atomic_copy(backup, destination, vault_root=vault_root, expected_digest=output_digest)
+            except Exception:
+                recovery_needed = True
+        if recovery_needed:
+            raise PromotionRecoveryError(f"promotion-recovery-required:{stage}")
+        raise
 
 
 def _run_model(prompt: str, stage: Path, model: ModelService) -> str | None:
@@ -566,6 +590,7 @@ def _compile_one(
     cache_dir: Path,
 ) -> tuple[str | None, str]:
     stage: Path | None = None
+    retain_stage = False
     try:
         stage, live_baseline = _prepare_stage(
             vault_root,
@@ -604,6 +629,9 @@ def _compile_one(
         changed_files = _validate_manifest_diff(before, after)
         _promote_changes(stage, vault_root, changed_files, live_baseline)
         return None, ""
+    except PromotionRecoveryError as exc:
+        retain_stage = True
+        return "recovery", str(exc)
     except NoChangesError as exc:
         return "no-changes", str(exc)
     except PolicyError as exc:
@@ -611,7 +639,7 @@ def _compile_one(
     except (OSError, UnicodeError) as exc:
         return "stage-error", exc.__class__.__name__
     finally:
-        if stage is not None:
+        if stage is not None and not retain_stage:
             try:
                 shutil.rmtree(stage)
             except OSError:
@@ -665,6 +693,8 @@ def _record_failure(
 def _validated_trigger_claim(path: Path | None, state_dir: Path) -> Path | None:
     if path is None:
         return None
+    if not _path_within(path, state_dir):
+        raise ValueError("trigger-claim-outside-state")
     if path.absolute().parent.resolve() != state_dir.resolve():
         raise ValueError("trigger-claim-outside-state")
     if TRIGGER_NAME.fullmatch(path.name) is None:
@@ -682,16 +712,8 @@ def _run_locked(args: argparse.Namespace, trigger_claim: Path | None, ctx: AppCo
     try:
         state = load_state(state_path)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        state = _default_state()
-        _record_failure(
-            state_path,
-            state,
-            "",
-            "state-or-daily-read-failed",
-            str(exc),
-            trigger_claim,
-            state_dir=state_dir, now=now,
-        )
+        # Corrupt ingestion history is recovery evidence, not an empty history.
+        write_health(state_dir, str(exc))
         return 1
     try:
         changed = changed_daily_logs(
@@ -783,6 +805,10 @@ def compile_pending(ctx: AppContext, *, model: ModelService, now: dt.datetime,
         depth = 0
     if depth >= 1:
         return 0
+    for path in (ctx.paths.cache_dir, state_dir / "compile.lock", state_dir / "compile-state.json", state_dir / "health.json"):
+        if not _path_within(path, ctx.paths.data_root):
+            write_health(state_dir, "unsafe-compile-path")
+            return 1
     try:
         validated_claim = _validated_trigger_claim(trigger_claim, state_dir)
     except (OSError, ValueError) as error:
@@ -805,7 +831,8 @@ def compile_pending(ctx: AppContext, *, model: ModelService, now: dt.datetime,
                     try:
                         state = load_state(state_path)
                     except (OSError, ValueError, json.JSONDecodeError):
-                        state = _default_state()
+                        write_health(state_dir, "compile-state-read-failed")
+                        return 1
                     _record_failure(state_path, state, "", "unexpected", error.__class__.__name__,
                                     trigger_claim, state_dir=state_dir, now=now)
                     return 1

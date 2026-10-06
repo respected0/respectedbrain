@@ -8,7 +8,7 @@ Bu bölüm geçmişte ne kararlaştırıldığını, ne uygulandığını ve han
 | --- | --- | --- |
 | Önceki ürün yapısı (2026-09) | `.local/archives/` yerel yedeğinde | Önceki yapı referansı; kaynak ağacından sadeleştirilerek kaldırıldı |
 | Modüler temel (2026-10) | [Uygulama](2026-10-modular-foundation/IMPLEMENTATION.md), [Doğrulama](2026-10-modular-foundation/VERIFICATION.md) | Tek paket ve modüler yapının 14 görevinin sözleşmeleri ve kabul kanıtı |
-| Kaynak temizliği (2026-10) | [Doğrulama ve yürütme](2026-10-source-cleanup/VERIFICATION.md) | Eski geçiş katmanının kaldırılması, release akışı ve yerel bütünleştirme kanıtı |
+| Kaynak temizliği (2026-10) | [Doğrulama ve yürütme](2026-10-source-cleanup/VERIFICATION.md), [Modül inceleme kaydı](2026-10-source-cleanup/SOURCE_REVIEW.md) | Eski geçiş katmanının kaldırılması ve sonraki modül incelemesinin fixture kanıtları |
 | Kurucu / atlas / yayın hazırlığı | [Yürütme](2026-10-installer-release/EXECUTION.md), [Depo denetimi](2026-10-installer-release/REPOSITORY_AUDIT.md) | Seçenek aktarımı, atlas üretimi ve 12/12 CI platform kanıtının tarihçesi |
 | Belge düzenleme (2026-10) | [Yeniden düzenleme kaydı](2026-10-documentation/REORGANIZATION.md) | Belge mimarisinin sadeleştirilmesi, atlas bakımı ve doğrulama sonuçları |
 

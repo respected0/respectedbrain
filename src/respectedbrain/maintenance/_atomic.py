@@ -26,6 +26,6 @@ def replace_staged(staging: Path, destination: Path) -> None:
             output.flush()
             os.fsync(output.fileno())
         os.replace(commit, destination)
+        staging.unlink(missing_ok=True)
     finally:
         commit.unlink(missing_ok=True)
-        staging.unlink(missing_ok=True)

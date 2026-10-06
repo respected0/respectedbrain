@@ -6,7 +6,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import stat
-import sys
 import tempfile
 import time
 
@@ -39,7 +38,9 @@ def _safe_entry(path: Path) -> bool:
         metadata = path.lstat()
     except OSError:
         return False
-    return not stat.S_ISLNK(metadata.st_mode) and (
+    # Windows directory junctions have directory mode and reparse attributes.
+    reparse = getattr(metadata, "st_file_attributes", 0) & 0x0400
+    return not (stat.S_ISLNK(metadata.st_mode) or reparse) and (
         stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode)
     )
 
@@ -79,24 +80,6 @@ def render_vault_map(vault_root: Path) -> str:
     lines = [HEADER.rstrip(), "", "# Vault Map", "", "Agent için yapısal giriş noktaları:", ""]
     lines.extend(f"- [[{relative}]]" for relative in _visible_paths(vault_root))
     return "\n".join(lines).rstrip() + "\n"
-
-
-def _frontmatter(path: Path) -> dict[str, str]:
-    values: dict[str, str] = {}
-    try:
-        with path.open("r", encoding="utf-8") as handle:
-            if handle.readline().strip() != "---":
-                return values
-            for line in handle:
-                stripped = line.strip()
-                if stripped == "---":
-                    break
-                key, separator, value = stripped.partition(":")
-                if separator and key in {"name", "description"}:
-                    values[key] = value.strip().strip('"\'')
-    except (OSError, UnicodeError):
-        return {}
-    return values
 
 
 def render_skills_map(ctx: AppContext) -> str:

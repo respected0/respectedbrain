@@ -8,12 +8,12 @@ Yerel diskteki Claude Code, Google Antigravity ve OpenAI Codex oturum kayıtlar�
 from __future__ import annotations
 
 from respectedbrain.core.context import AppContext
-from respectedbrain.maintenance import selected_vault, mutable_target
+from respectedbrain.maintenance import selected_vault, mutable_target, safe_walk
 from respectedbrain.maintenance._atomic import replace_staged
 
 import argparse
 import datetime as dt
-import glob
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -22,12 +22,6 @@ import sys
 import tempfile
 from typing import Any
 
-def _configure_console_output() -> None:
-    """Keep Windows OEM consoles from aborting on non-ASCII output."""
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if callable(reconfigure):
-            reconfigure(errors="replace")
 
 
 
@@ -61,9 +55,8 @@ class AgentHistoryMiner:
 
     def __init__(self, vault_root: Path, *, state_file: Path, temp_dir: Path | None = None) -> None:
         self.vault_root = vault_root.resolve()
-        self.state_file = state_file.resolve()
+        self.state_file = mutable_target(None, state_file)
         self.temp_dir = temp_dir
-        self.state_file.parent.mkdir(parents=True, exist_ok=True)
         self.imported_ids = self._load_state()
 
     def _load_state(self) -> set[str]:
@@ -76,11 +69,15 @@ class AgentHistoryMiner:
         return set()
 
     def _save_state(self) -> None:
-        try:
-            data = {"imported_ids": sorted(list(self.imported_ids))}
-            _atomic_write_text(self.state_file, json.dumps(data, indent=2) + "\n")
-        except Exception:
-            pass
+        data = {"imported_ids": sorted(list(self.imported_ids))}
+        _atomic_write_text(mutable_target(None, self.state_file), json.dumps(data, indent=2) + "\n")
+
+    @staticmethod
+    def _session_files(root: Path):
+        for directory, _, names in safe_walk(root):
+            for name in names:
+                if name.endswith('.jsonl'):
+                    yield Path(directory) / name
 
     def discover_antigravity_sessions(self) -> list[dict[str, Any]]:
         """Google Antigravity transcript.jsonl dosyalarını bulur."""
@@ -91,9 +88,10 @@ class AgentHistoryMiner:
         if not antigravity_brain.is_dir():
             return sessions
 
-        pattern = str(antigravity_brain / "*" / ".system_generated" / "logs" / "transcript.jsonl")
-        for file_path in glob.glob(pattern):
-            p = Path(file_path)
+        for p in self._session_files(antigravity_brain):
+            parts = p.relative_to(antigravity_brain).parts
+            if len(parts) != 4 or parts[1:] != ('.system_generated', 'logs', 'transcript.jsonl'):
+                continue
             # conversation id üst dizinlerden alınır
             conv_id = p.parents[2].name
             try:
@@ -120,7 +118,7 @@ class AgentHistoryMiner:
             return sessions
 
         # Claude projelerindeki jsonl kayıtları
-        for p in claude_dir.rglob("*.jsonl"):
+        for p in self._session_files(claude_dir):
             if "session" in p.name.lower() or "transcript" in p.name.lower() or len(p.stem) == 36:
                 try:
                     stat = p.stat()
@@ -145,7 +143,7 @@ class AgentHistoryMiner:
         if not codex_dir.is_dir():
             return sessions
 
-        for p in codex_dir.glob("*.jsonl"):
+        for p in self._session_files(codex_dir):
             try:
                 stat = p.stat()
                 mtime = dt.datetime.fromtimestamp(stat.st_mtime)
@@ -162,7 +160,7 @@ class AgentHistoryMiner:
 
     def parse_session(self, session_info: dict[str, Any]) -> dict[str, Any] | None:
         """JSONL dosyasını okuyup kullanıcı mesajlarını ve önemli kararları imbikten geçirir."""
-        file_path: Path = session_info["path"]
+        file_path = mutable_target(None, session_info["path"])
         agent = session_info["agent"]
         user_inputs: list[str] = []
         model_thoughts_or_summaries: list[str] = []
@@ -176,6 +174,8 @@ class AgentHistoryMiner:
                     try:
                         record = json.loads(line)
                     except json.JSONDecodeError:
+                        continue
+                    if not isinstance(record, dict):
                         continue
 
                     # Antigravity formatı
@@ -191,8 +191,19 @@ class AgentHistoryMiner:
 
                     # Standart / Codex / Claude formatları
                     else:
-                        role = record.get("role") or record.get("source") or ""
-                        content = str(record.get("content") or record.get("text") or record.get("message") or "").strip()
+                        message = record.get('message')
+                        payload = record.get('payload')
+                        entry = message if isinstance(message, dict) else payload if isinstance(payload, dict) else record
+                        role = record.get("role") or record.get("source") or entry.get('role') or ""
+                        if entry.get('type') == 'user_message':
+                            role = 'user'
+                        elif entry.get('type') == 'agent_message':
+                            role = 'assistant'
+                        raw = entry.get('content') or entry.get('text') or entry.get('message') or ''
+                        if isinstance(raw, list):
+                            content = '\n'.join(item.get('text', '') for item in raw if isinstance(item, dict) and isinstance(item.get('text'), str)).strip()
+                        else:
+                            content = raw.strip() if isinstance(raw, str) else ''
                         if role in ("user", "USER_EXPLICIT") and content:
                             user_inputs.append(content)
                         elif role in ("assistant", "MODEL") and content:
@@ -228,13 +239,17 @@ class AgentHistoryMiner:
         safe_slug = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in parsed["title"])[:35]
         safe_slug = safe_slug.strip("._-") or "session"
         safe_agent_slug = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in parsed["agent"])[:30].strip("._-") or "agent"
-        filename = f"{date_str}_{safe_agent_slug}_{safe_slug}.md"
+        identity_hash = hashlib.sha256(str(parsed['id']).encode('utf-8')).hexdigest()[:16]
+        filename = f"{date_str}_{safe_agent_slug}_{safe_slug}_{identity_hash}.md"
 
         if target_folder == "inbox":
             out_dir = self.vault_root / "📥 000-Inbox" / "Dump"
         else:
             out_dir = self.vault_root / "daily"
 
+        from respectedbrain.core.platform import path_within_vault
+        if not path_within_vault(out_dir, self.vault_root):
+            raise ValueError('History output escapes selected vault')
         out_dir.mkdir(parents=True, exist_ok=True)
         out_file = out_dir / filename
 
@@ -268,9 +283,25 @@ class AgentHistoryMiner:
             f"{summaries_rendered}\n"
         )
 
-        _atomic_write_text(out_file, content, temp_dir=self.temp_dir)
+        if not path_within_vault(out_file, self.vault_root):
+            raise ValueError('History output contains a link')
+        if out_file.exists():
+            normalize = lambda text: re.sub(r'^recorded_at:.*$', '', text, flags=re.MULTILINE)
+            if normalize(out_file.read_text(encoding='utf-8')) != normalize(content):
+                raise ValueError(f'History note already exists or was edited: {out_file}')
+        else:
+            with out_file.open('x', encoding='utf-8', newline='\n') as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+        was_imported = parsed['id'] in self.imported_ids
         self.imported_ids.add(parsed["id"])
-        self._save_state()
+        try:
+            self._save_state()
+        except Exception:
+            if not was_imported:
+                self.imported_ids.discard(parsed['id'])
+            raise
         return out_file
 
 

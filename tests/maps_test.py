@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -90,6 +92,27 @@ class MapsTest(unittest.TestCase):
         self.assertIn("doctor", skills_map)
         self.assertIn("Read-only health checks.", skills_map)
         self.assertNotIn("GENERATED DRIFT", skills_map)
+
+    def test_linked_visible_directory_is_not_traversed_or_listed(self):
+        outside = Path(self.temporary.name) / "outside"
+        outside.mkdir()
+        (outside / "PRIVATE-EXTERNAL.md").write_text("external note", encoding="utf-8")
+        link = self.vault / "External"
+        if os.name == "nt":
+            result = subprocess.run(["cmd.exe", "/c", "mklink", "/J", str(link), str(outside)],
+                                    capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        else:
+            link.symlink_to(outside, target_is_directory=True)
+        try:
+            rendered = load_builder().render_vault_map(self.vault)
+            self.assertNotIn("PRIVATE-EXTERNAL.md", rendered)
+            self.assertNotIn("[[External]]", rendered)
+        finally:
+            if os.name == "nt":
+                link.rmdir()
+            else:
+                link.unlink()
 
     def test_map_replacement_leaves_no_temporary_file(self):
         builder = load_builder()

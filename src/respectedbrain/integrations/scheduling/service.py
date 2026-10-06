@@ -8,7 +8,7 @@ import subprocess
 import sys
 from xml.sax.saxutils import escape
 from ..backend import ExternalChange, canonical_json, canonical_task_xml
-from ..rendering import launch_argv, validate_profile
+from ..rendering import launch_argv, validate_profile, _Planner, _assert_owned_replacement
 from respectedbrain.core.errors import OwnershipConflict
 def decode_windows_output(value: bytes) -> str:
     if value.startswith((b"\xff\xfe", b"\xfe\xff")):
@@ -30,20 +30,6 @@ def _decode_windows_xml(value: bytes) -> str:
         except UnicodeDecodeError:
             continue
     return value.decode("utf-8", errors="replace")
-
-
-def _task_signature(content: str) -> tuple[str, str, str]:
-    root = ET.fromstring(content)
-    values: dict[str, str] = {}
-    for element in root.iter():
-        name = element.tag.rsplit("}", 1)[-1]
-        if name in {"Command", "Arguments", "StartWhenAvailable"}:
-            values[name] = (element.text or "").strip()
-    return (
-        values.get("Command", ""),
-        values.get("Arguments", ""),
-        values.get("StartWhenAvailable", ""),
-    )
 
 
 def _parse_time(time_str: str) -> tuple[int, int]:
@@ -92,6 +78,7 @@ def plan_schedule(ctx, profile, backend, *, time_str="08:00"):
         key = profile.user_home / "Library/LaunchAgents" / (name + ".plist")
         content = plistlib.dumps({"Label": name, "ProgramArguments": argv, "StartCalendarInterval": {"Hour": h, "Minute": m}, "RunAtLoad": True})
         native_key = "launchd:" + str(key)
+        _assert_owned_replacement(ctx, _Planner(backend), key, content)
         return (ExternalChange("file", str(key), backend.read("file", str(key)), content), ExternalChange("task", native_key, backend.read("task", native_key), canonical_json({"loaded": True})))
     if not sys.platform.startswith("linux"):
         raise ValueError("Unsupported native scheduler")
@@ -101,4 +88,7 @@ def plan_schedule(ctx, profile, backend, *, time_str="08:00"):
     service_text = f"[Unit]\nDescription=Respected morning briefing\n\n[Service]\nType=oneshot\nExecStart={shlex.join(argv)}\n"
     timer_text = f"[Unit]\nDescription=Run Respected morning briefing at {h:02d}:{m:02d}\n\n[Timer]\nOnCalendar=*-*-* {h:02d}:{m:02d}:00\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n"
     native_key = "systemd:" + name + ".timer"
+    planner = _Planner(backend)
+    _assert_owned_replacement(ctx, planner, service, service_text.encode())
+    _assert_owned_replacement(ctx, planner, timer, timer_text.encode())
     return (ExternalChange("file", str(service), backend.read("file", str(service)), service_text.encode()), ExternalChange("file", str(timer), backend.read("file", str(timer)), timer_text.encode()), ExternalChange("task", native_key, backend.read("task", native_key), canonical_json({"enabled": True, "active": True})))

@@ -20,12 +20,6 @@ import time
 from typing import Any
 
 
-def _configure_console_output() -> None:
-    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if callable(reconfigure):
-            reconfigure(errors="replace")
 
 
 
@@ -93,13 +87,15 @@ def _branch_divergence_status(vault_root: Path, remote: str, branch: str) -> str
         except (OSError, ValueError):
             return "unknown"
         # Fetch remote updates cleanly
-        subprocess.run(
+        fetch = subprocess.run(
             ["git", "fetch", remote, branch],
             cwd=vault_root,
             capture_output=True,
             check=False,
             timeout=30,
         )
+        if fetch.returncode != 0:
+            return "error"
         head_proc = subprocess.run(
             ["git", "rev-parse", "HEAD"],
             cwd=vault_root,
@@ -183,12 +179,14 @@ def publish_if_due(
     try:
         subprocess.run(["git", "add", "."], cwd=vault_root, check=True, capture_output=True)
         stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-        subprocess.run(
+        commit = subprocess.run(
             ["git", "commit", "-m", f"chore(snapshot): {stamp}"],
             cwd=vault_root,
             check=False,
             capture_output=True,
         )
+        if commit.returncode != 0:
+            return {"status": "commit-failed", "error": commit.stderr.decode('utf-8', errors='replace') if isinstance(commit.stderr, bytes) else commit.stderr}
         push_proc = subprocess.run(
             ["git", "push", remote, branch],
             cwd=vault_root,
@@ -206,7 +204,7 @@ def publish_if_due(
             json.dumps({"ts": now_epoch, "stamp": stamp, "remote": remote, "branch": branch}, indent=2) + "\n",
         )
         return {"status": "ok", "stamp": stamp}
-    except subprocess.SubprocessError as exc:
+    except (OSError, subprocess.SubprocessError) as exc:
         return {"status": "error", "detail": str(exc)}
 
 

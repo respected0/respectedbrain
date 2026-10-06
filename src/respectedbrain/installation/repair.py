@@ -11,12 +11,12 @@ from respectedbrain.core.paths import Roots
 def repair(ctx, *, backend) -> OperationResult:
     tx = None
     try:
-        previous = read_manifest(ctx.paths.data_root / "install-manifest.json")
-        validate_manifest_roots(ctx, previous)
-        document = payload.validate_package(ctx.paths.app_root)
         if any(result.conflicts for result in recover_transactions(ctx.paths.data_root, backend)):
             return OperationResult(False, "", ("Unfinished rollback conflict",))
         with Transaction(ctx.paths.data_root, backend, vault_id=ctx.paths.vault_id) as tx:
+            previous = read_manifest(ctx.paths.data_root / "install-manifest.json")
+            validate_manifest_roots(ctx, previous)
+            document = payload.validate_package(ctx.paths.app_root)
             roots = Roots(ctx.paths.app_root, ctx.paths.data_root, ctx.paths.vault_root)
             settings = ctx.config["vaults"][ctx.paths.vault_id].get("settings", {})
             launchers = ensure_linux_launcher(ctx, installed_profile(roots, settings), tx, previous)
@@ -24,7 +24,7 @@ def repair(ctx, *, backend) -> OperationResult:
             for change in changes:
                 tx.apply_external(change)
             files = tuple(item for item in previous.files if item.role in ("application", "uninstaller"))
-            tx.write_json(ctx.paths.data_root / "install-manifest.json", manifest_document(operation_manifest(ctx, (*files, *launchers), external)))
+            tx.write_json(ctx.paths.data_root / "install-manifest.json", manifest_document(operation_manifest(ctx, (*files, *launchers), external, previous=previous)))
             payload.validate_installed_health(ctx.paths.app_root, document, ctx.paths.data_root)
             return tx.commit()
     except (FoundationError, OSError, ValueError) as error:

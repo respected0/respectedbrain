@@ -34,6 +34,34 @@ class VaultRegistryTest(unittest.TestCase):
         self.id1 = self.registry.register(self.vault1)
         self.id2 = self.registry.register(self.vault2)
 
+    def test_atomic_write_recovers_from_transient_replace_denial(self):
+        from respectedbrain.core import config
+        target = self.root / 'atomic.json'
+        target.write_bytes(b'original')
+        replace = config.os.replace
+        attempts = []
+        def publishing(source, destination):
+            attempts.append(source)
+            if len(attempts) == 1:
+                raise PermissionError('busy')
+            return replace(source, destination)
+        with mock.patch.object(config.os, 'replace', side_effect=publishing) as publish:
+            config.atomic_write_json(target, {'saved': True})
+        self.assertEqual(json.loads(target.read_text()), {'saved': True})
+        self.assertEqual(publish.call_count, 2)
+        self.assertEqual(list(self.root.glob('.atomic.json-*.tmp')), [])
+
+    def test_atomic_write_denial_is_bounded_and_preserves_original(self):
+        from respectedbrain.core import config
+        target = self.root / 'atomic.json'
+        target.write_bytes(b'original')
+        with mock.patch.object(config.os, 'replace', side_effect=PermissionError('denied')) as publish:
+            with self.assertRaises(PermissionError):
+                config.atomic_write_json(target, {'saved': True})
+        self.assertEqual(publish.call_count, 5)
+        self.assertEqual(target.read_bytes(), b'original')
+        self.assertEqual(list(self.root.glob('.atomic.json-*.tmp')), [])
+
     def test_selector_priority_and_invalid_explicit_path(self):
         from respectedbrain.core.errors import SelectionError
         self.register_two()

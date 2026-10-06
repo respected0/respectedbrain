@@ -31,6 +31,28 @@ from respectedbrain.providers import runner as MODEL_RUNNER
 
 ROOT = Path(__file__).resolve().parents[1]
 class MultiAITest(IntegrationFixture, unittest.TestCase):
+    def test_codex_transcript_discovery_requires_complete_session_suffix(self):
+        folder = self.home / '.codex/sessions'
+        folder.mkdir(parents=True)
+        (folder / 'rollout-session-other.jsonl').write_text('{}', encoding='utf-8')
+        self.assertEqual(BRIDGE.resolve_codex_transcript('session', self.home), '')
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows junction boundary')
+    def test_codex_notify_refuses_junction_chain_before_forwarding(self):
+        from respectedbrain.integrations.hooks import codex_notify
+        with tempfile.TemporaryDirectory() as outside_name:
+            outside = Path(outside_name)
+            (outside / 'codex-notify-chain.json').write_text('{"argv":["foreign.exe"]}', encoding='utf-8')
+            self.ctx.paths.state_dir.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(['cmd', '/c', 'mklink', '/J', str(self.ctx.paths.state_dir), str(outside)], check=True, capture_output=True)
+            try:
+                with mock.patch.object(codex_notify, '_forward_chained') as forward:
+                    with self.assertRaises(ValueError):
+                        codex_notify.dispatch(self.ctx, argv=['--chain-file', str(self.ctx.paths.state_dir / 'codex-notify-chain.json'), '{}'], stdin='')
+                    forward.assert_not_called()
+            finally:
+                os.rmdir(self.ctx.paths.state_dir)
+
     def test_generated_files_have_no_drift(self):
         first = RENDER.render_project_integrations(self.ctx, self.profile)
         self.assertEqual(first, RENDER.render_project_integrations(self.ctx, self.profile))

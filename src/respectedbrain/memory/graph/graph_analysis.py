@@ -12,14 +12,13 @@ tespit eder.
 
 from __future__ import annotations
 
-import argparse
-import json
 import os
 import re
-import sys
 from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
+import tempfile
+from ...core.platform import path_within_vault
 
 SKIP_DIRS = {
     ".git", ".obsidian", ".trash", ".claude", ".beyin",
@@ -31,7 +30,6 @@ SKIP_ROOT_FILES = {
 }
 
 _WIKILINK_RE = re.compile(r"\[\[([^\]|#]+?)(?:[|#][^\]]*?)?\]\]")
-_FRONT_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
 
 
 def _slug(name: str) -> str:
@@ -42,43 +40,60 @@ def _slug(name: str) -> str:
     return re.sub(r"[\s_]+", "-", name.lower())
 
 
-def iter_markdown_files(vault_path: Path) -> List[Path]:
+def iter_markdown_files(vault_path: Path, *, skip_root_files: Set[str] | None = None) -> List[Path]:
     """Vault içindeki taranacak tüm Markdown dosyalarını listeler."""
     md_files = []
+    excluded = SKIP_ROOT_FILES if skip_root_files is None else skip_root_files
+    vault_path = Path(vault_path).absolute()
+    if not path_within_vault(vault_path, vault_path):
+        return md_files
     for root, dirs, files in os.walk(vault_path):
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith(".") and path_within_vault(Path(root) / d, vault_path))
         rel_root = Path(root).relative_to(vault_path)
 
         for file in files:
             if not file.endswith(".md"):
                 continue
-            if rel_root == Path(".") and file in SKIP_ROOT_FILES:
+            if rel_root == Path(".") and file in excluded:
                 continue
-            md_files.append(Path(root) / file)
-    return md_files
+            path = Path(root) / file
+            if path_within_vault(path, vault_path):
+                md_files.append(path)
+    return sorted(md_files)
+
+
+def _file_nodes(files: List[Path], vault: Path):
+    stems = defaultdict(list)
+    for path in files:
+        stems[_slug(path.stem)].append(path)
+    identities = {path: _slug(path.stem) if len(stems[_slug(path.stem)]) == 1 else path.relative_to(vault).with_suffix("").as_posix().casefold() for path in files}
+    aliases = {slug: identities[paths[0]] for slug, paths in stems.items() if len(paths) == 1}
+    paths = {path.relative_to(vault).with_suffix("").as_posix().casefold(): identities[path] for path in files}
+    return identities, aliases, paths, stems
+
+
+def _resolve_link(target: str, aliases: dict, paths: dict) -> str | None:
+    clean = target.strip().replace("\\", "/")
+    if clean.endswith(".md"):
+        clean = clean[:-3]
+    return paths.get(clean.casefold()) if "/" in clean else aliases.get(_slug(clean))
 
 
 def build_graph(vault_path: Path) -> Dict[str, Any]:
     """Vault wikilink grafını inşa eder."""
-    vault = Path(vault_path).resolve()
+    vault = Path(vault_path).absolute()
     files = iter_markdown_files(vault)
 
     # stem -> dosya yolları (collision tespiti için)
-    stem_to_paths: Dict[str, List[Path]] = defaultdict(list)
-    slug_to_stem: Dict[str, str] = {}
-
-    for f in files:
-        stem = f.stem
-        slug = _slug(stem)
-        stem_to_paths[slug].append(f)
-        slug_to_stem[slug] = stem
+    identities, aliases, paths, stem_to_paths = _file_nodes(files, vault)
+    slug_to_stem = {identities[f]: f.stem for f in files}
 
     adj: Dict[str, Set[str]] = defaultdict(set)
     in_edges: Dict[str, Set[str]] = defaultdict(set)
     broken_links: Dict[str, List[str]] = defaultdict(list)
 
     for f in files:
-        src_slug = _slug(f.stem)
+        src_slug = identities[f]
         try:
             content = f.read_text(encoding="utf-8", errors="ignore")
         except Exception:
@@ -87,14 +102,14 @@ def build_graph(vault_path: Path) -> Dict[str, Any]:
         # Wikilinkleri ayıkla
         links = _WIKILINK_RE.findall(content)
         for target in links:
-            target_slug = _slug(target)
-            if not target_slug:
+            if not target.strip():
                 continue
-            if target_slug in slug_to_stem:
+            target_slug = _resolve_link(target, aliases, paths)
+            if target_slug is not None:
                 if target_slug != src_slug:
                     adj[src_slug].add(target_slug)
                     in_edges[target_slug].add(src_slug)
-            elif (vault / target.strip()).exists() or target.strip() in {"O Not", "Alt Not"}:
+            elif (_slug(target) not in stem_to_paths and path_within_vault(vault / target.strip(), vault) and (vault / target.strip()).exists()) or target.strip() in {"O Not", "Alt Not"}:
                 continue
             else:
                 broken_links[src_slug].append(target)
@@ -123,37 +138,38 @@ def find_bridge_nodes(nodes: Set[str], adj: Dict[str, Set[str]], top_k: int = 5)
     if len(nodes) < 3:
         return []
 
-    node_list = list(nodes)
+    node_list = sorted(nodes)
     sample_nodes = node_list[:min(len(node_list), 50)] # Performans için örneklem
-    pass_through = defaultdict(int)
+    pass_through = defaultdict(float)
 
     for s in sample_nodes:
         dist = {s: 0}
         q = deque([s])
         parents = defaultdict(list)
+        counts = defaultdict(float, {s: 1.0})
+        order = []
 
         while q:
             u = q.popleft()
-            for v in adj[u]:
+            order.append(u)
+            for v in sorted(adj.get(u, set()).intersection(nodes)):
                 if v not in dist:
                     dist[v] = dist[u] + 1
-                    parents[v].append(u)
                     q.append(v)
-                elif dist[v] == dist[u] + 1:
+                if dist[v] == dist[u] + 1:
                     parents[v].append(u)
+                    counts[v] += counts[u]
 
         # Yollar üzerinden geçişleri say
-        for target in dist:
-            if target == s:
-                continue
-            curr = target
-            curr_parents = parents.get(curr, [])
-            for p in curr_parents:
-                if p != s:
-                    pass_through[p] += 1
+        dependencies = defaultdict(float)
+        for target in reversed(order):
+            for parent in parents[target]:
+                dependencies[parent] += counts[parent] / counts[target] * (1.0 + dependencies[target])
+            if target != s:
+                pass_through[target] += dependencies[target]
 
-    sorted_bridges = sorted(pass_through.items(), key=lambda x: x[1], reverse=True)
-    return [(node, float(score)) for node, score in sorted_bridges[:top_k]]
+    sorted_bridges = sorted(pass_through.items(), key=lambda x: (-x[1], x[0]))
+    return [(node, float(score)) for node, score in sorted_bridges[:max(0, top_k)] if score > 0]
 
 
 def find_synthesis_gaps(
@@ -192,16 +208,61 @@ def find_synthesis_gaps(
     return gaps[:top_k]
 
 
+def _prose_mask(content: str) -> str:
+    """Keep offsets while hiding metadata, code and existing links."""
+    masked = list(content)
+    spans = []
+    front = re.match(r"\A\ufeff?---\r?\n.*?^---[ \t]*(?:\r?\n|$)", content, re.MULTILINE | re.DOTALL)
+    if front:
+        spans.append(front.span())
+    fence = None
+    offset = 0
+    for line in content.splitlines(keepends=True):
+        match = re.match(r"^[ \t]{0,3}(`{3,}|~{3,})(.*)", line)
+        if fence is None and match:
+            fence = (match[1][0], len(match[1]))
+            spans.append((offset, offset + len(line)))
+        elif fence is not None:
+            spans.append((offset, offset + len(line)))
+            if match and match[1][0] == fence[0] and len(match[1]) >= fence[1] and not match[2].strip():
+                fence = None
+        elif line.startswith(("    ", "\t")):
+            spans.append((offset, offset + len(line)))
+        offset += len(line)
+    for pattern in (r"(`+).*?\1", r"\[\[[^\]]*\]\]", r"!?\[[^\]\n]*\](?:\([^\n]*?\)|\[[^\]\n]*\])", r"https?://\S+", r"<!--.*?-->", r"<[^>]+>"):
+        spans.extend(m.span() for m in re.finditer(pattern, content, re.DOTALL))
+    for start, end in spans:
+        masked[start:end] = [' ' if ch not in '\r\n' else ch for ch in content[start:end]]
+    return ''.join(masked)
+
+
+def _replace_note(path: Path, vault: Path, before: bytes, content: str) -> None:
+    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}-", suffix=".tmp", dir=path.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content.encode("utf-8"))
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.chmod(path.stat().st_mode & 0o777)
+        if not path_within_vault(path, vault) or path.read_bytes() != before:
+            raise OSError("cross-link-target-changed")
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def cross_link_vault(vault_path: Path, apply_changes: bool = False) -> Dict[str, Any]:
     """Vault genelinde henüz linklenmemiş kavramları bulup otomatik [[wikilink]] önerir veya uygular."""
-    vault = Path(vault_path).resolve()
+    vault = Path(vault_path).absolute()
     files = iter_markdown_files(vault)
 
     # 4 harften uzun, anlamlı başlıklar
     titles: Dict[str, str] = {}
+    _, _, _, stems = _file_nodes(files, vault)
     for f in files:
         stem = f.stem
-        if len(stem) >= 4 and not stem.lower().startswith("untitled"):
+        if len(stem) >= 4 and not stem.lower().startswith("untitled") and len(stems[_slug(stem)]) == 1:
             titles[stem] = _slug(stem)
 
     # Uzun başlıklara öncelik ver (örn: 'Kurumsal Auth Mimarisi' önce, 'Auth' sonra)
@@ -213,12 +274,12 @@ def cross_link_vault(vault_path: Path, apply_changes: bool = False) -> Dict[str,
     for f in files:
         current_stem = f.stem
         try:
-            content = f.read_text(encoding="utf-8", errors="ignore")
+            before = f.read_bytes()
+            content = before.decode("utf-8")
         except Exception:
             continue
 
         original_content = content
-        found_in_file = set()
 
         # Mevcut wikilinkleri tespit et ki tekrar linklemeyelim
         existing_links = {_slug(l) for l in _WIKILINK_RE.findall(content)}
@@ -232,17 +293,16 @@ def cross_link_vault(vault_path: Path, apply_changes: bool = False) -> Dict[str,
             # Kod bloklarını hariç tutmak için basit kontrol
             pattern = re.compile(rf"(?<!\[\[)\b({re.escape(t)})\b(?!\]\])", re.IGNORECASE)
 
-            if pattern.search(content):
-                suggestions[current_stem].append(t)
+            match = pattern.search(_prose_mask(content))
+            if match:
+                key = current_stem if len(stems[_slug(current_stem)]) == 1 else f.relative_to(vault).as_posix()
+                suggestions[key].append(t)
                 existing_links.add(t_slug)
-                found_in_file.add(t)
-
-                if apply_changes:
-                    # Sadece ilk geçişi linke sar
-                    content = pattern.sub(rf"[[\1]]", content, count=1)
+                start, end = match.span()
+                content = content[:start] + '[[' + content[start:end] + ']]' + content[end:]
 
         if apply_changes and content != original_content:
-            f.write_text(content, encoding="utf-8")
+            _replace_note(f, vault, before, content)
             modified_files += 1
 
     return {

@@ -114,6 +114,34 @@ class TestBoundedRecall(unittest.TestCase):
         result = bounded_recall.get_bounded_recall("substantive query about architecture", ctx=SimpleNamespace(paths=None))
         self.assertEqual(result, "")
 
+    def test_hard_budget_clamps_and_nonpositive_budget_abstains_before_search(self):
+        from unittest import mock
+        engine = mock.Mock()
+        engine.search.return_value = [{'path':'note.md','snippet':'content '*1000}] * 20
+        with mock.patch.object(bounded_recall, '_get_search_engine', return_value=engine):
+            result = bounded_recall.get_bounded_recall('substantive architecture query', ctx=None, max_notes=99, max_chars=9999)
+            self.assertLessEqual(len(result), bounded_recall.MAX_CHARS)
+            self.assertLessEqual(result.count('- [['), bounded_recall.MAX_NOTES)
+            self.assertEqual(engine.search.call_args.kwargs['limit'], bounded_recall.MAX_NOTES)
+            engine.reset_mock()
+            self.assertEqual(bounded_recall.get_bounded_recall('substantive architecture query', ctx=None, max_notes=-1), '')
+            engine.search.assert_not_called()
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Windows junction boundary')
+    def test_recall_rejects_cache_junction_without_creating_external_database(self):
+        import os
+        import subprocess
+        with tempfile.TemporaryDirectory() as tech, tempfile.TemporaryDirectory() as vault, tempfile.TemporaryDirectory() as outside:
+            ctx = make_context(Path(tech), Path(vault))
+            ctx.paths.cache_dir.parent.mkdir(parents=True, exist_ok=True)
+            link = ctx.paths.cache_dir
+            subprocess.run(['cmd','/c','mklink','/J',str(link),outside], check=True, capture_output=True)
+            try:
+                self.assertEqual(bounded_recall.get_bounded_recall('architecture substantive query',ctx), '')
+                self.assertEqual(list(Path(outside).iterdir()), [])
+            finally:
+                os.rmdir(link)
+
 
 class TestSmartMerge(unittest.TestCase):
     """Smart Note Merge tests."""

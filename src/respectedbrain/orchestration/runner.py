@@ -10,6 +10,8 @@ The main working tree is NEVER modified directly by worker models.
 from __future__ import annotations
 
 from respectedbrain.core.coordination import guarded_writer, writer_lease
+from respectedbrain.core.platform import path_within_vault
+from respectedbrain.core.config import atomic_write_json
 
 from typing import Sequence
 from respectedbrain.core.context import AppContext
@@ -25,8 +27,16 @@ import subprocess
 import sys
 import time
 import threading
+from uuid import uuid4
 
 SUPPORTED_AGENTS = ("claude", "gemini", "antigravity", "agy", "codex", "cursor", "user")
+
+
+def _safe_target(path: Path) -> Path:
+    path = path.absolute()
+    if not path_within_vault(path, Path(path.anchor)):
+        raise ValueError(f"Orchestration refuses link/reparse target: {path}")
+    return path
 
 
 def slugify(text: str) -> str:
@@ -73,18 +83,18 @@ class OrchestrationRun:
 
         timestamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
         slug = slugify(task)
-        self.run_id = f"run-{timestamp}-{slug}"
+        self.run_id = f"run-{timestamp}-{slug}-{uuid4().hex[:12]}"
 
-        self.state_root = state_root.resolve()
+        self.state_root = _safe_target(state_root).resolve()
         self.run_dir = self.state_root / self.run_id
-        self.worktrees_root = (self.repo_root / ".worktrees").resolve()
+        self.worktrees_root = _safe_target(self.repo_root / ".worktrees")
         self.worktree_dir = self.worktrees_root / self.run_id
         self.branch_name = f"worktree/{self.run_id}"
         self.test_command = test_command
 
     def _init_storage(self) -> None:
-        self.run_dir.mkdir(parents=True, exist_ok=True)
-        self.worktrees_root.mkdir(parents=True, exist_ok=True)
+        _safe_target(self.run_dir).mkdir(parents=True, exist_ok=False)
+        _safe_target(self.worktrees_root).mkdir(parents=True, exist_ok=True)
 
     def _write_metadata(self, status: str, **extra: object) -> None:
         data = {
@@ -100,9 +110,7 @@ class OrchestrationRun:
             "branch_name": self.branch_name,
             **extra,
         }
-        (self.run_dir / "metadata.json").write_text(
-            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        atomic_write_json(_safe_target(self.run_dir / "metadata.json"), data)
 
     def setup_worktree(self) -> bool:
         self._init_storage()
@@ -149,7 +157,7 @@ class OrchestrationRun:
             f"3. Değişiklikleriniz tamamlandığında testleri çalıştırın.\n"
             f"4. İşlem bittiğinde otomatik olarak yama (worker.patch) üretilecektir.\n"
         )
-        (self.worktree_dir / "TASK_SPEC.md").write_text(spec_content, encoding="utf-8")
+        (self.run_dir / "TASK_SPEC.md").write_text(spec_content, encoding="utf-8")
         return True
 
     def execute_worker(self) -> int:
@@ -177,7 +185,7 @@ class OrchestrationRun:
 
             prompt = (
                 f"Sen bir yazılım işçisisin. Görev: {self.task}\n"
-                f"Lütfen TASK_SPEC.md dosyasını incele ve gerekli tüm kod değişikliklerini uygula. "
+                f"Lütfen {self.run_dir / 'TASK_SPEC.md'} dosyasını incele ve gerekli tüm kod değişikliklerini uygula. "
                 f"İşin bittiğinde değişiklikleri kaydet."
             )
 
@@ -223,37 +231,26 @@ class OrchestrationRun:
 
         duration = round(time.time() - start_time, 2)
         self.collect_patch(exit_code=exit_code, test_passed=test_passed, duration=duration)
-        return exit_code
+        return exit_code or (0 if test_passed else 1)
 
     def collect_patch(self, exit_code: int, test_passed: bool, duration: float) -> None:
-        # Remove TASK_SPEC.md from untracked/staging if created
-        task_spec = self.worktree_dir / "TASK_SPEC.md"
-        if task_spec.is_file():
-            task_spec.unlink()
-
-        # Capture git status and diff
-        diff_proc = subprocess.run(
-            ["git", "diff", "HEAD"],
-            cwd=self.worktree_dir,
-            capture_output=True,
-            text=True,
-        )
-        patch_text = diff_proc.stdout
-
-        # If HEAD has not changed, also check unstaged or committed differences from base_commit
         base_commit_file = self.run_dir / "base_commit.txt"
         base_commit = base_commit_file.read_text(encoding="utf-8").strip() if base_commit_file.is_file() else "HEAD"
-        if not patch_text.strip():
-            diff_base_proc = subprocess.run(
-                ["git", "diff", base_commit],
-                cwd=self.worktree_dir,
-                capture_output=True,
-                text=True,
-            )
-            patch_text = diff_base_proc.stdout
+        untracked = subprocess.run(['git', 'ls-files', '--others', '--exclude-standard', '-z'], cwd=self.worktree_dir, capture_output=True, check=True).stdout
+        names = [name.decode('utf-8') for name in untracked.split(b'\0') if name]
+        if names:
+            for name in names:
+                _safe_target(self.worktree_dir / name)
+            subprocess.run(['git', 'add', '-N', '--', *names], cwd=self.worktree_dir, capture_output=True, check=True)
+        diff_proc = subprocess.run(
+            ['git', 'diff', '--binary', '--full-index', base_commit, '--'],
+            cwd=self.worktree_dir, capture_output=True, check=True,
+        )
+        patch_bytes = diff_proc.stdout
+        patch_text = patch_bytes.decode('utf-8', errors='replace')
 
         patch_file = self.run_dir / "worker.patch"
-        patch_file.write_text(patch_text, encoding="utf-8")
+        _safe_target(patch_file).write_bytes(patch_bytes)
 
         status_proc = subprocess.run(
             ["git", "status", "--short"],
@@ -262,9 +259,7 @@ class OrchestrationRun:
             text=True,
         )
 
-        final_status = "completed" if (exit_code == 0 and test_passed and bool(patch_text.strip())) else (
-            "empty" if not patch_text.strip() else "failed"
-        )
+        final_status = 'failed' if exit_code != 0 or not test_passed else 'completed' if patch_bytes.strip() else 'empty'
 
         result_data = {
             "run_id": self.run_id,
@@ -290,6 +285,9 @@ class OrchestrationRun:
         print(f"[👉] Dashboard üzerinden inceleyip onaylayabilirsiniz: http://localhost:8520")
 
     def cleanup_worktree(self) -> None:
+        _safe_target(self.worktree_dir)
+        if self.worktree_dir.parent != self.repo_root / '.worktrees':
+            raise ValueError('Worktree cleanup exceeds owned workspace')
         if self.worktree_dir.is_dir():
             print(f"[*] Worktree kaldırılıyor: {self.worktree_dir}")
             subprocess.run(
@@ -362,13 +360,16 @@ def _run_directory(ctx: AppContext, run_id: str) -> Path:
         raise ValueError("Invalid orchestration run identity")
     root = ctx.paths.state_dir / "orchestration"
     directory = root / run_id
+    _safe_target(directory)
     if directory.is_symlink() or directory.resolve().parent != root.resolve():
         raise ValueError("Run directory escapes its selected state root")
     return directory
 
 
 def _run_metadata(ctx: AppContext, directory: Path) -> dict:
-    metadata = json.loads((directory / "metadata.json").read_text(encoding="utf-8"))
+    metadata = json.loads(_safe_target(directory / "metadata.json").read_text(encoding="utf-8"))
+    if not isinstance(metadata, dict):
+        raise ValueError('Invalid orchestration metadata')
     if metadata.get("vault_id") != ctx.paths.vault_id or metadata.get("run_id") != directory.name:
         raise ValueError("Orchestration run ownership does not match the selected vault")
     return metadata
@@ -377,14 +378,21 @@ def _run_metadata(ctx: AppContext, directory: Path) -> dict:
 def list_runs(ctx: AppContext) -> dict:
     runs = []
     worktrees_root = ""
-    root = ctx.paths.state_dir / "orchestration"
+    root = _safe_target(ctx.paths.state_dir / "orchestration")
     if root.is_dir():
         for directory in sorted(root.glob("run-*"), reverse=True)[:30]:
             try:
                 directory = _run_directory(ctx, directory.name)
                 metadata = _run_metadata(ctx, directory)
-                patch = (directory / "worker.patch").read_text(encoding="utf-8", errors="replace")[:60_000] if (directory / "worker.patch").is_file() else ""
-                result = json.loads((directory / "result.json").read_text(encoding="utf-8")) if (directory / "result.json").is_file() else {}
+                patch_file = _safe_target(directory / "worker.patch")
+                result_file = _safe_target(directory / "result.json")
+                patch = ""
+                if patch_file.is_file():
+                    with patch_file.open(encoding="utf-8", errors="replace") as handle:
+                        patch = handle.read(60_000)
+                result = json.loads(result_file.read_text(encoding="utf-8")) if result_file.is_file() else {}
+                if not isinstance(result, dict) or not isinstance(metadata.get("worktree_path", ""), str):
+                    raise ValueError("Invalid orchestration evidence")
             except (OSError, ValueError):
                 continue
             if metadata.get("worktree_path") and not worktrees_root:

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import os
+import re
 import stat
 import tempfile
 from pathlib import Path
@@ -13,7 +14,7 @@ from typing import Callable
 from uuid import uuid4
 
 from respectedbrain.core.config import atomic_write_bytes
-from respectedbrain.core.errors import OwnershipConflict
+from respectedbrain.core.errors import FoundationError, OwnershipConflict
 from respectedbrain.core.locking import exclusive_lock
 from .ownership import safe_path, digest, encode_bytes, decode_bytes
 
@@ -25,6 +26,50 @@ def _file_mode(path: Path) -> int | None:
 def _mode_matches(row: dict, name: str, actual: int | None) -> bool:
     # Existing journals predate mode metadata; retain their byte-only recovery.
     return name not in row or row[name] == actual
+
+
+def _validate_journal(document: dict, directory: Path) -> None:
+    """Reject malformed recovery evidence before restoring any target."""
+    try:
+        if (not isinstance(document, dict) or document.get("schema_version") != 3
+                or document["tx_id"] != directory.name
+                or document["status"] not in ("active", "rollback-conflict", "rolled-back", "committed")):
+            raise ValueError("Invalid transaction identity or status")
+        if any(not isinstance(document[name], list) for name in ("files", "external", "directories")):
+            raise ValueError("Invalid journal collections")
+        seen = set()
+        for row in document["files"]:
+            name = row["path"]
+            path = Path(name)
+            if not isinstance(name, str) or not path.is_absolute() or ".." in path.parts or path in seen:
+                raise ValueError("Invalid or duplicate journal target")
+            seen.add(path)
+            for field in ("before", "after"):
+                value = row[field]
+                if value is not None and (not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value)):
+                    raise ValueError("Invalid journal hash")
+            backup = row["backup"]
+            if (backup is not None and (not isinstance(backup, str) or not re.fullmatch(r"file-[0-9]+\.bin", backup))
+                    or (backup is None) != (row["before"] is None)):
+                raise ValueError("Invalid before-image reference")
+            for field in ("before_mode", "after_mode"):
+                value = row.get(field)
+                if value is not None and (type(value) is not int or not 0 <= value <= 0o7777):
+                    raise ValueError("Invalid journal mode")
+        for row in document["external"]:
+            if (row["kind"] not in ("file", "mcp", "task", "shortcut", "registry")
+                    or not isinstance(row["key"], str) or not row["key"] or "\0" in row["key"]):
+                raise ValueError("Invalid journal external record")
+            for field in ("before", "after"):
+                value = row[field]
+                if value is not None and not isinstance(value, str):
+                    raise ValueError("Invalid external before-image")
+                decode_bytes(value)
+        for name in document["directories"]:
+            if not isinstance(name, str) or not Path(name).is_absolute() or ".." in Path(name).parts:
+                raise ValueError("Invalid journal directory")
+    except (KeyError, TypeError, ValueError) as error:
+        raise OwnershipConflict(f"Invalid transaction journal: {error}") from error
 
 
 def _atomic_write_mode(path: Path, payload: bytes, mode: int | None) -> None:
@@ -68,9 +113,10 @@ class Transaction:
 
     def __enter__(self):
         try:
-            self._stack.enter_context(exclusive_lock(self.data_root / ".operation.lock", timeout=0))
+            safe_path(self.journal)
+            self._stack.enter_context(exclusive_lock(safe_path(self.data_root / ".operation.lock"), timeout=0))
             self._stack.enter_context(self.backend.quiesce(self.vault_id))
-            self.directory.mkdir(parents=True, exist_ok=False)
+            safe_path(self.directory).mkdir(parents=True, exist_ok=False)
             self._save()
             return self
         except BaseException:
@@ -122,7 +168,7 @@ class Transaction:
         backup = None
         if payload is not None:
             backup = f"file-{len(self.document['files'])}.bin"
-            atomic_write_bytes(self.directory / backup, payload)
+            atomic_write_bytes(safe_path(self.directory / backup), payload)
         row = {"path": str(path), "backup": backup,
                                        "before": hashlib.sha256(payload).hexdigest() if payload is not None else None,
                                        "after": hashlib.sha256(payload).hexdigest() if payload is not None else None,
@@ -140,7 +186,7 @@ class Transaction:
         backup = None
         if before is not None:
             backup = f"file-{len(self.document['files'])}.bin"
-            atomic_write_bytes(self.directory / backup, before)
+            atomic_write_bytes(safe_path(self.directory / backup), before)
         self.document["files"].append({"path": str(path), "backup": backup,
                                        "before": hashlib.sha256(before).hexdigest() if before is not None else None,
                                        "after": digest(path) if path.exists() else None})
@@ -206,6 +252,18 @@ class Transaction:
             raise OwnershipConflict(f"External readback mismatch: {change.kind}:{change.key}")
 
     def commit(self) -> OperationResult:
+        for row in self.document["files"]:
+            path = safe_path(Path(row["path"]))
+            actual = digest(path) if path.is_file() else None
+            if (actual != row["after"] or not _mode_matches(row, "after_mode", _file_mode(path))
+                    or path.exists() and not path.is_file()):
+                raise OwnershipConflict(f"Target changed before commit: {path}")
+        checked = set()
+        for row in reversed(self.document["external"]):
+            key = (row["kind"], row["key"])
+            if key not in checked and self.backend.read(*key) != decode_bytes(row["after"]):
+                raise OwnershipConflict(f"External record changed before commit: {key[0]}:{key[1]}")
+            checked.add(key)
         self.document["status"] = "committed"
         self._save()
         self._committed = True
@@ -213,6 +271,7 @@ class Transaction:
         return self.result
 
     def rollback(self) -> OperationResult:
+        _validate_journal(self.document, self.directory)
         conflicts = []
         for row in reversed(self.document["external"]):
             change = SimpleNamespace(kind=row["kind"], key=row["key"], before=decode_bytes(row["before"]), after=decode_bytes(row["after"]))
@@ -223,7 +282,7 @@ class Transaction:
                 if current != change.after:
                     raise OwnershipConflict("External record changed")
                 self.backend.restore(change)
-            except (OSError, ValueError, OwnershipConflict):
+            except (OSError, ValueError, FoundationError):
                 conflicts.append(change.kind + ":" + change.key)
         for row in reversed(self.document["files"]):
             path = Path(row["path"])
@@ -268,13 +327,15 @@ class Transaction:
 
 def recover_transactions(data_root: Path, backend) -> tuple[OperationResult, ...]:
     safe_path(data_root)
-    if not (data_root / "backups").is_dir():
+    backups = safe_path(data_root / "backups")
+    if not backups.is_dir():
         return ()
     results = []
-    with exclusive_lock(data_root / ".operation.lock", timeout=0), backend.quiesce(None):
-        for journal in sorted((data_root / "backups").glob("tx-*/journal.json")):
+    with exclusive_lock(safe_path(data_root / ".operation.lock"), timeout=0), backend.quiesce(None):
+        for journal in sorted(backups.glob("tx-*/journal.json")):
             document = json.loads(safe_path(journal).read_text(encoding="utf-8"))
-            if document.get("schema_version") != 3 or document.get("status") != "active":
+            _validate_journal(document, journal.parent)
+            if document["status"] not in ("active", "rollback-conflict"):
                 continue
             tx = Transaction(data_root, backend, vault_id=document.get("vault_id"))
             tx.document, tx.directory, tx.journal, tx.tx_id = document, journal.parent, journal, document["tx_id"]

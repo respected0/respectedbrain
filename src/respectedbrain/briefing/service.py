@@ -5,18 +5,14 @@ from __future__ import annotations
 
 from respectedbrain.core.coordination import guarded_writer
 
-import argparse
 from datetime import datetime, timedelta
 import json
 import os
 from pathlib import Path
 import re
-import stat
-import subprocess
 import sys
 import tempfile
 import time
-from typing import Callable, Sequence
 
 
 from respectedbrain.core import platform as runtime_platform
@@ -62,7 +58,7 @@ def _atomic_write(path: Path, content: str, *, expected_before=_UNSPECIFIED_TARG
         # Windows metadata/scanner handles can briefly block replacement.
         # Retry the prepared bytes, preserving the model result and bounded work.
         for attempt in range(5):
-            if attempt and (path.read_bytes() if path.exists() else None) != before:
+            if (path.read_bytes() if path.exists() else None) != before:
                 raise OSError("briefing-target-changed")
             try:
                 os.replace(temporary, path)
@@ -197,23 +193,6 @@ def _record_health(state_dir: Path, now: datetime, error: str) -> None:
         pass
 
 
-def _open_lock(path: Path, vault_root: Path):
-    if not runtime_platform.path_within_vault(path, vault_root):
-        raise OSError("unsafe-briefing-lock")
-    flags = os.O_CREAT | os.O_RDWR | os.O_APPEND
-    flags |= int(getattr(os, "O_NOFOLLOW", 0))
-    flags |= int(getattr(os, "O_NOINHERIT", 0))
-    descriptor = os.open(path, flags, 0o600)
-    try:
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode):
-            raise OSError("unsafe-briefing-lock")
-        return os.fdopen(descriptor, "a+", encoding="utf-8")
-    except Exception:
-        os.close(descriptor)
-        raise
-
-
 def _update_dashboard(path: Path, day: str) -> None:
     before = path.read_bytes() if path.exists() else None
     existing = before.decode("utf-8") if before is not None else ""
@@ -254,7 +233,7 @@ def _run_if_due(ctx: AppContext, *, model: ModelService, now: datetime) -> int:
     final = root / "🎯 100-Command-Center/Briefings" / f"{day}.md"
     dashboard = root / "🎯 100-Command-Center/Dashboard.md"
     state = ctx.paths.state_dir
-    for path, boundary in ((final, root), (dashboard, root), (state, ctx.paths.data_root)):
+    for path, boundary in ((final, root), (dashboard, root), (state, ctx.paths.data_root), (ctx.paths.cache_dir, ctx.paths.data_root)):
         if not runtime_platform.path_within_vault(path, boundary):
             return 1
     if final.is_file():
@@ -283,7 +262,7 @@ def _run_if_due(ctx: AppContext, *, model: ModelService, now: datetime) -> int:
             document = ("---\n" + f"date: {day}\nprepared_at: {now.isoformat(timespec='seconds')}\n"
                         + f"provider: {result.provider or 'custom'}\n---\n\n"
                         + f"# Sabah Brifingi — {day}\n\n{result.text.strip()}\n")
-            _atomic_write(final, document)
+            _atomic_write(final, document, expected_before=None)
             created = True
             _update_dashboard(dashboard, day)
             if not compile_status:
@@ -303,7 +282,7 @@ def run_if_due(ctx: AppContext, *, model: ModelService, now: datetime) -> int:
         return 0
     root = ctx.paths.vault_root
     final = root / "🎯 100-Command-Center/Briefings" / f"{now.date().isoformat()}.md"
-    for path, boundary in ((final, root), (root / "🎯 100-Command-Center/Dashboard.md", root), (ctx.paths.state_dir, ctx.paths.data_root)):
+    for path, boundary in ((final, root), (root / "🎯 100-Command-Center/Dashboard.md", root), (ctx.paths.state_dir, ctx.paths.data_root), (ctx.paths.cache_dir, ctx.paths.data_root)):
         if not runtime_platform.path_within_vault(path, boundary):
             return 1
     if final.is_file():

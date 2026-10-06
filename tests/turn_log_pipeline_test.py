@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 import datetime as dt
+import hashlib
 import json
 import os
 import subprocess
@@ -51,6 +52,49 @@ class TurnLogPipelineTest(unittest.TestCase):
             session_id,
             provider,
         )
+
+    def test_stale_hook_sweep_preserves_persistent_lock_files(self):
+        locks = [self.state / name for name in ("writer.lock", "compile.lock", "daily-2026-09-14.lock", "flush-old.lock")]
+        for lock in locks:
+            lock.write_bytes(b"persistent lock identity")
+            os.utime(lock, (1, 1))
+        hook = self.state / "hookin-old.json"
+        hook.write_text("{}", encoding="utf-8")
+        os.utime(hook, (1, 1))
+        FLUSH._sweep_stale_hook_inputs(self.state, None, 10_000)
+        self.assertFalse(hook.exists())
+        for lock in locks:
+            self.assertTrue(lock.exists())
+            self.assertEqual(lock.read_bytes(), b"persistent lock identity")
+
+    def test_invalid_daily_marker_order_or_duplicate_end_preserves_human_bytes(self):
+        identity = hashlib.sha256(b"codex\0session-a").hexdigest()
+        begin = f"<!-- RESPECTED-SESSION:{identity}:BEGIN -->"
+        end = f"<!-- RESPECTED-SESSION:{identity}:END -->"
+        daily = self.vault / "daily/2026-09-14.md"
+        daily.parent.mkdir()
+        for malformed in (end + "\nHUMAN\n" + begin, begin + "\nHUMAN\n" + end + "\n" + end):
+            with self.subTest(malformed=malformed):
+                daily.write_text(malformed, encoding="utf-8")
+                before = daily.read_bytes()
+                with self.assertRaisesRegex(OSError, "daily-session-markers-invalid"):
+                    self.upsert("session-a", "## Bağlam\nreplacement", dt.datetime(2026, 9, 14))
+                self.assertEqual(daily.read_bytes(), before)
+
+    def test_daily_edit_during_atomic_staging_is_preserved(self):
+        daily = self.vault / "daily/2026-09-14.md"
+        daily.parent.mkdir()
+        daily.write_bytes(b"# Original human daily\n")
+        edit = b"# Concurrent human daily\n"
+        real_mkstemp = FLUSH.tempfile.mkstemp
+        def staging(*args, **kwargs):
+            if kwargs.get("prefix") == ".2026-09-14.md.":
+                daily.write_bytes(edit)
+            return real_mkstemp(*args, **kwargs)
+        with mock.patch.object(FLUSH.tempfile, "mkstemp", side_effect=staging):
+            with self.assertRaisesRegex(OSError, "daily-target-changed"):
+                self.upsert("session-a", "## Bağlam\nreplacement", dt.datetime(2026, 9, 14))
+        self.assertEqual(daily.read_bytes(), edit)
 
     def test_later_turn_replaces_the_same_session_without_touching_human_text(self):
         when = dt.datetime(2026, 9, 14, 3, 4, tzinfo=dt.timezone(dt.timedelta(hours=3)))

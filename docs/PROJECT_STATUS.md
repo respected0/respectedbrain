@@ -4,11 +4,13 @@ scope: project; confidence: verified; supersedes: ["Önceki tarihli uygulama pla
 
 > Aktif durumun tek kaynağı bu belgedir. Tarihli test sonuçları [test matrisinde](TEST-MATRIX.md), ayrıntılı işlem kayıtları [kayıt indeksinde](records/README.md), güvenlik sınırları [SECURITY](SECURITY.md) içinde ve tarihli tam denetim [kayıt denetiminde](records/2026-10-installer-release/REPOSITORY_AUDIT.md) bulunur.
 
-## 1. Kaynak ve yayın durumu — 2026-10-05
+## 1. Kaynak ve yayın durumu — 2026-10-06
 
 Modüler paket, kurulum seçimleri/hız düzeltmeleri ve kaynak temizliği ana checkout'a birleştirildi. Önceki çalışma dalı ve managed worktree kapatıldı; geliştirme kökü `Documents/ChatGPT/secondbrain` klasöründeki main'dir. Eski kaynak dönüşümünün ayrıntıları [uygulama kaydında](records/2026-10-modular-foundation/IMPLEMENTATION.md).
 
 Son doğrulanmış ürün kodu `631c37eda13f569072e0436984cbf19f6b709ba8` için [37318525236 CI koşusu](https://github.com/respected0/respectedbrain/actions/runs/37318525236) 12/12 işi geçti. Kaynak main'e normal push ile gönderildi; tag veya herkese açık yeni release bu kapanışta oluşturulmadı. Daha sonraki belge düzenlemesini bu ürün kodunun native test sonucu gibi sunmayın.
+
+2026-10-06 itibarıyla `src/respectedbrain/` modül inceleme turları, giriş/CLI/bootstrap ve son servis sınırları incelemesi tamamlandı. Yerel kaynak düzeltmeleri unstaged, önceki belge düzenlemesi staged durumdadır; bu çalışmalar commit/push edilmedi. [Kaynak inceleme kaydı](records/2026-10-source-cleanup/SOURCE_REVIEW.md) son fixture test seçkisini ve kabul sınırlarını açıklar. Önceki CI sonucu bu yeni yerel değişikliklerin CI/native kabulü değildir.
 
 Bu belgeler yeniden düzenlenirken canlı AppData programı ve sağlayıcı kurulum ayarları değiştirilmez. Kullanıcı kasasına program kurulumu, template taşıma veya not sıfırlama uygulanmaz; hafıza protokolünün devir ve belge bağlantısı düzeltmeleri ayrı not güncellemeleridir. Kaynak kodun modüler olması mevcut canlı kurulumun yeni yapıya geçirildiği anlamına gelmez.
 
@@ -28,7 +30,6 @@ Eski README'nin Türkçe anlatımı, tabloları ve SSS tarzı yeni giriş ve reh
 
 | İş | Sınır / sahip |
 | --- | --- |
-| Kaynak klasörlerinin kullanıcıyla sonraki incelemesi | Gereksizliği kanıtlanmış dosyalar; kişisel kasa ayrı |
 | Yeni native paket ve canlı devreye alma | Kullanıcının son aşaması; geçici kabul, somut backup ve provider testleriyle |
 | DNS transport, provider izinleri, secret tarama, release güven zinciri | [Dört açık hardening alanı](SECURITY.md); CI başarısıyla kapanmaz ([tarihli denetim](records/2026-10-installer-release/REPOSITORY_AUDIT.md)) |
 | Giriş yapılmış sağlayıcıların gerçek kabulü | Test/fixture yerine gerçek oturum kanıtı gerekir |

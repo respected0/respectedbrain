@@ -1469,7 +1469,9 @@
       logTerminal('[*] Sürüm güncelleme kontrolü başlatıldı...');
       try {
         const res = await fetch('/api/updater/check').then(r => r.json());
-        const msg = `Mevcut Sürüm: ${res.current_version} | Durum: ${res.status === 'up_to_date' ? 'Sistem güncel' : 'Yeni sürüm mevcut'}`;
+        const statusText = res.status === 'up_to_date' ? 'Sistem güncel'
+          : res.update_available === true ? 'Yeni sürüm mevcut' : 'Güncelleme bilgisi alınamadı';
+        const msg = `Mevcut Sürüm: ${res.current_version} | Durum: ${statusText}`;
         logTerminal(`[✓] ${msg}`);
         showToast(msg, res.status === 'up_to_date' ? 'success' : 'warning');
       } catch (err) {

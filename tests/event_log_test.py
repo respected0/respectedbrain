@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 
@@ -19,6 +21,81 @@ def load_events_module():
 class EventLogTest(unittest.TestCase):
     def setUp(self):
         self.events = load_events_module()
+
+    @unittest.skipUnless(os.name == "nt", "Windows junction")
+    def test_linked_companion_cannot_redirect_event_writes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            vault = root / "vault"
+            outside = root / "outside"
+            vault.mkdir()
+            outside.mkdir()
+            link = vault / "🔮 850-Companion"
+            result = subprocess.run(["cmd.exe", "/c", "mklink", "/J", str(link), str(outside)],
+                                    capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            try:
+                with self.assertRaisesRegex(ValueError, "unsafe-memory-path"):
+                    self.events.record_event(vault, "codex", "session_end", "linked")
+                self.assertEqual(list(outside.iterdir()), [])
+            finally:
+                link.rmdir()
+
+    def test_rotation_preserves_conflicting_archive_and_source(self):
+        import datetime as dt
+        with tempfile.TemporaryDirectory() as temporary:
+            vault = Path(temporary).resolve()
+            old = self.events.record_event(vault, "codex", "session_end", "older", now=dt.datetime(2026, 1, 1))
+            self.events.record_event(vault, "codex", "session_end", "newer", now=dt.datetime(2026, 1, 2))
+            active = self.events.get_events_dir(vault) / (old["id"] + ".json")
+            archive = self.events.get_events_archive_dir(vault) / active.name
+            original = active.read_bytes()
+            archive.write_bytes(b"immutable conflicting archive")
+            with self.assertRaisesRegex(ValueError, "event-archive-collision"):
+                self.events.rotate_events(vault, keep_limit=1)
+            self.assertEqual(active.read_bytes(), original)
+            self.assertEqual(archive.read_bytes(), b"immutable conflicting archive")
+
+    def test_event_order_uses_absolute_time_across_timezones(self):
+        import datetime as dt
+        with tempfile.TemporaryDirectory() as temporary:
+            vault = Path(temporary).resolve()
+            earlier = dt.datetime(2026, 1, 1, 10, tzinfo=dt.timezone(dt.timedelta(hours=3)))
+            later = dt.datetime(2026, 1, 1, 8, tzinfo=dt.timezone.utc)
+            self.events.record_event(vault, "codex", "session_end", "earlier", context="EARLIER", now=earlier)
+            self.events.record_event(vault, "codex", "session_end", "later", context="LATEST", now=later)
+            self.assertEqual([row["session_id"] for row in self.events.list_events(vault)], ["earlier", "later"])
+            self.events.project_companion(vault)
+            latest = (vault / "🔮 850-Companion/Last-Session.md").read_text(encoding="utf-8")
+            self.assertIn("LATEST", latest)
+            self.assertNotIn("EARLIER", latest)
+
+    def test_rotation_orders_legacy_local_timestamp_filenames_by_event_time(self):
+        import datetime as dt
+        with tempfile.TemporaryDirectory() as temporary:
+            vault = Path(temporary).resolve()
+            earlier = self.events.record_event(vault, "codex", "session_end", "earlier",
+                                               now=dt.datetime(2026, 1, 1, 10, tzinfo=dt.timezone(dt.timedelta(hours=3))))
+            later = self.events.record_event(vault, "codex", "session_end", "later",
+                                             now=dt.datetime(2026, 1, 1, 8, tzinfo=dt.timezone.utc))
+            directory = self.events.get_events_dir(vault)
+            (directory / (earlier["id"] + ".json")).rename(directory / "20260101T100000Z-legacy-earlier.json")
+            (directory / (later["id"] + ".json")).rename(directory / "20260101T080000Z-legacy-later.json")
+            self.events.rotate_events(vault, keep_limit=1)
+            self.assertEqual([row["session_id"] for row in self.events.list_events(vault)], ["later"])
+            self.assertEqual([row["session_id"] for row in self.events.list_events(vault, include_archive=True)], ["earlier", "later"])
+
+    def test_projection_preserves_threads_after_body_horizontal_rule(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            vault = Path(temporary).resolve()
+            companion = self.events.get_companion_dir(vault)
+            threads = companion / "Threads.md"
+            threads.write_text("# Threads\n## Açık Konular\n### First\nBefore rule\n---\nAfter rule\n### Second\nSecond human note\n", encoding="utf-8")
+            self.events.record_event(vault, "codex", "session_end", "no-thread-changes", threads=[])
+            self.events.project_companion(vault)
+            projected = threads.read_text(encoding="utf-8")
+            self.assertIn("After rule", projected)
+            self.assertIn("Second human note", projected)
 
     def test_record_event_creates_immutable_json_file(self):
         """record_event must create a valid append-only JSON file under companion/events."""

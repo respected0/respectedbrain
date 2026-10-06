@@ -17,12 +17,6 @@ import sys
 from urllib.parse import urlparse
 
 
-def _configure_console_output() -> None:
-    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if callable(reconfigure):
-            reconfigure(errors="replace")
 
 
 
@@ -230,7 +224,6 @@ def canonical_content_hash(text: str) -> str:
     canonical = normalize_canonical_text(text)
     if not canonical:
         return ""
-    import hashlib
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 

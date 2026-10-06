@@ -15,6 +15,21 @@ from tests.foundation_transactions_test import Backend
 
 
 class FoundationSetupTest(unittest.TestCase):
+    def test_repeated_setup_refuses_manifest_file_outside_program_root(self):
+        from dataclasses import replace
+        from respectedbrain.installation.ownership import OwnedFile, digest, manifest_document
+        self.assertTrue(self.install().success)
+        sentinel = self.root / 'human-note.md'
+        sentinel.write_bytes(b'user')
+        manifest_path = self.roots.data_root / 'install-manifest.json'
+        manifest = read_manifest(manifest_path)
+        manifest_path.write_text(json.dumps(manifest_document(replace(manifest, files=manifest.files + (OwnedFile(sentinel, digest(sentinel), 'application'),)))), encoding='utf-8')
+        before = snapshot(self.roots.app_root)
+        result = self.install()
+        self.assertFalse(result.success)
+        self.assertEqual(sentinel.read_bytes(), b'user')
+        self.assertEqual(snapshot(self.roots.app_root), before)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

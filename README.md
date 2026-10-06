@@ -10,6 +10,8 @@ Claude Code · Codex · Cursor · Antigravity · Gemini CLI
 
 Respected Brain, yerel bir Markdown not kasasını AI araçlarına bağlayan açık kaynak bir hafıza programıdır. Desteklenen hook olayları sohbetlerden günlük özet üretir; bilgi derleyicisi bunları bağlantılı notlara dönüştürür. [Obsidian](https://obsidian.md) kasayı okumak ve düzenlemek için kullanılabilir.
 
+Kaynak kod ve proje geçmişi: [respected0/respectedbrain](https://github.com/respected0/respectedbrain).
+
 **Taşınan şey iş bağlamıdır:** kararlar, kurallar, günlük özetleri ve notlar. Sağlayıcıların özel sohbet ekranları, hesapları ve bütün ham geçmişleri birbiriyle birleştirilmez. Model çağrıları yerel CLI üzerinden sağlayıcıya gider; “yerel kasa” bütün AI işlemlerinin çevrimdışı olduğu anlamına gelmez.
 
 ---

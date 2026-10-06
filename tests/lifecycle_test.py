@@ -9,6 +9,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import time
 import unittest
@@ -36,6 +37,7 @@ class LifecycleTest(unittest.TestCase):
         (self.vault / "knowledge").mkdir()
         (self.vault / "daily").mkdir()
         self._write_fixture_memory()
+        self.real_popen = subprocess.Popen
         patcher = mock.patch.object(LIFECYCLE.subprocess, "Popen", side_effect=self._record_process)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -60,6 +62,14 @@ class LifecycleTest(unittest.TestCase):
 
         self.assertEqual(calls, 2)
         self.assertEqual(target.read_text(encoding="utf-8"), "30\n")
+
+    def test_frozen_flush_launch_uses_executable_without_module_flags(self):
+        with mock.patch.object(LIFECYCLE.sys, "frozen", True, create=True), \
+             mock.patch.object(LIFECYCLE.subprocess, "Popen", return_value=SimpleNamespace(wait=lambda: 0)) as launch:
+            self.assertTrue(LIFECYCLE._launch_flush(self.ctx, "codex", maybe_compile=True))
+        self.assertEqual(launch.call_args.args[0],
+                         [LIFECYCLE.sys.executable, "flush", "--vault-id", self.ctx.paths.vault_id, "--maybe-compile"])
+        self.assertEqual(launch.call_args.kwargs["env"]["RESPECTED_DATA_DIR"], str(self.ctx.paths.data_root))
 
     def _write_fixture_memory(self):
         (self.memory / "Last-Session.md").write_text(
@@ -167,6 +177,40 @@ class LifecycleTest(unittest.TestCase):
         for _ in range(14):
             self.assertEqual(self.handle("prompt", payload, self.vault, "antigravity"), "")
         self.assertIn("30. mesaj", self.handle("prompt", payload, self.vault, "antigravity"))
+
+    def test_start_injects_projected_session_and_open_threads(self):
+        from respectedbrain.memory import events
+        events.record_event(self.vault, "codex", "session_end", "previous",
+                            context="PROJECTED-SESSION-CONTEXT", decisions=["PROJECTED-DECISION"],
+                            threads=[{"title": "OPEN-PROJECT", "status": "active"},
+                                     {"title": "CLOSED-PROJECT", "status": "completed"}], now=FIXED_NOW)
+        events.project_companion(self.vault)
+        context = self.handle("start", {"session_id": "next"}, self.vault, "codex")
+        session_block = context.split("[Hafıza: Son Oturum]", 1)[-1].split("[Hafıza: Aktif Konular]", 1)[0]
+        self.assertIn("PROJECTED-SESSION-CONTEXT", session_block)
+        self.assertIn("PROJECTED-DECISION", session_block)
+        threads_block = context.split("[Hafıza: Aktif Konular]", 1)[-1].split("[Hafıza: Kurallar]", 1)[0]
+        self.assertIn("OPEN-PROJECT", threads_block)
+        self.assertNotIn("CLOSED-PROJECT", threads_block)
+
+    @unittest.skipUnless(os.name == "nt", "Windows junction")
+    def test_precompact_rejects_external_session_logs_junction(self):
+        outside = Path(self.temporary.name) / "outside-logs"
+        outside.mkdir()
+        logs = self.memory / "Session-Logs"
+        with mock.patch.object(subprocess, "Popen", self.real_popen):
+            result = subprocess.run(["cmd.exe", "/c", "mklink", "/J", str(logs), str(outside)],
+                                    capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        transcript = self.vault / "transcript.jsonl"
+        transcript.write_text('{"role":"user","content":"private"}\n', encoding="utf-8")
+        try:
+            self.handle("precompact", {"session_id": "linked", "transcript_path": str(transcript)}, self.vault, "codex")
+            self.assertEqual(list(outside.iterdir()), [])
+            health = json.loads((self.state / "health.json").read_text(encoding="utf-8"))
+            self.assertIn("unsafe-session-log", health["error"])
+        finally:
+            logs.rmdir()
 
     def test_concurrent_prompts_are_not_lost(self):
         payload = {"session_id": "parallel"}

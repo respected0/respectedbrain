@@ -49,7 +49,9 @@ Varsayılan priority paket defaults'unda Claude, Codex, Antigravity, Gemini, Cur
 
 ## 4. Native, WSL ve POSIX
 
-Native Windows profili Windows launcher/kimlik yollarını kullanır. WSL profili WSL çalıştırıcı ve çevrilen yolları kullanır. Aynı JSON/TOML'ı iki ortamın ortak çalıştırıcısı sanmayın. Global kurulumda seçili user_home/platform/CLI oturumu aynı çalıştırma ortamına ait olmalıdır. `RESPECTED_RUNTIME_DIR` yeni root selector değildir; yalnız legacy okuma bağlamındadır.
+Entegrasyon profilleri `windows-native`, `windows-wsl` ve `posix` kimliklerini kullanır. Windows kurulumunun varsayılanı `windows-native` profilidir; AppRoot'taki `respectedbrain.exe` ile çalışır. Linux ve macOS kurulumu varsayılan olarak `posix` kullanır.
+
+Windows üzerinden WSL'deki launcher'a bağlanmak için `setup --platform windows-wsl` seçilir. Bu profil `wsl.exe` köprüsü ve Windows yollarının `/mnt/...` karşılıklarını kullanır. WSL içinde ayrıca çalıştırılabilir bir `respectedbrain` launcher'ı bulunmalı ve aynı kasa UUID'si Linux DataRoot'ta çevrilmiş kasa yoluyla kayıtlı olmalıdır; profil doğrulaması bunları denetler. Global kurulumda seçili user_home/platform/CLI oturumu aynı çalıştırma ortamına ait olmalıdır; Windows ve WSL yapılandırmaları kendi ortamlarının launcher ve kimlik yollarını kullanır. `RESPECTED_RUNTIME_DIR` yeni root selector değildir; yalnız legacy okuma bağlamındadır.
 
 ## 5. MCP'nin sunduğu araçlar
 

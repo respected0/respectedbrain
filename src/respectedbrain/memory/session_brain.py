@@ -1,7 +1,8 @@
 """Session Brain: Vault Dışı Hafif Oturum Arama Motoru.
 
 AI oturum loglarını (Claude Code, ChatGPT, Codex vb.) vault'u şişirmeden
-bağımsız bir dizinde (`~/.respectedbrain/session-brain/`) saklar ve indeksler.
+AppContext'in UUID cache kökündeki `session-brain/` dizininde veya açıkça
+verilen bağımsız bir dizinde saklar ve indeksler.
 
 Zaman Çürümesi (Recency Decay) + Terim Ağırlıklandırma (TF-IDF benzeri) formülüyle
 "Geçen ay çözdüğümüz auth bug'ı" gibi oturumları anında bulur.
@@ -9,16 +10,18 @@ Zaman Çürümesi (Recency Decay) + Terim Ağırlıklandırma (TF-IDF benzeri) f
 
 from __future__ import annotations
 
-import argparse
+from contextlib import nullcontext
 import json
 import math
-import os
 import re
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
 from ..core.context import AppContext
+from ..core.config import atomic_write_json
+from ..core.coordination import writer_lease
+from ..core.locking import exclusive_lock
+from ..core.platform import path_within_vault
 
 _WORD_RE = re.compile(r"\w+")
 _STOP_WORDS = {
@@ -43,7 +46,8 @@ def _term_freqs(tokens: List[str]) -> Dict[str, float]:
 
 def _parse_timestamp(val: Any) -> float:
     if isinstance(val, (int, float)):
-        return float(val)
+        if math.isfinite(val):
+            return float(val)
     if isinstance(val, str):
         try:
             # ISO format dene
@@ -52,6 +56,25 @@ def _parse_timestamp(val: Any) -> float:
         except Exception:
             pass
     return datetime.now(timezone.utc).timestamp()
+
+
+def load_session_index(path: Path) -> Dict[str, Dict[str, Any]]:
+    """Reject corrupt history instead of treating it as an empty index."""
+    sessions = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    if not isinstance(sessions, dict):
+        raise ValueError("session-index-not-object")
+    for identity, item in sessions.items():
+        if not isinstance(item, dict) or item.get("id") != identity:
+            raise ValueError("invalid-session-identity")
+        if any(not isinstance(item.get(field), str) for field in ("title", "date", "source", "snippet")):
+            raise ValueError("invalid-session-text")
+        timestamp = item.get("timestamp")
+        if not isinstance(timestamp, (int, float)) or not math.isfinite(timestamp):
+            raise ValueError("invalid-session-timestamp")
+        terms = item.get("terms")
+        if not isinstance(terms, dict) or any(not isinstance(term, str) or not isinstance(weight, (int, float)) or not math.isfinite(weight) or weight < 0 for term, weight in terms.items()):
+            raise ValueError("invalid-session-terms")
+    return sessions
 
 
 def _recency_decay(ts: float, half_life_days: float = 30.0) -> float:
@@ -65,31 +88,49 @@ def _recency_decay(ts: float, half_life_days: float = 30.0) -> float:
 
 class SessionBrain:
     def __init__(self, sidecar_dir: Path | AppContext):
-        directory = sidecar_dir.paths.cache_dir / "session-brain" if isinstance(sidecar_dir, AppContext) else sidecar_dir
-        self.sidecar_dir = directory.resolve()
-        self.sidecar_dir.mkdir(parents=True, exist_ok=True)
+        self.ctx = sidecar_dir if isinstance(sidecar_dir, AppContext) else None
+        directory = self.ctx.paths.cache_dir / "session-brain" if self.ctx else Path(sidecar_dir).absolute()
+        self.boundary = self.ctx.paths.data_root if self.ctx else directory.parent
+        if not path_within_vault(directory, self.boundary):
+            raise ValueError("unsafe-session-sidecar")
+        self.sidecar_dir = directory
         self.index_file = self.sidecar_dir / "index.json"
+        self.lock_file = self.sidecar_dir / ".index.lock"
         self.sessions: Dict[str, Dict[str, Any]] = {}
-        self.load_index()
+        self._pending: Dict[str, Dict[str, Any]] = {}
+        with writer_lease(self.ctx) if self.ctx else nullcontext():
+            self._validate_paths()
+            self.sidecar_dir.mkdir(parents=True, exist_ok=True)
+            self.load_index()
+
+    def _validate_paths(self) -> None:
+        for path in (self.index_file, self.lock_file):
+            if not path_within_vault(path, self.boundary):
+                raise ValueError("unsafe-session-index")
 
     def load_index(self) -> None:
-        if self.index_file.exists():
-            try:
-                self.sessions = json.loads(self.index_file.read_text(encoding="utf-8"))
-            except Exception:
-                self.sessions = {}
-        else:
-            self.sessions = {}
+        self._validate_paths()
+        self.sessions = load_session_index(self.index_file)
+        self.sessions.update(self._pending)
 
     def save_index(self) -> None:
-        self.index_file.write_text(
-            json.dumps(self.sessions, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
+        with writer_lease(self.ctx) if self.ctx else nullcontext():
+            self._validate_paths()
+            with exclusive_lock(self.lock_file):
+                self._validate_paths()
+                current = load_session_index(self.index_file)
+                current.update(self._pending)
+                atomic_write_json(self.index_file, current)
+                self.sessions = current
+                self._pending.clear()
 
     def ingest_session(self, session_id: str, title: str, content: str, timestamp: Optional[float] = None, source: str = "") -> None:
         """Tek bir oturumu analiz edip indekse ekler."""
-        ts = timestamp or datetime.now(timezone.utc).timestamp()
+        ts = datetime.now(timezone.utc).timestamp() if timestamp is None else timestamp
+        if not isinstance(ts, (int, float)) or not math.isfinite(ts):
+            raise ValueError("invalid-session-timestamp")
+        if not isinstance(session_id, str) or not session_id or any(not isinstance(value, str) for value in (title, content, source)):
+            raise ValueError("invalid-session-input")
         tokens = _tokenize(f"{title} {content}")
         tf = _term_freqs(tokens)
 
@@ -109,6 +150,7 @@ class SessionBrain:
             "terms": dict(top_terms),
             "token_count": len(tokens)
         }
+        self._pending[session_id] = self.sessions[session_id]
 
     def ingest_file(self, file_path: Path) -> int:
         """JSONL, JSON veya TXT/MD dosyasını ayrıştırıp içeri aktarır."""
@@ -117,18 +159,26 @@ class SessionBrain:
             return 0
 
         count = 0
+        def ingest_record(data) -> int:
+            if not isinstance(data, dict):
+                return 0
+            try:
+                identity = data.get("sessionId") or data.get("id") or f"{p.stem}_{count}"
+                title = data.get("title") or data.get("summary") or p.stem
+                text = data.get("text") or data.get("content") or str(data)
+                timestamp = data.get("timestamp")
+                if timestamp is None:
+                    timestamp = data.get("createdAt")
+                self.ingest_session(str(identity), title, text, _parse_timestamp(timestamp), source=str(p))
+                return 1
+            except (ValueError, TypeError, OverflowError, OSError):
+                return 0
         if p.suffix == ".jsonl":
             for line in p.read_text(encoding="utf-8", errors="ignore").splitlines():
                 if not line.strip():
                     continue
                 try:
-                    data = json.loads(line)
-                    s_id = data.get("sessionId") or data.get("id") or f"{p.stem}_{count}"
-                    title = data.get("title") or data.get("summary") or p.stem
-                    text = data.get("text") or data.get("content") or str(data)
-                    ts = _parse_timestamp(data.get("timestamp") or data.get("createdAt"))
-                    self.ingest_session(str(s_id), title, text, ts, source=str(p))
-                    count += 1
+                    count += ingest_record(json.loads(line))
                 except Exception:
                     continue
         elif p.suffix == ".json":
@@ -136,19 +186,10 @@ class SessionBrain:
                 data = json.loads(p.read_text(encoding="utf-8", errors="ignore"))
                 if isinstance(data, list):
                     for item in data:
-                        s_id = item.get("id") or f"{p.stem}_{count}"
-                        title = item.get("title") or p.stem
-                        text = item.get("content") or str(item)
-                        ts = _parse_timestamp(item.get("timestamp"))
-                        self.ingest_session(str(s_id), title, text, ts, source=str(p))
-                        count += 1
+                        count += ingest_record(item)
                 elif isinstance(data, dict):
-                    s_id = data.get("id") or p.stem
-                    title = data.get("title") or p.stem
-                    text = data.get("content") or str(data)
-                    ts = _parse_timestamp(data.get("timestamp"))
-                    self.ingest_session(str(s_id), title, text, ts, source=str(p))
-                    count += 1
+                    data.setdefault("id", p.stem)
+                    count += ingest_record(data)
             except Exception:
                 pass
         else:
@@ -164,7 +205,7 @@ class SessionBrain:
     def query(self, query_text: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """Soruya en uygun geçmiş oturumları recency decay ile sıralar."""
         q_tokens = _tokenize(query_text)
-        if not q_tokens or not self.sessions:
+        if not q_tokens or not self.sessions or top_k <= 0:
             return []
 
         results = []

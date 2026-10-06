@@ -9,6 +9,7 @@ import subprocess
 from respectedbrain.memory import lifecycle
 from respectedbrain.core.coordination import writer_lease
 from respectedbrain.core.errors import BusyError
+from respectedbrain.core.platform import path_within_vault
 def _parse_payload(argv: list[str]) -> dict:
     for arg in argv:
         if not arg:
@@ -133,7 +134,8 @@ def dispatch(ctx, *, argv, stdin):
         return ""
     args = list(argv)
     chain, payload_args = _chain_file_and_payload(args)
-    if chain is not None and chain.resolve() != (ctx.paths.state_dir / "codex-notify-chain.json").resolve():
+    if chain is not None and (chain.absolute() != (ctx.paths.state_dir / "codex-notify-chain.json").absolute()
+                              or not path_within_vault(chain, ctx.paths.data_root)):
         raise ValueError("Notify chain must belong to the selected vault UUID")
     _forward_chained(args)
     payload = _parse_payload(payload_args or ([stdin] if stdin.strip() else []))

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from respectedbrain.core.context import AppContext
-from respectedbrain.maintenance import selected_vault, mutable_target
+from respectedbrain.maintenance import selected_vault, mutable_target, note_target
 from respectedbrain.maintenance._atomic import replace_staged
 
 import argparse
@@ -20,12 +20,6 @@ import tempfile
 from typing import Any, Sequence
 
 
-def _configure_console_output() -> None:
-    """Keep Windows OEM consoles from aborting on non-ASCII output."""
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if callable(reconfigure):
-            reconfigure(errors="replace")
 
 
 
@@ -108,7 +102,7 @@ def repair_daily_file(daily_path: Path, vault_root: Path, *, temp_dir: Path | No
 
     Returns (was_modified, backup_path).
     """
-    daily_path = Path(daily_path).resolve()
+    daily_path = note_target(vault_root, Path(daily_path))
     vault_root = Path(vault_root).resolve()
 
     if not daily_path.is_file():
@@ -118,12 +112,10 @@ def repair_daily_file(daily_path: Path, vault_root: Path, *, temp_dir: Path | No
 
     matches = list(OTURUM_HEADER.finditer(content))
     if len(matches) <= 1:
-        backup_dir = vault_root / "daily-backup"
+        backup_dir = mutable_target(None, vault_root / "daily-backup")
         backup_dir.mkdir(parents=True, exist_ok=True)
-        backup_path = (
-            backup_dir
-            / f"{daily_path.stem}.{datetime.now().strftime('%Y%m%d-%H%M%S')}.bak"
-        )
+        directory = Path(tempfile.mkdtemp(prefix=datetime.now().strftime('%Y%m%d-%H%M%S')+'-', dir=backup_dir))
+        backup_path = directory / daily_path.name
         shutil.copy2(daily_path, backup_path)
         return False, backup_path
 
@@ -158,8 +150,9 @@ def repair_daily_file(daily_path: Path, vault_root: Path, *, temp_dir: Path | No
     has_duplicates = any(len(c) > 1 for c in clusters)
 
     timestamp_str = datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup_dir = vault_root / "daily-backup" / timestamp_str
-    backup_dir.mkdir(parents=True, exist_ok=True)
+    backup_parent = mutable_target(None, vault_root / "daily-backup")
+    backup_parent.mkdir(parents=True, exist_ok=True)
+    backup_dir = Path(tempfile.mkdtemp(prefix=timestamp_str+'-', dir=backup_parent))
     backup_path = backup_dir / daily_path.name
     shutil.copy2(daily_path, backup_path)
 
@@ -223,6 +216,11 @@ def main(argv: Sequence[str] | None = None, *, ctx: AppContext | None = None) ->
     )
     parser.add_argument("--date", type=str, help="Onarılacak tek tarih (YYYY-MM-DD)")
     args = parser.parse_args(argv)
+
+    if args.date:
+        from datetime import date
+        if date.fromisoformat(args.date).isoformat() != args.date:
+            raise ValueError("Daily date must be YYYY-MM-DD")
 
     vault = selected_vault(ctx, args.vault_root)
     if args.date:

@@ -12,8 +12,9 @@
 from __future__ import annotations
 
 from respectedbrain.core.context import AppContext
-from respectedbrain.maintenance import selected_vault, mutable_target
+from respectedbrain.maintenance import selected_vault, mutable_target, note_target, safe_walk
 from respectedbrain.maintenance._atomic import replace_staged
+from respectedbrain.core.config import atomic_write_bytes
 
 import argparse
 from datetime import datetime, timezone
@@ -26,12 +27,6 @@ import json
 from typing import Any, Dict, List, Set, Tuple
 
 
-def _configure_console_output() -> None:
-    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if callable(reconfigure):
-            reconfigure(errors="replace")
 
 
 
@@ -54,9 +49,6 @@ def _atomic_write_text(path: Path, content: str, *, temp_dir: Path | None = None
             pass
         temporary.unlink(missing_ok=True)
         raise
-
-
-WIKILINK_RE = re.compile(r"\[\[([^\]\|#]+)(?:#[^\]\|]+)?(?:\|[^\]]+)?\]\]")
 
 
 def parse_frontmatter_and_body(content: str) -> Tuple[Dict[str, Any], str, str]:
@@ -124,6 +116,8 @@ def smart_merge(
     *, temp_dir: Path | None = None,
 ) -> Dict[str, Any]:
     """İki notu birleştirir ve yönlendirmeleri uygular."""
+    source_path = note_target(vault_root, source_path)
+    target_path = note_target(vault_root, target_path)
     if not source_path.exists():
         raise FileNotFoundError(f"Kaynak not bulunamadı: {source_path}")
     if not target_path.exists():
@@ -133,11 +127,12 @@ def smart_merge(
 
     if temp_dir is not None:
         temp_dir.mkdir(parents=True, exist_ok=True)
-    source_content = source_path.read_text(encoding="utf-8", errors="replace")
-    target_content = target_path.read_text(encoding="utf-8", errors="replace")
+    before_images = {path: path.read_bytes() for path in (source_path, target_path)}
+    source_content = before_images[source_path].decode('utf-8')
+    target_content = before_images[target_path].decode('utf-8')
 
     source_fm, source_body, _ = parse_frontmatter_and_body(source_content)
-    target_fm, target_body, _ = parse_frontmatter_and_body(target_content)
+    target_fm, target_body, target_yaml = parse_frontmatter_and_body(target_content)
 
     source_stem = source_path.stem
     target_stem = target_path.stem
@@ -170,7 +165,18 @@ def smart_merge(
         f"{source_body}\n"
     )
 
-    new_target_content = f"{dump_frontmatter(merged_fm)}\n\n{merged_body}"
+    # Preserve unrecognized and nested YAML verbatim; only update owned fields.
+    fields = {key: merged_fm[key] for key in ('tags', 'aliases', 'updated')}
+    kept, skip = [], False
+    for line in target_yaml.splitlines():
+        key = re.match(r'^([A-Za-z0-9_-]+):', line)
+        if key:
+            skip = key.group(1).lower() in fields
+        if not skip:
+            kept.append(line)
+    additions = dump_frontmatter(fields).splitlines()[1:-1]
+    frontmatter = '\n'.join(['---', *kept, *additions, '---'])
+    new_target_content = f"{frontmatter}\n\n{merged_body}"
 
     # 3. Kaynak Notu Yönlendirmeye Çevirme (Silme Yok!)
     redirect_fm = {
@@ -188,34 +194,50 @@ def smart_merge(
 
     # 4. Vault Genelinde Link Güncelleme
     updated_files: List[str] = []
+    edits = [(target_path, target_content, new_target_content), (source_path, source_content, redirect_content)]
     link_pattern = re.compile(rf"\[\[{re.escape(source_stem)}(#[^\]\|]+)?(\|[^\]]+)?\]\]", re.IGNORECASE)
 
-    for root, dirs, files in os.walk(vault_root):
+    for root, dirs, files in safe_walk(vault_root):
         dirs[:] = [d for d in dirs if not d.startswith(".") and d not in {"node_modules", ".git", "cache"}]
         for f in files:
             if f.endswith(".md"):
                 file_p = Path(root) / f
                 if file_p.resolve() in (source_path.resolve(), target_path.resolve()):
                     continue
-                try:
-                    txt = file_p.read_text(encoding="utf-8", errors="replace")
-                    if link_pattern.search(txt):
-                        # Linki hedefle değiştir (anchor ve alias korunur)
-                        def _repl(match):
-                            anchor_part = match.group(1) or ""
-                            alias_part = match.group(2) or ""
-                            return f"[[{target_stem}{anchor_part}{alias_part}]]"
+                original = file_p.read_bytes()
+                txt = original.decode('utf-8')
+                if link_pattern.search(txt):
+                    # Linki hedefle değiştir (anchor ve alias korunur)
+                    def _repl(match):
+                        anchor_part = match.group(1) or ""
+                        alias_part = match.group(2) or ""
+                        return f"[[{target_stem}{anchor_part}{alias_part}]]"
 
-                        new_txt = link_pattern.sub(_repl, txt)
-                        if not dry_run:
-                            _atomic_write_text(file_p, new_txt, temp_dir=temp_dir)
-                        updated_files.append(file_p.relative_to(vault_root).as_posix())
-                except Exception:
-                    pass
+                    new_txt = link_pattern.sub(_repl, txt)
+                    before_images[file_p] = original
+                    edits.append((file_p, txt, new_txt))
+                    updated_files.append(file_p.relative_to(vault_root).as_posix())
 
     if not dry_run:
-        _atomic_write_text(target_path, new_target_content, temp_dir=temp_dir)
-        _atomic_write_text(source_path, redirect_content, temp_dir=temp_dir)
+        completed = []
+        try:
+            for path, before, after in edits:
+                note_target(vault_root, path)
+                if path.read_bytes() != before_images[path]:
+                    raise ValueError(f"Note changed during merge: {path}")
+                _atomic_write_text(path, after, temp_dir=temp_dir)
+                completed.append((path, before, after))
+            for path, before, after in completed:
+                note_target(vault_root, path)
+                if path.read_bytes() != after.encode('utf-8'):
+                    raise ValueError(f'Note changed before merge completed: {path}')
+        except Exception:
+            for path, before, after in reversed(completed):
+                note_target(vault_root, path)
+                if path.read_bytes() != after.encode('utf-8'):
+                    raise ValueError(f"Merge rollback conflict; preserve merged content: {path}")
+                atomic_write_bytes(path, before_images[path])
+            raise
 
     return {
         "source": str(source_path),

@@ -5,25 +5,21 @@ from __future__ import annotations
 
 from respectedbrain.core.coordination import guarded_writer
 
-import argparse
 import datetime as dt
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
-import shutil
-import stat
-import subprocess
-import sys
 import tempfile
 import threading
 import time
-from typing import Any, Callable, Sequence
+from typing import Any, Sequence
 
 
 from ..core import platform as runtime_platform
 from ..core.context import AppContext, ModelService
+from ..core.config import atomic_write_json as _atomic_write_json
 from . import events
 
 
@@ -52,7 +48,7 @@ _DAILY_THREAD_LOCKS: dict[str, threading.Lock] = {}
 _DAILY_THREAD_LOCKS_GUARD = threading.Lock()
 
 
-def _atomic_write_text(path: Path, content: str) -> None:
+def _atomic_write_text(path: Path, content: str, *, expected_before: bytes | None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     temporary = Path(temporary_name)
@@ -62,6 +58,8 @@ def _atomic_write_text(path: Path, content: str) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         for attempt in range(5):
+            if (path.read_bytes() if path.exists() else None) != expected_before:
+                raise OSError("daily-target-changed")
             try:
                 os.replace(temporary, path)
                 return
@@ -73,27 +71,13 @@ def _atomic_write_text(path: Path, content: str) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    try:
-        temporary.write_text(
-            json.dumps(payload, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(temporary, path)
-    finally:
-        try:
-            temporary.unlink()
-        except FileNotFoundError:
-            pass
-
-
 def write_health(state_dir: Path, error: str, warning: bool = False) -> None:
     """Record the latest flush problem without letting reporting crash."""
     try:
         payload: dict[str, Any] = {}
         health_path = state_dir / "health.json"
+        if not runtime_platform.path_within_vault(health_path, state_dir):
+            return
         if health_path.exists():
             try:
                 loaded = json.loads(health_path.read_text(encoding="utf-8"))
@@ -401,6 +385,8 @@ def _is_recent_duplicate(
         return False
     if state.get("status", "ok") != "ok":
         return False
+    if state.get("detail") == "below-minimum-turns":
+        return False
     timestamp = state.get("ts")
     if not isinstance(timestamp, (int, float)):
         return False
@@ -439,6 +425,7 @@ def _write_flush_state(
     detail: str = "",
     turn_count: int | None = None,
     transcript_hash: str | None = None,
+    pending_companion: dict[str, Any] | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "session_id": session_id,
@@ -451,6 +438,8 @@ def _write_flush_state(
         payload["turns"] = turn_count
     if transcript_hash is not None:
         payload["transcript_hash"] = transcript_hash
+    if pending_companion is not None:
+        payload["pending_companion"] = pending_companion
     _atomic_write_json(_session_state_path(state_dir, session_id), payload)
     try:
         _atomic_write_json(state_dir / "last-flush.json", payload)
@@ -471,7 +460,12 @@ def _record_flush_failure(
     error: str,
 ) -> None:
     try:
+        if not isinstance(session_id, str) or not session_id:
+            write_health(state_dir, error)
+            return
         state_path = _session_state_path(state_dir, session_id)
+        if not runtime_platform.path_within_vault(state_path, state_dir):
+            raise ValueError("unsafe-session-state")
         existing = _load_json_object(state_path, {}) if state_path.is_file() else {}
         attempts = int(existing.get("attempts", 0)) + 1
         _write_flush_state(
@@ -485,7 +479,7 @@ def _record_flush_failure(
             payload = _load_json_object(state_path, {})
             payload["attempts"] = attempts
             _atomic_write_json(state_path, payload)
-    except OSError:
+    except (OSError, ValueError, TypeError):
         pass
     write_health(state_dir, error)
 
@@ -535,10 +529,7 @@ def _extract_session_threads(
     vault_root: Path,
 ) -> list[dict[str, Any]]:
     """Extract and maintain active threads for the session event."""
-    try:
-        existing_threads = events.load_existing_threads(vault_root)
-    except Exception:
-        existing_threads = {}
+    existing_threads = events.load_existing_threads(vault_root)
 
     threads_map: dict[str, dict[str, Any]] = dict(existing_threads)
 
@@ -573,29 +564,27 @@ def _record_session_event(
     reason: str,
     event_time: dt.datetime,
     session_id: str,
+    provider: str | None = None,
+    retry: bool = False,
 ) -> None:
     """Record an immutable event and update companion projection (1.4.0)."""
     if summary == "FLUSH_BOS":
         return
-    try:
-
-        sections = _parse_summary_sections(summary)
-        session_threads = _extract_session_threads(sections, vault_root)
-        events.record_event(
-            vault_root=vault_root,
-            provider=os.environ.get("BEYIN_PROVIDER", "auto"),
-            event_type="session_end" if reason == "sessionend" else reason,
-            session_id=session_id,
-            context=sections.get("Bağlam", ""),
-            decisions=[d.lstrip("- *").strip() for d in sections.get("Alınan Kararlar", "").splitlines() if d.strip()],
-            learnings=[l.lstrip("- *").strip() for l in sections.get("Öğrenilenler", "").splitlines() if l.strip()],
-            todos=[t.lstrip("- *").strip() for t in sections.get("Yapılacaklar", "").splitlines() if t.strip()],
-            threads=session_threads,
-            now=event_time,
-        )
-        events.project_companion(vault_root)
-    except Exception:
-        pass
+    sections = _parse_summary_sections(summary)
+    payload = {
+        "provider": provider or os.environ.get("BEYIN_PROVIDER", "auto"),
+        "event_type": "session_end" if reason == "sessionend" else reason,
+        "session_id": session_id,
+        "context": sections.get("Bağlam", ""),
+        "decisions": [d.lstrip("- *").strip() for d in sections.get("Alınan Kararlar", "").splitlines() if d.strip()],
+        "learnings": [l.lstrip("- *").strip() for l in sections.get("Öğrenilenler", "").splitlines() if l.strip()],
+        "todos": [t.lstrip("- *").strip() for t in sections.get("Yapılacaklar", "").splitlines() if t.strip()],
+    }
+    recorded = retry and any(record.get("ts") == event_time.isoformat() and all(record.get(key) == value for key, value in payload.items()) for record in events.list_events(vault_root, include_archive=True))
+    if not recorded:
+        events.record_event(vault_root=vault_root, **payload,
+                            threads=_extract_session_threads(sections, vault_root), now=event_time)
+    events.project_companion(vault_root)
 
 
 
@@ -615,10 +604,16 @@ def _upsert_daily_session(
     provider: str,
 ) -> None:
     daily_dir = vault_root / "daily"
+    if not runtime_platform.path_within_vault(daily_dir, vault_root):
+        raise OSError("unsafe-daily-directory")
     daily_dir.mkdir(parents=True, exist_ok=True)
     date_text = now.strftime("%Y-%m-%d")
     daily_path = daily_dir / f"{date_text}.md"
     lock_path = state_dir / f"daily-{date_text}.lock"
+    if not runtime_platform.path_within_vault(daily_path, vault_root):
+        raise OSError("unsafe-daily-target")
+    if not runtime_platform.path_within_vault(lock_path, state_dir):
+        raise OSError("unsafe-daily-lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     identity = hashlib.sha256(f"{provider}\0{session_id}".encode("utf-8")).hexdigest()
     begin = f"<!-- RESPECTED-SESSION:{identity}:BEGIN -->"
@@ -637,30 +632,18 @@ def _upsert_daily_session(
             ) as held:
                 if not held:
                     raise OSError("daily-lock-busy")
-                if daily_path.exists():
-                    content = daily_path.read_text(encoding="utf-8")
-                else:
-                    content = f"# Günlük Log: {date_text}\n\n## Oturumlar\n"
+                before = daily_path.read_bytes() if daily_path.exists() else None
+                content = before.decode("utf-8") if before is not None else f"# Günlük Log: {date_text}\n\n## Oturumlar\n"
                 start = content.find(begin)
                 finish = content.find(end)
-                if (start < 0) != (finish < 0) or (
-                    start >= 0 and content.find(begin, start + len(begin)) >= 0
-                ):
+                if content.count(begin) != content.count(end) or content.count(begin) > 1 or (start >= 0 and finish < start):
                     raise OSError("daily-session-markers-invalid")
                 if start >= 0:
                     finish += len(end)
                     updated = content[:start] + entry + content[finish:]
                 else:
                     updated = content.rstrip() + "\n\n" + entry + "\n"
-                _atomic_write_text(daily_path, updated)
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+                _atomic_write_text(daily_path, updated, expected_before=before)
 
 
 def _managed_hook_input(path: Path | None, state_dir: Path) -> bool:
@@ -693,13 +676,7 @@ def _sweep_stale_hook_inputs(
                 candidate.unlink()
         except FileNotFoundError:
             continue
-    for lock_candidate in state_dir.glob("*.lock"):
-        try:
-            age = now_epoch - lock_candidate.lstat().st_mtime
-            if age >= STALE_HOOK_INPUT_SECONDS:
-                lock_candidate.unlink()
-        except (FileNotFoundError, OSError):
-            continue
+    # Lock path identity must survive idle periods and other processes' leases.
 
 
 def _flush_session_transcript(
@@ -711,10 +688,14 @@ def _flush_session_transcript(
     event_time: dt.datetime,
     model: ModelService,
     cache_dir: Path,
+    *, revision_epoch: float | None = None,
 ) -> bool | None:
-    now_epoch = event_time.timestamp()
+    now_epoch = event_time.timestamp() if revision_epoch is None else revision_epoch
     state_dir.mkdir(parents=True, exist_ok=True)
     lock_path = _session_lock_path(state_dir, session_id)
+    for path in (lock_path, _session_state_path(state_dir, session_id), state_dir / "last-flush.json"):
+        if not runtime_platform.path_within_vault(path, state_dir):
+            raise ValueError("unsafe-session-state")
     with lock_path.open("a+", encoding="utf-8") as lock_file:
         with runtime_platform.exclusive_lock(lock_file, blocking=True) as held:
             if not held:
@@ -741,8 +722,12 @@ def _flush_session_transcript(
             ):
                 return False
 
+            previous = _load_json_object(_session_state_path(state_dir, session_id), {})
+            pending = previous.get("pending_companion") if previous.get("status") == "pending" and previous.get("transcript_hash") == transcript_hash else None
+            if not (isinstance(pending, dict) and all(isinstance(pending.get(key), str) for key in ("summary", "event_time", "reason", "provider")) and normalize_summary(pending["summary"])):
+                pending = None
             minimum_turns = 5 if reason == "precompact" else 1
-            if turn_count < minimum_turns:
+            if pending is None and turn_count < minimum_turns:
                 _write_flush_state(
                     state_dir,
                     session_id,
@@ -754,7 +739,13 @@ def _flush_session_transcript(
                 )
                 return False
 
-            summary, error = _run_model(build_flush_prompt(transcript), vault_root, model, cache_dir)
+            if pending is not None:
+                summary, error = pending["summary"], None
+                event_time = dt.datetime.fromisoformat(pending["event_time"])
+                reason = pending["reason"]
+            else:
+                pending = None
+                summary, error = _run_model(build_flush_prompt(transcript), vault_root, model, cache_dir)
             if error is not None:
                 _record_flush_failure(
                     state_dir,
@@ -798,23 +789,19 @@ def _flush_session_transcript(
                 return True
 
             try:
-                provider = os.environ.get("BEYIN_PROVIDER", "auto")
-                _upsert_daily_session(
-                    vault_root,
-                    state_dir,
-                    normalized_summary,
-                    reason,
-                    event_time,
-                    session_id,
-                    provider,
-                )
-                _record_session_event(
-                    vault_root,
-                    normalized_summary,
-                    reason,
-                    event_time,
-                    session_id,
-                )
+                provider = pending["provider"] if pending else os.environ.get("BEYIN_PROVIDER", "auto")
+                if pending is None:
+                    _upsert_daily_session(vault_root, state_dir, normalized_summary, reason, event_time, session_id, provider)
+                checkpoint = {"summary": normalized_summary, "event_time": event_time.isoformat(), "reason": reason, "provider": provider}
+                _write_flush_state(state_dir, session_id, now_epoch, "pending", "companion-sync-pending",
+                    turn_count=turn_count, transcript_hash=transcript_hash, pending_companion=checkpoint)
+                try:
+                    _record_session_event(vault_root, normalized_summary, reason, event_time, session_id, provider=provider, retry=True)
+                except Exception as error:
+                    _write_flush_state(state_dir, session_id, now_epoch, "pending", "companion-sync-failed",
+                        turn_count=turn_count, transcript_hash=transcript_hash, pending_companion=checkpoint)
+                    write_health(state_dir, f"companion-sync-failed:{error.__class__.__name__}")
+                    return None
                 _write_flush_state(
                     state_dir,
                     session_id,
@@ -863,11 +850,19 @@ def flush(ctx: AppContext, *, session_id: str, transcript: Path, model: ModelSer
     return flush_transcript(ctx, session_id=session_id, transcript=transcript, model=model, now=now)
 
 
+def _validate_flush_paths(ctx: AppContext, now: dt.datetime) -> None:
+    for path, boundary in ((ctx.paths.cache_dir, ctx.paths.data_root),
+                           (ctx.paths.vault_root / "daily" / f"{now:%Y-%m-%d}.md", ctx.paths.vault_root)):
+        if not runtime_platform.path_within_vault(path, boundary):
+            raise ValueError("unsafe-flush-path")
+
+
 @guarded_writer
 def flush_transcript(ctx: AppContext, *, session_id: str, transcript: Path, model: ModelService, now: dt.datetime, reason: str = "sessionend") -> int:
     try:
         if not isinstance(session_id, str) or not session_id:
             raise ValueError("session-id-missing")
+        _validate_flush_paths(ctx, now)
         _sweep_stale_hook_inputs(ctx.paths.state_dir, None, now.timestamp())
         result = _flush_session_transcript(ctx.paths.vault_root, ctx.paths.state_dir, transcript,
             session_id, reason, now, model, ctx.paths.cache_dir)
@@ -884,6 +879,11 @@ def flush_transcript(ctx: AppContext, *, session_id: str, transcript: Path, mode
 @guarded_writer
 def catch_up_unflushed_sessions(ctx: AppContext, *, model: ModelService, now: dt.datetime, home: Path) -> int:
     """Scan provider transcript directories and flush any completed unflushed sessions."""
+    try:
+        _validate_flush_paths(ctx, now)
+    except ValueError as error:
+        write_health(ctx.paths.state_dir, str(error))
+        return 0
     current = now
     vault_root = ctx.paths.vault_root
     state_dir = ctx.paths.state_dir
@@ -937,14 +937,12 @@ def catch_up_unflushed_sessions(ctx: AppContext, *, model: ModelService, now: dt
             continue
         session_id = match.group(1)
 
-        # Pre-check: Skip if this session is already successfully flushed or repeatedly failing
+        # Bound repeated failures; successful sessions still need revision/hash checks.
         state_file = _session_state_path(state_dir, session_id)
         if state_file.is_file():
             try:
                 st = _load_json_object(state_file, {})
                 status = st.get("status")
-                if status in {"ok", "flush-bos", "below-minimum-turns"}:
-                    continue
                 if status == "fail" and int(st.get("attempts", 1)) >= 2:
                     continue
             except Exception:
@@ -961,6 +959,7 @@ def catch_up_unflushed_sessions(ctx: AppContext, *, model: ModelService, now: dt
                 event_time=t_event_time,
                 model=model,
                 cache_dir=ctx.paths.cache_dir,
+                revision_epoch=mtime,
             )
             if flushed:
                 flushed_count += 1

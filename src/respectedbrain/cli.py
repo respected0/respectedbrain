@@ -261,14 +261,20 @@ def _dispatch(args) -> int:
             if args.maybe_compile:
                 catch_up_unflushed_sessions(ctx, model=model, now=now, home=Path.home())
                 return compile_catch_up(ctx, model=model, now=now)
+            original_input = args.hook_input.read_bytes() if args.hook_input is not None else None
             value = load_hook_input(args.hook_input) if args.hook_input is not None else {}
             session = args.session_id or value.get("session_id")
             transcript = args.transcript or (Path(value["transcript_path"]) if value.get("transcript_path") else None)
             if not session or transcript is None:
                 raise SelectionError("flush requires a session and transcript")
             status = flush_transcript(ctx, session_id=session, transcript=transcript, model=model, now=now, reason=args.reason)
-            if args.hook_input is not None and _managed_hook_input(args.hook_input, ctx.paths.state_dir):
-                args.hook_input.unlink(missing_ok=True)
+            if status == 0 and args.hook_input is not None and _managed_hook_input(args.hook_input, ctx.paths.state_dir):
+                try:
+                    unchanged = args.hook_input.read_bytes() == original_input
+                except FileNotFoundError:
+                    unchanged = False
+                if unchanged:
+                    args.hook_input.unlink(missing_ok=True)
             return status
         from .briefing.service import run_if_due
         return run_if_due(ctx, model=model, now=now)

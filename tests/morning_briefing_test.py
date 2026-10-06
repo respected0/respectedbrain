@@ -6,7 +6,9 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import importlib.util
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import threading
@@ -128,6 +130,70 @@ class MorningBriefingTest(unittest.TestCase):
                                 lambda prompt, cwd: (calls.append(cwd) or VALID, None, "codex"))
         self.assertEqual(calls[0].parent, self.ctx.paths.cache_dir)
         self.assertFalse(calls[0].exists())
+
+    def test_linked_cache_is_rejected_before_model_or_compilation(self):
+        from respectedbrain.briefing import service
+        from respectedbrain.core.context import ModelResult
+        outside = Path(self.temporary.name) / "outside-cache"
+        outside.mkdir()
+        cache = self.ctx.paths.cache_dir
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        if os.name == "nt":
+            result = subprocess.run(["cmd.exe", "/c", "mklink", "/J", str(cache), str(outside)],
+                                    capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        else:
+            cache.symlink_to(outside, target_is_directory=True)
+        calls = []
+        class Model:
+            def run(self, prompt, *, cwd, mode, timeout):
+                calls.append(cwd)
+                return ModelResult(VALID, "custom", None)
+        try:
+            compile_marker = Path(self.temporary.name) / "compiled"
+            def compile_probe(*args, **kwargs):
+                compile_marker.touch()
+                return 0
+            with patch.object(service, "compile_memory", side_effect=compile_probe):
+                status = service.run_if_due(self.ctx, model=Model(), now=datetime(2026, 8, 31, 9))
+            self.assertEqual(status, 1)
+            self.assertFalse(compile_marker.exists())
+            self.assertEqual(calls, [])
+            self.assertEqual(list(outside.iterdir()), [])
+            self.assertFalse((self.vault / "🎯 100-Command-Center/Briefings/2026-08-31.md").exists())
+        finally:
+            if os.name == "nt":
+                cache.rmdir()
+            else:
+                cache.unlink()
+
+    def test_dashboard_edit_during_staging_is_preserved_on_first_attempt(self):
+        from respectedbrain.briefing import service
+        dashboard = self.vault / "🎯 100-Command-Center/Dashboard.md"
+        user_edit = b"# Dashboard\nUser edit during staging\n"
+        original = service.tempfile.mkstemp
+        def staging(*args, **kwargs):
+            if kwargs.get("prefix") == ".Dashboard.md.":
+                dashboard.write_bytes(user_edit)
+            return original(*args, **kwargs)
+        with patch.object(service.tempfile, "mkstemp", side_effect=staging):
+            created = load_worker().run_if_due(self.vault, datetime(2026, 8, 31, 9),
+                                             lambda prompt, cwd: (VALID, None, "codex"))
+        self.assertEqual(dashboard.read_bytes(), user_edit)
+        self.assertFalse(created)
+        self.assertFalse((self.vault / "🎯 100-Command-Center/Briefings/2026-08-31.md").exists())
+        self.assertEqual(list(dashboard.parent.glob(".*.tmp")), [])
+
+    def test_briefing_created_during_model_run_is_preserved(self):
+        final = self.vault / "🎯 100-Command-Center/Briefings/2026-08-31.md"
+        user_note = b"# User briefing\nDo not replace\n"
+        def model(prompt, cwd):
+            final.parent.mkdir(parents=True, exist_ok=True)
+            final.write_bytes(user_note)
+            return VALID, None, "codex"
+        created = load_worker().run_if_due(self.vault, datetime(2026, 8, 31, 9), model)
+        self.assertEqual(final.read_bytes(), user_note)
+        self.assertFalse(created)
 
     def test_success_replaces_one_legacy_dashboard_block_with_current_markers(self):
         worker = load_worker()

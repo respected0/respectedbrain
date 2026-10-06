@@ -10,6 +10,15 @@ from respectedbrain.installation.transaction import Transaction
 from respectedbrain.core.errors import FoundationError, OwnershipConflict
 
 class BriefingScheduleTest(IntegrationFixture, TestCase):
+    def test_posix_scheduler_refuses_unowned_files_at_uuid_names(self):
+        profile = IntegrationProfile('posix', ('/opt/respectedbrain',), self.home)
+        for platform in ('linux', 'darwin'):
+            backend = mock.Mock()
+            backend.read.return_value = b'foreign user content'
+            with self.subTest(platform=platform), mock.patch.object(SCHEDULE.sys, 'platform', platform):
+                with self.assertRaises(OwnershipConflict):
+                    SCHEDULE.plan_schedule(self.ctx, profile, backend)
+
     def native_plan(self, **kw):
         backend = mock.Mock()
         backend.read.return_value = None

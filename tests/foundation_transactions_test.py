@@ -1,12 +1,13 @@
 """Real-file rollback, cross-process exclusion and user edits during rollback."""
 from pathlib import Path
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 
 from tests.foundation_support import snapshot
-from respectedbrain.core.errors import BusyError
+from respectedbrain.core.errors import BusyError, OwnershipConflict
 from respectedbrain.installation.transaction import Transaction, recover_transactions
 from respectedbrain.installation.ownership import OwnedFile, OwnershipManifest, prove_ownership
 
@@ -40,6 +41,70 @@ class Backend:
 
 
 class FoundationTransactionsTest(unittest.TestCase):
+    def test_commit_refuses_external_edit_after_successful_readback(self):
+        from types import SimpleNamespace
+        from respectedbrain.core.errors import OwnershipConflict
+        change = SimpleNamespace(kind='mcp', key='test', before=None, after=b'new')
+        with self.assertRaises(OwnershipConflict):
+            with Transaction(self.data, self.backend) as tx:
+                tx.write(self.target, b'new')
+                tx.apply_external(change)
+                self.backend.records[('mcp', 'test')] = b'user-edited'
+                tx.commit()
+        self.assertEqual(self.target.read_bytes(), b'old')
+        self.assertEqual(self.backend.read('mcp', 'test'), b'user-edited')
+
+    def test_failed_external_restore_does_not_abort_file_rollback(self):
+        from unittest.mock import patch
+        from respectedbrain.core.errors import FoundationError
+        from types import SimpleNamespace
+        change = SimpleNamespace(kind='mcp', key='test', before=None, after=b'new')
+        with patch.object(self.backend, 'restore', side_effect=FoundationError('scheduler unavailable')):
+            with Transaction(self.data, self.backend) as tx:
+                tx.write(self.target, b'new')
+                tx.apply_external(change)
+        self.assertEqual(self.target.read_bytes(), b'old')
+        self.assertIn('mcp:test', tx.result.conflicts)
+        self.assertEqual(__import__('json').loads(tx.journal.read_text())['status'], 'rollback-conflict')
+
+    def test_unresolved_rollback_conflict_remains_visible_after_restart(self):
+        with Transaction(self.data, self.backend) as tx:
+            tx.write(self.target, b'new')
+            self.target.write_bytes(b'user-edited')
+        results = recover_transactions(self.data, self.backend)
+        self.assertEqual(len(results), 1)
+        self.assertIn(str(self.target), results[0].conflicts)
+        self.assertEqual(self.target.read_bytes(), b'user-edited')
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows junction boundary')
+    def test_junction_backups_are_rejected_before_directory_creation(self):
+        with tempfile.TemporaryDirectory() as outside_name:
+            outside = Path(outside_name)
+            self.data.mkdir()
+            link = self.data / 'backups'
+            subprocess.run(['cmd', '/c', 'mklink', '/J', str(link), str(outside)], check=True, capture_output=True)
+            try:
+                with self.assertRaises(OwnershipConflict):
+                    with Transaction(self.data, self.backend):
+                        pass
+                self.assertEqual(list(outside.iterdir()), [])
+            finally:
+                os.rmdir(link)
+
+    def test_invalid_journal_is_rejected_before_any_recovery_mutation(self):
+        import json
+        from respectedbrain.core.errors import OwnershipConflict
+        with Transaction(self.data, self.backend) as tx:
+            tx.write(self.target, b'new')
+            tx.commit()
+        document = json.loads(tx.journal.read_text())
+        document['status'] = 'active'
+        document['files'].insert(0, {'path': str(self.target.with_name('unrelated'))})
+        tx.journal.write_text(json.dumps(document), encoding='utf-8')
+        with self.assertRaises(OwnershipConflict):
+            recover_transactions(self.data, self.backend)
+        self.assertEqual(self.target.read_bytes(), b'new')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

@@ -7,13 +7,11 @@ vis.js ağı (zaman kaydırıcılı, canlı aramalı, koyu temalı) üretir.
 
 from __future__ import annotations
 
-import argparse
 import json
-import os
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from ..core.config import atomic_write_bytes
+from ..core.platform import path_within_vault
+from .session_brain import load_session_index
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="tr">
@@ -98,6 +96,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <script>
     const rawSessions = __SESSIONS_JSON__;
     const sessionList = Object.values(rawSessions);
+    function textElement(tag, text) {
+      const element = document.createElement(tag);
+      element.textContent = text;
+      return element;
+    }
 
     // Düğümleri oluştur
     const nodes = new vis.DataSet();
@@ -110,7 +113,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       nodes.add({
         id: s.id,
         label: s.title.length > 25 ? s.title.substring(0, 22) + '...' : s.title,
-        title: s.title,
+        title: textElement('span', s.title),
         timestamp: s.timestamp,
         ageDays: ageDays,
         shape: 'dot',
@@ -139,7 +142,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             to: s2.id,
             value: common.length,
             color: { color: 'rgba(110, 118, 129, 0.4)', highlight: '#58a6ff' },
-            title: 'Ortak Konular: ' + common.join(', ')
+            title: textElement('span', 'Ortak Konular: ' + common.join(', '))
           });
         }
       }
@@ -165,41 +168,38 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const sId = params.nodes[0];
         const s = rawSessions[sId];
         if (s) {
-          const terms = Object.keys(s.terms || {}).slice(0, 8).map(t => `<span class="badge">${t}</span>`).join(' ');
-          document.getElementById('details').innerHTML = `
-            <h3 style="color:#58a6ff; margin-bottom:8px;">${s.title}</h3>
-            <p><b>Tarih:</b> ${s.date || 'Bilinmiyor'}</p>
-            <p><b>ID:</b> <code>${s.id}</code></p>
-            <hr style="border:0; border-top:1px solid #30363d; margin:8px 0;">
-            <p><b>Özet:</b></p>
-            <p style="margin-top:4px; color:#c9d1d9;">${s.snippet || 'Özet bulunmuyor.'}</p>
-            <hr style="border:0; border-top:1px solid #30363d; margin:8px 0;">
-            <p><b>Anahtar Konular:</b></p>
-            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">${terms}</div>
-          `;
+          const details = document.getElementById('details');
+          details.replaceChildren();
+          const heading = textElement('h3', s.title);
+          heading.style.color = '#58a6ff';
+          details.append(heading, textElement('p', 'Tarih: ' + s.date), textElement('p', 'ID: ' + s.id),
+            textElement('p', 'Özet:'), textElement('p', s.snippet || 'Özet bulunmuyor.'), textElement('p', 'Anahtar Konular:'));
+          const terms = document.createElement('div');
+          Object.keys(s.terms || {}).slice(0, 8).forEach(term => {
+            const badge = textElement('span', term);
+            badge.className = 'badge';
+            terms.appendChild(badge);
+          });
+          details.appendChild(terms);
         }
       }
     });
 
     // Arama filtreleme
-    document.getElementById('search').addEventListener('input', function(e) {
-      const q = e.target.value.toLowerCase().trim();
+    function applyFilters() {
+      const q = document.getElementById('search').value.toLowerCase().trim();
+      const maxDays = parseInt(document.getElementById('timeSlider').value);
+      document.getElementById('daysVal').textContent = maxDays >= 180 ? 'Tümü' : maxDays + ' gün';
       nodes.forEach(node => {
         const full = rawSessions[node.id];
         const match = !q || full.title.toLowerCase().includes(q) || full.snippet.toLowerCase().includes(q);
-        nodes.update({ id: node.id, hidden: !match });
+        nodes.update({ id: node.id, hidden: !match || (maxDays < 180 && node.ageDays > maxDays) });
       });
-    });
+    }
+    document.getElementById('search').addEventListener('input', applyFilters);
 
     // Zaman filtresi
-    document.getElementById('timeSlider').addEventListener('input', function(e) {
-      const maxDays = parseInt(e.target.value);
-      document.getElementById('daysVal').innerText = maxDays >= 180 ? 'Tümü' : maxDays + ' gün';
-      nodes.forEach(node => {
-        const hidden = maxDays < 180 && node.ageDays > maxDays;
-        nodes.update({ id: node.id, hidden: hidden });
-      });
-    });
+    document.getElementById('timeSlider').addEventListener('input', applyFilters);
   </script>
 </body>
 </html>
@@ -211,10 +211,12 @@ def render_html(index_path: Path, output_html: Path) -> Path:
     if not index_path.exists():
         raise FileNotFoundError(f"Session Brain indeksi bulunamadı: {index_path}")
 
-    sessions = json.loads(index_path.read_text(encoding="utf-8"))
-    json_payload = json.dumps(sessions, ensure_ascii=False)
+    if not path_within_vault(index_path, index_path.parent) or not path_within_vault(output_html, output_html.parent):
+        raise ValueError("unsafe-session-viz-path")
+    sessions = load_session_index(index_path)
+    json_payload = json.dumps(sessions, ensure_ascii=False, allow_nan=False).replace('<', r'\u003c').replace('>', r'\u003e').replace('&', r'\u0026')
 
     html_content = HTML_TEMPLATE.replace("__SESSIONS_JSON__", json_payload)
     output_html.parent.mkdir(parents=True, exist_ok=True)
-    output_html.write_text(html_content, encoding="utf-8")
+    atomic_write_bytes(output_html, html_content.encode("utf-8"))
     return output_html

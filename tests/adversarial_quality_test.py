@@ -31,6 +31,68 @@ class AdversarialQualityTest(unittest.TestCase):
     # 2.2 Provider & Fallback Adversarial Matrix
     # -------------------------------------------------------------------------
 
+    def test_invalid_recursion_depth_prevents_provider_execution(self):
+        for value in ('invalid', '-1'):
+            with self.subTest(value=value), mock.patch.dict(os.environ, {'BEYIN_RECURSION_DEPTH':value}), mock.patch.object(self.runner, '_command') as command, mock.patch.object(self.runner.subprocess, 'run', side_effect=OSError('fake executable')):
+                output,error,provider=self.runner.run_model('prompt', REPO_ROOT, 'text',10,ctx=self.ctx)
+                self.assertIsNone(output)
+                self.assertEqual(error,'recursion-depth-invalid')
+                command.assert_not_called()
+
+    def test_windows_workspace_does_not_fall_back_outside_stage(self):
+        invocation=self.runner.Invocation(['agy.exe'],'prompt',True)
+        with mock.patch.object(self.runner,'_available',return_value=['antigravity']), mock.patch.object(self.runner,'_command',return_value=invocation), mock.patch.object(self.runtime,'windows_user_root',return_value=None), mock.patch.object(self.runtime,'external_temp_parent',return_value=REPO_ROOT), mock.patch.object(self.runner.subprocess,'run') as process:
+            output,error,provider=self.runner.run_model('prompt',Path('/tmp/linux-stage'),'workspace',10,ctx=self.ctx)
+        self.assertIsNone(output)
+        self.assertEqual(error,'antigravity-workspace-cwd-unavailable')
+        process.assert_not_called()
+
+    def test_wsl_workspace_without_windows_stage_does_not_launch_child(self):
+        invocation=self.runner.Invocation(['agy.exe'],'prompt',True)
+        with mock.patch.dict(os.environ,{'WSL_INTEROP':'fixture'}),mock.patch.object(self.runner,'_available',return_value=['antigravity']),mock.patch.object(self.runner,'_command',return_value=invocation),mock.patch.object(self.runtime,'windows_user_root',return_value=None),mock.patch.object(self.runtime,'external_temp_parent',return_value=None),mock.patch.object(self.runner.subprocess,'run') as process:
+            output,error,provider=self.runner.run_model('prompt',Path('/tmp/linux-stage'),'workspace',10,ctx=self.ctx)
+        self.assertIsNone(output)
+        self.assertEqual(error,'antigravity-workspace-cwd-unavailable')
+        process.assert_not_called()
+
+    @unittest.skipUnless(os.name=='nt','Windows custom-command quoting')
+    def test_custom_command_keeps_windows_backslashes_and_space_arguments(self):
+        import json,sys
+        script=self.ctx.paths.vault_root/'fixture child.py'
+        script.parent.mkdir(parents=True,exist_ok=True)
+        script.write_text('import json,sys\nprint(json.dumps({"argument":sys.argv[1],"prompt":sys.stdin.read()}))',encoding='utf-8')
+        argument=r'C:\fixture\unquoted-path'
+        command=f'"{sys.executable}" "{script}" {argument}'
+        with mock.patch.dict(os.environ,{'BEYIN_LLM_COMMAND':command,'BEYIN_RECURSION_DEPTH':'0'}):
+            text,error,provider=self.runner.run_model('prompt fixture',self.ctx.paths.vault_root,'text',5,ctx=self.ctx)
+        self.assertIsNone(error)
+        self.assertEqual(provider,'custom')
+        self.assertEqual(json.loads(text),{'argument':argument,'prompt':'prompt fixture'})
+
+    def test_structured_provider_errors_are_bounded_and_redacted(self):
+        import json
+        secret='private-secret-'+('x'*1000)
+        invocation=self.runner.Invocation(['gemini'],'prompt')
+        result=SimpleNamespace(returncode=0,stdout=json.dumps({'error':{'message':'unauthorized '+secret}}),stderr='')
+        with mock.patch.object(self.runner,'_available',return_value=['gemini']),mock.patch.object(self.runner,'_command',return_value=invocation),mock.patch.object(self.runner.subprocess,'run',return_value=result):
+            output,error,provider=self.runner.run_model('prompt',REPO_ROOT,'text',10,preferred='gemini',ctx=self.ctx)
+        self.assertIsNone(output)
+        self.assertEqual(error,'gemini-response-error:auth')
+        self.assertNotIn(secret,error)
+
+    def test_malformed_structured_output_is_not_successful_text(self):
+        for provider,payload in [('gemini','[]'),('gemini','{"response":42}'),('antigravity','{"event":"result","result":null}'),('antigravity','{"event":"progress"}')]:
+            with self.subTest(provider=provider,payload=payload):
+                text,error=self.runner._extract_response(payload,provider)
+                self.assertEqual(text,'')
+                self.assertIsNotNone(error)
+
+    def test_runner_uses_the_same_executable_discovery_as_status(self):
+        with mock.patch.object(self.runner,'_find_executable',return_value='fixture-local/codex.exe'),mock.patch.object(self.runner.shutil,'which',return_value=None):
+            invocation=self.runner._command('codex','prompt','text')
+        self.assertIsNotNone(invocation)
+        self.assertEqual(invocation.argv[0],'fixture-local/codex.exe')
+
     def test_auto_fallback_exhaustion_returns_last_provider_error(self) -> None:
         """When all providers fail in auto mode, system must not crash and must report last error."""
         commands = {

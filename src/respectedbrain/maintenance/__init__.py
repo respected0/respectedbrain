@@ -5,7 +5,9 @@ from respectedbrain.core.coordination import guarded_writer
 
 from importlib import import_module
 from pathlib import Path
+import os
 from typing import Sequence
+from respectedbrain.core.platform import path_within_vault
 
 from respectedbrain.core.context import AppContext
 
@@ -33,10 +35,29 @@ def selected_vault(ctx: AppContext | None, candidate: Path | str | None) -> Path
 
 
 def mutable_target(ctx: AppContext | None, target: Path) -> Path:
+    target = target.absolute()
+    if not path_within_vault(target, Path(target.anchor)):
+        raise ValueError("Maintenance target contains a link or reparse point")
     target = target.resolve()
     if ctx is not None and target.is_relative_to(ctx.paths.app_root):
         raise ValueError("Application resources are immutable")
     return target
+
+
+def note_target(root: Path, target: Path) -> Path:
+    root = root.resolve()
+    target = target.absolute()
+    if target.suffix.lower() != '.md' or not path_within_vault(target, root):
+        raise ValueError("Note target must remain within the selected vault without links")
+    return target.resolve()
+
+
+def safe_walk(root: Path):
+    """Prune link/reparse directories and files before traversing them."""
+    root = mutable_target(None, root)
+    for current, directories, files in os.walk(root, followlinks=False):
+        directories[:] = [name for name in directories if path_within_vault(Path(current) / name, root)]
+        yield current, directories, [name for name in files if path_within_vault(Path(current) / name, root)]
 
 
 @guarded_writer(busy_result=None)
@@ -57,6 +78,7 @@ def run_tool(ctx: AppContext, *, name: str, argv: Sequence[str]) -> int:
             selected_vault(ctx, argv[index + 1])
         elif value.startswith(("--vault=", "--vault-root=")):
             selected_vault(ctx, value.partition("=")[2])
-    if name in ("vault_linter", "architect_scan", "tiling_check"):
+    # Tools with optional writes admit the parsed mutation inside their main.
+    if name in ("architect_scan", "tiling_check", "vault_linter"):
         return import_module(_TOOLS[name], __name__).main(list(argv), ctx=ctx)
     return _run_tool(ctx, name=name, argv=argv)

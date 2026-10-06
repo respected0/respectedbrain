@@ -40,6 +40,45 @@ class IntegrationFixture:
 
 
 class FoundationIntegrationsTest(IntegrationFixture, unittest.TestCase):
+    @unittest.skipUnless(__import__('os').name == 'nt', 'Windows junction boundary')
+    def test_external_lock_and_override_junctions_are_refused(self):
+        import os
+        import subprocess
+        renderer = importlib.import_module('respectedbrain.integrations.rendering')
+        with tempfile.TemporaryDirectory() as outside_name:
+            outside = Path(outside_name)
+            (outside / 'instructions.md').write_text('outside instructions', encoding='utf-8')
+            backend = self.backend()
+            self.data.mkdir(parents=True, exist_ok=True)
+            lock = self.data / 'external-locks'
+            subprocess.run(['cmd', '/c', 'mklink', '/J', str(lock), str(outside)], check=True, capture_output=True)
+            try:
+                with self.assertRaises(OwnershipConflict):
+                    backend.apply(ExternalChange('file', str(self.home / 'new.json'), None, b'new'))
+                self.assertFalse((self.home / 'new.json').exists())
+                self.assertEqual([p.name for p in outside.iterdir()], ['instructions.md'])
+            finally:
+                os.rmdir(lock)
+            override = self.ctx.paths.overrides_dir
+            override.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(['cmd', '/c', 'mklink', '/J', str(override), str(outside)], check=True, capture_output=True)
+            try:
+                with self.assertRaises(OwnershipConflict):
+                    renderer.managed_rule(self.ctx)
+                with self.assertRaises(OwnershipConflict):
+                    renderer.skill_writes(self.ctx, [self.home / 'skills'])
+            finally:
+                os.rmdir(override)
+
+    def test_native_command_timeout_is_bounded_and_reported(self):
+        import subprocess
+        from respectedbrain.core.errors import FoundationError
+        backend = self.backend()
+        with mock.patch.object(backend, '_windows'), mock.patch('respectedbrain.integrations.backend.shutil.which', return_value='powershell.exe'), mock.patch('respectedbrain.integrations.backend.subprocess.run', side_effect=subprocess.TimeoutExpired('powershell.exe', 30)) as command:
+            with self.assertRaises(FoundationError):
+                backend._powershell('fixture')
+            self.assertEqual(command.call_args.kwargs['timeout'], 30)
+
     def test_disabled_options_produce_no_new_registration(self):
         renderer = importlib.import_module('respectedbrain.integrations.rendering')
         before = snapshot(self.root)

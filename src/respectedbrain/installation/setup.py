@@ -2,7 +2,6 @@
 from __future__ import annotations
 from datetime import date
 from pathlib import Path
-import tempfile
 import stat
 from typing import Mapping
 
@@ -12,7 +11,7 @@ from respectedbrain.core.paths import Roots
 from respectedbrain.core.resources import ResourceCatalog
 from respectedbrain.vault.registry import VaultRegistry
 from .common import installed_profile, installation_context, ensure_linux_launcher
-from .ownership import OwnedFile, OwnershipManifest, digest, manifest_document, read_manifest, prove_ownership, safe_path
+from .ownership import OwnedFile, OwnershipManifest, digest, manifest_document, read_manifest, safe_path
 from .transaction import Transaction, OperationResult, recover_transactions
 from . import payload
 
@@ -42,6 +41,12 @@ def setup(roots: Roots, vault: Path, *, profile: Mapping[str, str], desired: Map
             tx.checkpoint("backup")
             manifest_path = roots.data_root / "install-manifest.json"
             previous = read_manifest(manifest_path) if manifest_path.is_file() else OwnershipManifest(3, (), ())
+            if previous.files:
+                from .operations import validate_manifest_roots
+                prior_identity = registered or config["active_vault_id"]
+                if prior_identity is None:
+                    raise OwnershipConflict("Existing ownership requires a registered vault identity")
+                validate_manifest_roots(installation_context(roots, vault, prior_identity, config), previous)
             tx.checkpoint("stage")
             if package is not None and package != roots.app_root:
                 from .operations import activate_package
@@ -79,7 +84,7 @@ def setup(roots: Roots, vault: Path, *, profile: Mapping[str, str], desired: Map
                 from respectedbrain.integrations.rendering import render_project_integrations
                 for name, content in render_project_integrations(ctx, profile_object).items():
                     tx.write(vault / name, content)
-            from .operations import plan_connections
+            from .operations import plan_connections, operation_manifest
             changes, external = plan_connections(ctx, backend, previous)
             for change in changes:
                 tx.apply_external(change)
@@ -90,7 +95,7 @@ def setup(roots: Roots, vault: Path, *, profile: Mapping[str, str], desired: Map
             owned = tuple(OwnedFile(roots.app_root / name, digest(roots.app_root / name), "application", stat.S_IMODE((roots.app_root / name).stat().st_mode)) for name in (*document["files"], "distribution.json"))
             owned += (OwnedFile(store.path, digest(store.path), "technical"),) + launchers
             owned += shell.files if shell is not None else tuple(item for item in previous.files if item.role == "uninstaller")
-            tx.write_json(manifest_path, manifest_document(OwnershipManifest(3, owned, external)))
+            tx.write_json(manifest_path, manifest_document(operation_manifest(ctx, owned, external, previous=previous)))
             tx.checkpoint("health")
             payload.validate_package(roots.app_root)
             payload.validate_installed_health(roots.app_root, document, roots.data_root)

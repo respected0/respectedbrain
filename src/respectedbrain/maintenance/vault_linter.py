@@ -13,7 +13,9 @@ tespit ederek deterministik rapor üretir.
 from __future__ import annotations
 
 from respectedbrain.core.context import AppContext
-from respectedbrain.maintenance import selected_vault, mutable_target
+from respectedbrain.core.coordination import writer_lease
+from respectedbrain.maintenance import selected_vault, safe_walk
+from contextlib import nullcontext
 
 import argparse
 import json
@@ -24,12 +26,6 @@ import sys
 from typing import Any
 
 
-def _configure_console_output() -> None:
-    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if callable(reconfigure):
-            reconfigure(errors="replace")
 
 
 
@@ -88,7 +84,7 @@ def lint_vault(vault_root: Path) -> dict[str, Any]:
     file_contents: dict[Path, str] = {}
     filename_issues: list[dict[str, str]] = []
 
-    for root, dirs, files in os.walk(vault_root):
+    for root, dirs, files in safe_walk(vault_root):
         dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not d.startswith(".")]
         for file in files:
             if file.endswith(".md"):
@@ -217,7 +213,7 @@ def lint_vault(vault_root: Path) -> dict[str, Any]:
 def fix_dashes(vault_root: Path) -> int:
     """Dosya adlarındaki em-dash ve en-dash karakterlerini standart ASCII '-' ile değiştirir."""
     fixed = 0
-    for root, dirs, files in os.walk(vault_root):
+    for root, dirs, files in safe_walk(vault_root):
         dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not d.startswith(".")]
         for file in files:
             if file.endswith(".md") and ("—" in file or "–" in file):
@@ -240,7 +236,8 @@ def main(argv=None, *, ctx: AppContext | None = None) -> int:
     v_root = selected_vault(ctx, args.vault)
 
     if args.fix_dashes:
-        count = fix_dashes(v_root)
+        with writer_lease(ctx) if ctx is not None else nullcontext():
+            count = fix_dashes(v_root)
         print(f"Toplam {count} dosya adındaki tire ASCII '-' olarak düzeltildi.")
 
     results = lint_vault(v_root)

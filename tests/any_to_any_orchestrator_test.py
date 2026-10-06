@@ -51,7 +51,8 @@ class AnyToAnyOrchestratorTest(unittest.TestCase):
         self.assertTrue(success)
         self.assertTrue(run.worktree_dir.is_dir())
         self.assertTrue((run.worktree_dir / "README.md").is_file())
-        self.assertTrue((run.worktree_dir / "TASK_SPEC.md").is_file())
+        # Instructions live in run state; a repository TASK_SPEC may be user-owned.
+        self.assertTrue((run.run_dir / "TASK_SPEC.md").is_file())
         self.assertTrue((run.run_dir / "metadata.json").is_file())
 
         meta = json.loads((run.run_dir / "metadata.json").read_text(encoding="utf-8"))

@@ -18,12 +18,6 @@ import tempfile
 from typing import Any
 
 
-def _configure_console_output() -> None:
-    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if callable(reconfigure):
-            reconfigure(errors="replace")
 
 
 
@@ -85,15 +79,17 @@ def run_backup(
     if proc.returncode != 0:
         return {"status": "failed", "error": proc.stderr or proc.stdout}
 
-    snapshot_id = "latest"
+    snapshot_id = None
     for line in reversed(proc.stdout.splitlines()):
         try:
             data = json.loads(line)
-            if data.get("message_type") == "summary" and "snapshot_id" in data:
+            if isinstance(data, dict) and data.get("message_type") == "summary" and isinstance(data.get("snapshot_id"), str) and data['snapshot_id']:
                 snapshot_id = data["snapshot_id"]
                 break
         except (json.JSONDecodeError, ValueError):
             continue
+    if snapshot_id is None:
+        return {"status": "failed", "error": "Backup did not identify its snapshot; restore verification refused"}
 
     if verify_restore:
         if temp_dir is not None:

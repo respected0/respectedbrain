@@ -74,6 +74,8 @@ Model ile knowledge derler; --dry-run önizleme.
 
 Transcript + session özetleyip daily yazar; gelişmiş hook işleri.
 
+CLI, kendi state dizinindeki `hookin-*.json` girişini yalnız başarılı flush sonrası ve baytları değişmemişse temizler. Başarısız çağrının girdisini veya sonradan düzenlenen dosyayı silmez; önceden temizlenmiş bir girdi başarı sonucunu hataya dönüştürmez. Servisin yaşa bağlı stale-input temizliği ayrı yaşam döngüsü kuralıdır.
+
 | Argüman | Gereklilik / varsayılan | Değerler |
 | --- | --- | --- |
 | `--vault` | isteğe bağlı | Path |

@@ -14,7 +14,10 @@ Verilen bir yazılım projesini analiz ederek:
 from __future__ import annotations
 
 from respectedbrain.core.context import AppContext
-from respectedbrain.maintenance import selected_vault, mutable_target
+from respectedbrain.core.coordination import writer_lease
+from respectedbrain.core.config import atomic_write_bytes
+from respectedbrain.maintenance import mutable_target
+from contextlib import nullcontext
 
 import argparse
 from datetime import datetime, timezone
@@ -24,15 +27,9 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List
 
 
-def _configure_console_output() -> None:
-    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if callable(reconfigure):
-            reconfigure(errors="replace")
 
 
 
@@ -336,9 +333,9 @@ def main(argv=None, *, ctx: AppContext | None = None) -> int:
 
     md = to_markdown(data)
     if args.output:
-        out_p = mutable_target(ctx, Path(args.output))
-        out_p.parent.mkdir(parents=True, exist_ok=True)
-        out_p.write_text(md, encoding="utf-8")
+        with writer_lease(ctx) if ctx is not None else nullcontext():
+            out_p = mutable_target(ctx, Path(args.output))
+            atomic_write_bytes(out_p, md.encode('utf-8'))
         print(f"Mimari dokümanı kaydedildi: {out_p}")
     else:
         print(md)

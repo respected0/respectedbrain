@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 import base64
 import hashlib
+import re
 import stat
 from pathlib import Path
 from typing import Any
 
 from respectedbrain.core import platform
-from respectedbrain.core.config import atomic_write_json
 from respectedbrain.core.errors import OwnershipConflict
 
 
@@ -74,9 +74,33 @@ def manifest_document(manifest: OwnershipManifest) -> dict:
 def read_manifest(path: Path) -> OwnershipManifest:
     import json
     from respectedbrain.integrations.backend import ExternalChange
-    document = json.loads(safe_path(path).read_text(encoding="utf-8"))
-    if document.get("schema_version") != 3:
-        raise OwnershipConflict("Ownership manifest requires schema 3")
-    files = tuple(OwnedFile(Path(row["path"]), row["sha256"], row["role"], row.get("mode")) for row in document["files"])
-    external = tuple(ExternalChange(row["kind"], row["key"], decode_bytes(row["before"]), decode_bytes(row["after"])) for row in document["external"])
-    return OwnershipManifest(3, files, external)
+    try:
+        document = json.loads(safe_path(path).read_text(encoding="utf-8"))
+        if not isinstance(document, dict) or document.get("schema_version") != 3:
+            raise ValueError("Ownership manifest requires schema 3")
+        if not isinstance(document["files"], list) or not isinstance(document["external"], list):
+            raise ValueError("Invalid ownership collections")
+        files, external = [], []
+        file_paths, external_keys = set(), set()
+        for row in document["files"]:
+            target = Path(row["path"])
+            mode = row.get("mode")
+            if (not target.is_absolute() or ".." in target.parts
+                    or not isinstance(row["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", row["sha256"])
+                    or row["role"] not in ("application", "technical", "uninstaller", "launcher")
+                    or mode is not None and (type(mode) is not int or not 0 <= mode <= 0o7777)
+                    or target in file_paths):
+                raise ValueError("Invalid or duplicate owned file")
+            file_paths.add(target)
+            files.append(OwnedFile(target, row["sha256"], row["role"], mode))
+        for row in document["external"]:
+            if (row["kind"] not in ("file", "mcp", "task", "shortcut", "registry")
+                    or not isinstance(row["key"], str) or not row["key"] or "\0" in row["key"]
+                    or (row["kind"], row["key"]) in external_keys
+                    or any(value is not None and not isinstance(value, str) for value in (row["before"], row["after"]))):
+                raise ValueError("Invalid or duplicate external ownership")
+            external_keys.add((row["kind"], row["key"]))
+            external.append(ExternalChange(row["kind"], row["key"], decode_bytes(row["before"]), decode_bytes(row["after"])))
+        return OwnershipManifest(3, tuple(files), tuple(external))
+    except (KeyError, TypeError, ValueError) as error:
+        raise OwnershipConflict(f"Invalid ownership manifest: {error}") from error

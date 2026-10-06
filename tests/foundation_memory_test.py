@@ -139,8 +139,19 @@ class FoundationMemoryTest(unittest.TestCase):
             self.assertEqual(service.get_cli_status(), status)
         self.assertEqual(process.call_count, 1)
         self.assertEqual(status["codex"]["version"], "codex 1.2.3")
-        self.assertEqual(status["codex"]["auth_status"], "ready")
+        self.assertEqual(status["codex"]["auth_status"], "unknown")
         self.assertFalse(status["claude"]["installed"])
+
+    def test_provider_version_is_not_authentication_and_cache_is_not_mutable_by_callers(self):
+        from respectedbrain.providers import runner
+        service=runner.ProviderStatus()
+        with mock.patch.object(runner,'_find_executable',side_effect=lambda name:'codex' if name=='codex' else None),mock.patch.object(runner.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'codex 1.2.3','')) as process:
+            first=service.get_cli_status()
+            self.assertEqual(first['codex']['auth_status'],'unknown')
+            first['codex']['installed']=False
+            second=service.get_cli_status()
+            self.assertTrue(second['codex']['installed'])
+            self.assertEqual(process.call_count,1)
 
 
     def test_explicit_flush_reports_model_failure(self):
@@ -153,6 +164,45 @@ class FoundationMemoryTest(unittest.TestCase):
         self.assertEqual(result, 1)
         state = json.loads(flush._session_state_path(self.ctx1.paths.state_dir, "failed").read_text())
         self.assertEqual(state["status"], "fail")
+
+    def test_companion_failure_is_visible_and_retries_without_model_or_duplicate_event(self):
+        from respectedbrain.memory import flush, events
+        from datetime import timedelta
+        for operation in ('record_event', 'project_companion'):
+            with self.subTest(operation=operation):
+                identity = 'pending-' + operation
+                model = FakeModel()
+                transcript = self.transcript(self.ctx1)
+                with mock.patch.object(events, operation, side_effect=OSError('fixture failure')):
+                    self.assertEqual(flush.flush(self.ctx1, session_id=identity, transcript=transcript, model=model, now=NOW), 1)
+                state = json.loads(flush._session_state_path(self.ctx1.paths.state_dir, identity).read_text())
+                self.assertEqual(state['status'], 'pending')
+                self.assertEqual(state['detail'], 'companion-sync-failed')
+                self.assertTrue((self.ctx1.paths.state_dir / 'health.json').exists())
+                daily = self.ctx1.paths.vault_root / 'daily/2026-10-03.md'
+                before = daily.read_bytes()
+                self.assertEqual(flush.flush(self.ctx1, session_id=identity, transcript=transcript, model=model, now=NOW+timedelta(days=1)), 0)
+                self.assertEqual(model.calls, 1)
+                self.assertEqual(daily.read_bytes(), before)
+                self.assertFalse((daily.parent/'2026-10-04.md').exists())
+                recorded = [event for event in events.list_events(self.ctx1.paths.vault_root, include_archive=True) if event['session_id']==identity]
+                self.assertEqual(len(recorded), 1)
+                self.assertEqual(json.loads(flush._session_state_path(self.ctx1.paths.state_dir,identity).read_text())['status'],'ok')
+
+    def test_pending_companion_survives_short_precompact_and_preserves_daily_edit(self):
+        from respectedbrain.memory import flush,events
+        from datetime import timedelta
+        transcript=self.transcript(self.ctx1)
+        model=FakeModel()
+        with mock.patch.object(events,'record_event',side_effect=OSError('fixture failure')):
+            self.assertEqual(flush.flush(self.ctx1,session_id='short-pending',transcript=transcript,model=model,now=NOW),1)
+        daily=self.ctx1.paths.vault_root/'daily/2026-10-03.md'
+        edited=daily.read_bytes().replace('Kalıcı karar.'.encode('utf-8'),b'Human revised text')
+        daily.write_bytes(edited)
+        self.assertEqual(flush.flush_transcript(self.ctx1,session_id='short-pending',transcript=transcript,model=model,now=NOW+timedelta(minutes=1),reason='precompact'),0)
+        self.assertEqual(model.calls,1)
+        self.assertEqual(daily.read_bytes(),edited)
+        self.assertEqual(len(events.list_events(self.ctx1.paths.vault_root)),1)
 
     def test_explicit_compile_reports_model_failure(self):
         from respectedbrain.core.context import ModelResult

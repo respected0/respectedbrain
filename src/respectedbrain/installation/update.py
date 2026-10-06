@@ -13,11 +13,11 @@ def update(ctx, *, package, backend, shell=None) -> OperationResult:
     tx = None
     try:
         payload.validate_package(package)
-        previous = read_manifest(ctx.paths.data_root / "install-manifest.json")
-        validate_manifest_roots(ctx, previous)
         if any(result.conflicts for result in recover_transactions(ctx.paths.data_root, backend)):
             return OperationResult(False, "", ("Unfinished rollback conflict",))
         with Transaction(ctx.paths.data_root, backend) as tx:
+            previous = read_manifest(ctx.paths.data_root / "install-manifest.json")
+            validate_manifest_roots(ctx, previous)
             if shell is not None:
                 shell.prepare(tx)
             tx.checkpoint("backup")
@@ -41,7 +41,7 @@ def update(ctx, *, package, backend, shell=None) -> OperationResult:
                 external = tuple(item for item in external if (item.kind, item.key) != (shell.registration.kind, shell.registration.key)) + (shell.owned_registration(previous),)
             tx.checkpoint("integrations")
             uninstallers = shell.files if shell is not None else tuple(item for item in previous.files if item.role == "uninstaller")
-            tx.write_json(ctx.paths.data_root / "install-manifest.json", manifest_document(operation_manifest(ctx, (*files, *uninstallers, *launchers), external)))
+            tx.write_json(ctx.paths.data_root / "install-manifest.json", manifest_document(operation_manifest(ctx, (*files, *uninstallers, *launchers), external, previous=previous)))
             tx.checkpoint("health")
             payload.validate_package(ctx.paths.app_root)
             payload.validate_installed_health(ctx.paths.app_root, document, ctx.paths.data_root)

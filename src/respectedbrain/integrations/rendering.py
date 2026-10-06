@@ -1,16 +1,15 @@
 """Readonly plans for explicit vault/provider contexts and stable installed launchers."""
 from __future__ import annotations
 import json
-import os
-from pathlib import Path, PurePath
+from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
 from .backend import ExternalChange, IntegrationProfile, canonical_json
 from .global_config import *
-from .global_config import _codex_notify_assignment
 from respectedbrain.core.errors import FoundationError, OwnershipConflict
+from respectedbrain.core.platform import path_within_vault
 
 def wsl_path(path):
     value = str(path).replace("\\", "/")
@@ -64,9 +63,6 @@ def bridge_argv(ctx, profile, provider, event, *, global_hook=False):
 def command_text(profile, argv):
     return subprocess.list2cmdline(argv) if profile.platform.startswith("windows") else shlex.join(argv)
 
-def _managed_codex_notify(argv):
-    return bool(argv and (any("codex_notify.py" in p.replace("\\", "/") for p in argv) or ("hook" in argv and "--event" in argv and argv[argv.index("--event") + 1:argv.index("--event") + 2] == ["notify"] and "--vault-id" in argv)))
-
 class _Planner:
     def __init__(self, backend):
         self.backend = backend
@@ -99,6 +95,8 @@ class _Planner:
 def managed_rule(ctx):
     override = ctx.paths.overrides_dir / "instructions.md"
     nested = ctx.paths.overrides_dir / "instructions/default.md"
+    if any(not path_within_vault(path, ctx.paths.data_root) for path in (override, nested)):
+        raise OwnershipConflict('Unsafe instruction override')
     if override.is_file():
         instructions = override.read_text(encoding="utf-8").strip()
     elif nested.is_file():
@@ -116,10 +114,12 @@ def managed_rule(ctx):
 def skill_writes(ctx, roots):
     contents = {name: ctx.resources.read_text("skills/" + name) for name in ctx.resources.iter_files("skills") if name.endswith("/SKILL.md")}
     override = ctx.paths.overrides_dir / "skills"
+    if not path_within_vault(override, ctx.paths.data_root):
+        raise OwnershipConflict('Unsafe skill override directory')
     if override.is_dir():
         for path in override.glob("*/SKILL.md"):
-            if path.is_symlink():
-                raise OwnershipConflict("Skill override is a symlink")
+            if not path_within_vault(path, ctx.paths.data_root):
+                raise OwnershipConflict("Skill override has a link/reparse point")
             contents[path.relative_to(override).as_posix()] = path.read_text(encoding="utf-8")
     return [(base / name, content) for name, content in sorted(contents.items()) for base in roots]
 

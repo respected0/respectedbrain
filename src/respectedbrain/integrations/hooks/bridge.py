@@ -11,6 +11,7 @@ import subprocess
 from typing import Any
 from respectedbrain.memory import lifecycle as LIFECYCLE
 from respectedbrain.core.coordination import guarded_writer
+from respectedbrain.core.platform import path_within_vault
 EVENTS = ("start", "prompt", "turn", "end", "precompact", "postcompact")
 SESSION_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
 def first_string(payload: dict[str, Any], *names: str) -> str:
@@ -113,20 +114,22 @@ def resolve_codex_transcript(
         return ""
     for folder_name in ("sessions", "archived_sessions"):
         root = codex_home / folder_name
-        if not root.is_dir():
+        if not root.is_dir() or not path_within_vault(root, codex_home):
             continue
-        try:
-            matches = list(root.glob(f"**/*{session_id}*.jsonl"))
-        except OSError:
-            continue
-        if matches:
-            for match in sorted(matches, key=lambda p: p.stat().st_mtime, reverse=True):
+        matches = []
+        for directory, dirs, files in os.walk(root):
+            dirs[:] = [d for d in dirs if path_within_vault(Path(directory) / d, codex_home)]
+            for filename in files:
+                if not (filename == session_id + '.jsonl' or filename.endswith('-' + session_id + '.jsonl')):
+                    continue
+                match = Path(directory) / filename
                 try:
-                    match.resolve(strict=True).relative_to(codex_home.resolve(strict=True))
-                    if match.is_file():
-                        return str(match)
+                    if path_within_vault(match, codex_home) and match.is_file():
+                        matches.append((match.stat().st_mtime, str(match)))
                 except (OSError, RuntimeError, ValueError):
                     continue
+        if matches:
+            return max(matches)[1]
     return ""
 
 

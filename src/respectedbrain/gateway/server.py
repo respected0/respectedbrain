@@ -12,41 +12,44 @@ Features:
 
 from __future__ import annotations
 
-import argparse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
 import os
 from pathlib import Path
-import sys
-import time
 import urllib.parse
 
 from respectedbrain import __version__
 from respectedbrain.core.context import AppContext
 from respectedbrain.core.config import ConfigStore
+from respectedbrain.core.errors import BusyError, FoundationError
 from respectedbrain.core.coordination import guarded_writer
 from respectedbrain.core import platform as runtime_platform
 from respectedbrain.providers.runner import ModelRunner, ProviderStatus
 from respectedbrain.search.engine import SearchEngine
 from respectedbrain.orchestration import runner as orchestration
+from respectedbrain.integrations.notes import create_note, note_path, read_note
 
 
-def _read_file_safe(path: Path, max_chars: int = 50_000) -> str:
+def _read_file_safe(path: Path, root: Path, max_chars: int = 50_000) -> str:
     try:
-        if path.is_file():
-            return path.read_text(encoding="utf-8", errors="replace")[:max_chars]
-    except OSError:
+        return read_note(root, path.relative_to(root).as_posix(), max_chars=max_chars)
+    except (OSError, ValueError):
         pass
     return ""
 
 
-def _read_json_safe(path: Path, default: dict | list) -> dict | list:
+def _read_json_safe(path: Path, root: Path, default: dict | list) -> dict | list:
     try:
-        if path.is_file():
-            return json.loads(path.read_text(encoding="utf-8", errors="replace"))
-    except (OSError, json.JSONDecodeError):
+        if runtime_platform.path_within_vault(path, root) and path.is_file():
+            with path.open('rb') as handle:
+                content = handle.read(1024 * 1024 + 1)
+            if len(content) <= 1024 * 1024:
+                value = json.loads(content)
+                if isinstance(value, type(default)):
+                    return value
+    except (OSError, ValueError, UnicodeError):
         pass
     return default
 
@@ -54,6 +57,17 @@ def _read_json_safe(path: Path, default: dict | list) -> dict | list:
 class DashboardHandler(BaseHTTPRequestHandler):
     ctx: AppContext
     provider_status: ProviderStatus
+    MAX_BODY_BYTES = 5 * 1024 * 1024
+
+    def _local_request(self) -> bool:
+        authorities = {f'127.0.0.1:{self.server.server_port}', f'localhost:{self.server.server_port}'}
+        origin = self.headers.get('Origin')
+        if (self.headers.get('Host', '').lower() not in authorities
+                or (origin is not None and origin.lower() not in {'http://' + host for host in authorities})
+                or self.headers.get('Sec-Fetch-Site') == 'cross-site'):
+            self._send_error_json('Only local dashboard requests are allowed', 403)
+            return False
+        return True
 
     @property
     def vault_root(self):
@@ -71,9 +85,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header('X-Content-Type-Options', 'nosniff')
         self.end_headers()
         self.wfile.write(payload)
 
@@ -81,35 +93,64 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self._send_json({"error": message, "success": False}, status=status)
 
     def do_OPTIONS(self) -> None:  # noqa: N802
+        if not self._local_request():
+            return
         self.send_response(HTTPStatus.NO_CONTENT)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
     def do_GET(self) -> None:  # noqa: N802
+        if not self._local_request():
+            return
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
         params = urllib.parse.parse_qs(parsed_url.query)
 
         if path.startswith("/api/"):
-            self._handle_api_get(path, params)
+            try:
+                self._handle_api_get(path, params)
+            except BusyError:
+                self._send_error_json('Application is busy; retry later', 503)
+            except (OSError, ValueError, FoundationError):
+                self._send_error_json('API operation unavailable', 400)
             return
 
         self._serve_static(path)
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._local_request():
+            return
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length) if content_length > 0 else b"{}"
         try:
+            content_length = int(self.headers.get('Content-Length', '0'))
+            if content_length < 0 or self.headers.get('Transfer-Encoding'):
+                raise ValueError('Invalid request length')
+            if content_length > self.MAX_BODY_BYTES:
+                self._send_error_json('Request body too large', 413)
+                return
+            body = self.rfile.read(content_length) if content_length > 0 else b'{}'
             payload = json.loads(body.decode("utf-8")) if body else {}
-        except json.JSONDecodeError:
+            if not isinstance(payload, dict):
+                raise ValueError('Body must be an object')
+            for key in ('title', 'content', 'category', 'summary_provider', 'project_root', 'task', 'master', 'worker', 'run_id', 'test'):
+                if key in payload and not isinstance(payload[key], str):
+                    raise ValueError('Invalid field: ' + key)
+            for key in ('tags', 'priority'):
+                if key in payload and (not isinstance(payload[key], list) or not all(isinstance(v, str) for v in payload[key])):
+                    raise ValueError('Invalid field: ' + key)
+        except (ValueError, UnicodeError):
             self._send_error_json("Invalid JSON body")
             return
 
+        try:
+            self._dispatch_post(path, payload)
+        except BusyError:
+            self._send_error_json('Application is busy; retry later', 503)
+        except (OSError, ValueError, FoundationError):
+            self._send_error_json('API operation unavailable', 400)
+
+    def _dispatch_post(self, path: str, payload: dict) -> None:
         if path == "/api/models/priority":
             self._handle_set_priority(payload)
         elif path == "/api/orchestration/start":
@@ -170,15 +211,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/memory":
             companion = vault / "🔮 850-Companion"
-            last_session = _read_file_safe(companion / "Last-Session.md")
-            threads = _read_file_safe(companion / "Threads.md")
-            kurallar = _read_file_safe(companion / "Kurallar.md")
+            last_session = _read_file_safe(companion / "Last-Session.md", vault)
+            threads = _read_file_safe(companion / "Threads.md", vault)
+            kurallar = _read_file_safe(companion / "Kurallar.md", vault)
 
             import datetime as dt
             today_str = dt.date.today().isoformat()
-            daily_text = _read_file_safe(vault / "daily" / f"{today_str}.md")
-            briefing_text = _read_file_safe(vault / "🎯 100-Command-Center" / "Briefings" / f"{today_str}.md")
-            dashboard_text = _read_file_safe(vault / "🎯 100-Command-Center" / "Dashboard.md")
+            daily_text = _read_file_safe(vault / "daily" / f"{today_str}.md", vault)
+            briefing_text = _read_file_safe(vault / "🎯 100-Command-Center" / "Briefings" / f"{today_str}.md", vault)
+            dashboard_text = _read_file_safe(vault / "🎯 100-Command-Center" / "Dashboard.md", vault)
 
             self._send_json({
                 "today": today_str,
@@ -191,10 +232,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             })
 
         elif path == "/api/health":
-            health = _read_json_safe(state_dir / "health.json", {})
-            briefing_health = _read_json_safe(state_dir / "briefing-health.json", {})
-            compile_state = _read_json_safe(state_dir / "compile-state.json", {})
-            last_flush = _read_json_safe(state_dir / "last-flush.json", {})
+            health = _read_json_safe(state_dir / "health.json", self.ctx.paths.data_root, {})
+            briefing_health = _read_json_safe(state_dir / "briefing-health.json", self.ctx.paths.data_root, {})
+            compile_state = _read_json_safe(state_dir / "compile-state.json", self.ctx.paths.data_root, {})
+            last_flush = _read_json_safe(state_dir / "last-flush.json", self.ctx.paths.data_root, {})
 
             self._send_json({
                 "engine_health": health,
@@ -208,7 +249,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/search":
             q = params.get("q", [""])[0]
-            limit = int(params.get("limit", ["15"])[0])
+            try:
+                limit = max(0, min(100, int(params.get('limit', ['15'])[0])))
+            except ValueError:
+                self._send_error_json('Invalid search limit')
+                return
             category = params.get("category", [None])[0]
             try:
                 engine = SearchEngine(self.ctx)
@@ -222,17 +267,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if not rel_path:
                 self._send_error_json("Missing path parameter")
                 return
-            safe_rel = rel_path.replace("\\", "/").strip("/").replace("..", "").strip()
-            target_file = (self.vault_root / safe_rel).resolve()
-            try:
-                target_file.relative_to(self.vault_root.resolve())
-            except ValueError:
+            target_file = note_path(vault, rel_path)
+            if target_file is None:
                 self._send_error_json("Access denied", 403)
                 return
+            safe_rel = target_file.relative_to(vault).as_posix()
             if not target_file.is_file():
                 self._send_error_json("Not bulunamadı", 404)
                 return
-            content = _read_file_safe(target_file, max_chars=120_000)
+            try:
+                content = read_note(vault, safe_rel, max_chars=120_000)
+            except (OSError, ValueError):
+                self._send_error_json('Note unavailable or too large', 400)
+                return
             stat = target_file.stat()
             import datetime as dt
             mtime = dt.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
@@ -248,9 +295,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             current_ver = __version__
             self._send_json({
                 "current_version": current_ver,
-                "latest_version": current_ver,
-                "update_available": False,
-                "status": "up_to_date",
+                "latest_version": None,
+                "update_available": None,
+                "status": "unavailable",
             })
 
         else:
@@ -303,7 +350,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         from datetime import datetime
         from respectedbrain.briefing.service import run_if_due
         status = run_if_due(self.ctx, model=ModelRunner(self.ctx), now=datetime.now().astimezone())
-        self._send_json({"success": status == 0, "message": "Sabah brifingi tamamlandı." if status == 0 else "Brifing başarısız."})
+        self._send_json({"success": status == 0, "message": "Sabah brifingi kontrolü tamamlandı." if status == 0 else "Brifing başarısız."})
 
     def _handle_run_compile(self) -> None:
         from datetime import datetime
@@ -313,9 +360,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _handle_run_doctor(self) -> None:
         state_dir = self.ctx.paths.state_dir
-        health = _read_json_safe(state_dir / "health.json", {})
-        briefing_health = _read_json_safe(state_dir / "briefing-health.json", {})
-        compile_state = _read_json_safe(state_dir / "compile-state.json", {})
+        health = _read_json_safe(state_dir / "health.json", self.ctx.paths.data_root, {})
+        briefing_health = _read_json_safe(state_dir / "briefing-health.json", self.ctx.paths.data_root, {})
+        compile_state = _read_json_safe(state_dir / "compile-state.json", self.ctx.paths.data_root, {})
         has_error = bool(health.get("error"))
         status = "healthy" if not has_error else "degraded"
         report = {
@@ -324,7 +371,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "briefing_health": briefing_health,
             "compile_state": compile_state,
         }
-        status_msg = "Mükemmel ✓ (Tüm sistemler aktif)" if status == "healthy" else "İnceleme Gerekli ⚠️"
+        if not health:
+            status = 'unknown'
+            report['status'] = status
+        status_msg = {'healthy': 'Son kayıtta motor hatası yok', 'degraded': 'İnceleme gerekli', 'unknown': 'Sağlık kaydı yok'}[status]
         self._send_json({
             "success": True,
             "report": report,
@@ -334,12 +384,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _handle_run_reindex(self) -> None:
         try:
             engine = SearchEngine(self.ctx)
-            count = engine.index_vault()
+            counts = engine.index_vault()
+            count = counts['indexed'] + counts['skipped']
             self._send_json({
                 "success": True,
-                "indexed": count,
+                **counts,
                 "message": f"FTS5 tam metin indeksi yenilendi ({count} not tarandı)."
             })
+        except BusyError:
+            raise
         except Exception as e:
             self._send_error_json(f"İndeksleme hatası: {e}")
 
@@ -365,16 +418,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not runtime_platform.path_within_vault(target, self.vault_root):
             self._send_error_json("Unsafe capture target", 403)
             return
-        dump_dir.mkdir(parents=True, exist_ok=True)
 
-        tag_list_str = "\n".join(f"  - {t}" for t in tags)
+        tag_list_str = "\n".join('  - ' + json.dumps(t, ensure_ascii=False) for t in tags) if tags else '  []'
         now_str = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         body = (
             f"---\n"
-            f'title: "{title}"\n'
+            f'title: {json.dumps(title, ensure_ascii=False)}\n'
             f'created: "{now_str}"\n'
             f'type: capture\n'
-            f'category: "{category}"\n'
+            f'category: {json.dumps(category, ensure_ascii=False)}\n'
             f'status: inbox\n'
             f'source: web_gateway\n'
             f'tags:\n'
@@ -383,15 +435,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
             f"# {title}\n\n"
             f"{content}\n"
         )
-        target.write_text(body, encoding="utf-8")
+        try:
+            target = create_note(self.vault_root, dump_dir, filename, body)
+        except (OSError, ValueError):
+            self._send_error_json('Not kaydedilemedi')
+            return
 
         # Re-index incrementally
+        indexed = True
         try:
             SearchEngine(self.ctx).index_vault()
         except Exception:
-            pass
+            indexed = False
 
-        self._send_json({"success": True, "message": f"'{filename}' kaydedildi ve FTS5 indeksine eklendi."})
+        suffix = 'FTS5 indeksine eklendi.' if indexed else 'Arama indeksi güncellenemedi; yeniden indeksleyin.'
+        self._send_json({'success': True, 'path': target.relative_to(self.vault_root).as_posix(), 'indexed': indexed,
+                         'message': f"'{target.name}' kaydedildi. {suffix}"})
 
     def _serve_static(self, path: str) -> None:
         clean = path.lstrip("/") or "index.html"

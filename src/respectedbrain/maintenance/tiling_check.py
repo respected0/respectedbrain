@@ -9,7 +9,7 @@ Jaccard ve token overlap benzerliği ile tespit eder.
 from __future__ import annotations
 
 from respectedbrain.core.context import AppContext
-from respectedbrain.maintenance import selected_vault, mutable_target
+from respectedbrain.maintenance import selected_vault, safe_walk
 
 import argparse
 import json
@@ -20,12 +20,6 @@ import sys
 from typing import Any
 
 
-def _configure_console_output() -> None:
-    """Keep Windows OEM consoles from aborting on emoji / unicode characters."""
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if callable(reconfigure):
-            reconfigure(errors="replace")
 
 
 
@@ -84,7 +78,7 @@ def check_tiling(vault_root: Path, threshold: float = 0.55) -> dict[str, Any]:
         raise ValueError(f"threshold 0.0 ile 1.0 arasında olmalıdır: {threshold}")
     notes: list[tuple[str, str, set[str]]] = []  # (rel_path, stem, tokens)
 
-    for root, dirs, files in os.walk(vault_root):
+    for root, dirs, files in safe_walk(vault_root):
         dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not d.startswith(".")]
         for file in files:
             if file.endswith(".md"):

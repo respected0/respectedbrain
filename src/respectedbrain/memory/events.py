@@ -12,20 +12,47 @@ import time
 from typing import Any
 import uuid
 
+from ..core import platform as runtime_platform
+
+
+def _safe_memory_path(path: Path, vault_root: Path) -> Path:
+    if not runtime_platform.path_within_vault(path, vault_root):
+        raise ValueError(f"unsafe-memory-path:{path.name}")
+    return path
+
+
+def _event_order(record: dict[str, Any]) -> tuple[float, str]:
+    # Older filenames contain local timestamps mislabeled with a Z suffix.
+    try:
+        timestamp = dt.datetime.fromisoformat(record.get("ts", "").replace("Z", "+00:00")).timestamp()
+    except (AttributeError, TypeError, ValueError, OSError):
+        timestamp = float("-inf")
+    return timestamp, str(record.get("id", ""))
+
+
+def _file_event_order(path: Path) -> tuple[float, str]:
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        record = {}
+    return _event_order(record if isinstance(record, dict) else {})
+
 
 def get_companion_dir(vault_root: Path) -> Path:
     """Find the 850-Companion folder within the vault root."""
     for item in vault_root.iterdir():
-        if item.is_dir() and "850-Companion" in item.name:
-            return item
-    companion = vault_root / "🔮 850-Companion"
+        if "850-Companion" in item.name:
+            _safe_memory_path(item, vault_root)
+            if item.is_dir():
+                return item
+    companion = _safe_memory_path(vault_root / "🔮 850-Companion", vault_root)
     companion.mkdir(parents=True, exist_ok=True)
     return companion
 
 
 def get_events_dir(vault_root: Path) -> Path:
     """Return the append-only events directory."""
-    events_dir = get_companion_dir(vault_root) / "events"
+    events_dir = _safe_memory_path(get_companion_dir(vault_root) / "events", vault_root)
     events_dir.mkdir(parents=True, exist_ok=True)
     return events_dir
 
@@ -35,7 +62,7 @@ DEFAULT_KEEP_EVENTS = 20
 
 def get_events_archive_dir(vault_root: Path) -> Path:
     """Return the events archive directory."""
-    archive_dir = get_events_dir(vault_root) / "archive"
+    archive_dir = _safe_memory_path(get_events_dir(vault_root) / "archive", vault_root)
     archive_dir.mkdir(parents=True, exist_ok=True)
     return archive_dir
 
@@ -49,8 +76,8 @@ def rotate_events(vault_root: Path, keep_limit: int = DEFAULT_KEEP_EVENTS) -> li
     keep_limit = max(1, keep_limit)
 
     event_files = sorted(
-        [p for p in events_dir.iterdir() if p.is_file() and p.suffix == ".json" and not p.name.startswith(".")],
-        key=lambda p: p.name,
+        [_safe_memory_path(p, vault_root) for p in events_dir.iterdir() if p.is_file() and p.suffix == ".json" and not p.name.startswith(".")],
+        key=_file_event_order,
     )
     if len(event_files) <= keep_limit:
         return []
@@ -60,12 +87,14 @@ def rotate_events(vault_root: Path, keep_limit: int = DEFAULT_KEEP_EVENTS) -> li
     archived_paths: list[Path] = []
 
     for file_path in files_to_archive:
-        dest_path = archive_dir / file_path.name
+        _safe_memory_path(file_path, vault_root)
+        dest_path = _safe_memory_path(archive_dir / file_path.name, vault_root)
+        if dest_path.exists():
+            if dest_path.read_bytes() != file_path.read_bytes():
+                raise ValueError("event-archive-collision")
         moved = False
         for attempt in range(5):
             try:
-                if dest_path.exists():
-                    dest_path.unlink()
                 os.replace(file_path, dest_path)
                 archived_paths.append(dest_path)
                 moved = True
@@ -84,7 +113,8 @@ def rotate_events(vault_root: Path, keep_limit: int = DEFAULT_KEEP_EVENTS) -> li
     return archived_paths
 
 
-def _atomic_write_file(path: Path, content: str) -> None:
+def _atomic_write_file(path: Path, content: str, *, vault_root: Path) -> None:
+    _safe_memory_path(path, vault_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_name(f".{path.name}.{os.getpid()}.{uuid.uuid4().hex[:6]}.tmp")
     try:
@@ -118,7 +148,7 @@ def record_event(
 ) -> dict[str, Any]:
     """Record an immutable, append-only JSON event and rotate excess older events."""
     current_time = now or dt.datetime.now().astimezone()
-    compact_ts = current_time.strftime("%Y%m%dT%H%M%SZ")
+    compact_ts = current_time.astimezone(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     iso_ts = current_time.isoformat()
     short_uid = uuid.uuid4().hex[:8]
     clean_provider = re.sub(r"[^a-zA-Z0-9_-]", "", provider) or "unknown"
@@ -140,7 +170,7 @@ def record_event(
 
     events_dir = get_events_dir(vault_root)
     file_path = events_dir / f"{event_id}.json"
-    _atomic_write_file(file_path, json.dumps(event_payload, ensure_ascii=False, indent=2) + "\n")
+    _atomic_write_file(file_path, json.dumps(event_payload, ensure_ascii=False, indent=2) + "\n", vault_root=vault_root)
     rotate_events(vault_root, keep_limit=DEFAULT_KEEP_EVENTS)
     return event_payload
 
@@ -153,7 +183,7 @@ def list_events(vault_root: Path, include_archive: bool = False) -> list[dict[st
 
     files_to_read: list[Path] = []
     if include_archive:
-        archive_dir = events_dir / "archive"
+        archive_dir = _safe_memory_path(events_dir / "archive", vault_root)
         if archive_dir.is_dir():
             files_to_read.extend(
                 [p for p in archive_dir.iterdir() if p.is_file() and p.suffix == ".json" and not p.name.startswith(".")]
@@ -169,12 +199,13 @@ def list_events(vault_root: Path, include_archive: bool = False) -> list[dict[st
     records = []
     for file_path in files_to_read:
         try:
+            _safe_memory_path(file_path, vault_root)
             data = json.loads(file_path.read_text(encoding="utf-8"))
             if isinstance(data, dict) and "id" in data:
                 records.append(data)
         except (OSError, ValueError, json.JSONDecodeError):
             continue
-    return records
+    return sorted(records, key=_event_order)
 
 
 def parse_threads_markdown(content: str) -> dict[str, dict[str, Any]]:
@@ -183,8 +214,7 @@ def parse_threads_markdown(content: str) -> dict[str, dict[str, Any]]:
         return {}
 
     lines = content.splitlines()
-    in_frontmatter = False
-    frontmatter_count = 0
+    in_frontmatter = bool(lines and lines[0].strip() == "---")
     current_section_status = "active"
     current_title: str | None = None
     current_status: str | None = None
@@ -213,22 +243,22 @@ def parse_threads_markdown(content: str) -> dict[str, dict[str, Any]]:
         current_summary_lines = []
 
     in_code_block = False
-    for line in lines:
+    for index, line in enumerate(lines):
         stripped = line.strip()
+
+        # YAML is only the leading block; body horizontal rules are note content.
+        if index == 0 and in_frontmatter:
+            continue
+        if in_frontmatter:
+            if stripped == "---":
+                in_frontmatter = False
+            continue
 
         # Handle Markdown code block fences
         if stripped.startswith("```"):
             in_code_block = not in_code_block
             continue
         if in_code_block:
-            continue
-
-        # Handle YAML frontmatter
-        if stripped == "---":
-            frontmatter_count += 1
-            in_frontmatter = frontmatter_count < 2
-            continue
-        if in_frontmatter:
             continue
 
         # Check section headings (## ...)
@@ -288,7 +318,7 @@ def parse_threads_markdown(content: str) -> dict[str, dict[str, Any]]:
 def load_existing_threads(vault_root: Path) -> dict[str, dict[str, Any]]:
     """Load existing threads from Threads.md if available."""
     companion = get_companion_dir(vault_root)
-    threads_path = companion / "Threads.md"
+    threads_path = _safe_memory_path(companion / "Threads.md", vault_root)
     if not threads_path.is_file():
         return {}
     try:
@@ -305,6 +335,8 @@ def project_companion(vault_root: Path) -> None:
         return
 
     companion = get_companion_dir(vault_root)
+    _safe_memory_path(companion / "Last-Session.md", vault_root)
+    _safe_memory_path(companion / "Threads.md", vault_root)
     latest_session_event = None
     for event in reversed(events):
         if event.get("event_type") in {"session_end", "migration", "manual_note"}:
@@ -347,7 +379,7 @@ tags: [companion, last-session]
 ## Yapılacaklar
 {todos_list}
 """
-    _atomic_write_file(companion / "Last-Session.md", last_session_content)
+    _atomic_write_file(companion / "Last-Session.md", last_session_content, vault_root=vault_root)
 
     # 2. Project Threads.md with Read-Merge & Protection Gate
     threads_path = companion / "Threads.md"
@@ -436,7 +468,7 @@ tags: [companion, threads]
 ## Tamamlananlar
 {chr(10).join(completed_threads) if completed_threads else 'Henüz tamamlanan konu arşivlenmedi.'}
 """
-    _atomic_write_file(companion / "Threads.md", threads_doc)
+    _atomic_write_file(companion / "Threads.md", threads_doc, vault_root=vault_root)
 
 
 def ensure_migration(vault_root: Path) -> bool:
@@ -447,8 +479,8 @@ def ensure_migration(vault_root: Path) -> bool:
     if existing_events:
         return False
 
-    last_session_path = companion / "Last-Session.md"
-    threads_path = companion / "Threads.md"
+    last_session_path = _safe_memory_path(companion / "Last-Session.md", vault_root)
+    threads_path = _safe_memory_path(companion / "Threads.md", vault_root)
     if not last_session_path.is_file() and not threads_path.is_file():
         return False
 

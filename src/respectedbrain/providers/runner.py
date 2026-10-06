@@ -4,13 +4,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import copy
 import json
 import os
 from pathlib import Path
 import shlex
 import shutil
 import subprocess
-import sys
 import time
 from typing import Literal
 
@@ -82,7 +82,7 @@ def _windows_executable(executable: str) -> bool:
 def _command(provider: str, prompt: str, mode: Mode, vault_root: Path | None = None) -> Invocation | None:
     sandbox = "workspace-write" if mode == "workspace" else "read-only"
     if provider == "claude":
-        executable = shutil.which("claude") or shutil.which("claude.exe")
+        executable = _find_executable("claude")
         if executable is None:
             return None
         if mode == "workspace":
@@ -97,7 +97,7 @@ def _command(provider: str, prompt: str, mode: Mode, vault_root: Path | None = N
             _windows_executable(executable),
         )
     if provider == "codex":
-        executable = shutil.which("codex") or shutil.which("codex.exe")
+        executable = _find_executable("codex")
         if executable is None:
             return None
         return Invocation(
@@ -114,7 +114,7 @@ def _command(provider: str, prompt: str, mode: Mode, vault_root: Path | None = N
             _windows_executable(executable),
         )
     if provider in {"antigravity", "agy"}:
-        executable = shutil.which("agy") or shutil.which("agy.exe") or _windows_vault_binary("agy", vault_root)
+        executable = _find_executable("agy") or _windows_vault_binary("agy", vault_root)
         if executable is None:
             return None
         argv = [
@@ -142,7 +142,7 @@ def _command(provider: str, prompt: str, mode: Mode, vault_root: Path | None = N
         stdin_payload = json.dumps({"event": "user", "message": {"content": prompt}}) + "\n"
         return Invocation(argv, stdin_payload, _windows_executable(executable))
     if provider == "cursor":
-        executable = shutil.which("cursor-agent") or shutil.which("cursor-agent.exe")
+        executable = _find_executable("cursor-agent")
         if executable is None:
             return None
         argv = [executable, "-p", "--output-format", "text"]
@@ -151,7 +151,7 @@ def _command(provider: str, prompt: str, mode: Mode, vault_root: Path | None = N
         argv.append(prompt)
         return Invocation(argv, None, _windows_executable(executable))
     if provider == "gemini":
-        executable = shutil.which("gemini") or shutil.which("gemini.exe")
+        executable = _find_executable("gemini")
         if executable is None:
             return None
         argv = [executable, "--output-format", "json", "-p", ""]
@@ -257,20 +257,31 @@ def _safe_failure_category(stdout: str, stderr: str) -> str | None:
 def _extract_response(stdout: str, provider: str) -> tuple[str, str | None]:
     """Extract response text and potential provider-level error from stdout."""
     if provider in {"antigravity", "agy"}:
+        structured = False
         for line in reversed(stdout.splitlines()):
+            structured = structured or line.lstrip().startswith(('{', '['))
             try:
                 data = json.loads(line)
+                if not isinstance(data, dict):
+                    continue
                 if data.get("event") == "result":
                     result_obj = data.get("result", {})
+                    if not isinstance(result_obj, dict):
+                        return "", "invalid-response"
                     if result_obj.get("status") == "ERROR":
-                        return "", result_obj.get("error", "antigravity-stream-error")
-                    return result_obj.get("response", "").strip(), None
+                        return "", str(result_obj.get("error") or "antigravity-stream-error")
+                    response = result_obj.get("response")
+                    return (response.strip(), None) if isinstance(response, str) else ("", "invalid-response")
             except (json.JSONDecodeError, AttributeError):
                 continue
+        if structured:
+            return "", "invalid-response"
     if provider == "gemini":
         try:
             data = json.loads(stdout)
         except json.JSONDecodeError:
+            if stdout.lstrip().startswith(('{','[')):
+                return "", "invalid-response"
             return stdout.strip(), None
         if isinstance(data, dict):
             error = data.get("error")
@@ -280,8 +291,33 @@ def _extract_response(stdout: str, provider: str) -> tuple[str, str | None]:
                     return "", str(message or "gemini-json-error")
                 return "", str(error)
             response = data.get("response")
-            return (response.strip() if isinstance(response, str) else ""), None
+            return (response.strip(), None) if isinstance(response, str) else ("", "invalid-response")
+        return "", "invalid-response"
     return stdout.strip(), None
+
+
+def _custom_argv(command: str) -> list[str]:
+    command = command.strip()
+    if not command:
+        return []
+    if os.name != "nt":
+        return shlex.split(command)
+    import ctypes
+    from ctypes import wintypes
+    argc = ctypes.c_int()
+    parse = ctypes.WinDLL("shell32", use_last_error=True).CommandLineToArgvW
+    parse.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(ctypes.c_int)]
+    parse.restype = ctypes.POINTER(wintypes.LPWSTR)
+    argv = parse(command, ctypes.byref(argc))
+    if not argv:
+        raise ValueError("custom-command-invalid")
+    try:
+        return [argv[index] for index in range(argc.value)]
+    finally:
+        free = ctypes.WinDLL("kernel32").LocalFree
+        free.argtypes = [ctypes.c_void_p]
+        free.restype = ctypes.c_void_p
+        free(ctypes.cast(argv, ctypes.c_void_p))
 
 
 def run_model(
@@ -296,7 +332,9 @@ def run_model(
     try:
         depth = int(os.environ.get("BEYIN_RECURSION_DEPTH", "0"))
     except ValueError:
-        depth = 0
+        return None, "recursion-depth-invalid", None
+    if depth < 0:
+        return None, "recursion-depth-invalid", None
     if depth >= 2:
         return None, "recursion-depth-exceeded", None
     preferences = ctx.config.get("preferences", {})
@@ -311,7 +349,7 @@ def run_model(
     for provider in candidates:
         if provider == "custom":
             try:
-                argv = shlex.split(custom or "")
+                argv = _custom_argv(custom or "")
             except ValueError:
                 return None, "custom-command-invalid", provider
             if not argv:
@@ -333,8 +371,14 @@ def run_model(
             _windows_user_environment(process_environment, cwd, ctx.paths.vault_root)
             _native_codex_home_environment(process_environment, provider)
             if runtime_platform.windows_user_root(cwd) is None:
+                if mode == "workspace" and process_environment.get("WSL_INTEROP"):
+                    last_error = (f"{provider}-workspace-cwd-unavailable", provider)
+                    continue
                 fallback_parent = runtime_platform.external_temp_parent(ctx.paths.vault_root)
                 if fallback_parent is not None and fallback_parent.is_dir():
+                    if mode == "workspace":
+                        last_error = (f"{provider}-workspace-cwd-unavailable", provider)
+                        continue
                     run_cwd = fallback_parent
         try:
             result = subprocess.run(
@@ -367,10 +411,12 @@ def run_model(
             return None, error, provider
         output_text, stream_error = _extract_response(result.stdout, provider)
         if stream_error is not None:
+            category = _safe_failure_category(stream_error, result.stderr)
+            safe_error = f"{provider}-response-error" + (f":{category}" if category else "")
             if is_auto or _retryable_failure(stream_error, result.stderr):
-                last_error = (stream_error, provider)
+                last_error = (safe_error, provider)
                 continue
-            return None, stream_error, provider
+            return None, safe_error, provider
         if mode == "text" and not output_text.strip():
             error = f"{provider}-empty-output"
             if is_auto:
@@ -420,9 +466,9 @@ class ProviderStatus:
         self._cache = {"ts": 0.0, "data": {}}
 
     def get_cli_status(self, force_refresh: bool = False) -> dict[str, dict[str, str | bool | None]]:
-        now = time.time()
+        now = time.monotonic()
         if not force_refresh and self._cache["data"] and (now - self._cache["ts"] < 45.0):
-            return self._cache["data"]
+            return copy.deepcopy(self._cache["data"])
 
         tools = {
             "codex": {"cmd": "codex", "name": "OpenAI Codex"},
@@ -454,7 +500,8 @@ class ProviderStatus:
                     if key == "claude" and ("not logged in" in output.lower() or "/login" in output.lower()):
                         auth_status = "not_logged_in"
                     elif proc.returncode == 0:
-                        auth_status = "ready"
+                        # A version probe establishes CLI availability, not login.
+                        auth_status = "unknown"
                     else:
                         auth_status = "error"
                 except Exception:
@@ -472,4 +519,4 @@ class ProviderStatus:
 
         self._cache["ts"] = now
         self._cache["data"] = status
-        return status
+        return copy.deepcopy(status)

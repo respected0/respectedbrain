@@ -275,6 +275,198 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
         finally:
             shutil.rmtree(stage)
 
+    @unittest.skipUnless(os.name == "nt", "Windows junction")
+    def test_flush_daily_and_flush_compile_cache_junctions_are_rejected(self):
+        (self.daily / "2026-08-20.md").write_text("daily input", encoding="utf-8")
+        transcript = self._write_transcript([("user", "important decision")])
+        for name, target, service in (("daily", self.daily, FLUSH), ("flush-cache", self.ctx.paths.cache_dir, FLUSH),
+                                      ("compile-cache", self.ctx.paths.cache_dir, COMPILER)):
+            with self.subTest(name=name):
+                # Keep the fixture daily input outside the directory being replaced.
+                saved = {p.name: p.read_bytes() for p in target.iterdir() if p.is_file()}
+                for p in target.iterdir():
+                    p.unlink()
+                target.rmdir()
+                outside = self.root / ("outside-" + name)
+                outside.mkdir()
+                result = subprocess.run(["cmd.exe", "/c", "mklink", "/J", str(target), str(outside)],
+                                        capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                try:
+                    model = FakeModel(VALID_SUMMARY)
+                    if service is FLUSH:
+                        status = FLUSH.flush_transcript(self.ctx, session_id=name, transcript=transcript,
+                                                        model=model, now=dt.datetime(2026, 8, 21))
+                    else:
+                        status = COMPILER.compile_pending(self.ctx, model=model, now=dt.datetime(2026, 8, 21))
+                    self.assertEqual(status, 1)
+                    self.assertEqual(model.calls, 0)
+                    self.assertEqual(list(outside.iterdir()), [])
+                finally:
+                    target.rmdir()
+                    target.mkdir()
+                    for filename, payload in saved.items():
+                        (target / filename).write_bytes(payload)
+
+    def test_compile_snapshot_does_not_adopt_edit_after_source_copy(self):
+        (self.daily / "2026-08-20.md").write_text("daily input", encoding="utf-8")
+        index = self.knowledge / "index.md"
+        edit = b"# Human edit after source copy\n"
+        real_copy = COMPILER.shutil.copy2
+        def copying(source, destination, **kwargs):
+            result = real_copy(source, destination, **kwargs)
+            if Path(source) == index and "compile-stage-" in str(destination):
+                index.write_bytes(edit)
+            return result
+        with mock.patch.object(COMPILER.shutil, "copy2", side_effect=copying):
+            status = COMPILER.compile_pending(self.ctx, model=FakeModel(), now=dt.datetime(2026, 8, 21))
+        self.assertEqual(status, 1)
+        self.assertEqual(index.read_bytes(), edit)
+        state = COMPILER.load_state(self.state / "compile-state.json")
+        self.assertEqual(state["ingested"], {})
+
+    def test_compile_promotion_failure_restores_already_promoted_files(self):
+        from respectedbrain.core.context import ModelResult
+        (self.daily / "2026-08-20.md").write_text("daily input", encoding="utf-8")
+        before = self._payload_snapshot()
+        class Model:
+            def run(inner, prompt, *, cwd, mode, timeout):
+                (cwd / "knowledge/concepts/new-note.md").write_text("new model note", encoding="utf-8")
+                (cwd / "knowledge/index.md").write_text("model index", encoding="utf-8")
+                (cwd / "knowledge/log.md").write_text("model log", encoding="utf-8")
+                return ModelResult("done", "custom", None)
+        real_copy = COMPILER._atomic_copy
+        def publishing(source, destination, **kwargs):
+            if Path(destination) == self.knowledge / "log.md":
+                raise OSError("synthetic disk failure")
+            return real_copy(source, destination, **kwargs)
+        with mock.patch.object(COMPILER, "_atomic_copy", side_effect=publishing):
+            status = COMPILER.compile_pending(self.ctx, model=Model(), now=dt.datetime(2026, 8, 21))
+        self.assertEqual(status, 1)
+        self.assertEqual(self._payload_snapshot(), before)
+        self.assertEqual(COMPILER.load_state(self.state / "compile-state.json")["ingested"], {})
+
+    def test_compile_failed_rollback_retains_recovery_preimages(self):
+        from respectedbrain.core.context import ModelResult
+        (self.daily / "2026-08-20.md").write_text("daily input", encoding="utf-8")
+        index = self.knowledge / "index.md"
+        original = index.read_bytes()
+        class Model:
+            def run(inner, prompt, *, cwd, mode, timeout):
+                (cwd / "knowledge/index.md").write_text("model index", encoding="utf-8")
+                (cwd / "knowledge/log.md").write_text("model log", encoding="utf-8")
+                return ModelResult("done", "custom", None)
+        real_copy = COMPILER._atomic_copy
+        def publishing(source, destination, **kwargs):
+            if Path(destination) == self.knowledge / "log.md" or (Path(destination) == index and Path(source).read_bytes() == original):
+                raise OSError("synthetic publication or rollback failure")
+            return real_copy(source, destination, **kwargs)
+        with mock.patch.object(COMPILER, "_atomic_copy", side_effect=publishing):
+            self.assertEqual(COMPILER.compile_pending(self.ctx, model=Model(), now=dt.datetime(2026, 8, 21)), 1)
+        state = COMPILER.load_state(self.state / "compile-state.json")
+        self.assertEqual(state["ingested"], {})
+        self.assertEqual(state["last_status"], "fail:recovery")
+        self.assertTrue(any(p.is_file() and p.read_bytes() == original for p in self.ctx.paths.cache_dir.rglob("*")),
+                        "Failed rollback must retain original bytes for recovery")
+
+    def test_compile_edit_during_output_staging_is_preserved(self):
+        (self.daily / "2026-08-20.md").write_text("daily input", encoding="utf-8")
+        index = self.knowledge / "index.md"
+        edit = b"# Human edit during output staging\n"
+        real_mkstemp = COMPILER.tempfile.mkstemp
+        def staging(*args, **kwargs):
+            if kwargs.get("prefix") == ".index.md.":
+                index.write_bytes(edit)
+            return real_mkstemp(*args, **kwargs)
+        with mock.patch.object(COMPILER.tempfile, "mkstemp", side_effect=staging):
+            status = COMPILER.compile_pending(self.ctx, model=FakeModel(), now=dt.datetime(2026, 8, 21))
+        self.assertEqual(status, 1)
+        self.assertEqual(index.read_bytes(), edit)
+
+    def test_concurrent_json_writes_use_independent_temporary_files(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import threading
+        for module in (FLUSH, COMPILER):
+            with self.subTest(module=module.__name__):
+                target = self.state / "concurrent-json.json"
+                barrier = threading.Barrier(2)
+                sources = []
+                source_lock = threading.Lock()
+                real_replace = module.os.replace
+                def publishing(source, destination):
+                    if Path(destination) == target:
+                        with source_lock:
+                            first_attempt = str(source) not in sources
+                            if first_attempt:
+                                sources.append(str(source))
+                        if first_attempt:
+                            barrier.wait(timeout=5)
+                    return real_replace(source, destination)
+                with mock.patch.object(module.os, "replace", side_effect=publishing), ThreadPoolExecutor(max_workers=2) as pool:
+                    futures = [pool.submit(module._atomic_write_json, target, {"writer": number}) for number in (1, 2)]
+                    for future in futures:
+                        try:
+                            future.result(timeout=10)
+                        except Exception as error:
+                            self.fail(f"Concurrent JSON publication failed: {type(error).__name__}")
+                self.assertIn(json.loads(target.read_text(encoding="utf-8")), [{"writer": 1}, {"writer": 2}])
+                self.assertEqual(len(set(sources)), 2, "Concurrent prepared outputs must have separate temporary files")
+
+    def test_corrupt_flush_state_reports_failure_without_crashing_or_overwriting_it(self):
+        transcript = self._write_transcript([("user", "important")])
+        state = FLUSH._session_state_path(self.state, "corrupt")
+        malformed = b"{broken session state"
+        state.write_bytes(malformed)
+        try:
+            status = FLUSH.flush_transcript(self.ctx, session_id="corrupt", transcript=transcript,
+                                            model=FakeModel(), now=dt.datetime(2026, 8, 21))
+        except Exception as error:
+            self.fail(f"Failure reporting crashed: {type(error).__name__}")
+        self.assertEqual(status, 1)
+        self.assertEqual(state.read_bytes(), malformed)
+
+    def test_corrupt_compile_state_is_preserved_for_recovery(self):
+        state = self.state / "compile-state.json"
+        malformed = b"{broken ingestion history"
+        state.write_bytes(malformed)
+        self.assertEqual(COMPILER.compile_pending(self.ctx, model=FakeModel(), now=dt.datetime(2026, 8, 21)), 1)
+        self.assertEqual(state.read_bytes(), malformed)
+
+    def test_short_precompact_does_not_suppress_final_session_flush(self):
+        transcript = self._write_transcript([("user", "one"), ("assistant", "two"), ("user", "three")])
+        model = FakeModel(VALID_SUMMARY)
+        now = dt.datetime(2026, 8, 21)
+        self.assertEqual(FLUSH.flush_transcript(self.ctx, session_id="short-final", transcript=transcript,
+                                               model=model, now=now, reason="precompact"), 0)
+        self.assertEqual(model.calls, 0)
+        self.assertEqual(FLUSH.flush_transcript(self.ctx, session_id="short-final", transcript=transcript,
+                                               model=model, now=now + dt.timedelta(minutes=1)), 0)
+        self.assertEqual(model.calls, 1)
+        self.assertTrue((self.daily / "2026-08-21.md").exists())
+
+    def test_catch_up_processes_changed_successful_session_using_revision_time(self):
+        home = self.root / "fake-home"
+        session = "12345678-1234-1234-1234-123456789abc"
+        transcript = home / ".codex/sessions" / (session + ".jsonl")
+        transcript.parent.mkdir(parents=True)
+        record = {"role": "user", "content": "old turn", "created_at": "2026-09-13T00:00:00+00:00"}
+        transcript.write_text(json.dumps(record) + "\n", encoding="utf-8")
+        first = dt.datetime(2026, 9, 13, 1, tzinfo=dt.timezone.utc)
+        old = FakeModel(VALID_SUMMARY.replace("Kalıcı bağlam.", "OLD-SESSION-SUMMARY"))
+        self.assertEqual(FLUSH.flush_transcript(self.ctx, session_id=session, transcript=transcript, model=old, now=first), 0)
+        record["content"] = "new turn at the same turn count"
+        transcript.write_text(json.dumps(record) + "\n", encoding="utf-8")
+        now = first + dt.timedelta(hours=1)
+        os.utime(transcript, (now.timestamp() - 60, now.timestamp() - 60))
+        updated = FakeModel(VALID_SUMMARY.replace("Kalıcı bağlam.", "NEW-SESSION-SUMMARY"))
+        self.assertEqual(FLUSH.catch_up_unflushed_sessions(self.ctx, model=updated, now=now, home=home), 1)
+        self.assertEqual(updated.calls, 1)
+        daily = (self.daily / "2026-09-13.md").read_text(encoding="utf-8")
+        self.assertIn("NEW-SESSION-SUMMARY", daily)
+        self.assertNotIn("OLD-SESSION-SUMMARY", daily)
+        self.assertEqual(FLUSH.catch_up_unflushed_sessions(self.ctx, model=updated, now=now, home=home), 0)
+        self.assertEqual(updated.calls, 1)
+
     def test_transcript_extraction_turn_and_character_caps(self) -> None:
         turns = []
         for number in range(35):

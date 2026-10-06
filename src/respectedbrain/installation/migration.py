@@ -364,13 +364,13 @@ def apply_migration(plan: MigrationPlan, *, roots: Roots, package: Path,
             _regular_hash(package / name)
             _regular_hash(roots.app_root / name)
         manifest_path = roots.data_root / "install-manifest.json"
-        _regular_hash(manifest_path)
-        previous = read_manifest(manifest_path) if manifest_path.exists() else OwnershipManifest(3, (), ())
-        validate_manifest_roots(ctx, previous)
         if any(result.conflicts for result in recover_transactions(roots.data_root, backend)):
             raise OwnershipConflict("Unfinished rollback conflict")
         # All vault writers must be quiet while the shared application is replaced.
         with Transaction(roots.data_root, backend, fault=fault) as tx:
+            _regular_hash(manifest_path)
+            previous = read_manifest(manifest_path) if manifest_path.exists() else OwnershipManifest(3, (), ())
+            validate_manifest_roots(ctx, previous)
             if shell is not None:
                 shell.prepare(tx)
             tx.checkpoint("lock")

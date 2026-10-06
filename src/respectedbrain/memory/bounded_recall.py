@@ -12,12 +12,8 @@ Tasarım İlkeleri:
 
 from __future__ import annotations
 
-import argparse
-import os
-from pathlib import Path
 import re
-import sys
-from typing import List, Optional
+from typing import List
 from ..core.context import AppContext
 
 MAX_NOTES = 3
@@ -58,6 +54,9 @@ def should_abstain(query: str) -> bool:
 
 def _get_search_engine(ctx: AppContext):
     from ..search.engine import SearchEngine
+    from ..core.platform import path_within_vault
+    if not path_within_vault(ctx.paths.cache_dir / "search_index.db", ctx.paths.data_root):
+        return None
     return SearchEngine(ctx)
 
 
@@ -69,6 +68,10 @@ def get_bounded_recall(
 ) -> str:
     """Prompt için en fazla max_chars uzunluğunda hafıza fısıltısı üretir."""
     try:
+        if not isinstance(max_notes, int) or not isinstance(max_chars, int) or max_notes <= 0 or max_chars <= 0:
+            return ""
+        max_notes = min(max_notes, MAX_NOTES)
+        max_chars = min(max_chars, MAX_CHARS)
         if should_abstain(query):
             return ""
 

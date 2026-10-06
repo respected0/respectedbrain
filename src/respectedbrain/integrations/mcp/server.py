@@ -8,8 +8,10 @@ import re
 import sys
 from typing import Any
 from respectedbrain import __version__
+from respectedbrain.core.platform import path_within_vault
 from respectedbrain.core.coordination import guarded_writer
 from respectedbrain.search.engine import SearchEngine
+from ..notes import MAX_NOTE_BYTES, create_note, note_path, read_note
 
 def _detect_vault_identity(ctx):
     from ..global_config import identity_settings
@@ -30,26 +32,51 @@ class RespectedMcpServer:
         self.os_name, self.companion_name = _detect_vault_identity(ctx)
         self.search_engine = SearchEngine(ctx)
 
-    MAX_NOTE_BYTES = 5 * 1024 * 1024  # 5 MB güvenlik tavanı
+    MAX_NOTE_BYTES = MAX_NOTE_BYTES
 
     def _safe_resolve(self, relative_path: str) -> Path | None:
-        """Path traversal, ADS ve NUL byte korumasıyla vault içindeki dosyayı bulur."""
-        if not relative_path or not isinstance(relative_path, str):
-            return None
-        if "\x00" in relative_path or ":" in relative_path:
-            return None
+        return note_path(self.vault_root, relative_path)
+
+    def _read_optional(self, relative: str, max_chars: int | None = None) -> str:
         try:
-            raw_path = Path(relative_path.strip().lstrip("/\\"))
-            # Windows reserved device names
-            for part in raw_path.parts:
-                stem = part.split(".")[0].upper()
-                if stem in {"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "LPT1", "LPT2", "LPT3"}:
-                    return None
-            target = (self.vault_root / raw_path).resolve()
-            target.relative_to(self.vault_root)
-            return target
-        except (ValueError, OSError):
-            return None
+            return read_note(self.vault_root, relative, max_chars=max_chars)
+        except (OSError, ValueError):
+            return ''
+
+    def _save_note(self, directory: Path, filename: str, body: str) -> tuple[Path, bool]:
+        target = create_note(self.vault_root, directory, filename, body)
+        try:
+            self.search_engine.index_vault()
+            indexed = True
+        except Exception:
+            indexed = False
+        return target, indexed
+
+    def _validate_arguments(self, name, arguments) -> None:
+        if not isinstance(arguments, dict):
+            raise ValueError('arguments must be an object')
+        manifest = next((tool for tool in self.get_tools_manifest() if tool['name'] == name), None)
+        if manifest is None:
+            return
+        schema = manifest['inputSchema']
+        for required in schema.get('required', []):
+            if required not in arguments:
+                raise ValueError('missing argument: ' + required)
+        for key, value in arguments.items():
+            specification = schema['properties'].get(key)
+            if specification is None:
+                continue
+            kind = specification['type']
+            valid = ((kind == 'string' and isinstance(value, str)) or
+                     (kind == 'integer' and type(value) is int) or
+                     (kind == 'array' and isinstance(value, list) and all(isinstance(v, str) for v in value)))
+            if not valid or ('enum' in specification and value not in specification['enum']):
+                raise ValueError('invalid argument: ' + key)
+        if name in {'respected_quick_capture', 'respected_remember'}:
+            if not arguments.get('title', '').strip() or not arguments.get('content', '').strip():
+                raise ValueError('title and content cannot be empty')
+            if arguments.get('scope') == 'project' and not arguments.get('project', '').strip():
+                raise ValueError('project is required for project scope')
 
     def get_tools_manifest(self) -> list[dict[str, Any]]:
         """Sunulan araçların tanımları."""
@@ -167,9 +194,13 @@ class RespectedMcpServer:
     @guarded_writer(busy_result=None)
     def call_tool(self, name: str, arguments: dict[str, Any]) -> str:
         """İlgili aracı çalıştırıp metin yanıtı döndürür."""
+        try:
+            self._validate_arguments(name, arguments)
+        except ValueError as error:
+            return f'Hata: {error}'
         if name == "respected_search":
             query = arguments.get("query", "")
-            limit = int(arguments.get("limit", 5))
+            limit = max(0, min(100, arguments.get("limit", 5)))
             category = arguments.get("category")
             results = self.search_engine.search(query, limit=limit, category=category)
             if not results:
@@ -190,7 +221,7 @@ class RespectedMcpServer:
             try:
                 if target.stat().st_size > self.MAX_NOTE_BYTES:
                     return f"Hata: '{rel_path}' çok büyük ({target.stat().st_size} bayt). Güvenlik sınırı: {self.MAX_NOTE_BYTES} bayt."
-                content = target.read_text(encoding="utf-8", errors="replace")
+                content = read_note(self.vault_root, rel_path)
                 return f"### Dosya: {rel_path}\n\n{content}"
             except Exception as e:
                 return f"Dosya okunurken hata oluştu: {e}"
@@ -200,10 +231,10 @@ class RespectedMcpServer:
             # 1. 500-Knowledge, Projects ve Companion altındaki karar ve kuralları ara
             search_query = f"{project} karar" if project else "karar mimari kural ADR"
             results = self.search_engine.search(search_query, limit=8)
-            kurallar_file = self.vault_root / "🔮 850-Companion" / "Kurallar.md"
             kurallar_text = ""
-            if kurallar_file.is_file():
-                kurallar_text = f"\n\n### Aktif Kurallar (Kurallar.md):\n{kurallar_file.read_text(encoding='utf-8', errors='replace')[:2000]}"
+            rules = self._read_optional('🔮 850-Companion/Kurallar.md', 2000)
+            if rules:
+                kurallar_text = f"\n\n### Aktif Kurallar (Kurallar.md):\n{rules}"
 
             lines = [f"### {self.os_name} Karar ve Mimari Kayıtları:\n"]
             for r in results:
@@ -221,8 +252,8 @@ class RespectedMcpServer:
             ]
             parts = [f"## {self.os_name} — {self.companion_name} Derin Hafıza Özeti\n"]
             for label, fpath in files_to_read:
-                if fpath.is_file():
-                    content = fpath.read_text(encoding="utf-8", errors="replace")
+                content = self._read_optional(fpath.relative_to(self.vault_root).as_posix())
+                if content:
                     parts.append(f"### {label}\n{content.strip()}\n")
                 else:
                     parts.append(f"### {label}\n(Mevcut değil)\n")
@@ -239,15 +270,13 @@ class RespectedMcpServer:
             filename = f"{timestamp}_{safe_slug}.md"
 
             inbox_dump = self.vault_root / "📥 000-Inbox" / "Dump"
-            inbox_dump.mkdir(parents=True, exist_ok=True)
-            target_file = inbox_dump / filename
 
-            tag_list_str = ", ".join(f'"{t}"' for t in tags) if tags else ""
+            tag_list_str = ", ".join(json.dumps(t, ensure_ascii=False) for t in tags)
             date_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
             note_body = (
                 f"---\n"
-                f'title: "{title}"\n'
+                f'title: {json.dumps(title, ensure_ascii=False)}\n'
                 f'created: "{date_str}"\n'
                 f'type: capture\n'
                 f'status: inbox\n'
@@ -259,10 +288,9 @@ class RespectedMcpServer:
             )
 
             try:
-                target_file.write_text(note_body, encoding="utf-8")
-                # İndeksi güncelle
-                self.search_engine.index_vault()
-                return f"Başarılı: Not '{filename}' olarak '📥 000-Inbox/Dump/' dizinine kaydedildi ve arama indeksine eklendi."
+                target_file, indexed = self._save_note(inbox_dump, filename, note_body)
+                suffix = 'arama indeksine eklendi.' if indexed else 'arama indeksi güncellenemedi; yeniden indeksleyin.'
+                return f"Başarılı: Not '{target_file.name}' olarak '📥 000-Inbox/Dump/' dizinine kaydedildi; {suffix}"
             except Exception as e:
                 return f"Not yazılırken hata oluştu: {e}"
 
@@ -284,7 +312,7 @@ class RespectedMcpServer:
                 clean_project = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in project).strip("._-")
                 if not clean_project:
                     return "Hata: Geçersiz proje adı."
-                dest_dir = (self.vault_root / "🏰 300-Projects" / clean_project).resolve()
+                dest_dir = self.vault_root / "🏰 300-Projects" / clean_project
                 try:
                     dest_dir.relative_to(self.vault_root)
                 except ValueError:
@@ -292,23 +320,21 @@ class RespectedMcpServer:
             else:
                 dest_dir = self.vault_root / "🧠 500-Knowledge"
 
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            target_file = dest_dir / filename
 
-            tag_list_str = ", ".join(f'"{t}"' for t in tags) if tags else ""
-            sup_list_str = ", ".join(f'"{s}"' for s in supersedes) if supersedes else ""
+            tag_list_str = ", ".join(json.dumps(t, ensure_ascii=False) for t in tags)
+            sup_list_str = ", ".join(json.dumps(s, ensure_ascii=False) for s in supersedes)
             date_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
             note_body = (
                 f"---\n"
-                f'title: "{title}"\n'
+                f'title: {json.dumps(title, ensure_ascii=False)}\n'
                 f'created: "{date_str}"\n'
                 f'modified: "{date_str}"\n'
                 f'type: lesson\n'
                 f'scope: {scope}\n'
                 f'confidence: {confidence}\n'
                 f'supersedes: [{sup_list_str}]\n'
-                f'project: "{project}"\n'
+                f'project: {json.dumps(project, ensure_ascii=False)}\n'
                 f'tags: [{tag_list_str}]\n'
                 f"source: mcp_remember\n"
                 f"---\n\n"
@@ -317,14 +343,14 @@ class RespectedMcpServer:
             )
 
             try:
-                target_file.write_text(note_body, encoding="utf-8")
-                self.search_engine.index_vault()
+                target_file, indexed = self._save_note(dest_dir, filename, note_body)
                 rel_path = target_file.relative_to(self.vault_root)
                 return (
                     f"Başarılı: Ders '{title}' epistemik sözleşmeyle kaydedildi.\n"
                     f"- Yol: `{rel_path}`\n"
                     f"- Kapsam: `{scope}` | Güvenilirlik: `{confidence}`\n"
-                    f"- Geçersiz kıldığı: `{supersedes if supersedes else 'Yok'}`"
+                    f"- Geçersiz kıldığı: `{supersedes if supersedes else 'Yok'}`\n"
+                    + ('Arama indeksine eklendi.' if indexed else 'Arama indeksi güncellenemedi; yeniden indeksleyin.')
                 )
             except Exception as e:
                 return f"Ders kaydedilirken hata oluştu: {e}"
@@ -333,21 +359,26 @@ class RespectedMcpServer:
             target_str = arguments.get("title_or_path", "").strip()
             target_path = self._safe_resolve(target_str)
             if not target_path or not target_path.is_file():
-                found = None
+                if '/' in target_str or '\\' in target_str or ':' in target_str or '\0' in target_str:
+                    return 'Hata: Geçersiz veya bulunamayan not yolu.'
+                found = []
                 target_stem = Path(target_str).stem.lower()
-                for p in self.vault_root.rglob("*.md"):
-                    if p.stem.lower() == target_stem:
-                        found = p
-                        break
+                for root, dirs, files in os.walk(self.vault_root):
+                    dirs[:] = [d for d in dirs if path_within_vault(Path(root) / d, self.vault_root)]
+                    for filename in files:
+                        p = Path(root) / filename
+                        if p.suffix == '.md' and p.stem.lower() == target_stem and self._safe_resolve(p.relative_to(self.vault_root).as_posix()):
+                            found.append(p)
                 if not found:
                     return f"'{target_str}' ile eşleşen bir not {self.os_name} içinde bulunamadı."
-                target_path = found
+                if len(found) > 1:
+                    return 'Hata: Birden fazla not eşleşti; göreceli dosya yolunu belirtin.'
+                target_path = found[0]
 
             rel_target = target_path.relative_to(self.vault_root)
-            target_name = target_path.stem
 
             try:
-                content = target_path.read_text(encoding="utf-8", errors="replace")
+                content = read_note(self.vault_root, rel_target.as_posix())
             except Exception as e:
                 return f"Not okunurken hata oluştu: {e}"
 
@@ -359,10 +390,12 @@ class RespectedMcpServer:
                     outbound.append(clean_link)
 
             # SQLite FTS5 tabanlı anında backlink sorgusu (sıfır disk taraması)
-            raw_backlinks = self.search_engine.get_backlinks(target_name)
+            raw_backlinks = self.search_engine.get_backlinks(rel_target.as_posix())
+            raw_backlinks = list(dict.fromkeys([*raw_backlinks, *self.search_engine.get_backlinks(target_path.stem)]))
             if not raw_backlinks:
                 self.search_engine.index_vault()
-                raw_backlinks = self.search_engine.get_backlinks(target_name)
+                raw_backlinks = self.search_engine.get_backlinks(rel_target.as_posix())
+                raw_backlinks = list(dict.fromkeys([*raw_backlinks, *self.search_engine.get_backlinks(target_path.stem)]))
             backlinks = [b for b in raw_backlinks if Path(b).as_posix() != rel_target.as_posix()]
 
             lines = [
@@ -388,83 +421,50 @@ class RespectedMcpServer:
             return f"Bilinmeyen araç çağrısı: {name}"
 
     def run_stdio(self) -> None:
-        """JSON-RPC 2.0 stdio protokol döngüsü."""
+        """Handle one JSON-RPC request per line and survive malformed clients."""
         for line in sys.stdin:
-            line = line.strip()
-            if not line:
+            if not line.strip():
                 continue
-
             try:
                 req = json.loads(line)
-            except json.JSONDecodeError:
+            except (ValueError, UnicodeError):
+                self._send({'jsonrpc': '2.0', 'id': None, 'error': {'code': -32700, 'message': 'Parse error'}})
                 continue
-
-            req_id = req.get("id")
-            method = req.get("method")
-            params = req.get("params", {})
-
-            if method == "initialize":
-                resp = {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {
-                        "protocolVersion": self.PROTOCOL_VERSION,
-                        "capabilities": {
-                            "tools": {},
-                        },
-                        "serverInfo": {
-                            "name": self.SERVER_NAME,
-                            "version": self.SERVER_VERSION,
-                        },
-                    },
-                }
-                self._send(resp)
-
-            elif method == "notifications/initialized":
-                # Bildirim, yanıt gerektirmez
-                pass
-
-            elif method == "ping":
-                self._send({"jsonrpc": "2.0", "id": req_id, "result": {}})
-
-            elif method == "tools/list":
-                resp = {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {
-                        "tools": self.get_tools_manifest(),
-                    },
-                }
-                self._send(resp)
-
-            elif method == "tools/call":
-                tool_name = params.get("name", "")
-                args = params.get("arguments", {})
-                tool_output = self.call_tool(tool_name, args)
-                resp = {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": tool_output,
-                            }
-                        ]
-                    },
-                }
-                self._send(resp)
-
-            else:
-                if req_id is not None:
-                    self._send({
-                        "jsonrpc": "2.0",
-                        "id": req_id,
-                        "error": {
-                            "code": -32601,
-                            "message": f"Method '{method}' not found",
-                        },
-                    })
+            if (not isinstance(req, dict) or req.get('jsonrpc') != '2.0'
+                    or not isinstance(req.get('method'), str)
+                    or ('id' in req and req['id'] is not None and type(req['id']) not in (str, int))):
+                self._send({'jsonrpc': '2.0', 'id': None, 'error': {'code': -32600, 'message': 'Invalid request'}})
+                continue
+            if 'id' not in req:
+                continue
+            req_id, method, params = req['id'], req['method'], req.get('params', {})
+            if not isinstance(params, dict):
+                self._send({'jsonrpc': '2.0', 'id': req_id, 'error': {'code': -32602, 'message': 'Invalid params'}})
+                continue
+            try:
+                if method == 'initialize':
+                    result = {'protocolVersion': self.PROTOCOL_VERSION, 'capabilities': {'tools': {}},
+                              'serverInfo': {'name': self.SERVER_NAME, 'version': self.SERVER_VERSION}}
+                elif method == 'ping':
+                    result = {}
+                elif method == 'tools/list':
+                    result = {'tools': self.get_tools_manifest()}
+                elif method == 'tools/call':
+                    name, arguments = params.get('name'), params.get('arguments', {})
+                    if not isinstance(name, str):
+                        raise ValueError('Invalid tool name')
+                    self._validate_arguments(name, arguments)
+                    text = self.call_tool(name, arguments)
+                    result = {'content': [{'type': 'text', 'text': text}],
+                              'isError': text.startswith(('Hata', 'Bilinmeyen', 'Not yazılırken', 'Ders kaydedilirken', 'Dosya okunurken', 'Not okunurken'))}
+                else:
+                    self._send({'jsonrpc': '2.0', 'id': req_id, 'error': {'code': -32601, 'message': 'Method not found'}})
+                    continue
+                self._send({'jsonrpc': '2.0', 'id': req_id, 'result': result})
+            except ValueError:
+                self._send({'jsonrpc': '2.0', 'id': req_id, 'error': {'code': -32602, 'message': 'Invalid params'}})
+            except Exception:
+                self._send({'jsonrpc': '2.0', 'id': req_id, 'error': {'code': -32603, 'message': 'Tool execution failed'}})
 
     def _send(self, data: dict[str, Any]) -> None:
         body = json.dumps(data, ensure_ascii=False)

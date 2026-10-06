@@ -7,18 +7,18 @@ vault içindeki tüm notlarda yüksek hızlı, anlamsal ve kök tabanlı arama y
 
 from __future__ import annotations
 
-import argparse
 import hashlib
-import json
 import os
 from pathlib import Path
 import re
 import sqlite3
-import sys
 from typing import Any
 
 from respectedbrain.core.context import AppContext
 from respectedbrain.core.coordination import guarded_writer
+from respectedbrain.core.platform import path_within_vault
+
+_FRONTMATTER = re.compile(r"\A\ufeff?---\r?\n(.*?)^---[ \t]*(?:\r?\n|$)", re.MULTILINE | re.DOTALL)
 
 
 def read_head(path: Path, max_chars: int = 1200) -> str:
@@ -33,22 +33,8 @@ def read_head(path: Path, max_chars: int = 1200) -> str:
 def parse_frontmatter_head(path: Path, max_chars: int = 1200) -> tuple[dict[str, Any], bool]:
     """Büyük dosyaları tamamen belleğe okumadan, ilk 1200 karakterden frontmatter ayrıştırır."""
     head = read_head(path, max_chars=max_chars)
-    if not head.startswith("---"):
-        return {}, False
-    parts = head.split("---", 2)
-    if len(parts) < 3:
-        return {}, False
-    fm: dict[str, Any] = {}
-    for line in parts[1].splitlines():
-        if ":" in line:
-            key, val = line.split(":", 1)
-            key = key.strip().lower()
-            val = val.strip().strip('"').strip("'")
-            if val.startswith("[") and val.endswith("]"):
-                fm[key] = [x.strip().strip('"').strip("'") for x in val[1:-1].split(",") if x.strip()]
-            else:
-                fm[key] = val
-    return fm, True
+    metadata, _ = parse_markdown_meta(head)
+    return metadata, _FRONTMATTER.match(head) is not None
 
 
 def parse_markdown_meta(content: str) -> tuple[dict[str, Any], str]:
@@ -56,20 +42,19 @@ def parse_markdown_meta(content: str) -> tuple[dict[str, Any], str]:
     frontmatter: dict[str, Any] = {}
     body = content
 
-    if content.startswith("---"):
-        parts = content.split("---", 2)
-        if len(parts) >= 3:
-            raw_fm = parts[1]
-            body = parts[2].strip()
-            for line in raw_fm.splitlines():
-                if ":" in line:
-                    key, val = line.split(":", 1)
-                    key = key.strip().lower()
-                    val = val.strip().strip('"').strip("'")
-                    if val.startswith("[") and val.endswith("]"):
-                        frontmatter[key] = [x.strip().strip('"').strip("'") for x in val[1:-1].split(",") if x.strip()]
-                    else:
-                        frontmatter[key] = val
+    match = _FRONTMATTER.match(content)
+    if match:
+        raw_fm = match[1]
+        body = content[match.end():].strip()
+        for line in raw_fm.splitlines():
+            if ":" in line:
+                key, val = line.split(":", 1)
+                key = key.strip().lower()
+                val = val.strip().strip('"').strip("'")
+                if val.startswith("[") and val.endswith("]"):
+                    frontmatter[key] = [x.strip().strip('"').strip("'") for x in val[1:-1].split(",") if x.strip()]
+                else:
+                    frontmatter[key] = val
 
     return frontmatter, body
 
@@ -95,6 +80,7 @@ class SearchEngine:
         self.ctx = ctx
         self.vault_root = ctx.paths.vault_root
         self.db_path = ctx.paths.cache_dir / "search_index.db"
+        self._validate_db_path()
         from respectedbrain.core.coordination import writer_lease
         with writer_lease(ctx):
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -102,12 +88,25 @@ class SearchEngine:
 
     @contextmanager
     def _get_connection(self):
+        self._validate_db_path()
         con = sqlite3.connect(str(self.db_path))
         con.row_factory = sqlite3.Row
         try:
             yield con
         finally:
             con.close()
+
+    def _validate_db_path(self) -> None:
+        for path in (self.db_path, *(self.db_path.with_name(self.db_path.name + suffix) for suffix in ('-journal', '-wal', '-shm'))):
+            if not path_within_vault(path, self.ctx.paths.data_root):
+                raise ValueError("unsafe-search-database")
+
+    def _excluded(self, relative: str) -> bool:
+        parts = Path(relative).parts
+        return any(excluded in parts if '/' not in excluded else relative == excluded or relative.startswith(excluded+'/') for excluded in self.EXCLUDED_DIRS)
+
+    def _visible_path(self, relative: str) -> bool:
+        return not self._excluded(relative) and path_within_vault(self.vault_root / relative, self.vault_root)
 
     def _init_db(self) -> None:
         with self._get_connection() as con:
@@ -147,9 +146,10 @@ class SearchEngine:
 
             for root, dirs, files in os.walk(self.vault_root):
                 rel_root = Path(root).relative_to(self.vault_root).as_posix()
-                if any(rel_root == exc or rel_root.startswith(f"{exc}/") for exc in self.EXCLUDED_DIRS):
+                if self._excluded(rel_root) or not path_within_vault(Path(root), self.vault_root):
                     dirs.clear()
                     continue
+                dirs[:] = [directory for directory in dirs if self._visible_path((Path(rel_root)/directory).as_posix())]
 
                 for f in files:
                     if not f.endswith(".md"):
@@ -157,6 +157,8 @@ class SearchEngine:
 
                     full_path = Path(root) / f
                     rel_path = full_path.relative_to(self.vault_root).as_posix()
+                    if not self._visible_path(rel_path):
+                        continue
                     current_files.add(rel_path)
 
                     try:
@@ -165,21 +167,17 @@ class SearchEngine:
                     except OSError:
                         continue
 
-                    if not force and rel_path in existing_records:
-                        prev_mtime, _ = existing_records[rel_path]
-                        if abs(prev_mtime - mtime) < 0.001:
-                            skipped += 1
-                            continue
-
                     try:
-                        text = full_path.read_text(encoding="utf-8", errors="replace")
+                        payload = full_path.read_bytes()
+                        text = payload.decode("utf-8", errors="replace")
                     except OSError:
                         continue
 
-                    sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                    sha256 = hashlib.sha256(payload).hexdigest()
                     if not force and rel_path in existing_records:
                         _, prev_sha = existing_records[rel_path]
                         if prev_sha == sha256:
+                            con.execute("UPDATE files_meta SET mtime = ? WHERE rel_path = ?", (mtime, rel_path))
                             skipped += 1
                             continue
 
@@ -215,7 +213,7 @@ class SearchEngine:
     def search(self, query: str, limit: int = 10, category: str | None = None) -> list[dict[str, Any]]:
         """Sorguyla eşleşen notları BM25 ağırlıklandırmasıyla getirir."""
         clean_query = query.strip()
-        if not clean_query:
+        if not clean_query or limit <= 0:
             return []
 
         terms = re.findall(r"\w+", clean_query)
@@ -249,6 +247,8 @@ class SearchEngine:
             try:
                 cursor = con.execute(sql, params)
                 for row in cursor.fetchall():
+                    if not self._visible_path(row['rel_path']):
+                        continue
                     results.append({
                         "path": row["rel_path"],
                         "title": row["title"],
@@ -261,12 +261,19 @@ class SearchEngine:
                 fallback_sql = """
                     SELECT rel_path, title, category, '' AS tags, '' AS snippet, 0.0 AS rank
                     FROM files_meta
-                    WHERE title LIKE ? OR rel_path LIKE ?
-                    LIMIT ?
+                    WHERE (title LIKE ? OR rel_path LIKE ?)
                 """
                 like_expr = f"%{terms[0]}%"
-                cursor = con.execute(fallback_sql, (like_expr, like_expr, limit))
+                fallback_params = [like_expr, like_expr]
+                if category:
+                    fallback_sql += " AND category = ?"
+                    fallback_params.append(category)
+                fallback_sql += " LIMIT ?"
+                fallback_params.append(limit)
+                cursor = con.execute(fallback_sql, fallback_params)
                 for row in cursor.fetchall():
+                    if not self._visible_path(row['rel_path']):
+                        continue
                     results.append({
                         "path": row["rel_path"],
                         "title": row["title"],
@@ -280,19 +287,22 @@ class SearchEngine:
 
     def get_backlinks(self, target_name: str, limit: int = 100) -> list[str]:
         """Not adına verilen referansları (backlinks) SQLite FTS5 üzerinden disk taraması yapmadan getirir."""
-        clean = re.sub(r"[^\w\s-]", "", target_name).strip()
-        if not clean:
+        clean = target_name.strip().replace('\\', '/')
+        if clean.endswith('.md'):
+            clean = clean[:-3]
+        terms = re.findall(r'\w+', clean)
+        if not terms or limit <= 0:
             return []
-        pattern = re.compile(rf"\[\[{re.escape(target_name)}(\|.*?)?(#.*?)?\]\]", re.IGNORECASE)
+        pattern = re.compile(rf"\[\[{re.escape(clean)}(?:\.md)?(?:[|#][^\]]*)?\]\]", re.IGNORECASE)
         backlinks: list[str] = []
         with self._get_connection() as con:
             try:
                 cursor = con.execute(
                     "SELECT rel_path, content FROM vault_fts WHERE vault_fts MATCH ? LIMIT ?",
-                    (f'"{clean}"', limit),
+                    (' AND '.join(f'"{term}"' for term in terms), limit),
                 )
                 for row in cursor.fetchall():
-                    if pattern.search(row["content"]):
+                    if self._visible_path(row['rel_path']) and pattern.search(row["content"]):
                         backlinks.append(row["rel_path"])
             except sqlite3.OperationalError:
                 pass

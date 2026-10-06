@@ -27,7 +27,7 @@ Repair sahipli uygulama/desired bağlantıları onarır; kişisel hafıza reset'
 respectedbrain migrate --legacy-root "<eski program kökü>" --vault "<mevcut eski kasa>"
 ```
 
-Bu plan source/target/action/hash/ownership, korunacak dosyalar ve conflict'leri gösterir. Varsayılan dry-run config/state/log/backup yazmaz. İsim, `.py` uzantısı veya klasör konumu sahiplik kanıtı değildir. Farklı state kopyaları, aktif yazıcı veya path/reparse kaçışı conflict üretir; force ile geçilmez.
+Bu plan source/target/action/hash/ownership, korunacak dosyalar ve conflict'leri gösterir. Varsayılan dry-run (önizleme) config/state/log/backup yazmaz; geçişi uygulamak için ayrıca `--apply` gerekir. İsim, `.py` uzantısı veya klasör konumu sahiplik kanıtı değildir. Farklı state kopyaları, aktif yazıcı veya path/reparse kaçışı conflict üretir; force ile geçilmez.
 
 Somut plan ve doğrulanmış paketle:
 

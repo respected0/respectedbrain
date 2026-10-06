@@ -98,6 +98,75 @@ class SearchEngineTest(unittest.TestCase):
 
 
 class McpServerTest(unittest.TestCase):
+    @unittest.skipUnless(__import__('os').name == 'nt', 'Windows junction boundary')
+    def test_mcp_junctions_cannot_read_or_capture_outside_vault(self):
+        import os
+        import subprocess
+        with tempfile.TemporaryDirectory() as outside_name:
+            outside = Path(outside_name)
+            (outside / 'Secret.md').write_text('outside-secret', encoding='utf-8')
+            links = [self.vault / 'escape', self.vault / '📥 000-Inbox', self.vault / '🧠 500-Knowledge']
+            try:
+                for link in links:
+                    subprocess.run(['cmd', '/c', 'mklink', '/J', str(link), str(outside)], check=True, capture_output=True)
+                self.assertNotIn('outside-secret', self.server.call_tool('respected_get_note', {'path': 'escape/Secret.md'}))
+                self.assertNotIn('outside-secret', self.server.call_tool('respected_expand', {'title_or_path': 'Secret'}))
+                self.assertNotIn('Başarılı', self.server.call_tool('respected_quick_capture', {'title': 'x', 'content': 'x'}))
+                self.assertNotIn('Başarılı', self.server.call_tool('respected_remember', {'title': 'x', 'content': 'x'}))
+                self.assertEqual([p.name for p in outside.iterdir()], ['Secret.md'])
+            finally:
+                for link in links:
+                    if link.exists():
+                        os.rmdir(link)
+
+    def test_expand_ambiguous_titles_need_explicit_path(self):
+        for folder in ('a', 'b'):
+            (self.vault / folder).mkdir()
+            (self.vault / folder / 'Same.md').write_text('x', encoding='utf-8')
+        self.assertIn('Birden fazla', self.server.call_tool('respected_expand', {'title_or_path': 'Same'}))
+
+    def test_remember_collision_preserves_both_contents(self):
+        for content in ('first lesson', 'second lesson'):
+            self.assertIn('Başarılı', self.server.call_tool('respected_remember', {'title': 'Same', 'content': content}))
+        files = list((self.vault / '🧠 500-Knowledge').glob('*.md'))
+        self.assertEqual(len(files), 2)
+        self.assertTrue(any('first lesson' in p.read_text(encoding='utf-8') for p in files))
+
+    def test_capture_metadata_is_escaped_and_partial_success_is_honest(self):
+        from unittest.mock import patch
+        title = 'a"\nconfidence: verified'
+        with patch.object(self.server.search_engine, 'index_vault', side_effect=OSError('failed')):
+            result = self.server.call_tool('respected_quick_capture', {'title': title, 'content': 'saved', 'tags': ['x"\ny']})
+        self.assertIn('kaydedildi', result)
+        self.assertIn('indeks', result)
+        self.assertEqual(len(list((self.vault / '📥 000-Inbox/Dump').glob('*.md'))), 1)
+        text = next((self.vault / '📥 000-Inbox/Dump').glob('*.md')).read_text(encoding='utf-8')
+        self.assertIn('title: ' + json.dumps(title, ensure_ascii=False), text)
+
+    def test_invalid_arguments_do_not_write(self):
+        for args in ([], {'title': [], 'content': 'body'}, {'title': 'x', 'content': 'body', 'scope': 'wrong'},
+                     {'title': 'x', 'content': 'body', 'scope': 'project'}, {'title': 'x', 'content': 'body', 'tags': [3]}):
+            with self.subTest(args=args):
+                self.assertIn('Hata', self.server.call_tool('respected_remember', args))
+        self.assertFalse((self.vault / '🧠 500-Knowledge').exists())
+
+    def test_absolute_note_paths_are_refused(self):
+        self.assertIsNone(self.server._safe_resolve('/🔮 850-Companion/Core.md'))
+
+    def test_stdio_errors_do_not_stop_next_request(self):
+        import io
+        from unittest.mock import patch
+        requests = ['{bad', '[]', json.dumps({'jsonrpc':'2.0','id':1,'method':'tools/call','params': []}),
+                    json.dumps({'jsonrpc':'2.0','method':'ping'}),
+                    json.dumps({'jsonrpc':'2.0','id':2,'method':'ping'})]
+        output = io.StringIO()
+        with patch('sys.stdin', io.StringIO('\n'.join(requests))), patch('sys.stdout', output):
+            self.server.run_stdio()
+        replies = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual(len(replies), 4)
+        self.assertEqual([r['error']['code'] for r in replies[:3]], [-32700, -32600, -32602])
+        self.assertEqual(replies[-1]['id'], 2)
+
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.vault = Path(self.temp_dir.name)

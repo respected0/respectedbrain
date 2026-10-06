@@ -9,8 +9,6 @@ from .transaction import Transaction, OperationResult, recover_transactions
 def uninstall(ctx, *, backend, purge_data=False, shell_active=False, shell_proof=None) -> OperationResult:
     tx = None
     try:
-        manifest = read_manifest(ctx.paths.data_root / "install-manifest.json")
-        validate_manifest_roots(ctx, manifest)
         # A running Inno executable cannot delete itself. Inno's intrinsic
         # finalization removes exactly its exe/dat after this service returns.
         shell_files = {ctx.paths.app_root / "uninstall" / name for name in ("unins000.exe", "unins000.dat")} if shell_active else set()
@@ -18,6 +16,8 @@ def uninstall(ctx, *, backend, purge_data=False, shell_active=False, shell_proof
             return OperationResult(False, "", ("Unfinished rollback conflict",))
         conflicts = []
         with Transaction(ctx.paths.data_root, backend) as tx:
+            manifest = read_manifest(ctx.paths.data_root / "install-manifest.json")
+            validate_manifest_roots(ctx, manifest)
             dat_proven = bool(shell_active and shell_proof is not None and shell_proof())
             for item in manifest.files:
                 if item.path in shell_files and not (dat_proven and item.path.name == "unins000.dat") and not prove_ownership(item.path, manifest):

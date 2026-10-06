@@ -43,6 +43,7 @@ from respectedbrain.core.config import atomic_write_bytes
 from respectedbrain.core.coordination import quiesce_writers
 from respectedbrain.core.errors import FoundationError, OwnershipConflict
 from respectedbrain.core.locking import exclusive_lock
+from respectedbrain.core.platform import path_within_vault
 
 INNO_UNINSTALL_KEY = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{870D0E4C-87A0-4A3C-9A82-F8E3C3A19C1D}_is1"
 _KINDS = frozenset({"file", "mcp", "task", "shortcut", "registry"})
@@ -129,7 +130,10 @@ class NativeBackend:
             raise FoundationError("PowerShell is unavailable for native registration")
         encoded = base64.b64encode(("$ErrorActionPreference='Stop'; " + script).encode("utf-16-le")).decode("ascii")
         env = dict(os.environ, **{key: str(value) for key, value in environment.items()})
-        result = subprocess.run([executable, "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded], capture_output=True, env=env)
+        try:
+            result = subprocess.run([executable, "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded], capture_output=True, env=env, timeout=30)
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise FoundationError('Native registration command unavailable or timed out') from error
         if result.returncode:
             raise FoundationError(result.stderr.decode("utf-8", errors="replace") or "Native registration failed")
         raw = result.stdout.decode("utf-8-sig", errors="strict").strip()
@@ -308,7 +312,10 @@ $item.TargetPath=$value.target; $item.Arguments=$value.arguments; $item.WorkingD
 
     def _change(self, change: ExternalChange, *, restore: bool):
         identity = hashlib.sha256((change.kind + "\0" + change.key).encode("utf-8")).hexdigest()
-        with exclusive_lock(self.data_root / "external-locks" / (identity + ".lock")):
+        lock = self.data_root / "external-locks" / (identity + ".lock")
+        if not path_within_vault(lock, self.data_root):
+            raise OwnershipConflict('Unsafe external registration lock')
+        with exclusive_lock(lock):
             expected, replacement = (change.after, change.before) if restore else (change.before, change.after)
             if self.read(change.kind, change.key) != expected:
                 raise OwnershipConflict(f"External registration changed: {change.kind}:{change.key}")

@@ -1,8 +1,13 @@
 """Operating-system adapters, invoked explicitly rather than at import time."""
 from __future__ import annotations
 
-from pathlib import Path
+import contextlib
 import os
+from pathlib import Path, PurePosixPath
+import stat
+import subprocess
+import time
+from typing import ContextManager, IO
 from uuid import UUID
 
 
@@ -39,15 +44,6 @@ def known_folder(name: str) -> Path:
         return Path(result.value)
     finally:
         free(ctypes.cast(result, ctypes.c_void_p))
-
-
-import contextlib
-import os
-from pathlib import Path, PurePosixPath
-import stat
-import subprocess
-import time
-from typing import ContextManager, IO
 
 
 _WINDOWS_REPARSE_POINT = 0x0400

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from respectedbrain.core.coordination import guarded_writer
 
-import argparse
 from datetime import datetime, timedelta
 import hashlib
 import json
@@ -17,7 +16,7 @@ import sys
 import tempfile
 import threading
 import time
-from typing import Any, Sequence
+from typing import Any
 import uuid
 
 
@@ -107,7 +106,7 @@ def _last_session(memory_dir: Path) -> str:
     selected: list[str] = []
     active = False
     for line in lines:
-        if line.startswith("## Session:"):
+        if line.startswith(("## Session:", "# Son Oturum:")):
             active = True
         if active and line.startswith("## Previous"):
             break
@@ -123,10 +122,10 @@ def _active_threads(memory_dir: Path) -> str:
     selected: list[str] = []
     active = False
     for line in lines:
-        if line.startswith("## Active"):
+        if line.startswith(("## Active", "## Açık Konular", "## Aktif Konular")):
             active = True
             continue
-        if active and line.startswith("## Closed"):
+        if active and line.startswith("## "):
             break
         if active and (line.startswith("### ") or line.startswith("**Status:**")):
             selected.append(line)
@@ -236,7 +235,8 @@ def _record_health(state_dir: Path, event: str, error: str, now: datetime) -> No
 def _launch_flush(ctx: AppContext, provider: str, *, payload: dict[str, Any] | None = None,
                   reason: str | None = None, maybe_compile: bool = False) -> bool:
     """Invoke the single package launcher; never execute source files from a vault."""
-    command = [sys.executable, "-m", "respectedbrain", "flush", "--vault-id", ctx.paths.vault_id]
+    from ..bootstrap import launcher_argv
+    command = [*launcher_argv(), "flush", "--vault-id", ctx.paths.vault_id]
     hook_input: Path | None = None
     if maybe_compile:
         command.append("--maybe-compile")
@@ -370,8 +370,12 @@ def _finish_session(
             t_path = Path(transcript_path_str)
             if t_path.is_file():
                 logs_dir = vault_root / "🔮 850-Companion" / "Session-Logs"
+                if not runtime_platform.path_within_vault(logs_dir, vault_root):
+                    raise ValueError("unsafe-session-log")
                 logs_dir.mkdir(parents=True, exist_ok=True)
                 target_log = logs_dir / f"{now:%Y%m%d_%H%M%S}_{key[:8]}.jsonl"
+                if not runtime_platform.path_within_vault(target_log, vault_root):
+                    raise ValueError("unsafe-session-log")
                 try:
                     shutil.copyfile(t_path, target_log)
                 except OSError:
