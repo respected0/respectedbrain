@@ -32,6 +32,7 @@ class TurnLogPipelineTest(unittest.TestCase):
         self.vault = Path(self.temporary.name) / "Furkan'ın 🧠 Brain"
         self.vault.mkdir(parents=True)
         self.ctx = make_context(Path(self.temporary.name), self.vault)
+        self.vault = self.ctx.paths.vault_root
         self.state = self.ctx.paths.state_dir
         self.state.mkdir(parents=True)
 

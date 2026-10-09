@@ -2878,7 +2878,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Aynı session upsert, 24 process günlük writer, midnight/late revision, notify chaining ve failed-session catch-up retry davranışlarını sınar. Shared flush AppContext kökleri fixture'da gerçek vault/state ayrımıyla korunur; farklı transcript late revision ownership conflict ile reddedilir.
+**Amaç / sorumluluk:** Aynı session upsert, 24 process günlük writer, midnight/late revision, notify chaining ve failed-session catch-up retry davranışlarını sınar. Shared flush AppContext kökleri fixture'da gerçek vault/state ayrımıyla korunur; kasa yolu context'in kanonik vault_root değerinden alınır, geçici yol alias'ı root mismatch üretmez. Farklı transcript late revision ownership conflict ile reddedilir.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.memory`, `respectedbrain.integrations.hooks`.
 

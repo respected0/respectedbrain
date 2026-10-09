@@ -2583,12 +2583,12 @@
     {
       "path": "tests/turn_log_pipeline_test.py",
       "role": "Davranış/regresyon testi",
-      "purpose": "Aynı session upsert, 24 process günlük writer, midnight/late revision, notify chaining ve failed-session catch-up retry davranışlarını sınar. Shared flush AppContext kökleri fixture'da gerçek vault/state ayrımıyla korunur; farklı transcript late revision ownership conflict ile reddedilir.",
+      "purpose": "Aynı session upsert, 24 process günlük writer, midnight/late revision, notify chaining ve failed-session catch-up retry davranışlarını sınar. Shared flush AppContext kökleri fixture'da gerçek vault/state ayrımıyla korunur; kasa yolu context'in kanonik vault_root değerinden alınır, geçici yol alias'ı root mismatch üretmez. Farklı transcript late revision ownership conflict ile reddedilir.",
       "relationships": [
         "unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz.",
         "Doğrudan sınadığı ürün import noktaları: `respectedbrain.memory`, `respectedbrain.integrations.hooks`."
       ],
-      "review_sha256": "2e4e75893cb42933cbe51ac7236c87d372b87b6074a440b6f9cf0d7079c049fa"
+      "review_sha256": "29ba477bb6b96a56e000ec4d16185f79006ed892f1bae82fec0d87fd35a97586"
     },
     {
       "path": "tests/uninstall_test.py",
