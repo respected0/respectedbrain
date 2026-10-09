@@ -100,6 +100,81 @@ def is_private_or_reserved_ip(ip_str: str) -> bool:
     return False
 
 
+def resolve_safe_addresses(hostname: str, port: int = 80) -> tuple[bool, list[str], str]:
+    """Hostname için DNS çözümlemesi yapar ve TÜM dönen adreslerin genel ve güvenli olduğunu doğrular.
+
+    DNS rebinding ve SSRF saldırılarını önlemek için:
+    1. Karışık adres yanıtları (örn. genel IPv4 + loopback/özel IPv6) fail-closed reddedilir.
+    2. Tek bir özel, yerel, multicast veya rezerve adres varsa tüm sorgu reddedilir.
+    3. Başarılı durumda güvenli genel IP adreslerinin sıralı, tekil listesi döndürülür.
+    """
+    if not isinstance(hostname, str) or not hostname.strip():
+        return False, [], "Hostname boş veya geçersiz"
+
+    hostname_clean = hostname.strip().lower().strip(".")
+    if not hostname_clean:
+        return False, [], "Hostname boş veya geçersiz"
+
+    # Yasaklı yerel hostlar ve uzantılar kontrolü
+    disallowed_suffixes = (
+        ".local",
+        ".internal",
+        ".localhost",
+        ".lan",
+        ".home",
+        ".home.arpa",
+        ".corp",
+        ".nip.io",
+        ".sslip.io",
+        ".localtest.me",
+        ".lvh.me",
+        ".vcap.me",
+    )
+    if hostname_clean in DISALLOWED_HOSTNAMES or any(
+        hostname_clean == s.lstrip(".") or hostname_clean.endswith(s)
+        for s in disallowed_suffixes
+    ):
+        return False, [], f"Yerel ve dahili ağ hostlarına erişim engellendi: {hostname}"
+
+    if "." not in hostname_clean and ":" not in hostname_clean:
+        return False, [], f"Yerel ve dahili ağ hostlarına erişim engellendi: {hostname}"
+
+    # Doğrudan IP adresi kontrolü
+    if is_private_or_reserved_ip(hostname_clean):
+        return False, [], f"Özel/yerel IP adresine erişim engellendi: {hostname_clean}"
+
+    try:
+        parsed_ip = ipaddress.ip_address(hostname_clean.strip("[]"))
+        if not is_private_or_reserved_ip(str(parsed_ip)):
+            return True, [str(parsed_ip)], "Genel IP adresi doğrulandı"
+        return False, [], f"Özel/yerel IP adresine erişim engellendi: {hostname_clean}"
+    except ValueError:
+        pass
+
+    try:
+        addr_info = socket.getaddrinfo(hostname_clean, port, type=socket.SOCK_STREAM)
+        if not addr_info:
+            return False, [], "DNS çözümlemesi boş döndü"
+
+        safe_ips: list[str] = []
+        for item in addr_info:
+            sockaddr = item[4]
+            ip_candidate = sockaddr[0]
+            if is_private_or_reserved_ip(ip_candidate):
+                return False, [], f"DNS yanıtında özel/yerel IP tespit edildi ({ip_candidate}); işlem durduruldu"
+            if ip_candidate not in safe_ips:
+                safe_ips.append(ip_candidate)
+
+        if not safe_ips:
+            return False, [], "DNS çözümlemesinde geçerli IP adresi bulunamadı"
+
+        return True, safe_ips, "Tüm DNS adresleri güvenli ve genel"
+    except socket.gaierror as e:
+        return False, [], f"Host adı DNS ile çözümlenemedi: {e}"
+    except Exception as e:
+        return False, [], f"DNS çözümleme güvenlik hatası: {e}"
+
+
 def validate_safe_url(url: str, require_resolvable: bool = False) -> tuple[bool, str]:
     """Bir URL'in dış ağ için güvenli olup olmadığını doğrular.
 
@@ -162,7 +237,10 @@ def validate_safe_url(url: str, require_resolvable: bool = False) -> tuple[bool,
         ".lvh.me",
         ".vcap.me",
     )
-    if hostname_clean in DISALLOWED_HOSTNAMES or any(hostname_clean.endswith(s) for s in disallowed_suffixes):
+    if hostname_clean in DISALLOWED_HOSTNAMES or any(
+        hostname_clean == s.lstrip(".") or hostname_clean.endswith(s)
+        for s in disallowed_suffixes
+    ):
         return False, f"Yerel ve dahili ağ hostlarına erişim engellendi: {hostname}"
 
     # Port kontrolü
@@ -174,20 +252,11 @@ def validate_safe_url(url: str, require_resolvable: bool = False) -> tuple[bool,
         return False, f"Özel/yerel IP adresine erişim engellendi: {hostname_clean}"
 
     # DNS çözümleme ve çözümlenen IP kontrolü
-    try:
-        addr_info = socket.getaddrinfo(hostname_clean, port or (443 if parsed.scheme == "https" else 80))
-        if not addr_info and require_resolvable:
-            return False, "Host adı çözümlenemedi (boş DNS yanıtı)"
-        for item in addr_info:
-            sockaddr = item[4]
-            resolved_ip = sockaddr[0]
-            if is_private_or_reserved_ip(resolved_ip):
-                return False, f"Host çözümlendiğinde özel/yerel IP adresine erişim engellendi ({resolved_ip})"
-    except socket.gaierror as e:
-        if require_resolvable:
-            return False, f"Host adı DNS ile çözümlenemedi: {e}"
-    except Exception as e:
-        return False, f"DNS çözümleme güvenlik hatası: {e}"
+    if require_resolvable:
+        effective_port = port or (443 if parsed.scheme == "https" else 80)
+        safe_dns, ips, dns_reason = resolve_safe_addresses(hostname_clean, effective_port)
+        if not safe_dns:
+            return False, dns_reason
 
     return True, "URL güvenli"
 

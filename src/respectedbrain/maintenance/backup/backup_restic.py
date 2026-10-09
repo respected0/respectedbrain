@@ -7,7 +7,6 @@ from respectedbrain.core.context import AppContext
 from respectedbrain.maintenance import selected_vault, mutable_target
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path

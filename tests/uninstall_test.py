@@ -88,6 +88,34 @@ class TestUninstall(unittest.TestCase):
         self.assertEqual(snapshot(self.vault),before)
         self.assertEqual(unknown.read_bytes(),b"user")
 
+    def test_default_uninstall_removes_owned_technical_records_and_preserves_audit_and_unknown_data(self):
+        before=snapshot(self.vault)
+        unknown=self.roots.data_root / "user-file.txt"
+        unknown.write_bytes(b"user")
+
+        result=uninstall(self.ctx,backend=self.backend)
+
+        self.assertTrue(result.success,result.conflicts)
+        self.assertFalse((self.roots.data_root / "config.json").exists())
+        self.assertFalse((self.roots.data_root / "install-manifest.json").exists())
+        self.assertTrue((self.roots.data_root / "backups").is_dir())
+        self.assertEqual(snapshot(self.vault),before)
+        self.assertEqual(unknown.read_bytes(),b"user")
+
+    def test_cli_defaults_to_technical_purge_and_keep_data_opts_out_and_repair_accepts_package(self):
+        from respectedbrain.installation.transaction import OperationResult
+        success = OperationResult(True, "fixture", ())
+        with mock.patch("respectedbrain.cli.bootstrap", return_value=self.ctx), \
+             mock.patch("respectedbrain.installation.deferred.defer_operation", return_value=None), \
+             mock.patch("respectedbrain.installation.uninstall.uninstall", return_value=success) as remove, \
+             mock.patch("respectedbrain.installation.repair.repair", return_value=success) as fix:
+            self.assertEqual(cli.main(["uninstall"]), 0)
+            self.assertTrue(remove.call_args.kwargs["purge_data"])
+            self.assertEqual(cli.main(["uninstall", "--keep-data"]), 0)
+            self.assertFalse(remove.call_args.kwargs["purge_data"])
+            self.assertEqual(cli.main(["repair", "--package", str(self.root / "package")]), 0)
+            self.assertEqual(fix.call_args.kwargs["package"], self.root / "package")
+
     def test_busy_writer_prevents_application_removal(self):
         before=snapshot(self.roots.app_root)
         self.backend.busy=True

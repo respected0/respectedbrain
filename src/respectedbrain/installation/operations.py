@@ -24,21 +24,24 @@ def validate_manifest_roots(ctx, manifest):
             raise OwnershipConflict(f"Ownership manifest exceeds application/data boundary: {item.path}")
 
 
-def activate_package(roots, package, tx, previous):
-    from .payload import validate_package
-    document = validate_package(package)
+def activate_package(roots, package, tx, previous, *, require_provenance=None, repair_owned=False):
+    from .payload import package_members, validate_package
+    document = validate_package(package, require_provenance=require_provenance)
+    members = package_members(package, document)
     existing = {item.path: item for item in previous.files if item.role == "application"}
-    for name in (*document["files"], "distribution.json"):
+    for name in members:
         target = roots.app_root / name
-        if target.exists():
-            item = existing.get(target)
-            current = digest(safe_path(target))
-            expected = digest(package / name)
-            if item is None and current != expected or item is not None and not prove_ownership(target, previous):
+        item = existing.get(target)
+        source = safe_path(package / name)
+        expected = digest(source)
+        if item is not None:
+            if target.exists() and not prove_ownership(target, previous) and not repair_owned:
                 raise OwnershipConflict(f"Application file changed or unowned: {target}")
-    for name in (*document["files"], "distribution.json"):
-        tx.replace(package / name, roots.app_root / name)
-    next_paths = {roots.app_root / name for name in (*document["files"], "distribution.json")}
+        elif target.exists() and digest(safe_path(target)) != expected:
+            raise OwnershipConflict(f"Application file changed or unowned: {target}")
+    for name in members:
+        tx.replace(safe_path(package / name), roots.app_root / name)
+    next_paths = {roots.app_root / name for name in members}
     for target, item in existing.items():
         if target not in next_paths and target.exists():
             tx.remove(target, expected_hash=item.sha256)
@@ -58,6 +61,10 @@ def plan_connections(ctx, backend, previous):
     schedule_paths = {str(home / ".config/systemd/user" / (name + suffix)) for suffix in (".service", ".timer")}
     schedule_paths.add(str(home / "Library/LaunchAgents" / (name + ".plist")))
     for prior in previous.external:
+        # Local vault hooks remain enabled independently of optional global hooks.
+        if prior.kind == "file" and Path(prior.key).is_relative_to(ctx.paths.vault_root):
+            retained.append(prior)
+            continue
         flag = "schedule" if prior.kind == "file" and prior.key in schedule_paths else flag_by_kind.get(prior.kind)
         if flag is not None and not desired.get(flag, False):
             current = backend.read(prior.kind, prior.key)

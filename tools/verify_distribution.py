@@ -21,10 +21,10 @@ def _annotation(stage: str, code: str) -> None:
         print(f"::error title=Native distribution verification::stage={stage}; code={code}", flush=True)
 
 
-def verify(distribution: Path, *, platform: str) -> int:
+def verify(distribution: Path, *, platform: str, require_provenance: bool = False) -> int:
     distribution = distribution.resolve()
     try:
-        document = validate_package(distribution)
+        document = validate_package(distribution, require_provenance=require_provenance)
     except Exception:
         _annotation("manifest", "manifest-invalid")
         raise
@@ -75,5 +75,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--distribution", type=Path, required=True)
     parser.add_argument("--platform", choices=("windows", "macos", "linux"), required=True)
+    parser.add_argument("--require-provenance", action="store_true", help="Fail-closed if SLSA provenance verification fails")
     args = parser.parse_args()
-    raise SystemExit(verify(args.distribution, platform=args.platform))
+    raise SystemExit(verify(args.distribution, platform=args.platform, require_provenance=args.require_provenance))

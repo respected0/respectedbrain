@@ -5,11 +5,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import copy
+import ctypes
 import json
 import os
 from pathlib import Path
 import shlex
 import shutil
+import signal
 import subprocess
 import time
 from typing import Literal
@@ -96,6 +98,7 @@ def _command(provider: str, prompt: str, mode: Mode, vault_root: Path | None = N
             prompt,
             _windows_executable(executable),
         )
+
     if provider == "codex":
         executable = _find_executable("codex")
         if executable is None:
@@ -119,6 +122,7 @@ def _command(provider: str, prompt: str, mode: Mode, vault_root: Path | None = N
             return None
         argv = [
             executable,
+            "--sandbox",
             "--disable-slash-commands",
         ]
         if mode == "workspace":
@@ -128,10 +132,7 @@ def _command(provider: str, prompt: str, mode: Mode, vault_root: Path | None = N
                 "--mode",
                 "accept-edits",
             ])
-        else:
-            argv.append("--sandbox")
         argv.extend([
-            "--dangerously-skip-permissions",
             "--print-timeout",
             "20m",
             "--input-format",
@@ -145,18 +146,21 @@ def _command(provider: str, prompt: str, mode: Mode, vault_root: Path | None = N
         executable = _find_executable("cursor-agent")
         if executable is None:
             return None
-        argv = [executable, "-p", "--output-format", "text"]
-        if mode == "workspace":
-            argv.append("--force")
-        argv.append(prompt)
+        if mode == "text":
+            return None
+        argv = [executable, "-p", "--output-format", "text", prompt]
         return Invocation(argv, None, _windows_executable(executable))
+
+
     if provider == "gemini":
         executable = _find_executable("gemini")
         if executable is None:
             return None
-        argv = [executable, "--output-format", "json", "-p", ""]
+        argv = [executable, "--sandbox", "--output-format", "json", "-p", ""]
         if mode == "workspace":
-            argv[1:1] = ["--approval-mode", "auto_edit"]
+            argv[2:2] = ["--approval-mode", "auto_edit"]
+        else:
+            argv[2:2] = ["--approval-mode", "plan"]
         return Invocation(argv, prompt, _windows_executable(executable))
     return None
 
@@ -320,6 +324,182 @@ def _custom_argv(command: str) -> list[str]:
         free(ctypes.cast(argv, ctypes.c_void_p))
 
 
+if os.name == "nt":
+    class _IOCounters(ctypes.Structure):
+        _fields_ = [
+            ("ReadOperationCount", ctypes.c_uint64),
+            ("WriteOperationCount", ctypes.c_uint64),
+            ("OtherOperationCount", ctypes.c_uint64),
+            ("ReadTransferCount", ctypes.c_uint64),
+            ("WriteTransferCount", ctypes.c_uint64),
+            ("OtherTransferCount", ctypes.c_uint64),
+        ]
+
+
+    class _JobObjectBasicLimitInformation(ctypes.Structure):
+        _fields_ = [
+            ("PerProcessUserTimeLimit", ctypes.c_int64),
+            ("PerJobUserTimeLimit", ctypes.c_int64),
+            ("LimitFlags", ctypes.c_uint32),
+            ("MinimumWorkingSetSize", ctypes.c_size_t),
+            ("MaximumWorkingSetSize", ctypes.c_size_t),
+            ("ActiveProcessLimit", ctypes.c_uint32),
+            ("Affinity", ctypes.c_size_t),
+            ("PriorityClass", ctypes.c_uint32),
+            ("SchedulingClass", ctypes.c_uint32),
+        ]
+
+
+    class _JobObjectExtendedLimitInformation(ctypes.Structure):
+        _fields_ = [
+            ("BasicLimitInformation", _JobObjectBasicLimitInformation),
+            ("IoInfo", _IOCounters),
+            ("ProcessMemoryLimit", ctypes.c_size_t),
+            ("JobMemoryLimit", ctypes.c_size_t),
+            ("PeakProcessMemoryUsed", ctypes.c_size_t),
+            ("PeakJobMemoryUsed", ctypes.c_size_t),
+        ]
+
+
+    class _ThreadEntry32(ctypes.Structure):
+        _fields_ = [
+            ("dwSize", ctypes.c_uint32),
+            ("cntUsage", ctypes.c_uint32),
+            ("th32ThreadID", ctypes.c_uint32),
+            ("th32OwnerProcessID", ctypes.c_uint32),
+            ("tpBasePri", ctypes.c_int32),
+            ("tpDeltaBasePri", ctypes.c_int32),
+            ("dwFlags", ctypes.c_uint32),
+        ]
+
+
+def _process_containment() -> object | None:
+    if os.name != "nt":
+        return None
+    kernel32 = ctypes.windll.kernel32
+    job = kernel32.CreateJobObjectW(None, None)
+    if not job:
+        raise OSError(ctypes.get_last_error(), "Unable to create process containment job")
+    limits = _JobObjectExtendedLimitInformation()
+    limits.BasicLimitInformation.LimitFlags = 0x00002000
+    if not kernel32.SetInformationJobObject(job, 9, ctypes.byref(limits), ctypes.sizeof(limits)):
+        error = ctypes.get_last_error()
+        kernel32.CloseHandle(job)
+        raise OSError(error, "Unable to configure process containment job")
+    return job
+
+
+def _contain_process(process: subprocess.Popen, containment: object | None) -> None:
+    if containment is None:
+        return
+    kernel32 = ctypes.windll.kernel32
+    if not kernel32.AssignProcessToJobObject(containment, process._handle):
+        raise OSError(ctypes.get_last_error(), "Unable to contain provider process tree")
+    _resume_process_threads(process.pid)
+
+
+def _resume_process_threads(process_id: int) -> None:
+    kernel32 = ctypes.windll.kernel32
+    snapshot = kernel32.CreateToolhelp32Snapshot(0x00000004, 0)
+    if snapshot == ctypes.c_void_p(-1).value:
+        raise OSError(ctypes.get_last_error(), "Unable to inspect contained provider process")
+    thread_ids = []
+    entry = _ThreadEntry32()
+    entry.dwSize = ctypes.sizeof(entry)
+    try:
+        found = bool(kernel32.Thread32First(snapshot, ctypes.byref(entry)))
+        while found:
+            if entry.th32OwnerProcessID == process_id:
+                thread_ids.append(entry.th32ThreadID)
+            found = bool(kernel32.Thread32Next(snapshot, ctypes.byref(entry)))
+    finally:
+        kernel32.CloseHandle(snapshot)
+    if not thread_ids:
+        raise OSError("Contained provider primary thread disappeared before resume")
+    resumed = False
+    for thread_id in thread_ids:
+        thread = kernel32.OpenThread(0x0002, False, thread_id)
+        if not thread:
+            continue
+        try:
+            if kernel32.ResumeThread(thread) != 0xFFFFFFFF:
+                resumed = True
+        finally:
+            kernel32.CloseHandle(thread)
+    if not resumed:
+        raise OSError(ctypes.get_last_error(), "Unable to resume contained provider process")
+
+
+def _posix_descendants(root_pid: int) -> set[int]:
+    parents: dict[int, int] = {}
+    proc_root = Path("/proc")
+    if not proc_root.is_dir():
+        return set()
+    for entry in proc_root.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            fields = (entry / "stat").read_text(encoding="utf-8", errors="replace").rsplit(")", 1)[-1].split()
+            parents[int(entry.name)] = int(fields[1])
+        except (OSError, IndexError, ValueError):
+            continue
+    descendants = set()
+    pending = [root_pid]
+    while pending:
+        parent = pending.pop()
+        children = [pid for pid, pid_parent in parents.items() if pid_parent == parent and pid not in descendants]
+        descendants.update(children)
+        pending.extend(children)
+    return descendants
+
+
+def _terminate_process_tree(process: subprocess.Popen, containment: object | None = None) -> None:
+    if os.name == "nt":
+        if containment is not None:
+            ctypes.windll.kernel32.CloseHandle(containment)
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGSTOP)
+            for pid in _posix_descendants(process.pid):
+                os.kill(pid, signal.SIGKILL)
+            os.killpg(process.pid, signal.SIGKILL)
+        except (OSError, ProcessLookupError):
+            pass
+    try:
+        process.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=2)
+
+
+def _run_process_tree(invocation: Invocation, *, cwd: Path, env: dict[str, str], timeout: float) -> subprocess.CompletedProcess:
+    options = runtime_platform.hidden_process_options()
+    containment = _process_containment()
+    if os.name == "nt":
+        options["creationflags"] = int(options.get("creationflags", 0)) | int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | 0x00000004)
+    else:
+        options["start_new_session"] = True
+    process = subprocess.Popen(
+        invocation.argv,
+        stdin=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=cwd,
+        env=env,
+        **options,
+    )
+    try:
+        _contain_process(process, containment)
+        stdout, stderr = process.communicate(input=invocation.stdin, timeout=timeout)
+        return subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
+    finally:
+        _terminate_process_tree(process, containment)
+        process.communicate()
+
+
 def run_model(
     prompt: str,
     cwd: Path,
@@ -329,6 +509,8 @@ def run_model(
     *, ctx: AppContext,
 ) -> tuple[str | None, str | None, str | None]:
     """Return (stdout, error, provider); never invoke through a shell."""
+    if os.environ.get('BEYIN_LLM_COMMAND'):
+        return None, 'custom-isolation-required', 'custom'
     try:
         depth = int(os.environ.get("BEYIN_RECURSION_DEPTH", "0"))
     except ValueError:
@@ -338,8 +520,7 @@ def run_model(
     if depth >= 2:
         return None, "recursion-depth-exceeded", None
     preferences = ctx.config.get("preferences", {})
-    custom = os.environ.get("BEYIN_LLM_COMMAND")
-    candidates = ["custom"] if custom else _available(preferred, preferences)
+    candidates = _available(preferred, preferences)
     environment = os.environ.copy()
     environment["BEYIN_INVOKED_BY"] = "beyin-scripts"
     environment["BEYIN_RECURSION_DEPTH"] = str(depth + 1)
@@ -347,25 +528,13 @@ def run_model(
     is_auto = (preferred is None or preferred == "auto") and (_configured_provider(preferences) == "auto")
     last_error: tuple[str, str] | None = None
     for provider in candidates:
-        if provider == "custom":
-            try:
-                argv = _custom_argv(custom or "")
-            except ValueError:
-                return None, "custom-command-invalid", provider
-            if not argv:
-                return None, "custom-command-empty", provider
-            invocation = Invocation(
-                argv,
-                prompt,
-                _windows_executable(argv[0]),
-            )
-        else:
-            invocation = _command(provider, prompt, mode, ctx.paths.vault_root)
-            if invocation is None:
-                continue
         process_environment = environment.copy()
         process_environment["PYTHONIOENCODING"] = "utf-8"
         process_environment["PYTHONUTF8"] = "1"
+        process_environment["BEYIN_LLM_MODE"] = mode
+        invocation = _command(provider, prompt, mode, ctx.paths.vault_root)
+        if invocation is None:
+            continue
         run_cwd = cwd
         if invocation.windows_executable:
             _windows_user_environment(process_environment, cwd, ctx.paths.vault_root)
@@ -380,26 +549,16 @@ def run_model(
                         last_error = (f"{provider}-workspace-cwd-unavailable", provider)
                         continue
                     run_cwd = fallback_parent
+
         try:
-            result = subprocess.run(
-                invocation.argv,
-                input=invocation.stdin,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                capture_output=True,
-                cwd=run_cwd,
-                env=process_environment,
-                timeout=timeout,
-                check=False,
-                **runtime_platform.hidden_process_options(),
-            )
+            result = _run_process_tree(invocation, cwd=run_cwd, env=process_environment, timeout=timeout)
         except subprocess.TimeoutExpired:
             last_error = (f"{provider}-timeout", provider)
             continue
         except OSError:
             last_error = (f"{provider}-exec-error", provider)
             continue
+
         if result.returncode != 0:
             error = f"{provider}-exit-{result.returncode}"
             category = _safe_failure_category(result.stdout, result.stderr)
@@ -409,6 +568,7 @@ def run_model(
                 last_error = (error, provider)
                 continue
             return None, error, provider
+
         output_text, stream_error = _extract_response(result.stdout, provider)
         if stream_error is not None:
             category = _safe_failure_category(stream_error, result.stderr)
@@ -444,19 +604,33 @@ class ModelRunner:
 def _find_executable(cmd: str) -> str | None:
     found = shutil.which(cmd) or shutil.which(f"{cmd}.exe") or shutil.which(f"{cmd}.cmd") or shutil.which(f"{cmd}.bat")
     if found:
-        return found
+        if cmd == "codex" and found.casefold().endswith((".cmd", ".bat")):
+            try:
+                text = Path(found).read_text(encoding="utf-8", errors="ignore").strip()
+                first_line = text.splitlines()[0] if text else ""
+                if ".exe" in first_line.casefold() and not first_line.lower().startswith("@echo"):
+                    target = first_line.split(".exe")[0] + ".exe"
+                    target = target.strip().strip('@"').strip("'")
+                    if target and not Path(target).is_file():
+                        found = None
+            except (OSError, IndexError):
+                pass
+        if found:
+            return found
+
     local_app = os.environ.get("LOCALAPPDATA")
     if local_app:
         if cmd == "codex":
             codex_bin = Path(local_app) / "OpenAI" / "Codex" / "bin"
             if codex_bin.is_dir():
-                for exe in codex_bin.glob("**/codex.exe"):
+                for exe in sorted(codex_bin.glob("**/codex.exe"), reverse=True):
                     if exe.is_file():
                         return str(exe)
         elif cmd in ("agy", "antigravity"):
             agy_bin = Path(local_app) / "agy" / "bin" / "agy.exe"
             if agy_bin.is_file():
                 return str(agy_bin)
+
     return None
 
 

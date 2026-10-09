@@ -92,3 +92,17 @@ class FoundationCliTest(unittest.TestCase):
         self.assertEqual(service.call_args.args[1], self.ctx.paths.vault_root)
         self.assertFalse(service.call_args.kwargs["desired"]["schedule"])
         self.assertEqual(service.call_args.kwargs["profile"]["USER_NAME"], "Ada")
+
+    def test_deferred_and_direct_uninstall_keep_the_same_data_choice(self):
+        from respectedbrain.installation.transaction import OperationResult
+        for flags, purge in (([], True), (["--keep-data"], False), (["--purge-data"], True)):
+            for deferred in (True, False):
+                with self.subTest(flags=flags, deferred=deferred):
+                    result = OperationResult(True, "test", ())
+                    with patch('respectedbrain.installation.deferred.defer_operation',
+                               return_value=result if deferred else None) as queue, \
+                         patch('respectedbrain.installation.uninstall.uninstall', return_value=result) as service:
+                        self.assertEqual(self.call(['uninstall', '--vault-id', self.ctx.paths.vault_id, *flags])[0], 0)
+                    self.assertEqual(queue.call_args.kwargs['purge_data'], purge)
+                    if not deferred:
+                        self.assertEqual(service.call_args.kwargs['purge_data'], purge)

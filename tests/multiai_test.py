@@ -76,6 +76,23 @@ class MultiAITest(IntegrationFixture, unittest.TestCase):
         self.assertEqual(payload["session_id"], "abc")
         self.assertEqual(payload["cwd"], "/tmp/project")
         self.assertEqual(payload["model"], "gemini-test")
+        nested = BRIDGE.normalize(
+            "antigravity",
+            {
+                "conversationId": "nested",
+                "workspace": {"current_dir": "/tmp/nested-project"},
+            },
+            vault_root=self.vault,
+            home=self.home,
+        )
+        self.assertEqual(nested["cwd"], "/tmp/nested-project")
+        missing = BRIDGE.normalize(
+            "codex",
+            {"session_id": "missing-workspace"},
+            vault_root=self.vault,
+            home=self.home,
+        )
+        self.assertEqual(missing["cwd"], "")
         for provider, event, expected in (("antigravity", "end", {"decision": "stop"}), ("gemini", "turn", {}), ("cursor", "turn", {})):
             output = io.StringIO()
             with redirect_stdout(output):
@@ -139,7 +156,8 @@ class MultiAITest(IntegrationFixture, unittest.TestCase):
     def test_runner_supports_cursor_headless(self):
         runner = MODEL_RUNNER
         with mock.patch.object(runner.shutil, "which", side_effect=lambda name: "/bin/cursor-agent" if name == "cursor-agent" else None):
-            invocation = runner._command("cursor", "özetle", "text")
+            self.assertIsNone(runner._command("cursor", "özetle", "text"))
+            invocation = runner._command("cursor", "özetle", "workspace")
         self.assertEqual(
             invocation.argv,
             ["/bin/cursor-agent", "-p", "--output-format", "text", "özetle"],
@@ -158,7 +176,7 @@ class MultiAITest(IntegrationFixture, unittest.TestCase):
 
         self.assertNotIn(prompt, invocation.argv)
         self.assertEqual(invocation.stdin, prompt)
-        self.assertEqual(invocation.argv, ["/bin/gemini", "--output-format", "json", "-p", ""])
+        self.assertEqual(invocation.argv, ["/bin/gemini", "--sandbox", "--approval-mode", "plan", "--output-format", "json", "-p", ""])
 
     def test_runner_keeps_codex_and_antigravity_prompts_on_stdin(self):
         runner = MODEL_RUNNER
@@ -202,8 +220,8 @@ class MultiAITest(IntegrationFixture, unittest.TestCase):
         self.assertNotIn("--mode", agy_text.argv)
         self.assertIn("--mode", agy_workspace.argv)
         self.assertIn("accept-edits", agy_workspace.argv)
-        self.assertIn("--dangerously-skip-permissions", agy_text.argv)
-        self.assertIn("--dangerously-skip-permissions", agy_workspace.argv)
+        self.assertNotIn("--dangerously-skip-permissions", agy_text.argv)
+        self.assertNotIn("--dangerously-skip-permissions", agy_workspace.argv)
         self.assertTrue(agy_workspace.windows_executable)
 
     def test_runner_extracts_stream_json_response_and_errors(self):
@@ -284,8 +302,8 @@ class MultiAITest(IntegrationFixture, unittest.TestCase):
             "_available",
             return_value=["antigravity"],
         ), mock.patch.object(
-            runner.subprocess,
-            "run",
+            runner,
+            "_run_process_tree",
             return_value=completed,
         ) as called:
             result = runner.run_model("prompt", cwd, "text", 10, ctx=self.ctx)
@@ -328,8 +346,8 @@ class MultiAITest(IntegrationFixture, unittest.TestCase):
                 "_available",
                 return_value=["codex"],
             ), mock.patch.object(
-                runner.subprocess,
-                "run",
+                runner,
+                "_run_process_tree",
                 return_value=completed,
             ) as called:
                 result = runner.run_model("prompt", ROOT, "text", 10, preferred="codex", ctx=self.ctx)
@@ -362,8 +380,8 @@ class MultiAITest(IntegrationFixture, unittest.TestCase):
             "external_temp_parent",
             return_value=mock_fallback,
         ), mock.patch.object(
-            runner.subprocess,
-            "run",
+            runner,
+            "_run_process_tree",
             return_value=completed,
         ) as called:
             result = runner.run_model("prompt", linux_cwd, "text", 10, ctx=self.ctx)
@@ -390,8 +408,8 @@ class MultiAITest(IntegrationFixture, unittest.TestCase):
             "_available",
             return_value=["antigravity"],
         ), mock.patch.object(
-            runner.subprocess,
-            "run",
+            runner,
+            "_run_process_tree",
             return_value=completed,
         ) as called:
             result = runner.run_model("prompt", win_cwd, "text", 10, ctx=self.ctx)
@@ -474,7 +492,7 @@ class MultiAITest(IntegrationFixture, unittest.TestCase):
         }
         with mock.patch.object(runner, "_available", return_value=["antigravity", "claude"]), \
              mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode, vault_root=None: commands[provider]), \
-             mock.patch.object(runner.subprocess, "run", side_effect=[
+             mock.patch.object(runner, "_run_process_tree", side_effect=[
                  SimpleNamespace(returncode=1, stdout="", stderr="429 quota exceeded"),
                  SimpleNamespace(returncode=0, stdout="özet", stderr=""),
              ]):
@@ -483,7 +501,7 @@ class MultiAITest(IntegrationFixture, unittest.TestCase):
 
         with mock.patch.object(runner, "_available", return_value=["antigravity", "claude"]), \
              mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode, vault_root=None: commands[provider]), \
-             mock.patch.object(runner.subprocess, "run", return_value=SimpleNamespace(returncode=1, stdout="", stderr="authentication failed")) as run:
+             mock.patch.object(runner, "_run_process_tree", return_value=SimpleNamespace(returncode=1, stdout="", stderr="authentication failed")) as run:
             output, error, provider = runner.run_model("prompt", ROOT, "text", 10, preferred="antigravity", ctx=self.ctx)
             self.assertEqual((output, error, provider), (None, "antigravity-exit-1:auth", "antigravity"))
         self.assertEqual(run.call_count, 1)
@@ -503,7 +521,7 @@ class MultiAITest(IntegrationFixture, unittest.TestCase):
         with mock.patch.object(runner, "_configured_provider", return_value="auto"), \
              mock.patch.object(runner, "_available", return_value=["claude", "codex"]), \
              mock.patch.object(runner, "_command", side_effect=lambda provider, prompt, mode, vault_root=None: commands[provider]), \
-             mock.patch.object(runner.subprocess, "run", side_effect=[
+             mock.patch.object(runner, "_run_process_tree", side_effect=[
                  SimpleNamespace(returncode=1, stdout="", stderr="authentication failed"),
                  SimpleNamespace(returncode=0, stdout="auto-özet", stderr=""),
              ]) as run:

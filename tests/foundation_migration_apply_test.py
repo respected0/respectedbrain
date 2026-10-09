@@ -52,6 +52,7 @@ class FoundationMigrationApplyTest(unittest.TestCase):
     def plan(self):
         return importlib.import_module("respectedbrain.installation.migration").plan_migration(self.legacy, self.vault, roots=self.roots, backend=self.backend, profile=self.profile)
     def apply(self, plan=None, **kwargs):
+        kwargs.setdefault("require_provenance", False)
         return self.module().apply_migration(plan or self.plan(), roots=self.roots, package=self.package, backend=self.backend, **kwargs)
     def test_migration_preserves_notes_preferences_and_overrides(self):
         before = note_hashes(self.vault)

@@ -19,6 +19,22 @@ from tests.foundation_install_support import seed_package
 from tests.foundation_support import note_hashes
 from tests.foundation_transactions_test import Backend
 
+from respectedbrain.installation.setup import setup as production_setup
+from respectedbrain.installation.update import update as production_update
+from respectedbrain.installation.repair import repair as production_repair
+
+def setup(*args, **kwargs):
+    kwargs.setdefault("require_provenance", False)
+    return production_setup(*args, **kwargs)
+
+def update(*args, **kwargs):
+    kwargs.setdefault("require_provenance", False)
+    return production_update(*args, **kwargs)
+
+def repair(*args, **kwargs):
+    kwargs.setdefault("require_provenance", False)
+    return production_repair(*args, **kwargs)
+
 class FoundationPosixInstallTest(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()

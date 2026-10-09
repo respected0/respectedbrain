@@ -5,7 +5,6 @@ import datetime as dt
 import json
 import os
 from pathlib import Path
-import shlex
 import shutil
 import subprocess
 import sys
@@ -88,11 +87,22 @@ class WindowsNativeTest(unittest.TestCase):
         self.assertEqual(counter.read_text(encoding="utf-8").strip(), "30")
         transcript = self.root / "native-transcript.jsonl"
         transcript.write_text("".join(json.dumps({"role": "user" if index % 2 == 0 else "assistant", "content": "native " + str(index)}) + "\n" for index in range(12)), encoding="utf-8")
-        model = self.root / "model.py"
-        model.write_text("import sys\nsys.stdout.reconfigure(encoding='utf-8')\nprint(" + repr(SUMMARY) + ")\n", encoding="utf-8")
-        self.environment["BEYIN_LLM_COMMAND"] = shlex.join([sys.executable, str(model)])
-        self.assertEqual(self._bridge("claude", "precompact", {"session_id": "native", "transcript_path": str(transcript)}).returncode, 0)
-        result = self._bridge("antigravity", "end", {"session_id": "native", "transcript_path": str(transcript)})
+        bin_dir = self.root / "provider-bin"
+        bin_dir.mkdir()
+        summary_helper = bin_dir / "summary_model.py"
+        summary_helper.write_text("import sys\nsys.stdout.reconfigure(encoding='utf-8')\nprint(" + repr(SUMMARY) + ")\n", encoding="utf-8")
+        (bin_dir / "claude.cmd").write_text(
+            '@echo off\r\nmore > nul\r\n"' + str(sys.executable) + '" "' + str(summary_helper) + '"\r\n',
+            encoding="utf-8",
+        )
+        self.environment["PATH"] = str(bin_dir) + os.pathsep + self.environment.get("PATH", "")
+        self.environment.pop("BEYIN_LLM_COMMAND", None)
+        ConfigStore(self.ctx.paths.data_root).update(
+            lambda config: config["preferences"].update(summary_provider="claude", provider_fallback=False)
+        )
+        session = {"session_id": "native-claude", "transcript_path": str(transcript), "cwd": str(self.vault)}
+        self.assertEqual(self._bridge("claude", "precompact", session).returncode, 0)
+        result = self._bridge("claude", "end", session)
         self.assertEqual(result.returncode, 0, result.stderr)
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
@@ -114,7 +124,7 @@ class WindowsNativeTest(unittest.TestCase):
         (bin_dir / "cursor-agent.cmd").write_text('@echo off\necho cursor>>"%RESPECTED_STUB_LOG%"\necho fallback-summary\nexit /b 0\n', encoding="utf-8")
         self.ctx.config["preferences"].update(summary_provider="codex", provider_priority=["codex", "cursor"])
         with mock.patch.dict(os.environ, {"PATH": str(bin_dir), "RESPECTED_STUB_LOG": str(log), "BEYIN_LLM_COMMAND": "", "BEYIN_RECURSION_DEPTH": "0"}):
-            output, error, provider = runner.run_model("native prompt", self.vault, "text", 15, preferred="codex", ctx=self.ctx)
+            output, error, provider = runner.run_model("native prompt", self.vault, "workspace", 15, preferred="codex", ctx=self.ctx)
         self.assertEqual((output, error, provider), ("fallback-summary", None, "cursor"))
         self.assertEqual(log.read_text(encoding="utf-8").splitlines(), ["codex", "cursor"])
 
@@ -168,12 +178,12 @@ class WindowsNativeTest(unittest.TestCase):
         backend = Backend()
         disabled = dict.fromkeys(("global", "mcp", "schedule", "shortcut"), False)
         with mock.patch("respectedbrain.installation.payload.validate_installed_health"):
-            self.assertTrue(setup(roots, vault, profile={}, desired=disabled, backend=backend, package=seed_package(self.root / "package")).success)
+            self.assertTrue(setup(roots, vault, profile={}, desired=disabled, backend=backend, package=seed_package(self.root / "package"), require_provenance=False).success)
             ctx = build_context(roots, ConfigStore(roots.data_root), vault=vault, vault_id=None, env={})
             personal = vault / "🔮 850-Companion/Core.md"
             personal.write_bytes(b"native personal identity\n")
             before = snapshot(vault)
-            result = update(ctx, package=seed_package(self.root / "next", content=b"MZ-next"), backend=backend)
+            result = update(ctx, package=seed_package(self.root / "next", content=b"MZ-next"), backend=backend, require_provenance=False)
         self.assertTrue(result.success, result.conflicts)
         self.assertEqual(snapshot(vault), before)
         self.assertTrue((roots.data_root / "backups" / result.tx_id / "journal.json").exists())

@@ -136,6 +136,10 @@ def resolve_codex_transcript(
 def normalize(provider: str, payload: dict[str, Any], *, vault_root: Path, home: Path | None = None) -> dict[str, Any]:
     workspace_paths = payload.get("workspacePaths") or payload.get("workspace_roots") or []
     cwd = first_string(payload, "cwd")
+    workspace = payload.get("workspace")
+    if isinstance(workspace, dict):
+        workspace_paths = workspace.get("workspacePaths") or workspace.get("workspace_roots") or workspace_paths
+        cwd = cwd or first_string(workspace, "current_dir", "currentDir", "cwd")
     if not cwd and isinstance(workspace_paths, list) and workspace_paths:
         cwd = str(workspace_paths[0])
     session_id = first_string(payload, "session_id", "conversation_id", "conversationId")
@@ -153,12 +157,22 @@ def normalize(provider: str, payload: dict[str, Any], *, vault_root: Path, home:
     if provider == "antigravity":
         stable_session_id = antigravity_session_from_transcript(transcript_path)
         if stable_session_id:
+            from ...memory.flush import _canonical_session_id, _session_id_values
+            payload = dict(payload)
+            # Native conversation aliases identify invocations, not the stable transcript session.
+            invocation_ids = {_canonical_session_id(payload.pop(key))
+                              for key in ("conversation_id", "conversationId") if key in payload}
+            if len(invocation_ids) > 1 or any(
+                _canonical_session_id(value) != _canonical_session_id(stable_session_id)
+                for value in _session_id_values(payload, include_id=False, expected_provider=provider)
+            ):
+                raise ValueError("hook-identity-invalid")
             session_id = stable_session_id
     return {
         **payload,
         "session_id": session_id,
         "transcript_path": transcript_path,
-        "cwd": wsl_path(cwd) or str(vault_root),
+        "cwd": wsl_path(cwd),
         "model": first_string(payload, "model", "modelName"),
         "beyin_provider": provider,
     }
@@ -253,10 +267,23 @@ def _dispatch_event(ctx, *, provider, event, argv, stdin):
         payload = {}
     if not isinstance(payload, dict):
         payload = {}
-    payload = normalize(provider, payload, vault_root=ctx.paths.vault_root)
+    from ...memory.flush import _session_id_values, _workspace_values
+    had_cwd = "cwd" in payload
+    try:
+        _session_id_values(payload, include_id=False, expected_provider=provider)
+        _workspace_values(payload)
+        payload = normalize(provider, payload, vault_root=ctx.paths.vault_root)
+    except (ValueError, TypeError):
+        LIFECYCLE._record_health(ctx.paths.state_dir, event, "hook-metadata-invalid", datetime.now().astimezone())
+        result = io.StringIO()
+        with contextlib.redirect_stdout(result):
+            output(provider, event, "")
+        return result.getvalue()
+    if not had_cwd and not payload["cwd"]:
+        payload.pop("cwd")
     payload["provider"] = provider
     context = ""
-    skip = "--global-hook" in argv and inside_vault(payload["cwd"], ctx.paths.vault_root)
+    skip = "--global-hook" in argv and inside_vault(payload.get("cwd", ""), ctx.paths.vault_root)
     now = datetime.now().astimezone()
     if provider == "antigravity" and event == "start":
         inv = payload.get("invocationNum")

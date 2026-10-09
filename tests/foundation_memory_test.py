@@ -94,11 +94,11 @@ class FoundationMemoryTest(unittest.TestCase):
     def test_provider_preferences_come_from_user_config(self):
         mod = self.module("providers.runner")
         runner = mod.ModelRunner(self.ctx1)
-        with mock.patch.object(mod.shutil, "which", return_value="codex"), mock.patch.object(mod.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "summary", "")) as process:
+        with mock.patch.object(mod.shutil, "which", return_value="codex"), mock.patch.object(mod, "_run_process_tree", return_value=subprocess.CompletedProcess([], 0, "summary", "")) as process:
             result = runner.run("prompt", cwd=self.root, mode="text", timeout=1)
         self.assertEqual(result.provider, "codex")
         self.assertEqual(result.text, "summary")
-        self.assertIn("exec", process.call_args.args[0])
+        self.assertIn("exec", process.call_args.args[0].argv)
         self.assertEqual(runner.preferences["summary_provider"], "codex")
         self.assertEqual(runner.preferences["provider_priority"][0], "codex")
     def test_lifecycle_prompt_uses_uuid_state(self):

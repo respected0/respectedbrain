@@ -18,7 +18,7 @@ class FoundationDeferredTest(unittest.TestCase):
             new = seed_package(root / "new", content=b"MZ-new")
             before = snapshot(ctx.paths.app_root)
             with patch("respectedbrain.installation.deferred.sys.platform", "win32"), patch("respectedbrain.installation.deferred.sys.frozen", True, create=True), patch("respectedbrain.installation.deferred.sys.executable", str(ctx.paths.app_root / "respectedbrain.exe")), patch("respectedbrain.installation.deferred.subprocess.Popen") as process:
-                result = defer_operation(ctx, mode="update", package=new)
+                result = defer_operation(ctx, mode="update", package=new, require_provenance=False)
             self.assertTrue(result.pending)
             self.assertFalse(result.success)
             helper = Path(process.call_args.args[0][0])
@@ -41,7 +41,7 @@ class FoundationDeferredTest(unittest.TestCase):
             with owned_temp_alias(self, root) as (alias, allocated):
                 (allocated / 'activation').mkdir()
                 with patch.object(deferred.sys, 'platform', 'win32'), patch.object(deferred.sys, 'frozen', True, create=True), patch.object(deferred.sys, 'executable', str(ctx.paths.app_root / 'respectedbrain.exe')), patch.object(deferred.tempfile, 'mkdtemp', return_value=str(alias / 'activation')), patch.object(deferred.subprocess, 'Popen') as process:
-                    result = deferred.defer_operation(ctx, mode='update', package=package)
+                    result = deferred.defer_operation(ctx, mode='update', package=package, require_provenance=False)
                 self.assertTrue(result.pending)
                 helper = Path(process.call_args.args[0][0])
                 self.assertEqual(helper, allocated / 'activation/respectedbrain.exe')

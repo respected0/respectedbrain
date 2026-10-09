@@ -20,23 +20,24 @@ from .payload import validate_package
 from .transaction import OperationResult
 
 
-def defer_operation(ctx, *, mode, package=None, purge_data=False):
+def defer_operation(ctx, *, mode, package=None, purge_data=True, require_provenance=None):
     if sys.platform != "win32" or not getattr(sys, "frozen", False) or Path(sys.executable).resolve() != (ctx.paths.app_root / "respectedbrain.exe").resolve():
         return None
     if mode not in ("update", "uninstall"):
         raise ValueError("Only activation/removal require exit deferral")
-    document = validate_package(ctx.paths.app_root)
+    document = validate_package(ctx.paths.app_root, require_provenance=require_provenance)
     if mode == "update":
-        validate_package(package)
+        validate_package(package, require_provenance=require_provenance)
     # OS temp roots may have a system alias (for example macOS /var).
     temporary = Path(tempfile.mkdtemp(prefix="respected-activation-")).resolve()
     try:
-        for name in (*document["files"], "distribution.json"):
+        from .payload import package_members
+        for name in package_members(ctx.paths.app_root, document):
             source = safe_path(ctx.paths.app_root / name)
             target = temporary / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
-        validate_package(temporary)
+        validate_package(temporary, require_provenance=require_provenance)
         identity = "deferred-" + str(uuid4())
         request = temporary / "request.json"
         receipt = ctx.paths.data_root / "backups" / identity / "result.json"
@@ -71,13 +72,13 @@ def _wait_parent(pid):
         kernel.CloseHandle(handle)
 
 
-def resume_operation(request: Path, *, expected_hash: str) -> int:
+def resume_operation(request: Path, *, expected_hash: str, require_provenance=None) -> int:
     safe_path(request)
     if digest(request) != expected_hash:
         raise OwnershipConflict("Activation request changed")
     if not request.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
         raise OwnershipConflict("Activation helper must live in OS temporary storage")
-    validate_package(request.parent)
+    validate_package(request.parent, require_provenance=require_provenance)
     document = json.loads(request.read_text(encoding="utf-8"))
     if document.get("schema_version") != 3 or document.get("mode") not in ("update", "uninstall"):
         raise OwnershipConflict("Invalid activation request")
@@ -91,13 +92,14 @@ def resume_operation(request: Path, *, expected_hash: str) -> int:
         raise OwnershipConflict("Invalid activation receipt boundary")
     if document["mode"] == "update":
         from .update import update
-        result = update(ctx, package=Path(document["package"]), backend=backend)
+        result = update(ctx, package=Path(document["package"]), backend=backend, require_provenance=require_provenance)
     else:
         from .uninstall import uninstall
-        if (ctx.paths.app_root / "uninstall/unins000.exe").is_file() and not document["purge_data"]:
+        purge_data = bool(document.get("purge_data", True))
+        if (ctx.paths.app_root / "uninstall/unins000.exe").is_file():
             from .windows import launch_uninstaller
-            result = launch_uninstaller(ctx, request=request.parent / "uninstall-proof.json")
+            result = launch_uninstaller(ctx, request=request.parent / "uninstall-proof.json", purge_data=purge_data)
         else:
-            result = uninstall(ctx, backend=backend, purge_data=document["purge_data"])
+            result = uninstall(ctx, backend=backend, purge_data=purge_data)
     atomic_write_json(receipt, asdict(result))
     return 0 if result.success else 1

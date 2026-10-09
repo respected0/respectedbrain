@@ -103,7 +103,16 @@ class FoundationMaintenanceOrchestrationTest(unittest.TestCase):
     def test_snapshot_receipt_uses_data_and_preserves_interval_guard(self):
         module = importlib.import_module('respectedbrain.maintenance.backup.publish_git_snapshot')
         receipt = self.ctx.paths.state_dir / 'git-snapshot-receipt.json'
-        with mock.patch.object(module, '_branch_divergence_status', return_value='clean'), mock.patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '', '')):
+        remote = self.root / 'snapshot-remote.git'
+        subprocess.run(['git', 'init', '--bare', '--initial-branch=main', str(remote)], check=True, capture_output=True)
+        for command in (
+            ['git', 'init', '--initial-branch=main'],
+            ['git', 'config', 'user.name', 'Test'],
+            ['git', 'config', 'user.email', 'test@test.com'],
+            ['git', 'remote', 'add', 'origin', str(remote)],
+        ):
+            subprocess.run(command, cwd=self.vault, check=True, capture_output=True)
+        with mock.patch.object(module, '_branch_divergence_status', return_value='clean'):
             result = module.publish_if_due(self.vault, apply=True, receipt_file=receipt)
             second = module.publish_if_due(self.vault, apply=True, receipt_file=receipt)
         self.assertEqual(result['status'], 'ok')

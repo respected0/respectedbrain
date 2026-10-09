@@ -18,7 +18,9 @@ from unittest import mock
 
 
 from respectedbrain.memory import flush as FLUSH
-from tests.foundation_memory_test import FakeModel, make_context
+from respectedbrain.core.errors import OwnershipConflict
+from tests.foundation_memory_test import FakeModel
+from tests.foundation_support import make_context
 from respectedbrain.memory import lifecycle as LIFECYCLE
 from respectedbrain.integrations.hooks import codex_notify as CODEX_NOTIFY
 from respectedbrain.integrations.hooks import bridge as BRIDGE
@@ -29,7 +31,7 @@ class TurnLogPipelineTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="turn-log-")
         self.vault = Path(self.temporary.name) / "Furkan'ın 🧠 Brain"
         self.vault.mkdir(parents=True)
-        self.ctx = make_context(self.vault)
+        self.ctx = make_context(Path(self.temporary.name), self.vault)
         self.state = self.ctx.paths.state_dir
         self.state.mkdir(parents=True)
 
@@ -198,15 +200,15 @@ module._upsert_daily_session(
 
         with mock.patch.object(FLUSH, "_run_model", side_effect=[(newer_summary, None), (older_summary, None)]):
             first = FLUSH._flush_session_transcript(
-                self.vault, self.state, newer, "same-session", "turn", base, FakeModel(), self.ctx.paths.cache_dir
+                self.vault, self.state, newer, "same-session", "turn", base, FakeModel(), self.ctx.paths.cache_dir, ctx=self.ctx
             )
-            second = FLUSH._flush_session_transcript(
-                self.vault, self.state, older, "same-session", "turn", base - dt.timedelta(seconds=1), FakeModel(), self.ctx.paths.cache_dir
-            )
+            with self.assertRaises(OwnershipConflict):
+                FLUSH._flush_session_transcript(
+                    self.vault, self.state, older, "same-session", "turn", base - dt.timedelta(seconds=1), FakeModel(), self.ctx.paths.cache_dir, ctx=self.ctx
+                )
 
         content = (self.vault / "daily/2026-09-14.md").read_text(encoding="utf-8")
         self.assertTrue(first)
-        self.assertFalse(second)
         self.assertIn("NEWER", content)
         self.assertNotIn("OLDER", content)
 
@@ -299,12 +301,23 @@ module._upsert_daily_session(
         home = self.vault / "home"
         transcript = home / ".codex/sessions" / f"rollout-{session_id}.jsonl"
         transcript.parent.mkdir(parents=True)
-        transcript.write_text("{}\n", encoding="utf-8")
+        transcript.write_text(
+            json.dumps({
+                "type": "session_meta",
+                "payload": {"id": session_id, "cwd": str(self.vault)},
+            }) + "\n",
+            encoding="utf-8",
+        )
         now = dt.datetime(2026, 9, 14, 12, 0, tzinfo=dt.timezone.utc)
         old = now.timestamp() - 60
         os.utime(transcript, (old, old))
         FLUSH._session_state_path(self.state, session_id).write_text(
-            json.dumps({"session_id": session_id, "status": "model-failed", "ts": old}),
+            json.dumps({
+                "session_id": session_id,
+                "status": "model-failed",
+                "ts": old,
+                "transcript_path": str(transcript),
+            }),
             encoding="utf-8",
         )
 

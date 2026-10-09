@@ -1,7 +1,6 @@
 """Readonly schedule definitions using stable UUID-bound launchers."""
 from __future__ import annotations
 import json
-from pathlib import Path
 import plistlib
 import shlex
 import subprocess

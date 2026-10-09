@@ -9,6 +9,7 @@ from respectedbrain.core.config import ConfigStore
 from respectedbrain.core.errors import FoundationError, OwnershipConflict
 from respectedbrain.core.paths import Roots
 from respectedbrain.core.resources import ResourceCatalog
+from respectedbrain.integrations.backend import ExternalChange
 from respectedbrain.vault.registry import VaultRegistry
 from .common import installed_profile, installation_context, ensure_linux_launcher
 from .ownership import OwnedFile, OwnershipManifest, digest, manifest_document, read_manifest, safe_path
@@ -17,7 +18,7 @@ from . import payload
 
 
 def setup(roots: Roots, vault: Path, *, profile: Mapping[str, str], desired: Mapping[str, bool],
-          backend, package: Path | None = None, shell=None) -> OperationResult:
+          backend, package: Path | None = None, shell=None, require_provenance=None) -> OperationResult:
     tx = None
     try:
         safe_path(vault)
@@ -31,7 +32,7 @@ def setup(roots: Roots, vault: Path, *, profile: Mapping[str, str], desired: Map
         if registered is not None:
             VaultRegistry(store).select(vault=vault, vault_id=None, env={})
         source = package if package is not None else roots.app_root
-        document = payload.validate_package(source)
+        document = payload.validate_package(source, require_provenance=require_provenance)
         recovery = recover_transactions(roots.data_root, backend)
         if any(item.conflicts for item in recovery):
             raise OwnershipConflict("Unfinished operation has rollback conflicts")
@@ -50,7 +51,7 @@ def setup(roots: Roots, vault: Path, *, profile: Mapping[str, str], desired: Map
             tx.checkpoint("stage")
             if package is not None and package != roots.app_root:
                 from .operations import activate_package
-                document, _ = activate_package(roots, package, tx, previous)
+                document, _ = activate_package(roots, package, tx, previous, require_provenance=require_provenance)
             tx.checkpoint("activate")
             if registered is None:
                 if vault.exists() and any(vault.iterdir()):
@@ -80,24 +81,29 @@ def setup(roots: Roots, vault: Path, *, profile: Mapping[str, str], desired: Map
             ctx = installation_context(roots, vault, identity, config)
             profile_object = installed_profile(roots, profile)
             launchers = ensure_linux_launcher(ctx, profile_object, tx, previous)
+            project_connections = []
             if registered is None:
                 from respectedbrain.integrations.rendering import render_project_integrations
                 for name, content in render_project_integrations(ctx, profile_object).items():
-                    tx.write(vault / name, content)
+                    target = vault / name
+                    change = ExternalChange("file", str(target), backend.read("file", str(target)), content)
+                    tx.apply_external(change)
+                    project_connections.append(change)
             from .operations import plan_connections, operation_manifest
             changes, external = plan_connections(ctx, backend, previous)
+            external = (*external, *project_connections)
             for change in changes:
                 tx.apply_external(change)
             if shell is not None:
                 tx.apply_external(shell.registration)
                 external = tuple(item for item in external if (item.kind, item.key) != (shell.registration.kind, shell.registration.key)) + (shell.owned_registration(previous),)
             tx.checkpoint("integrations")
-            owned = tuple(OwnedFile(roots.app_root / name, digest(roots.app_root / name), "application", stat.S_IMODE((roots.app_root / name).stat().st_mode)) for name in (*document["files"], "distribution.json"))
+            owned = tuple(OwnedFile(roots.app_root / name, digest(roots.app_root / name), "application", stat.S_IMODE((roots.app_root / name).stat().st_mode)) for name in payload.package_members(roots.app_root, document))
             owned += (OwnedFile(store.path, digest(store.path), "technical"),) + launchers
             owned += shell.files if shell is not None else tuple(item for item in previous.files if item.role == "uninstaller")
             tx.write_json(manifest_path, manifest_document(operation_manifest(ctx, owned, external, previous=previous)))
             tx.checkpoint("health")
-            payload.validate_package(roots.app_root)
+            payload.validate_package(roots.app_root, require_provenance=require_provenance)
             payload.validate_installed_health(roots.app_root, document, roots.data_root)
             tx.checkpoint("cleanup")
             return tx.commit()

@@ -102,6 +102,8 @@ class GatewayBoundaryTest(unittest.TestCase):
         status, _, _ = self.request('/api/models/priority', b'{"summary_provider":"claude"}', {'Host': 'attacker.example'})
         self.assertEqual(status, 403)
         self.assertEqual(ConfigStore(self.ctx.paths.data_root).read(), before)
+        status, _, _ = self.request('/api/status', headers={'Sec-Fetch-Site': 'cross-site'})
+        self.assertEqual(status, 403)
         local = f'http://127.0.0.1:{self.server.server_port}'
         self.assertEqual(self.request('/api/status', headers={'Origin': local})[0], 200)
 

@@ -68,12 +68,12 @@ def validate_uninstall_proof(roots, *, request, expected_hash):
     return True
 
 
-def launch_uninstaller(ctx, *, request):
+def launch_uninstaller(ctx, *, request, purge_data=True):
     import subprocess
     proof_hash = prepare_uninstall(ctx, request=request)
     receipt = ctx.paths.data_root / "logs/uninstall-result.json"
     before = receipt.read_bytes() if receipt.exists() else None
-    result = subprocess.run([str(ctx.paths.app_root / "uninstall/unins000.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DATA=" + str(ctx.paths.data_root), "/VAULT=" + str(ctx.paths.vault_root), "/PROOF=" + str(request), "/PROOFHASH=" + proof_hash], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+    result = subprocess.run([str(ctx.paths.app_root / "uninstall/unins000.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DATA=" + str(ctx.paths.data_root), "/VAULT=" + str(ctx.paths.vault_root), "/PROOF=" + str(request), "/PROOFHASH=" + proof_hash, "/PURGEDATA=" + ("1" if purge_data else "0")], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
     after = receipt.read_bytes() if receipt.exists() else None
     if after is not None and after != before:
         document = json.loads(after)
@@ -105,21 +105,51 @@ def seal_shell(roots, *, backend):
 
 
 def copy_helper(app_root, output):
+    """Stage an executable helper from a fully provenance-verified install.
+
+    The source ``app_root`` is validated with full release provenance
+    (``require_provenance=True``) before any byte is copied, so a tampered or
+    unsigned install can never seed a helper. The derived helper deliberately
+    omits the attestation bundle: it is reproduced from the already-verified
+    source, therefore its own ``validate_package`` call passes
+    ``require_provenance=False`` and re-checks every copied hash against the
+    verified source manifest. The helper is only a transient working copy in OS
+    temp, never a new release artifact; a mismatch in any source file raises
+    before the helper is written.
+    """
+    import json
     import shutil
     import tempfile
     from .payload import validate_package
     safe_path(output)
     if not output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
         raise OwnershipConflict("Executable helper must be in OS temp")
-    document = validate_package(app_root)
-    for name in (*document["files"], "distribution.json"):
+    document = validate_package(app_root, require_provenance=True)
+    shell_names = {"uninstall/unins000.exe", "uninstall/unins000.dat"}
+    files = {name: digest for name, digest in document["files"].items() if name not in shell_names}
+    for name in files:
         target = output / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(safe_path(app_root / name), safe_path(target))
-    validate_package(output)
+    helper_manifest = {
+        "schema_version": document["schema_version"],
+        "version": document["version"],
+        "platform": document["platform"],
+        "launcher": document["launcher"],
+        "files": files,
+    }
+    (output / "distribution.json").write_text(json.dumps(helper_manifest), encoding="utf-8")
+    validate_package(output, require_provenance=False)
 
 
-def prepare_shell(roots, *, request, registry_key=INNO_UNINSTALL_KEY, backend):
+def prepare_shell(roots, *, request, package, registry_key=INNO_UNINSTALL_KEY, require_provenance=True, backend):
+    from . import payload
+    # The Inno shell always supplies --package and the real Setup gate must stay
+    # fail-closed: release provenance is verified before any AppRoot/DataRoot/
+    # VaultRoot write. ``package`` is mandatory so even a direct Python caller
+    # cannot silently skip the release gate; there is no shell-only path without
+    # a staged, provenance-verified package.
+    payload.validate_package(Path(package).resolve(), require_provenance=require_provenance)
     if roots.app_root.is_relative_to(roots.default_vault) or roots.default_vault.is_relative_to(roots.app_root):
         raise OwnershipConflict("Program directory must be separate from notes")
     manifest_path = roots.data_root / "install-manifest.json"

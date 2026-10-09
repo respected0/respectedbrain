@@ -240,8 +240,13 @@ class FoundationIntegrationsTest(IntegrationFixture, unittest.TestCase):
         import uuid
         from respectedbrain.integrations.backend import ExternalChange, canonical_json, canonical_task_xml
         from respectedbrain.integrations.scheduling.service import _windows_xml
+        from respectedbrain.core.errors import FoundationError
         backend = self.backend()
         key = "RespectedBrain-FoundationTest-" + str(uuid.uuid4())
+        try:
+            backend._task_read("RespectedBrain-FoundationTest-Availability-" + str(uuid.uuid4()))
+        except FoundationError as error:
+            self.skipTest("Task Scheduler root is unavailable on this host: " + str(error))
         after = canonical_task_xml(_windows_xml(str(self.app / "respectedbrain.exe"), "briefing --vault-id " + self.ctx.paths.vault_id))
         try:
             backend.apply(ExternalChange("task", key, None, after))
@@ -267,6 +272,13 @@ class FoundationIntegrationsTest(IntegrationFixture, unittest.TestCase):
         from respectedbrain.integrations.backend import ExternalChange, canonical_json
         backend = self.backend()
         key = "HKCU\\Software\\RespectedBrain-FoundationTest-" + str(uuid.uuid4())
+        probe_name = "Software\\RespectedBrain-FoundationTest-Availability-" + str(uuid.uuid4())
+        try:
+            probe = winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, probe_name, 0, winreg.KEY_WRITE)
+            probe.Close()
+            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, probe_name)
+        except OSError as error:
+            self.skipTest("Native HKCU registry writes are unavailable on this host: " + str(error))
         value = {"values": {"Unknown": {"type": winreg.REG_DWORD, "data": 17}}, "subkeys": {"User": {"values": {"Binary": {"type": winreg.REG_BINARY, "data": {"base64": "AAEC"}}}, "subkeys": {}}}}
         after = canonical_json(value)
         try:

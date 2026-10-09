@@ -39,6 +39,7 @@ Kalıcı bağlam.
 
 from respectedbrain.memory import flush as FLUSH
 from respectedbrain.memory import compile as COMPILER
+from respectedbrain.integrations.hooks import bridge as BRIDGE
 from respectedbrain.providers.runner import ModelRunner
 from tests.foundation_support import make_context
 from tests.foundation_memory_test import FakeModel
@@ -210,6 +211,64 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
             encoding="utf-8",
         )
         return hook
+
+    def _write_codex_catch_up_transcript(
+        self,
+        sessions_dir: Path,
+        session_id: str,
+        message: str,
+        *,
+        workspace: Path | None = None,
+    ) -> Path:
+        transcript = sessions_dir / f"rollout-2026-09-13T00-00-00-{session_id}.jsonl"
+        records = []
+        if workspace is not None:
+            records.append({
+                "type": "session_meta",
+                "payload": {"id": session_id, "cwd": str(workspace)},
+            })
+        records.append({
+            "type": "event_msg",
+            "payload": {
+                "type": "item_completed",
+                "item": {
+                    "type": "UserMessage",
+                    "content": [{"type": "text", "text": message}],
+                },
+            },
+        })
+        transcript.write_text(
+            "\n".join(json.dumps(record) for record in records) + "\n",
+            encoding="utf-8",
+        )
+        return transcript
+
+    def _dispatch_workspace_hook(
+        self,
+        ctx,
+        *,
+        provider: str,
+        session_id: str,
+        transcript: Path,
+        cwd: Path | None = None,
+        workspace_paths: list[str] | None = None,
+    ) -> None:
+        payload: dict[str, object] = {
+            "session_id": session_id,
+            "transcriptPath": str(transcript),
+        }
+        if cwd is not None:
+            payload["workspace"] = {"current_dir": str(cwd)}
+        if workspace_paths is not None:
+            payload["workspacePaths"] = workspace_paths
+        with mock.patch.object(BRIDGE.LIFECYCLE, "_launch_flush", return_value=True):
+            BRIDGE.dispatch(
+                ctx,
+                provider=provider,
+                event="prompt",
+                argv=[],
+                stdin=json.dumps(payload),
+            )
 
     def _run_flush(self, hook: Path, reason: str = "sessionend", **environment: str):
         import contextlib, io
@@ -449,13 +508,14 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
         session = "12345678-1234-1234-1234-123456789abc"
         transcript = home / ".codex/sessions" / (session + ".jsonl")
         transcript.parent.mkdir(parents=True)
+        metadata = {"type": "session_meta", "payload": {"id": session, "cwd": str(self.vault)}}
         record = {"role": "user", "content": "old turn", "created_at": "2026-09-13T00:00:00+00:00"}
-        transcript.write_text(json.dumps(record) + "\n", encoding="utf-8")
+        transcript.write_text(json.dumps(metadata) + "\n" + json.dumps(record) + "\n", encoding="utf-8")
         first = dt.datetime(2026, 9, 13, 1, tzinfo=dt.timezone.utc)
         old = FakeModel(VALID_SUMMARY.replace("Kalıcı bağlam.", "OLD-SESSION-SUMMARY"))
         self.assertEqual(FLUSH.flush_transcript(self.ctx, session_id=session, transcript=transcript, model=old, now=first), 0)
         record["content"] = "new turn at the same turn count"
-        transcript.write_text(json.dumps(record) + "\n", encoding="utf-8")
+        transcript.write_text(json.dumps(metadata) + "\n" + json.dumps(record) + "\n", encoding="utf-8")
         now = first + dt.timedelta(hours=1)
         os.utime(transcript, (now.timestamp() - 60, now.timestamp() - 60))
         updated = FakeModel(VALID_SUMMARY.replace("Kalıcı bağlam.", "NEW-SESSION-SUMMARY"))
@@ -735,19 +795,12 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
         sessions_dir = fake_home / ".codex" / "sessions" / "2026" / "09" / "13"
         sessions_dir.mkdir(parents=True, exist_ok=True)
         session_uuid = "12345678-1234-1234-1234-123456789abc"
-        transcript_file = sessions_dir / f"rollout-2026-09-13T00-00-00-{session_uuid}.jsonl"
-        user_line = {
-            "type": "event_msg",
-            "payload": {
-                "type": "item_completed",
-                "item": {
-                    "type": "UserMessage",
-                    "content": [{"type": "text", "text": "test message"}],
-                },
-            },
-        }
-        with transcript_file.open("w", encoding="utf-8") as f:
-            f.write(json.dumps(user_line) + "\n")
+        transcript_file = self._write_codex_catch_up_transcript(
+            sessions_dir,
+            session_uuid,
+            "test message",
+            workspace=self.vault,
+        )
 
         now = dt.datetime(2026, 9, 13, 1, 0)
         os.utime(transcript_file, (now.timestamp() - 60, now.timestamp() - 60))
@@ -772,9 +825,12 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
 
             # Active turn protection: file modified less than 15s ago is ignored
             active_uuid = "87654321-4321-4321-4321-cba987654321"
-            active_file = sessions_dir / f"rollout-2026-09-13T00-00-00-{active_uuid}.jsonl"
-            with active_file.open("w", encoding="utf-8") as f:
-                f.write(json.dumps(user_line) + "\n")
+            active_file = self._write_codex_catch_up_transcript(
+                sessions_dir,
+                active_uuid,
+                "test message",
+                workspace=self.vault,
+            )
             os.utime(active_file, (now.timestamp() - 5, now.timestamp() - 5))
 
             count_active = FLUSH.catch_up_unflushed_sessions(
@@ -806,6 +862,13 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
         }
         with transcript_file.open("w", encoding="utf-8") as f:
             f.write(json.dumps(user_line) + "\n")
+        self._dispatch_workspace_hook(
+            self.ctx,
+            provider="antigravity",
+            session_id=session_uuid,
+            transcript=transcript_file,
+            cwd=self.vault,
+        )
 
         now = dt.datetime(2026, 9, 13, 1, 0)
         os.utime(transcript_file, (now.timestamp() - 60, now.timestamp() - 60))
@@ -827,6 +890,491 @@ raise SystemExit(int(os.environ.get("BEYIN_TEST_EXIT", "0")))
                 home=fake_home,
             )
             self.assertEqual(count_again, 0)
+
+    def test_catch_up_mixed_history_routes_hook_provenance_to_independent_vaults(self) -> None:
+        fake_home = self.root / "mixed-history-home"
+        sessions_dir = fake_home / ".codex" / "sessions" / "2026" / "09" / "13"
+        sessions_dir.mkdir(parents=True, exist_ok=True)
+        vault_two = self.root / "vault-two"
+        ctx_two = make_context(self.root, vault_two)
+        project_one = self.root / "project-one"
+        project_two = self.root / "project-two"
+        project_one.mkdir()
+        project_two.mkdir()
+
+        session_one = "11111111-1111-4111-8111-111111111111"
+        session_two = "22222222-2222-4222-8222-222222222222"
+        transcript_one = self._write_codex_catch_up_transcript(
+            sessions_dir,
+            session_one,
+            "project one secret",
+        )
+        transcript_two = self._write_codex_catch_up_transcript(
+            sessions_dir,
+            session_two,
+            "project two secret",
+        )
+        self._dispatch_workspace_hook(
+            self.ctx,
+            provider="codex",
+            session_id=session_one,
+            transcript=transcript_one,
+            workspace_paths=[str(project_one)],
+        )
+        self._dispatch_workspace_hook(
+            ctx_two,
+            provider="codex",
+            session_id=session_two,
+            transcript=transcript_two,
+            cwd=project_two,
+        )
+
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        os.utime(transcript_one, (now.timestamp() - 60, now.timestamp() - 60))
+        os.utime(transcript_two, (now.timestamp() - 30, now.timestamp() - 30))
+
+        def route_model(prompt: str, *_args, **_kwargs):
+            marker = "PROJECT-ONE" if "project one secret" in prompt else "PROJECT-TWO"
+            return VALID_SUMMARY + "\n" + marker, None
+
+        with mock.patch.object(FLUSH, "_run_model", side_effect=route_model):
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(self.ctx, model=FakeModel(), now=now, home=fake_home),
+                1,
+            )
+            first_report = json.loads((self.state / "catch-up-report.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                [(item["session_id"], item["reason"]) for item in first_report["accepted"]],
+                [(session_one, "hook-provenance")],
+            )
+            self.assertEqual(
+                [(item["session_id"], item["reason"]) for item in first_report["skipped"]],
+                [(session_two, "foreign-vault")],
+            )
+
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(ctx_two, model=FakeModel(), now=now, home=fake_home),
+                1,
+            )
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(self.ctx, model=FakeModel(), now=now, home=fake_home),
+                0,
+            )
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(ctx_two, model=FakeModel(), now=now, home=fake_home),
+                0,
+            )
+
+        daily_one = (self.daily / "2026-09-13.md").read_text(encoding="utf-8")
+        daily_two = (vault_two / "daily" / "2026-09-13.md").read_text(encoding="utf-8")
+        self.assertIn("PROJECT-ONE", daily_one)
+        self.assertNotIn("PROJECT-TWO", daily_one)
+        self.assertIn("PROJECT-TWO", daily_two)
+        self.assertNotIn("PROJECT-ONE", daily_two)
+
+    def test_catch_up_fails_safe_on_missing_unmapped_and_conflicting_provenance(self) -> None:
+        fake_home = self.root / "ambiguous-history-home"
+        sessions_dir = fake_home / ".codex" / "sessions" / "2026" / "09" / "13"
+        sessions_dir.mkdir(parents=True, exist_ok=True)
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        unrelated_project = self.root / "unrelated-project"
+        conflicting_project = self.root / "conflicting-project"
+        unrelated_project.mkdir()
+        conflicting_project.mkdir()
+
+        missing_session = "33333333-3333-4333-8333-333333333333"
+        missing = self._write_codex_catch_up_transcript(
+            sessions_dir,
+            missing_session,
+            f"content mentions {self.vault} but is not provenance",
+        )
+        unmapped_session = "44444444-4444-4444-8444-444444444444"
+        unmapped = self._write_codex_catch_up_transcript(
+            sessions_dir,
+            unmapped_session,
+            "unmapped project",
+            workspace=unrelated_project,
+        )
+        metadata_only_session = "66666666-6666-4666-8666-666666666666"
+        metadata_only = sessions_dir / f"rollout-2026-09-13T00-00-00-{metadata_only_session}.jsonl"
+        metadata_only.write_text(
+            json.dumps({
+                "type": "message",
+                "metadata": {"cwd": str(self.vault)},
+                "message": {"role": "user", "content": "metadata-shaped content"},
+            }) + "\n",
+            encoding="utf-8",
+        )
+        conflict_session = "55555555-5555-4555-8555-555555555555"
+        conflict = self._write_codex_catch_up_transcript(
+            sessions_dir,
+            conflict_session,
+            "conflicting workspace",
+            workspace=conflicting_project,
+        )
+        self._dispatch_workspace_hook(
+            self.ctx,
+            provider="codex",
+            session_id=conflict_session,
+            transcript=conflict,
+            cwd=self.root / "project-one",
+        )
+        for transcript in (missing, metadata_only, unmapped, conflict):
+            os.utime(transcript, (now.timestamp() - 60, now.timestamp() - 60))
+
+        model = FakeModel(VALID_SUMMARY)
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY, None)):
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(self.ctx, model=model, now=now, home=fake_home),
+                0,
+            )
+        self.assertEqual(model.calls, 0)
+        self.assertFalse((self.daily / "2026-09-13.md").exists())
+
+        report = json.loads((self.state / "catch-up-report.json").read_text(encoding="utf-8"))
+        reasons = {item["session_id"]: item["reason"] for item in report["ambiguous"]}
+        self.assertEqual(reasons[missing_session], "missing-provider-workspace")
+        self.assertEqual(reasons[metadata_only_session], "missing-provider-workspace")
+        self.assertEqual(reasons[unmapped_session], "unmapped-workspace")
+        self.assertEqual(reasons[conflict_session], "conflicting-workspace")
+
+    def test_workspace_matching_accepts_windows_and_wsl_representations(self) -> None:
+        windows_root = r"C:\Users\Ada\Vault"
+        self.assertTrue(FLUSH._workspace_path_within(r"C:\Users\Ada\Vault\Nested", windows_root))
+        self.assertTrue(FLUSH._workspace_path_within("/mnt/c/Users/Ada/Vault/Nested", windows_root))
+        self.assertTrue(FLUSH._workspace_path_within(r"C:\Users\Ada\Vault", "/mnt/c/Users/Ada/Vault"))
+        self.assertFalse(FLUSH._workspace_path_within(r"C:\Users\Ada\Vault2", windows_root))
+        self.assertFalse(FLUSH._workspace_path_within(r"C:\Users\Ada\Vault\..\Vault2", windows_root))
+        self.assertFalse(FLUSH._workspace_path_within("/mnt/c/Users/Ada/Vault/../Vault2", windows_root))
+        self.assertFalse(FLUSH._workspace_path_within(r"C:\Projects\Unrelated", windows_root))
+
+    def test_catch_up_rejects_duplicate_session_ids_in_same_batch(self) -> None:
+        fake_home = self.root / "duplicate-session-home"
+        session = "12345678-1234-4123-8123-123456789abc"
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        transcripts = []
+        for name in ("one", "two"):
+            sessions_dir = fake_home / ".codex" / "sessions" / "2026" / "09" / "13" / name
+            sessions_dir.mkdir(parents=True)
+            transcripts.append(self._write_codex_catch_up_transcript(
+                sessions_dir, session, f"duplicate {name}", workspace=self.vault / f"project-{name}",
+            ))
+        for transcript in transcripts:
+            os.utime(transcript, (now.timestamp() - 60, now.timestamp() - 60))
+
+        model = FakeModel(VALID_SUMMARY)
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY, None)):
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(self.ctx, model=model, now=now, home=fake_home),
+                0,
+            )
+        self.assertEqual(model.calls, 0)
+        self.assertFalse((self.daily / "2026-09-13.md").exists())
+        report = json.loads((self.state / "catch-up-report.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            [item["reason"] for item in report["ambiguous"]],
+            ["duplicate-session-id", "duplicate-session-id"],
+        )
+
+    def test_catch_up_rejects_same_session_id_from_a_different_transcript(self) -> None:
+        fake_home = self.root / "different-transcript-home"
+        session = "23456789-2345-4234-8234-23456789abcd"
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        first_dir = fake_home / ".codex/sessions/2026/09/13/one"
+        first_dir.mkdir(parents=True)
+        first = self._write_codex_catch_up_transcript(
+            first_dir, session, "first transcript", workspace=self.vault / "project-one",
+        )
+        os.utime(first, (now.timestamp() - 90, now.timestamp() - 90))
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY + "\nFIRST", None)):
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(self.ctx, model=FakeModel(), now=now, home=fake_home),
+                1,
+            )
+
+        second_dir = fake_home / ".codex/sessions/2026/09/13/two"
+        second_dir.mkdir(parents=True)
+        second = self._write_codex_catch_up_transcript(
+            second_dir, session, "second transcript", workspace=self.vault / "project-two",
+        )
+        os.utime(second, (now.timestamp() - 30, now.timestamp() - 30))
+        model = FakeModel(VALID_SUMMARY)
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY + "\nSECOND", None)):
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(self.ctx, model=model, now=now, home=fake_home),
+                0,
+            )
+        self.assertEqual(model.calls, 0)
+        daily = (self.daily / "2026-09-13.md").read_text(encoding="utf-8")
+        self.assertIn("FIRST", daily)
+        self.assertNotIn("SECOND", daily)
+        state = json.loads(FLUSH._session_state_path(self.state, session).read_text(encoding="utf-8"))
+        self.assertEqual(state["transcript_path"], str(first))
+
+    def test_catch_up_rejects_provider_session_id_mismatch(self) -> None:
+        fake_home = self.root / "provider-id-mismatch-home"
+        sessions_dir = fake_home / ".codex" / "sessions" / "2026" / "09" / "13"
+        sessions_dir.mkdir(parents=True)
+        metadata_id = "3456789a-3456-4345-8345-3456789abcde"
+        path_id = "456789ab-4567-4456-8456-456789abcdef"
+        transcript = sessions_dir / f"rollout-2026-09-13T00-00-00-{path_id}.jsonl"
+        transcript.write_text(
+            json.dumps({"type": "session_meta", "payload": {"id": metadata_id, "cwd": str(self.vault)}}) + "\n",
+            encoding="utf-8",
+        )
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        os.utime(transcript, (now.timestamp() - 60, now.timestamp() - 60))
+
+        model = FakeModel(VALID_SUMMARY)
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY, None)):
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(self.ctx, model=model, now=now, home=fake_home),
+                0,
+            )
+        self.assertEqual(model.calls, 0)
+        self.assertFalse((self.daily / "2026-09-13.md").exists())
+        report = json.loads((self.state / "catch-up-report.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            [(item["session_id"], item["reason"]) for item in report["ambiguous"]],
+            [(path_id, "provider-session-id-mismatch")],
+        )
+
+    def test_catch_up_fails_closed_on_corrupt_provenance_replay(self) -> None:
+        fake_home = self.root / "corrupt-provenance-home"
+        sessions_dir = fake_home / ".codex" / "sessions" / "2026" / "09" / "13"
+        sessions_dir.mkdir(parents=True)
+        session = "56789abc-5678-4567-8567-56789abcdef0"
+        transcript = self._write_codex_catch_up_transcript(
+            sessions_dir, session, "corrupt provenance", workspace=self.vault,
+        )
+        self._dispatch_workspace_hook(
+            self.ctx, provider="codex", session_id=session, transcript=transcript, cwd=self.vault,
+        )
+        provenance = FLUSH._session_provenance_path(self.state, session)
+        provenance.write_bytes(b"{corrupt")
+        payload = {"cwd": str(self.vault)}
+
+        self.assertFalse(FLUSH.record_hook_workspace(
+            self.state, self.ctx.paths.vault_id, session, "codex", payload,
+        ))
+        self.assertEqual(provenance.read_bytes(), b"{corrupt")
+
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        os.utime(transcript, (now.timestamp() - 60, now.timestamp() - 60))
+        model = FakeModel(VALID_SUMMARY)
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY, None)):
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(self.ctx, model=model, now=now, home=fake_home),
+                0,
+            )
+        self.assertEqual(model.calls, 0)
+        report = json.loads((self.state / "catch-up-report.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            [(item["session_id"], item["reason"]) for item in report["ambiguous"]],
+            [(session, "invalid-hook-provenance")],
+        )
+
+    def test_catch_up_does_not_bypass_malformed_provider_metadata_with_hook_provenance(self) -> None:
+        fake_home = self.root / "malformed-provider-home"
+        sessions_dir = fake_home / ".codex" / "sessions" / "2026" / "09" / "13"
+        sessions_dir.mkdir(parents=True)
+        session = "6789abcd-6789-4678-8678-6789abcdef01"
+        transcript = sessions_dir / f"rollout-2026-09-13T00-00-00-{session}.jsonl"
+        transcript.write_text(
+            "{broken\n"
+            + json.dumps({"type": "session_meta", "payload": {"id": session, "cwd": str(self.vault)}})
+            + "\n",
+            encoding="utf-8",
+        )
+        self._dispatch_workspace_hook(
+            self.ctx, provider="codex", session_id=session, transcript=transcript, cwd=self.vault,
+        )
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        os.utime(transcript, (now.timestamp() - 60, now.timestamp() - 60))
+
+        model = FakeModel(VALID_SUMMARY)
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY, None)):
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(self.ctx, model=model, now=now, home=fake_home),
+                0,
+            )
+        self.assertEqual(model.calls, 0)
+        self.assertFalse((self.daily / "2026-09-13.md").exists())
+        report = json.loads((self.state / "catch-up-report.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            [(item["session_id"], item["reason"]) for item in report["ambiguous"]],
+            [(session, "provider-metadata-invalid")],
+        )
+
+    def test_direct_flush_rejects_different_transcript_for_existing_session(self) -> None:
+        session = "789abcde-789a-4789-8789-789abcdef012"
+        first = self._write_transcript([("user", "first transcript")], name="first.jsonl")
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY + "\nFIRST", None)):
+            self.assertEqual(
+                FLUSH.flush_transcript(self.ctx, session_id=session, transcript=first, model=FakeModel(), now=now),
+                0,
+            )
+        daily = self.daily / "2026-09-13.md"
+        state = FLUSH._session_state_path(self.state, session)
+        daily_before = daily.read_bytes()
+        state_before = state.read_bytes()
+
+        second = self._write_transcript([("user", "second transcript")], name="second.jsonl")
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY + "\nSECOND", None)):
+            self.assertEqual(
+                FLUSH.flush_transcript(
+                    self.ctx, session_id=session, transcript=second, model=FakeModel(), now=now + dt.timedelta(minutes=1)
+                ),
+                1,
+            )
+        self.assertEqual(daily.read_bytes(), daily_before)
+        self.assertEqual(state.read_bytes(), state_before)
+        self.assertIn("transcript-ownership-conflict", (self.state / "health.json").read_text(encoding="utf-8"))
+
+    def test_flush_rejects_legacy_state_without_transcript_ownership(self) -> None:
+        session = "89abcdef-89ab-489a-889a-89abcdef0123"
+        transcript = self._write_transcript([("user", "legacy transcript")], name="legacy.jsonl")
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        state = FLUSH._session_state_path(self.state, session)
+        state.write_text(
+            json.dumps({"session_id": session, "ts": now.timestamp(), "status": "ok"}),
+            encoding="utf-8",
+        )
+        daily = self.daily / "2026-09-13.md"
+        daily.write_text("LEGACY DAILY\n", encoding="utf-8")
+        state_before = state.read_bytes()
+        daily_before = daily.read_bytes()
+
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY, None)):
+            self.assertEqual(
+                FLUSH.flush_transcript(self.ctx, session_id=session, transcript=transcript, model=FakeModel(), now=now),
+                1,
+            )
+        self.assertEqual(state.read_bytes(), state_before)
+        self.assertEqual(daily.read_bytes(), daily_before)
+        self.assertIn("transcript-ownership-unknown", (self.state / "health.json").read_text(encoding="utf-8"))
+
+    def test_flush_rejects_invalid_stored_transcript_ownership(self) -> None:
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        daily = self.daily / "2026-09-13.md"
+        for index, invalid_path in enumerate((None, "", 123, ["path"], "\0")):
+            with self.subTest(invalid_path=invalid_path):
+                session = f"9abcdef0-9abc-49ab-89ab-{index:012d}"
+                transcript = self._write_transcript([("user", f"invalid ownership {index}")], name=f"invalid-{index}.jsonl")
+                state = FLUSH._session_state_path(self.state, session)
+                state.write_text(
+                    json.dumps({
+                        "session_id": session,
+                        "ts": now.timestamp(),
+                        "status": "ok",
+                        "transcript_path": invalid_path,
+                    }),
+                    encoding="utf-8",
+                )
+                daily.write_text(f"LEGACY DAILY {index}\n", encoding="utf-8")
+                state_before = state.read_bytes()
+                daily_before = daily.read_bytes()
+
+                with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY, None)):
+                    self.assertEqual(
+                        FLUSH.flush_transcript(self.ctx, session_id=session, transcript=transcript, model=FakeModel(), now=now),
+                        1,
+                    )
+                self.assertEqual(state.read_bytes(), state_before)
+                self.assertEqual(daily.read_bytes(), daily_before)
+                self.assertIn("transcript-ownership-unknown", (self.state / "health.json").read_text(encoding="utf-8"))
+
+    def test_flush_allows_new_session_without_previous_state(self) -> None:
+        session = "abcdef01-abcd-4abc-8abc-abcdef012345"
+        transcript = self._write_transcript([("user", "new session")], name="new.jsonl")
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY + "\nNEW", None)):
+            self.assertEqual(
+                FLUSH.flush_transcript(self.ctx, session_id=session, transcript=transcript, model=FakeModel(), now=now),
+                0,
+            )
+        self.assertIn("NEW", (self.daily / "2026-09-13.md").read_text(encoding="utf-8"))
+        state = json.loads(FLUSH._session_state_path(self.state, session).read_text(encoding="utf-8"))
+        self.assertEqual(state["transcript_path"], str(transcript))
+
+    def test_flush_allows_same_transcript_revision(self) -> None:
+        session = "bcdef012-bcde-4bcd-8bcd-bcdef012345"
+        transcript = self._write_transcript([("user", "old revision")], name="revision.jsonl")
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY + "\nOLD", None)):
+            self.assertEqual(
+                FLUSH.flush_transcript(self.ctx, session_id=session, transcript=transcript, model=FakeModel(), now=now),
+                0,
+            )
+        transcript = self._write_transcript([("user", "new revision")], name="revision.jsonl")
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY + "\nNEW", None)):
+            self.assertEqual(
+                FLUSH.flush_transcript(
+                    self.ctx, session_id=session, transcript=transcript, model=FakeModel(), now=now + dt.timedelta(minutes=1)
+                ),
+                0,
+            )
+        daily = (self.daily / "2026-09-13.md").read_text(encoding="utf-8")
+        self.assertNotIn("OLD", daily)
+        self.assertIn("NEW", daily)
+
+    def test_flush_allows_failed_session_retry_on_same_transcript(self) -> None:
+        session = "cdef0123-cdef-4cde-8cde-cdef01234567"
+        transcript = self._write_transcript([("user", "retry transcript")], name="retry.jsonl")
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        with mock.patch.object(FLUSH, "_run_model", return_value=(None, "provider-error")):
+            self.assertEqual(
+                FLUSH.flush_transcript(self.ctx, session_id=session, transcript=transcript, model=FakeModel(), now=now),
+                1,
+            )
+        state = json.loads(FLUSH._session_state_path(self.state, session).read_text(encoding="utf-8"))
+        self.assertEqual(state["status"], "fail")
+        self.assertEqual(state["transcript_path"], str(transcript))
+
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY + "\nRETRY", None)):
+            self.assertEqual(
+                FLUSH.flush_transcript(
+                    self.ctx, session_id=session, transcript=transcript, model=FakeModel(), now=now + dt.timedelta(minutes=1)
+                ),
+                0,
+            )
+        self.assertIn("RETRY", (self.daily / "2026-09-13.md").read_text(encoding="utf-8"))
+
+    def test_catch_up_rejects_structurally_invalid_provider_metadata_payload(self) -> None:
+        fake_home = self.root / "invalid-provider-payload-home"
+        sessions_dir = fake_home / ".codex" / "sessions" / "2026" / "09" / "13"
+        sessions_dir.mkdir(parents=True)
+        session = "def01234-def0-4def-8def-def012345678"
+        transcript = sessions_dir / f"rollout-2026-09-13T00-00-00-{session}.jsonl"
+        transcript.write_text(
+            json.dumps({"type": "session_meta", "payload": "not-a-dict"})
+            + "\n"
+            + json.dumps({"type": "event_msg", "payload": {"type": "item_completed", "item": {
+                "type": "UserMessage", "content": [{"type": "text", "text": "invalid payload"}]
+            }}})
+            + "\n",
+            encoding="utf-8",
+        )
+        self._dispatch_workspace_hook(
+            self.ctx, provider="codex", session_id=session, transcript=transcript, cwd=self.vault,
+        )
+        now = dt.datetime(2026, 9, 13, 1, 0)
+        os.utime(transcript, (now.timestamp() - 60, now.timestamp() - 60))
+
+        model = FakeModel(VALID_SUMMARY)
+        with mock.patch.object(FLUSH, "_run_model", return_value=(VALID_SUMMARY, None)):
+            self.assertEqual(
+                FLUSH.catch_up_unflushed_sessions(self.ctx, model=model, now=now, home=fake_home),
+                0,
+            )
+        self.assertEqual(model.calls, 0)
+        self.assertFalse((self.daily / "2026-09-13.md").exists())
+        report = json.loads((self.state / "catch-up-report.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            [(item["session_id"], item["reason"]) for item in report["ambiguous"]],
+            [(session, "provider-metadata-invalid")],
+        )
 
     def test_trigger_gates_single_claim_and_failure_rollback(self):
         daily=self.daily / "2026-08-22.md"

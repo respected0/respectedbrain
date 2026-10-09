@@ -16,8 +16,13 @@ env:
 jobs:
   build:
     name: Native release (${{ matrix.platform }})
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -61,20 +66,72 @@ jobs:
           $Compiler = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6/ISCC.exe"
           if (-not (Test-Path -LiteralPath $Compiler)) { throw "Inno compiler missing" }
           "INNO_COMPILER=$Compiler" >> $env:GITHUB_ENV
+      - name: Pin and verify GitHub CLI 2.102.0
+        shell: bash
+        env:
+          GH_CLI_VERSION: "2.102.0"
+        run: |
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Windows-X64) asset="windows_amd64.zip"; archive="$RUNNER_TEMP/gh.zip" ;;
+            Windows-ARM64) asset="windows_arm64.zip"; archive="$RUNNER_TEMP/gh.zip" ;;
+            macOS-X64) asset="macOS_amd64.zip"; archive="$RUNNER_TEMP/gh.zip" ;;
+            macOS-ARM64) asset="macOS_arm64.zip"; archive="$RUNNER_TEMP/gh.zip" ;;
+            Linux-X64) asset="linux_amd64.tar.gz"; archive="$RUNNER_TEMP/gh.tar.gz" ;;
+            Linux-ARM64) asset="linux_arm64.tar.gz"; archive="$RUNNER_TEMP/gh.tar.gz" ;;
+            *) echo "Unsupported runner architecture: $RUNNER_OS-$RUNNER_ARCH" >&2; exit 1 ;;
+          esac
+          base="https://github.com/cli/cli/releases/download/v$GH_CLI_VERSION"
+          curl -fsSLo "$archive" "$base/gh_${GH_CLI_VERSION}_${asset}"
+          curl -fsSLo "$RUNNER_TEMP/gh_checksums.txt" "$base/gh_${GH_CLI_VERSION}_checksums.txt"
+          ASSET_NAME="gh_${GH_CLI_VERSION}_${asset}" ASSET_PATH="$archive" python -c 'import hashlib,os,pathlib; expected=next(line.split()[0] for line in pathlib.Path(os.environ["RUNNER_TEMP"],"gh_checksums.txt").read_text().splitlines() if line.strip().endswith(" "+os.environ["ASSET_NAME"])); actual=hashlib.sha256(pathlib.Path(os.environ["ASSET_PATH"]).read_bytes()).hexdigest(); assert actual==expected,(actual,expected)'
+          mkdir -p .tooling/gh
+          case "$asset" in
+            *.zip) unzip -q "$archive" -d .tooling/gh ;;
+            *.tar.gz) tar -xzf "$archive" -C .tooling/gh ;;
+          esac
+          bin="$(find "$PWD/.tooling/gh" -type f -path '*/bin/gh' -o -type f -path '*/bin/gh.exe' | head -n 1)"
+          test -n "$bin"
+          "$bin" --version | grep -F "gh version $GH_CLI_VERSION"
+          dirname "$bin" >> "$GITHUB_PATH"
       - name: Build native distribution
-        run: python tools/build_installer.py --platform ${{ matrix.platform }} --output dist
-      - name: Verify frozen launcher without system Python
-        run: python tools/verify_distribution.py --platform ${{ matrix.platform }} --distribution "${{ matrix.distribution }}"
+        run: python tools/build_installer.py --platform ${{ matrix.platform }} --output dist --no-installer
+      - name: Attest distribution manifest
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ matrix.distribution }}/distribution.json
+      - name: Download exactly one manifest attestation
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISTRIBUTION: ${{ matrix.distribution }}
+        run: |
+          mkdir attestation-download
+          cd attestation-download
+          gh attestation download "../$DISTRIBUTION/distribution.json" \
+            --repo "${{ github.repository }}" \
+            --limit 1 \
+            --predicate-type "https://slsa.dev/provenance/v1"
+          bundles=(*.jsonl)
+          test "${#bundles[@]}" -eq 1
+          test -f "${bundles[0]}"
+          mv "${bundles[0]}" "../$DISTRIBUTION/distribution.json.attestation.json"
+      - name: Verify embedded manifest provenance
+        run: >-
+          python tools/verify_distribution.py
+          --platform ${{ matrix.platform }}
+          --distribution "${{ matrix.distribution }}"
+          --require-provenance
       - name: Run full suite against native build
         run: python tests/run_all.py --python-only
       - name: Physical host package smoke
-        run: python tests/smoke/platform_smoke.py --package "${{ matrix.distribution }}" --output native-smoke.json
+        run: python tests/smoke/platform_smoke.py --package "${{ matrix.distribution }}" --output native-smoke.json --strict-lifecycle
       - name: Package Windows installer
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path release-assets -Force | Out-Null
-          Copy-Item -LiteralPath dist/RespectedBrain-Windows-Setup.exe -Destination "release-assets/RespectedBrain-v$env:RELEASE_VERSION-Windows-Setup.exe"
+          & $env:INNO_COMPILER "/DMyAppVersion=$env:RELEASE_VERSION" "/DPayloadDir=$PWD/dist/RespectedBrain" "/DOutputDir=$PWD/release-assets" "$PWD/packaging/windows/respected_setup.iss"
+          Move-Item -LiteralPath release-assets/RespectedBrain-Windows-Setup.exe -Destination "release-assets/RespectedBrain-v$env:RELEASE_VERSION-Windows-Setup.exe"
       - name: Package macOS disk image
         if: runner.os == 'macOS'
         shell: bash
@@ -95,6 +152,27 @@ jobs:
           cp dist/setup.sh release-stage/
           chmod +x release-stage/setup.sh
           makeself ./release-stage "release-assets/RespectedBrain-v$RELEASE_VERSION-Linux-Setup.run" "Respected Brain" ./setup.sh
+      - name: Attest outer release assets
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release-assets/*
+      - name: Verify outer release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for asset in release-assets/*; do
+            gh attestation verify "$asset" \
+              --repo "${{ github.repository }}" \
+              --cert-identity "https://github.com/${{ github.repository }}/.github/workflows/release.yml@${{ github.ref }}" \
+              --cert-oidc-issuer "https://token.actions.githubusercontent.com" \
+              --source-ref "${{ github.ref }}" \
+              --predicate-type "https://slsa.dev/provenance/v1" \
+              --deny-self-hosted-runners \
+              --limit 1 \
+              --format json
+          done
+
       - uses: actions/upload-artifact@v4
         with:
           name: release-assets-${{ matrix.platform }}

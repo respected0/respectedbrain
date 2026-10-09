@@ -1,122 +1,118 @@
 # 🔐 Respected Brain — Güvenlik Sınırları
 
-scope: project; confidence: verified; supersedes: [önceki scripts tabanlı güvenlik açıklaması]
+scope: project; confidence: verified; supersedes: ["custom override sandbox varsayımı", "RESPECTED_ALLOW_UNSIGNED bypass iddiası", "--signer-workflow/certificate-identity-issuer verifier iddiası"]
 
-Bu belge 2026-10-04 kaynak denetiminin korumalarını ve 2026-10-05 belge incelemesindeki davranış sınırlarını açıklar.
-Tasarım kaynağı [modüler temel](decisions/MODULAR_FOUNDATION.md),
-çalıştırılmış test kanıtı [doğrulama raporudur](records/2026-10-modular-foundation/VERIFICATION.md).
-Transkriptler, günlükler, web içeriği ve model yanıtları güvenilmeyen veridir.
-Modelin talimatlara uyması veya bir isteği reddetmesi güvenlik sınırı sayılmaz.
+Bu belge çalışan ürünün güvenlik sözleşmesini ve yerel doğrulama sınırını açıklar.
+Transkript, web içeriği, PDF, model yanıtı ve dış belge yalnız veridir; içindeki
+metin talimat olarak kabul edilmez.
 
 ## 1. Yerel sağlayıcı çalıştırma
 
-`src/respectedbrain/providers/runner.py` sağlayıcıları argüman dizileriyle,
-`shell=True` kullanmadan çağırır. Bu uygulamanın shell string birleştirmesinden
-kaynaklanan enjeksiyonu önler; çağrılan CLI'ın araçlarını veya ayrıcalıklarını
-ortadan kaldırmaz. Kullanıcının `BEYIN_LLM_COMMAND` override'ı da güvenilen
-kullanıcı yapılandırmasıdır ve ayrıca bir sandbox sağlamaz.
+`providers/runner.py` argüman listesiyle ve `shell=False` çağrısı yapar. İzin atlayan
+seçenekler (`--dangerously-skip-permissions`, `--yolo`, `--force` vb.) üretmez.
+Süreç Windows Job Object / POSIX process group ile timeout sonrasında ağaçtan kopuk
+descendant dahil sonlandırılır. Bu, kalan çocuk/island süreci riskini kapatır; CLI'nin
+iç araç yetkileri ve aynı kullanıcı hesabının dosya sistemine gerçek OS sandbox
+uygulaması değildir.
 
-Sağlayıcıların yetki kontrolleri aynı değildir:
-
-| Sağlayıcı | Metin modu | Derleme/workspace modu |
+| Sağlayıcı | Metin modu | Workspace modu |
 | --- | --- | --- |
-| Claude | `--safe-mode --tools ""` | `--safe-mode`, yalnız `Read,Write,Edit,Glob,Grep`, `acceptEdits` |
+| Claude | `--safe-mode --tools ""` | `--safe-mode`, `Read,Write,Edit,Glob,Grep`, `acceptEdits` |
 | Codex | `--sandbox read-only` | `--sandbox workspace-write` |
-| Antigravity | `--sandbox` ve `--dangerously-skip-permissions` | `--add-dir . --mode accept-edits` ve `--dangerously-skip-permissions` |
-| Cursor | Açık sandbox veya araç kapatma bayrağı verilmez | `--force` |
-| Gemini | Açık sandbox bayrağı verilmez | `--approval-mode auto_edit` |
+| Antigravity | `--sandbox` | `--sandbox --add-dir . --mode accept-edits` |
+| Cursor | desteklenmiyor, fail-closed | `--output-format text` |
+| Gemini | `--sandbox --approval-mode plan` | `--sandbox --approval-mode auto_edit` |
 
-Bu tablo uygulamanın ürettiği argv'yi gösterir; kurulu CLI sürümünün bayrakları
-nasıl uyguladığını veya bütün sağlayıcıların eşdeğer izolasyon sunduğunu
-kanıtlamaz. Cursor/Gemini metin modu için uygulama araç yetkilerinin kapalı
-olduğunu garanti etmez. Derleme sağlayıcısının erişimi, kendi sandbox/izin
-mekanizmasına ve kullanıcı hesabının işletim sistemi yetkilerine bağlıdır.
+`BEYIN_LLM_COMMAND` child başlatılmadan önce daima `custom-isolation-required`
+döndürür. `_custom_argv` yalnız Windows/POSIX quoting uyumluluk testleri içindir ve
+çalıştırma yetkisi değildir. Runner önceki dosya silme/tab farkı cleanup'ını yapmaz;
+iç ve dış insan notlarına dokunmaz.
 
-`memory/flush.py` model metnini beş sabit Türkçe bölüm ve ek içerik kontrolleriyle
-sınar; reddedilen çıktı günlük özeti olarak yazılmaz. Biçim doğrulaması tek
-başına bütün anlamsal prompt injection girişimlerini saptayan bir mekanizma değildir.
+`memory/flush.py` model metnini beş zorunlu Türkçe bölüm ve yapısal kontrollerle
+sınırar. Bu kontrol prompt injection'ın tam semantik çözümü değildir ve dış veriye
+talimat yetkisi vermez.
 
 ## 2. Derleme ve dosya terfisi
 
-`src/respectedbrain/memory/compile.py` derlemeyi aktif kasa yerine geçici bir
-staging dizininde başlatır. POSIX'te staging için `0700` uygulanır. Bu izin,
-başka kullanıcıların erişimini sınırlar; aynı kullanıcı hesabında çalışan bir
-model sürecinin bütün dosya sistemine erişmesini engelleyen OS sandbox değildir.
-Windows'ta POSIX mode bitleri aynı erişim garantisini vermez.
+`memory/compile.py` staging'i geçici alanda başlatır ve yalnız izinli `knowledge/`
+içeriğini atomik terfi eder. POSIX `0700`, symlink/reparse, yol kaçışı, yetkisiz silme
+ve yetkisiz değişim ihlallerini fail-closed durdurur. Aynı kullanıcı hesabındaki
+bağımsız model CLI'sı için bu tam OS sandbox değildir.
 
-Staging'den kasaya terfi için izin verilen içerik:
-
-- `knowledge/index.md` ve `knowledge/log.md`
-- `knowledge/concepts/*.md`
-- `knowledge/connections/*.md`
-
-Kod staging dosyalarını, izin dışı değişiklikleri, silmeleri, symlink/reparse
-point ve yol kaçışlarını kontrol eder. İhlal terfiyi durdurur. Bu kontrol,
-uygulamanın yaptığı terfiyi sınırlar; bağımsız olarak yeterli yetkiye sahip
-sağlayıcı sürecinin staging dışında yazmasını önleyen bir sandbox değildir.
-Kasa yazıcıları UUID bazında ortak kilit protokolünü kullanır.
+AppRoot, DataRoot ve VaultRoot ayrıdır. Update/repair/uninstall yalnız hash/mode
+manifestiyle sahiplenilen teknik içeriği yönetir; insan notları ve bilinmeyen dosyalar
+user-owned kalır.
 
 ## 3. Web alımı ve SSRF
 
-`src/respectedbrain/maintenance/ingestion/url_safety.py` HTTP/HTTPS, port 80/443,
-kimlik bilgisiz URL ve genel IP adresi kontrollerini uygular. Loopback, özel,
-link-local, multicast, reserved/unspecified adresler ve bilinen yerel host
-biçimleri reddedilir. DNS yanıtlarındaki adresler de kontrol edilir.
+`url_safety.py` yalnız HTTP/HTTPS, izinli port ve genel IP kabul eder; loopback,
+private, link-local, multicast, reserved/unspecified ve bilinen yerel host biçimleri
+reddedilir. Karışık IPv4/IPv6 DNS yanıtı fail-closed'dur.
 
-`defuddle.py` ilk URL'yi ve yönlendirme hedeflerini yeniden doğrular, indirme
-süresi ve byte sayısını sınırlar. Yönlendirme sayısı `urllib` davranışına
-bağlıdır; uygulama özel bir beş-yönlendirme sınırı koymaz.
+`defuddle.py` doğrulanmış IP'ye socket-pinning uygular ve transportta ikinci DNS
+sorgusuna izin vermez. HTTPS SNI/certificate hostname gerçek URL host'uyla korunur.
+Proxy bypass kapalıdır. Status/header, redirect, chunk framing/trailer ve body
+aşamaları aynı mutlak caller deadline'ını paylaşır; alt akışın EOF sonrası geç
+dönmesi başarılı sayılmaz.
 
-**Sınır:** Doğrulamada çözülen IP, sonraki `urllib` bağlantısına sabitlenmez.
-Bağlantı sırasında DNS yeniden çözülebilir; DNS rebinding'e karşı tam koruma
-iddiası yoktur. DNS çözülememesi varsayılan `require_resolvable=False` ile
-tek başına red sebebi değildir. `urllib` ortamın proxy ayarlarını da kullanabilir.
-Bu alanın sertleştirilmesi için bağlantıda doğrulanmış adres/peer kontrolü ve
-uygun proxy politikası gerekir; mevcut testler böyle bir transport garantisi
-sağlamaz.
+Resolver OS `getaddrinfo` çağrısını iptal edemez. Bu nedenle en fazla iki daemon
+worker kullanılır; shutdown resolver thread'lerini beklemek zorunda kalmaz. Caller
+timeout'u transport/request deadline'ıdır, OS resolver iptali değildir.
 
-## 4. Kurulum, güncelleme ve kaldırma
+## 4. Git snapshot publication
 
-Native paket `distribution.json` içindeki SHA-256 envanteriyle doğrulanır.
-Yol ve sahiplik kontrolleri, işlem günlüğü ve byte yedekleri kurulum servislerinde
-uygulanır. Hash envanteri paket içi tutarlılıktır; yayıncı kimliğini doğrulayan
-bir dijital imza değildir. Paket ve manifest birlikte değiştirilebilirse yalnız
-hash kontrolü güvenilir kaynağı kanıtlamaz.
+`publish_git_snapshot.py` kullanıcının live index'ini kopyalar, yoksa HEAD tree/empty
+tree'den başlar. Hem copied index blobları hem `git add -A` ile kurulan immutable
+tree sır taranır. Yasaklı ad, özel anahtar/token/cloud credential kategorilerinde
+path+category dışına sır değeri yazılmaz.
 
-İşlem journal'ları ve yedekleri `DataRoot/backups/<işlem>/` altında tutulur;
-eski `scripts/update_respected.py` ve `~/.respected-brain-yedek/` düzeni güncel
-ürün sözleşmesi değildir. Kaldırma sahipliği kanıtlanan teknik dosyaları hedefler,
-not kasası hedef değildir. Kullanıcı sonradan dosyayı değiştirmişse hash
-uyuşmazlığı conflict olarak korunur. Migration varsayılan olarak önizlemedir;
-`--apply` değişiklik yapar. Setup/update/uninstall aynı varsayılan preview
-sözleşmesine sahip değildir.
+Publication `commit-tree <scanned_tree_sha>` kullanır; commit tree'si doğrulanmadan
+push yapılmaz. Kullanıcı index'i veya HEAD tarama/yayın arasında değiştiyse durulur.
+Push sonrası uzak ref commit SHA eşleşmezse receipt yazılmaz. Tracked ve sonra
+ignore edilen notlar korunur; yalnız untracked/ignored çalışma alanı dosyaları aynen
+kullanıcı alanında kalır. Kullanıcı live index/HEAD semantiği değiştirilmez.
 
-## 5. Gizli bilgiler ve yedekler
+## 5. Release provenance ve paket consumer zinciri
 
-Kök `.gitignore` `.env` biçimlerini, anahtar/sertifika dosyalarını, yerel ayarları,
-yedekleri ve çalışma çıktılarını dışlar. Ignore kuralları zaten takip edilen
-bir sırrı geçmişten çıkarmaz ve not gövdesindeki anahtarları tespit etmez.
-`maintenance/vault_linter.py` ve paketlenmiş `beyin-doktor` ayrıca hijyen
-kontrolleri sunar; bunlar eksiksiz secret tarayıcısı değildir.
+`validate_package` varsayılanı `require_provenance=True`'dir. `RESPECTED_ALLOW_UNSIGNED`
+ürün bypass'ı değildir ve ürün yolunda yok sayılır. Manifest `distribution.json`
+SHA-256'sı SLSA subject digest'ine bağlanır; repo, `.github/workflows/release.yml`
+ve exact `refs/tags/vX.Y.Z` politikayla eşleştirilir.
 
-İsteğe bağlı Git snapshot aracı `maintenance/backup/publish_git_snapshot.py`
-dosya adlarına göre bir secret guard uygular ve `--apply` ile `git add .`, commit,
-push çalıştırır. Bu işlem not gövdesindeki sırları taramaz ve dışlanmış dizinlerdeki
-önceden takip edilen içerikler için tam koruma sağlamaz. Önizleme commit/push
-çalıştırmaz; dal durumunu okumak için `git fetch` çalıştırabilir.
+Normal doğrulayıcı checksum-pinlenmiş `gh 2.102.0`'dır. Kullanılan doğru sözleşme:
+`--cert-identity`, `--cert-oidc-issuer`, `--source-ref`, `--predicate-type`,
+`--deny-self-hosted-runners`, `--limit 1`. `--signer-workflow` ve
+`--cert-identity-issuer` kullanılmaz. Eksik verifier/attestation fail-closed'dur.
 
-## 6. Regresyon kanıtı
+Testlerdeki synthetic attestation ve fake `gh`, yalnız `verifier_callable`/PATH fixture
+olarak çağrının içine açıkça yerleştirilir. Prodüksiyon consumer sahte fixture imzasını
+kabul etmez. `tests/smoke/platform_smoke.py` temiz ortamdan unsigned/provider/PYTHONPATH
+bypass'larını ayıklar.
 
-`tests/scripts_test.py`, `tests/zero_trust_security_test.py`,
-`tests/backup_and_snapshot_test.py`, `tests/vault_hygiene_test.py` ve
-`tests/foundation_*test.py` ilgili davranışları sınar. Testlerin geçtiği host,
-paket ve atlamalar tarihli doğrulama raporlarında belirtilir. Simülasyon veya
-CI matrisinin varlığı, fiziksel host/oturum açmış sağlayıcı kanıtı değildir.
+Release workflow sırası: native build → manifest attestation → exactly one bundle
+embed → strict manifest verify → outer installer/disk-image/run üretimi → outer asset
+attestation/verify → upload/publish. Bu, iç manifest ile dış asset'in zincirini korur.
 
-## 7. Yerel panelin erişim sınırı
+## 6. Gizli bilgi ve geri alma
 
-`gateway/server.py` HTTP sunucusunu `127.0.0.1` üzerine bağlar. Kaynakta permissive `Access-Control-Allow-Origin: *` CORS yanıtları vardır; bağımsız kullanıcı auth/CSRF koruması varsayılmaz. Loopback bind internet yayını için güvenlik tasarımı değildir. Bu belge panel koduna yeni koruma eklemez.
+Secret scanner yalnız güvenli path/category raporlar. Snapshot receipt'leri tree,
+commit, remote ve zaman bilgisini tutar; sır değeri tutmaz. İşlemler manifest/hash ve
+transaction journal üzerinden geri alınabilir. Human-owned not silinmez.
 
-## 8. Sağlayıcı fallback açıklamasının kapsamı
+## 7. Yerel panel sınırı
 
-Genel auto çağrıda auth/config dahil nonzero/stream hatasında sonraki aday denenebilir. Açık tercih dalı farklıdır. Ayrıntılı gerçek davranış [çoklu AI rehberinde](guides/MULTI_AI.md); eski auth hatasında daima durur açıklaması bütün çağrılar için geçerli değildir.
+Panel yalnız yetkili/yerel kullanıcıya yöneliktir; internet exposure veya kimlik/doğrulama
+koruması vaat edilmez. Panel üzerinden gelen içerik güvenilmeyen veridir.
+
+## 8. Regresyon ve dış önkoşullar
+
+Dördüncü inceleme düzeltme paketi `8/8`, gerçek Inno install/update/uninstall
+zinciri `1/1`, frozen GUI smoke `exit 0`, strict frozen lifecycle `23/23` kontrol
+ve kritik paket/source modülleri `5/5` semantic eşliğle doğrulandı. Tam yerel
+Python suite son düzeltme öncesi `875` testte `2` transient error ve `16` skip
+koştu; concurrency düzeltmesi sonrası `50/50` stress ve `36/36` modül testi geçti.
+testi kaynak `PYTHONPATH` düzeltmesinden sonra `8/8` geçti.
+
+**NOT VERIFIED:** gerçek GitHub Actions OIDC attestation/signature, Authenticode
+sertifikası/imzalı outer installer ve canlı provider oturumu. Gerçek imza/auth
+sonuçları yalnız dış release altyapısında doğrulanabilir.

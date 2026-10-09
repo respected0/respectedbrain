@@ -92,7 +92,7 @@ class BoundaryRegressionTest(unittest.TestCase):
         self.assertIn(bytecode, retained)
         package = seed_package(self.root / "package")
         with mock.patch("respectedbrain.installation.payload.validate_installed_health", return_value=None):
-            result = apply_migration(plan, roots=self.roots, package=package, backend=self.backend)
+            result = apply_migration(plan, roots=self.roots, package=package, backend=self.backend, require_provenance=False)
         self.assertTrue(result.success, result.conflicts)
         self.assertEqual(bytecode.read_bytes(), b"user bytecode")
         self.assertEqual(root_pyc.read_bytes(), b"user root bytecode")

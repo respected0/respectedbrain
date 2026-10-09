@@ -110,7 +110,8 @@ class SessionBrain:
 
     def load_index(self) -> None:
         self._validate_paths()
-        self.sessions = load_session_index(self.index_file)
+        with exclusive_lock(self.lock_file):
+            self.sessions = load_session_index(self.index_file)
         self.sessions.update(self._pending)
 
     def save_index(self) -> None:

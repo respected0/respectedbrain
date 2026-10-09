@@ -14,7 +14,7 @@ class FoundationDistributionTest(unittest.TestCase):
         from respectedbrain.installation.payload import validate_package
         platform = "windows" if os.name == "nt" else "macos" if __import__("sys").platform == "darwin" else "linux"
         distribution = ROOT / "dist" / ("RespectedBrain.app" if platform == "macos" else "RespectedBrain")
-        document = validate_package(distribution)
+        document = validate_package(distribution, require_provenance=False)
         with tempfile.TemporaryDirectory(prefix="Türkçe 🧠 ") as temporary:
             env = {**os.environ, "PATH": str(Path(os.environ["SystemRoot"]) / "System32") if os.name == "nt" else "/usr/bin:/bin", "RESPECTED_APP_DIR": str(distribution), "RESPECTED_DATA_DIR": str(Path(temporary) / "data"), "PYTHONPATH": ""}
             result = subprocess.run([str(distribution / document["launcher"]), "--version"], cwd=temporary, env=env, capture_output=True, text=True, encoding="utf-8", timeout=30)
@@ -42,4 +42,4 @@ class FoundationDistributionTest(unittest.TestCase):
             package = seed_package(Path(temporary))
             (package / "respectedbrain.exe").write_bytes(b"changed")
             with self.assertRaises(OwnershipConflict):
-                validate_package(package)
+                validate_package(package, require_provenance=False)

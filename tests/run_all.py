@@ -133,7 +133,7 @@ def main(argv=None) -> int:
     count = count_match.group(1) if count_match else "?"
     results.append((f"Python Test Suite ({count} test)", "Birim & Entegrasyon", ok, elapsed))
 
-    cmd = [sys.executable, "tests/smoke/platform_smoke.py"]
+    cmd = [sys.executable, "tests/smoke/platform_smoke.py", "--fixture-provenance"]
     ok, elapsed, _ = run_command("Fiziksel Host Platform Smoke", cmd)
     results.append(("platform_smoke.py", "Install/Turn/Update/Uninstall", ok, elapsed))
     physical_smoke_ok = ok

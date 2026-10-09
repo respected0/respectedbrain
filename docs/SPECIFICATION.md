@@ -29,7 +29,7 @@ Config dosyası yoksa paket defaults okunur; update kilit altında tekrar okuyar
 | update | Doğrulanmış yeni paket, aynı kimlik/tercihler, notlar template ile yenilenmez |
 | repair | Sahipli program/bağlantı alanları; insan notlarını yeniden başlatmaz |
 | uninstall | Yalnız kanıtlı sahiplik ve değişmemiş hash; kasa ve `.obsidian` hedef değildir |
-| purge-data | Açık seçim; sahipli teknik dosyalar; not kasasını silmez |
+| purge-data / keep-data | Varsayılan (ve açık --purge-data) yalnız kanıtlı sahipli teknik dosyaları temizler; --keep-data teknik veriyi korur; not kasası hiçbir zaman silinmez |
 | migrate | Varsayılan salt okunur plan; conflict varsa apply yapılmaz; değişiklik açık `--apply` ister |
 | recover | Yarım transaction'lar hash karşılaştırmasıyla geri alınır; eşzamanlı kullanıcı değişikliği korunur |
 

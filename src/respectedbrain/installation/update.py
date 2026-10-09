@@ -9,10 +9,10 @@ from . import payload
 from .common import ensure_linux_launcher, installed_profile
 
 
-def update(ctx, *, package, backend, shell=None) -> OperationResult:
+def update(ctx, *, package, backend, shell=None, require_provenance=None) -> OperationResult:
     tx = None
     try:
-        payload.validate_package(package)
+        payload.validate_package(package, require_provenance=require_provenance)
         if any(result.conflicts for result in recover_transactions(ctx.paths.data_root, backend)):
             return OperationResult(False, "", ("Unfinished rollback conflict",))
         with Transaction(ctx.paths.data_root, backend) as tx:
@@ -26,7 +26,7 @@ def update(ctx, *, package, backend, shell=None) -> OperationResult:
                     tx.backup(item.path)
             tx.checkpoint("stage")
             roots = Roots(ctx.paths.app_root, ctx.paths.data_root, ctx.paths.vault_root)
-            document, files = activate_package(roots, package, tx, previous)
+            document, files = activate_package(roots, package, tx, previous, require_provenance=require_provenance)
             tx.checkpoint("activate")
             # Read the latest preferences under the config lock; never copy defaults over them.
             ConfigStore(ctx.paths.data_root).update(lambda value: None, writer=tx.write_json)
@@ -43,7 +43,7 @@ def update(ctx, *, package, backend, shell=None) -> OperationResult:
             uninstallers = shell.files if shell is not None else tuple(item for item in previous.files if item.role == "uninstaller")
             tx.write_json(ctx.paths.data_root / "install-manifest.json", manifest_document(operation_manifest(ctx, (*files, *uninstallers, *launchers), external, previous=previous)))
             tx.checkpoint("health")
-            payload.validate_package(ctx.paths.app_root)
+            payload.validate_package(ctx.paths.app_root, require_provenance=require_provenance)
             payload.validate_installed_health(ctx.paths.app_root, document, ctx.paths.data_root)
             tx.checkpoint("cleanup")
             return tx.commit()

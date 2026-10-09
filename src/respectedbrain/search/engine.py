@@ -169,17 +169,19 @@ class SearchEngine:
 
                     try:
                         payload = full_path.read_bytes()
-                        text = payload.decode("utf-8", errors="replace")
                     except OSError:
                         continue
 
                     sha256 = hashlib.sha256(payload).hexdigest()
                     if not force and rel_path in existing_records:
-                        _, prev_sha = existing_records[rel_path]
+                        prev_mtime, prev_sha = existing_records[rel_path]
                         if prev_sha == sha256:
-                            con.execute("UPDATE files_meta SET mtime = ? WHERE rel_path = ?", (mtime, rel_path))
+                            if prev_mtime != mtime:
+                                con.execute("UPDATE files_meta SET mtime = ? WHERE rel_path = ?", (mtime, rel_path))
                             skipped += 1
                             continue
+
+                    text = payload.decode("utf-8", errors="replace")
 
                     fm, body = parse_markdown_meta(text)
                     title = fm.get("title") or full_path.stem

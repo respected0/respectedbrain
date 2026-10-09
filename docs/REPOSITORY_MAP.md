@@ -2,7 +2,7 @@
 
 > Bu belge `tools/repository_map.py` tarafından `docs/repository_inventory.json` içindeki gözden geçirilmiş açıklamalardan üretilir. Doğrudan bu Markdown dosyasını düzenlemeyin.
 
-**Kapsam:** 271 proje dosyası. Git indeksindeki dosyalar ve henüz eklenmemiş, ignore edilmeyen proje dosyaları dahildir. Bağımlılık/üretim önbellekleri ayrı kategoriler olarak açıklanır.
+**Kapsam:** 292 proje dosyası. Git indeksindeki dosyalar ve henüz eklenmemiş, ignore edilmeyen proje dosyaları dahildir. Bağımlılık/üretim önbellekleri ayrı kategoriler olarak açıklanır.
 
 ## Nasıl okunur ve nereden başlanır
 
@@ -138,7 +138,8 @@ secondbrain/
 │   ├── decisions/
 │   │   ├── MODULAR_FOUNDATION.md
 │   │   ├── OPERATIONS.md
-│   │   └── README.md
+│   │   ├── README.md
+│   │   └── SECURITY_HARDENING.md
 │   ├── development/
 │   │   ├── CLI.md
 │   │   └── README.md
@@ -163,7 +164,14 @@ secondbrain/
 │   │   ├── 2026-10-modular-foundation/
 │   │   │   ├── IMPLEMENTATION.md
 │   │   │   └── VERIFICATION.md
+│   │   ├── 2026-10-security-hardening/
+│   │   │   ├── F7_TRANSCRIPT_REMEDIATION.md
+│   │   │   ├── FIFTH_REVIEW_REMEDIATION.md
+│   │   │   ├── FOURTH_REVIEW_REMEDIATION.md
+│   │   │   ├── IMPLEMENTATION.md
+│   │   │   └── WINDOWS_LIFECYCLE_REVIEW.md
 │   │   ├── 2026-10-source-cleanup/
+│   │   │   ├── SOURCE_ACCEPTANCE.md
 │   │   │   ├── SOURCE_REVIEW.md
 │   │   │   └── VERIFICATION.md
 │   │   └── README.md
@@ -209,6 +217,7 @@ secondbrain/
 │       │   ├── operations.py
 │       │   ├── ownership.py
 │       │   ├── payload.py
+│       │   ├── provenance.py
 │       │   ├── repair.py
 │       │   ├── setup.py
 │       │   ├── transaction.py
@@ -385,9 +394,11 @@ secondbrain/
 │   ├── boundary_regression_test.py
 │   ├── briefing_schedule_test.py
 │   ├── briefing_schedule_windows_test.ps1
+│   ├── dns_pinning_transport_test.py
 │   ├── e2e_fresh_install_linux_test.py
 │   ├── entry_review_test.py
 │   ├── event_log_test.py
+│   ├── f7_transcript_integrity_test.py
 │   ├── foundation_cli_test.py
 │   ├── foundation_deferred_test.py
 │   ├── foundation_distribution_test.py
@@ -431,22 +442,33 @@ secondbrain/
 │   ├── output_normalization_test.py
 │   ├── package_contract_test.py
 │   ├── profile_render_test.py
+│   ├── provenance_lifecycle_transport_test.py
+│   ├── provider_permissions_test.py
 │   ├── regression_matrix_test.py
+│   ├── release_provenance_test.py
+│   ├── release_workflow_security_test.py
 │   ├── repair_daily_test.py
+│   ├── repair_writer_coordination_test.py
 │   ├── repository_map_test.py
 │   ├── run_all.py
 │   ├── runtime_layout_test.py
 │   ├── runtime_platform_test.py
 │   ├── scenario_matrix_test.py
 │   ├── scripts_test.py
+│   ├── secret_scanner_test.py
+│   ├── security_hardening_fifth_fix_test.py
+│   ├── security_hardening_fourth_fix_test.py
+│   ├── security_hardening_third_fix_test.py
 │   ├── smart_tools_test.py
 │   ├── smoke/
 │   │   ├── README.md
+│   │   ├── lifecycle_driver.py
 │   │   ├── linux.sh
 │   │   ├── macos.sh
 │   │   ├── platform_smoke.py
 │   │   ├── windows-native.ps1
 │   │   └── wsl.sh
+│   ├── snapshot_immutable_publish_test.py
 │   ├── source_cleanup_test.py
 │   ├── transaction_performance_test.py
 │   ├── turn_log_pipeline_test.py
@@ -496,9 +518,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Depo sözleşmesi.
 
-**Amaç / sorumluluk:** v* etiketi veya elle tetikleme için üç platformun native yayın paketlerini üretir ve sürüm etiketini paket metadata'sıyla eşleştirir. Python suite tests/run_all.py --python-only üzerinden çalışır ve başarısız public test kimliklerini güvenli annotation ile gösterir.
+**Amaç / sorumluluk:** v* etiketi veya elle tetikleme için üç platformun native yayın paketlerini üretir, actions/attest-build-provenance ile SLSA kriptografik build attestation oluşturur, gh attestation verify ile doğrular ve sürüm etiketini paket metadata'sıyla eşleştirir.
 
-**İlişkiler ve sınır:** PyInstaller/Inno çıktılarını doğruladıktan sonra release artifact'lerini hazırlar; kaynaktan wheel ile native paketi ayırır. Native doğrulama sonrası tests/run_all.py --python-only tam unittest logunu ve güvenli public test kimliği teşhisini sağlar.
+**İlişkiler ve sınır:** PyInstaller/Inno çıktılarını doğruladıktan sonra release artifact'lerini ve provenance attestation'larını hazırlar. tools/verify_distribution.py ve tests/run_all.py kapılarıyla bağlanır.
 
 ### Depo kökü
 
@@ -566,11 +588,11 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 #### [`docs/PROJECT_STATUS.md`](../docs/PROJECT_STATUS.md)
 
-**Rol:** Güncel belge / rehber.
+**Rol:** Süreç otoritesi.
 
-**Amaç / sorumluluk:** Aktif kaynak/yayın durumu ve kalan ürün işlerinin tek otoritesidir; yerel incelemeyi geçmiş CI/native kanıtından ayırır, kişisel rollout kararına yalnız işaretçi verir.
+**Amaç / sorumluluk:** Projenin tek aktif durum kaynağıdır; kaynak düzeltmeleri, yerel doğrulama, native paket/rollout ve kalan dış kabul sınırlarını tarihli kayıt bağlantılarıyla ayırır.
 
-**İlişkiler ve sınır:** 2026-10 kaynak inceleme kaydı fixture kapsamını açıklar; AGENTS çalışma disiplini, SECURITY hardening ve Git dışı ROLLOUT kişisel karar otoriteleridir.
+**İlişkiler ve sınır:** docs/SECURITY.md ve docs/decisions/SECURITY_HARDENING.md kararlarıyla doğrudan bağlantılıdır.
 
 #### [`docs/README.md`](../docs/README.md)
 
@@ -590,11 +612,11 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 #### [`docs/SECURITY.md`](../docs/SECURITY.md)
 
-**Rol:** Güncel belge / rehber.
+**Rol:** Güvenlik sözleşmesi.
 
-**Amaç / sorumluluk:** Provider argv izinlerini OS sandbox ile karıştırmadan, staging terfi kontrolleri, SSRF transport, sahiplik, snapshot secret, gateway CORS/auth ve fallback sınırlarını kaynaklara göre açıklar.
+**Amaç / sorumluluk:** Yerel sağlayıcı izinlerini, DNS/HTTP transport sınırlarını, Git snapshot sır taramasını, SLSA release provenance doğrulamasını ve dördüncü inceleme düzeltmelerinin güvenlik sözleşmesini açıklar.
 
-**İlişkiler ve sınır:** Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır.
+**İlişkiler ve sınır:** src/respectedbrain/providers/runner.py, ingestion/url_safety.py, ingestion/defuddle.py, backup/publish_git_snapshot.py ve installation/provenance.py ile birebir eşleşir.
 
 #### [`docs/SPECIFICATION.md`](../docs/SPECIFICATION.md)
 
@@ -608,7 +630,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Güncel belge / rehber.
 
-**Amaç / sorumluluk:** Son ürün commitinin 12 CI işini tarihlendirir; unit/wheel/frozen/native/WSL ve gerçek provider kanıtını ayırır, tarihli kayıtları ve gerçek smoke komutlarını indeksler.
+**Amaç / sorumluluk:** Son CI ürün kodunu, yerel dördüncü inceleme doğrulama zincirini ve test kanıtlarının sınırlarını indeksler.
 
 **İlişkiler ve sınır:** Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır.
 
@@ -637,6 +659,14 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 **Amaç / sorumluluk:** İki kabul edilmiş modüler tasarım/işletim kararını indeksler; tasarım kabulünün otomatik uygulama/test kanıtı olmadığını belirtir.
 
 **İlişkiler ve sınır:** Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır.
+
+#### [`docs/decisions/SECURITY_HARDENING.md`](../docs/decisions/SECURITY_HARDENING.md)
+
+**Rol:** Mimari karar.
+
+**Amaç / sorumluluk:** Üçüncü ve dördüncü güvenlik incelemelerinin mimari kararlarını, doğrulama sınırlarını ve kapanış kanıtlarını tanımlar.
+
+**İlişkiler ve sınır:** docs/SECURITY.md ve docs/records/2026-10-security-hardening altındaki kayıtlarla doğrudan bağlıdır.
 
 ### docs/development
 
@@ -734,7 +764,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Güncel belge / rehber.
 
-**Amaç / sorumluluk:** Sahipli unchanged program/external kayıt kaldırılması, değişmiş dosya conflict ve korunacak notlar/teknik veri ayrımını; explicit purge-data ve Windows pending sınırını açıklar.
+**Amaç / sorumluluk:** Sahipli unchanged program/global/yerel AI hook kayıt kaldırılması, değişmiş hook/dosya conflict ve korunacak notlar/teknik veri ayrımını; varsayılan kanıtlı teknik kayıt temizliği ile `--keep-data` opt-out'unu ve Windows pending/receipt sınırını açıklar. Yerel hook sahipliği global entegrasyon bayrağından bağımsızdır.
 
 **İlişkiler ve sınır:** Belge merkezi docs/README.md; aktif durum docs/PROJECT_STATUS.md. Gerçek dosya/komut davranışı src, packaging, tools ve tests kaynaklarıyla karşılaştırılır.
 
@@ -792,7 +822,57 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **İlişkiler ve sınır:** Aktif durum docs/PROJECT_STATUS.md; karar ve kayıt indeksleri bu dosyanın tarihsel bağlamına yönlendirir.
 
+### docs/records/2026-10-security-hardening
+
+#### [`docs/records/2026-10-security-hardening/F7_TRANSCRIPT_REMEDIATION.md`](../docs/records/2026-10-security-hardening/F7_TRANSCRIPT_REMEDIATION.md)
+
+**Rol:** Tarihli uygulama/kanıt kaydı.
+
+**Amaç / sorumluluk:** F7 ilk uygulamanın tarihsel bildirimlerini bağımsız inceleme ve takip düzeltmelerinden ayırır. Ortak state/pending alan sözleşmesi, durable günlük bloğu, bozuk health JSON, native kimlik/snapshot/provenance ve uninstall tercih/yerel hook sahipliği düzeltmelerinin RED/GREEN kanıtını ve kabul matrisini kaydeder. Yeniden üretilen frozen kaynak eşitliği, genel gate ve gerçek dış yayın kabul sınırlarını ayırır; kişisel kayıtlar Git dışındaki rollout kaydına yönlendirilir.
+
+**İlişkiler ve sınır:** Aktif durum docs/PROJECT_STATUS.md; kayıt indeksi docs/records/README.md bu dosyaya bağlanır. Uygulama ve regresyonlar src/respectedbrain/memory/flush.py, src/respectedbrain/integrations/hooks/bridge.py, tests/f7_transcript_integrity_test.py, tests/multiai_test.py, tests/scripts_test.py ve tests/turn_log_pipeline_test.py ile eşleşir.
+
+#### [`docs/records/2026-10-security-hardening/FIFTH_REVIEW_REMEDIATION.md`](../docs/records/2026-10-security-hardening/FIFTH_REVIEW_REMEDIATION.md)
+
+**Rol:** Tarihli uygulama/kanıt kaydı.
+
+**Amaç / sorumluluk:** Beşinci bağımsız incelemede açık kalan tek bulgunun kapanışını; yeniden üretilen native paketin 84/84 semantik eşitliğini, gömülü SessionBrain exclusive_lock kanıtını ve kısa distribution/GUI smoke sonuçlarını tarihler. Güncel frozen paket hash'lerini tutar; dış imza/provider sınırlarını NOT VERIFIED olarak ayırır.
+
+**İlişkiler ve sınır:** docs/records/2026-10-security-hardening/FOURTH_REVIEW_REMEDIATION.md önceki turu tarihler; docs/PROJECT_STATUS.md aktif duruma bağlar; docs/REPOSITORY_MAP.md ile birlikte üretilir.
+
+#### [`docs/records/2026-10-security-hardening/FOURTH_REVIEW_REMEDIATION.md`](../docs/records/2026-10-security-hardening/FOURTH_REVIEW_REMEDIATION.md)
+
+**Rol:** Tarihli uygulama/kanıt kaydı.
+
+**Amaç / sorumluluk:** Dördüncü bağımsız inceleme bulgularının kapanışını, uygulanan kök düzeltmeleri ve yerel doğrulama kanıtlarını kayıt altına alır.
+
+**İlişkiler ve sınır:** docs/decisions/SECURITY_HARDENING.md, docs/PROJECT_STATUS.md ve .local/handoffs altındaki test loglarıyla bağlıdır.
+
+#### [`docs/records/2026-10-security-hardening/IMPLEMENTATION.md`](../docs/records/2026-10-security-hardening/IMPLEMENTATION.md)
+
+**Rol:** Süreç kanıtı.
+
+**Amaç / sorumluluk:** Dört güvenlik sertleştirmesinin uygulama ayrıntılarını, 25 yeni testi, 840 testlik tam paket koşusunu ve gerçek sağlayıcı kabul sonuçlarını belgeler.
+
+**İlişkiler ve sınır:** docs/decisions/SECURITY_HARDENING.md ve .local/handoffs/ altındaki test loglarıyla bağlıdır.
+
+#### [`docs/records/2026-10-security-hardening/WINDOWS_LIFECYCLE_REVIEW.md`](../docs/records/2026-10-security-hardening/WINDOWS_LIFECYCLE_REVIEW.md)
+
+**Rol:** Tarihli bağımsız doğrulama kaydı.
+
+**Amaç / sorumluluk:** 2026-10-08 Windows yaşam döngüsü tesliminin hedefli testlerini, paket/kaynak farkını, gerçek preflight reddini ve iki kaldırma bulgusunu kanıtlarıyla belgeler; tek düzeltme ve artifact kabul sırasını verir.
+
+**İlişkiler ve sınır:** docs/PROJECT_STATUS.md aktif durum otoritesidir; docs/records/README.md bu kaydı indeksler. installation/cli, windows, uninstall, rendering ve paket üretimiyle ilişkilidir; yerel kanıtlar .local/archives/2026-10-08-lifecycle-review/ altındadır.
+
 ### docs/records/2026-10-source-cleanup
+
+#### [`docs/records/2026-10-source-cleanup/SOURCE_ACCEPTANCE.md`](../docs/records/2026-10-source-cleanup/SOURCE_ACCEPTANCE.md)
+
+**Rol:** Tarihli uygulama/kanıt kaydı.
+
+**Amaç / sorumluluk:** 2026-10-06 tam kaynak kabul ve doğrulama sonuçlarını kaydeder: 815 test keşfi (800 geçen, 15 platform skip, 0 failure, 0 error), Tcl/Tk wizard bootstrap runtime teşhisi, izole wheel ve frozen yaşam döngüsü kabulü, arama motoru karşılaştırmalı benchmarkı ve güvenlik/hardening sınırları.
+
+**İlişkiler ve sınır:** PROJECT_STATUS ve kayıt indeksi buraya bağlanır; başlangıç hash'leri .local/handoffs/SOURCE_ACCEPTANCE_START.json içinde, güncel dosya ilişkileri repository atlasında bulunur.
 
 #### [`docs/records/2026-10-source-cleanup/SOURCE_REVIEW.md`](../docs/records/2026-10-source-cleanup/SOURCE_REVIEW.md)
 
@@ -816,9 +896,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Tarihli uygulama/kanıt kaydı.
 
-**Amaç / sorumluluk:** Tarihli modüler temel, kaynak temizliği/incelemesi, kurucu/yayın ve belge düzenleme kayıtlarını indeksler; geçmiş kanıtın yorumlanmasını açıklar.
+**Amaç / sorumluluk:** Tarihli modüler temel, kaynak temizliği, güvenlik sertleştirme, kurucu/yayın ve belge düzenleme kayıtlarını indeksler; geçmiş kanıtın yorumlanmasını açıklar.
 
-**İlişkiler ve sınır:** Yeni SOURCE_REVIEW.md son giriş ve servis sınırı testlerini açıklar; aktif yapılacaklar PROJECT_STATUS otoritesindedir.
+**İlişkiler ve sınır:** Aktif durum docs/PROJECT_STATUS.md; tarihli kayıtlar docs/records altındaki dosyalara yönlendirir.
 
 ### docs
 
@@ -866,9 +946,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Depo sözleşmesi.
 
-**Amaç / sorumluluk:** Inno Setup kabuğunda program/vault dizinlerini ve seçenekleri sunar, payload'u stage eder ve ortak servise iletir; Apps kaldırıcı kaydını sınırlar.
+**Amaç / sorumluluk:** Inno Setup kabugudur: staged payload'dan `_inno-prepare --package` ile strict provenance on denetimini AppRoot/DataRoot/VaultRoot yazimindan once calistirir, `_inno-deploy`/`_inno-seal` ile ortak servisi surer, her adimin receipt'ini DataRoot/logs/inno-*-result.json altinda birakir, `GetCustomSetupExitCode` ile hata sonrasi nonzero doner ve basarisiz deploy'da ssDone'i yinelemez. Uninstaller'a `--purge-data`/`--no-purge-data` gecirir; gorunur setup kisisel bilgi toplamaz, ilk kullanim personalizasyonunu `welcome`'a birakir.
 
-**İlişkiler ve sınır:** installation.windows shell sahipliğini mühürler; installation.setup/update/uninstall transaction ve kayıt işlemlerini yönetir.
+**İlişkiler ve sınır:** installation.windows shell sahipligini muhurler; installation.setup/update/uninstall transaction ve kayit islemlerini yonetir. tests/foundation_native_install_test.py gercek Setup zincirini ve unsigned fail-closed sonucunu dogrular.
 
 ### Depo kökü
 
@@ -930,9 +1010,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Uygulama giriş noktası.
 
-**Amaç / sorumluluk:** Public komutları ve iç kurulum protokollerini tek parser/dispatcherda toplar. Flush yönetilen girdisini yalnız başarıdan sonra özgün baytlar değişmemişse temizler; zaten silinmiş girdi başarılı sonucu bozmaz.
+**Amaç / sorumluluk:** Public komutlari ve ic kurulum protokollerini tek parser/dispatcherda toplar. `_inno-*` protokolleri receipt'i DataRoot/logs altina yazar; receipt yazimi timeout/subprocess ve diger beklenmeyen calisma zamani hatalarinda da uretilir, hata mesaji loga ve receipt'e duser ve receipt yazilamazsa cikis kodu sifir olmaz. `_inno-prepare` `--package` ve strict provenance gerektirir; `_inno-launch` canli Inno uninstaller'i tercih eder. `welcome` profil tamamsa sessizce cikar, eksikse gizli `--app-root`/`--data-root` ile personalizasyon sihirbazini acar. Flush hook-input'un available provider/workspace/session/transcript metadata'sini ortak dogrulamaya tasir; ret girdisini korur. Uninstall varsayilani, --keep-data ve uyumluluk --purge-data ayni tercihi dogrudan servis ve deferred helper'a tasir.
 
-**İlişkiler ve sınır:** bootstrap servis bağlamını seçer; Foundation/OS ve argüman hataları çıkış kodlarına çevrilir. Hook/MCP stdout protokolü korunur; stale-input expiry memory.flush sorumluluğundadır.
+**İlişkiler ve sınır:** bootstrap servis baglamini secer; Foundation/OS ve arguman hatalari cikis kodlarina cevrilir. Hook/MCP stdout protokolu korunur; stale-input expiry memory.flush sorumlulugundadir. tests/wizard_options_test.py, tests/uninstall_test.py ve tests/security_hardening_fifth_fix_test.py welcome/purge ve receipt sinirini sinar.
 
 ### src/respectedbrain/core
 
@@ -1056,9 +1136,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Sahiplik kontrollü yaşam döngüsü.
 
-**Amaç / sorumluluk:** Çalışmakta olan executable'ın kendisini değiştirme/kaldırma işini doğrulanmış OS temp kopyasına erteler; parent PID ve request hash kontrolüyle sürdürür. Yeni tahsis ettiği aktivasyon helper geçici kökünü gerçek yoluna çevirir; keyfi paket/kullanıcı yollarındaki link reddini korur.
+**Amaç / sorumluluk:** Windows'ta kendi exe'sini kilitli tutan launcher icin update/uninstall'i dogrulanmis gecici kopyadan devreder; `require_provenance` ve `purge_data` tercihlerini request'e tasir, Inno uninstaller varsa deferred uninstall'i her zaman onun uzerinden calistirir ve sonucu backup receipt'ine yazar.
 
-**İlişkiler ve sınır:** CLI pending OperationResult verir; resume_operation ortak update/uninstall servisini çağırır; son receipt tamamlanmayı kanıtlar.
+**İlişkiler ve sınır:** installation.update/uninstall/windows ile ortak transaction'lari kullanir; installation.cli `_resume-operation` protokolunu calistirir.
 
 #### [`src/respectedbrain/installation/legacy.py`](../src/respectedbrain/installation/legacy.py)
 
@@ -1080,9 +1160,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Sahiplik kontrollü yaşam döngüsü.
 
-**Amaç / sorumluluk:** Manifest köklerini ve launcher sınırını doğrular; sahiplik kontrollü paket aktivasyonu ile bağlantı değişikliklerini planlar. operation_manifest önceki teknik kayıtları özgün hashleriyle taşır, hedefleri tekilleştirir ve config kaydını yeniler.
+**Amaç / sorumluluk:** Sahiplik ve entegrasyon ortak islemleri: manifest kok sinirlarini dogrular, paket uyelerini (attestation dahil) aktive eder, `repair_owned` ile hasarli sahipli dosyayi onarip kullanici degisikliklerini yine de reddeder, external plan kurar ve teknik sahiplik manifestini uretir. Vault icindeki sahipli yerel hook kayitlari istege bagli global entegrasyon bayragindan bagimsiz korunur; update/repair/repeated setup uninstall baseline'ini kaybetmez.
 
-**İlişkiler ve sınır:** setup/update/repair ortak manifest üretir; update/migration activate_package, tüm yaşam döngüsü servisleri validate_manifest_roots kullanır. Kullanıcı tarafından düzenlenen state/receipt dosyaları yeniden owned olarak benimsenmez.
+**İlişkiler ve sınır:** setup/update/repair/migration bu fonksiyonlari cagirir; integrations.rendering ve ownership ile calisir.
 
 #### [`src/respectedbrain/installation/ownership.py`](../src/respectedbrain/installation/ownership.py)
 
@@ -1094,25 +1174,33 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 #### [`src/respectedbrain/installation/payload.py`](../src/respectedbrain/installation/payload.py)
 
-**Rol:** Sahiplik kontrollü yaşam döngüsü.
+**Rol:** Ürün motoru.
 
-**Amaç / sorumluluk:** distribution.json schema/version/launcher ve dosya hashlerini doğrular; kanonik olmayan üye yollarını ve Windows harf büyüklüğü takma adlarını reddeder. Launcher sürüm sağlık kontrolünü 30 saniye ile sınırlar.
+**Amaç / sorumluluk:** Staged dağıtım paketlerini doğrular; distribution.json hash kontrolünün yanı sıra varsayılan require_provenance kapısıyla tüm dağıtım manifesti için SLSA/in-toto kriptografik provenance doğrulamasını işletir; launcher-only fallback kaldırılmıştır.
 
-**İlişkiler ve sınır:** setup/update/migration aktivasyon öncesinde validate_package çağırır; repair kurulu paketi denetler. Sağlık subprocess zaman aşımı/başlatma hatası OwnershipConflict ile işlem sonucuna ve geri almaya taşınır.
+**İlişkiler ve sınır:** src/respectedbrain/installation/provenance.py ve tools/verify_distribution.py tarafından çağrılır.
+
+#### [`src/respectedbrain/installation/provenance.py`](../src/respectedbrain/installation/provenance.py)
+
+**Rol:** Ürün motoru.
+
+**Amaç / sorumluluk:** Dağıtım ve paket dosyalarının SHA-256 özetini in-toto/SLSA attestation subject digesti, beklenen repo, release workflow, git refi ve verifier parametreleriyle kriptografik imza (gh/sigstore) denetimiyle doğrular; imzasız veya yetkisiz beyanlarda fail-closed çalışır.
+
+**İlişkiler ve sınır:** src/respectedbrain/installation/payload.py ve tools/verify_distribution.py tarafından kullanılır; tests/release_provenance_test.py ile sözleşmesi test edilir.
 
 #### [`src/respectedbrain/installation/repair.py`](../src/respectedbrain/installation/repair.py)
 
 **Rol:** Sahiplik kontrollü yaşam döngüsü.
 
-**Amaç / sorumluluk:** Kurtarma sonrasında operation kilidi altında manifesti ve kurulu paketi doğrular; istenen bağlantıları onarır, önceki teknik kayıtların hashlerini ve kurulu tercihleri korur.
+**Amaç / sorumluluk:** Onarim islemi: dogrulanmis `--package` kaynagi verildiginde eksik/bozuk sahipli program bilesenlerini aktive eder; package yoksa yalniz saglikli durumda devam eder ve bozuk owned dosya icin dogrulanmis paket ister. Tercihleri ve insan notlarini ezmez.
 
-**İlişkiler ve sınır:** operations.operation_manifest ile setup/update sahiplik kurallarını paylaşır; payload health ve Transaction son karşılaştırması uygulanır. Note/template üretmez.
+**İlişkiler ve sınır:** operations.activate_package ve ensure_linux_launcher kullanir; installation.update ile ayni transaction/rollback sozlesmesini paylasir.
 
 #### [`src/respectedbrain/installation/setup.py`](../src/respectedbrain/installation/setup.py)
 
 **Rol:** Sahiplik kontrollü yaşam döngüsü.
 
-**Amaç / sorumluluk:** Doğrulanmış paketi ve seçilen bağlantıları transaction içinde kurar; yalnız yeni boş vault kişiselleştirilir. Tekrar kurulumda önceki manifest kökleri aktivasyon/silme öncesi doğrulanır ve teknik sahiplik kayıtları korunur.
+**Amaç / sorumluluk:** Doğrulanmış paketi ve seçilen bağlantıları transaction içinde kurar; yalnız yeni boş vault kişiselleştirilir. Beş yerel AI hook dosyası ExternalChange olarak journal ve uninstall sahiplik manifestine alınır; health/commit hatasında geri alınır. Tekrar kurulumda önceki manifest kökleri aktivasyon/silme öncesi doğrulanır ve teknik sahiplik kayıtları korunur.
 
 **İlişkiler ve sınır:** CLI ve wizard aynı setup servisini çağırır. operations.validate_manifest_roots ve operation_manifest ortak sınırları uygular; health/commit hatasında WAL geri alma insan notlarını veya sonradan değişen baytları ezmez.
 
@@ -1128,9 +1216,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Sahiplik kontrollü yaşam döngüsü.
 
-**Amaç / sorumluluk:** Kurtarma sonrasında kilit altında güncel sahiplik manifestini okur; yalnız değişmemiş owned dosyaları kaldırır ve managed bağlantıları özgün baselinea döndürür. DataRoot varsayılan korunur.
+**Amaç / sorumluluk:** Yalniz degismemis sahipli dosya/kayitlari kaldirir. Varsayilan olarak kanitli teknik kayitlari (config/manifest) temizler, `purge_data=False`/`--keep-data` bunu atlar; backups, unknown kullanici dosyalari ve tum VaultRoot notlarini her zaman korur. Inno shell ciftini aktif uninstall sirasinda haric tutar.
 
-**İlişkiler ve sınır:** --purge-data yalnız kanıtlı teknik kayıtlara uygulanır; VaultRoot insan notları sahiplik dışında kalır. Transaction final karşılaştırması ve CAS rollback sonradan değişen dosya/dış kaydı korur.
+**İlişkiler ve sınır:** ownership, operations ve transaction ile calisir; tests/uninstall_test.py ve foundation_operations_test.py sozlesmesini sinar.
 
 #### [`src/respectedbrain/installation/update.py`](../src/respectedbrain/installation/update.py)
 
@@ -1144,17 +1232,17 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Sahiplik kontrollü yaşam döngüsü.
 
-**Amaç / sorumluluk:** Inno staging, uninstaller/registry proof, geçici helper ve finalize sonrası shell log hash mühürleme sınırını yönetir.
+**Amaç / sorumluluk:** Inno shell siniridir: `--package` zorunlu olup AppRoot/DataRoot/VaultRoot yazimindan once strict release provenance dogrular; uninstaller byte'larini onceden kanitlar, proof'u dogrular, final log muhru basar, purge secenegini uninstaller'a tasir, yalniz provenance ile dogrulanmis kaynaktan kilitli uninstaller ciftini haric tutarak helper paketini hazirlar ve kurulum/guncelleme/gecisi ortak transaction'lara yonlendirir. Dogrudan Python cagrilarinda da provenance atlanamaz.
 
-**İlişkiler ve sınır:** respected_setup.iss bu servisleri çağırır; ortak Transaction owned shell bytes'larını korur; kilitli .dat dosyası için prelaunch attestation gerekir.
+**İlişkiler ve sınır:** packaging/windows/respected_setup.iss `_inno-prepare`/`_inno-copy-helper`/`_inno-deploy` protokollerini cagirir; tests/foundation_native_install_test.py, foundation_inno_service_test.py ve security_hardening_fifth_fix_test.py dogrular.
 
 #### [`src/respectedbrain/installation/wizard.py`](../src/respectedbrain/installation/wizard.py)
 
-**Rol:** Sahiplik kontrollü yaşam döngüsü.
+**Rol:** Kullanıcı arayüzü.
 
-**Amaç / sorumluluk:** Tkinter kurulum arayüzünde vault/package/profile/provider ve optional seçimleri toplar; explicit false değerlerini korur, seçili kayıtlı vault'un profilini kullanır ve eylem anında hedef değiştirilmişse görünmeyen profile alanlarını yeniden seçer.
+**Amaç / sorumluluk:** Tkinter kurulum sihirbazidir; vault/package/profile/provider ve optional entegrasyon secimlerini toplar, Tcl/Tk runtime yollarini bootstrap eder ve kurulum/guncelleme/onarim/kaldirma islemlerini paylasilan servislere yonlendirir. Gizli profil alanlarini secili vault'un kayitli ayarlarindan cozer; explicit bos degerleri korur ve vault degisince eski active vault mirasini tasimaz.
 
-**İlişkiler ve sınır:** ConfigStore kayıtlı varsayılanları sağlar; CLI --gui başlangıç değerlerini taşır; GUI kendi installer mantığını uygulamaz.
+**İlişkiler ve sınır:** cli.py setup --gui cagirir; tests/wizard_test.py ve wizard_options_test.py davranisini sinar.
 
 ### src/respectedbrain/integrations
 
@@ -1196,7 +1284,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Ajan ve işletim sistemi bağlantısı.
 
-**Amaç / sorumluluk:** Beş provider JSON girdisini lifecycle olaylarına normalize eder ve native yanıt protokolünü üretir. Codex transcript keşfi tam session dosya son ekiyle eşleşir, bağlantılı dizinleri budar ve kaybolan dosyaları güvenli atlar.
+**Amaç / sorumluluk:** Beş provider JSON girdisini lifecycle olaylarına normalize eder ve native yanıt protokolünü retlerde de korur. Raw metadata tip/provider tutarlılığını normalizasyondan önce doğrular; cwd/workspace çelişkisini silmez ve eksik cwd'yi absent tutar. Antigravity native conversation alias'larını invocation kimliği olarak ayırır; kalıcı kimlik ve invocation alias çelişkilerini normalizasyon öncesi/sonrası reddeder. Codex transcript keşfi tam session dosya son ekiyle eşleşir, bağlantılı dizinleri budar ve kaybolan dosyaları güvenli atlar.
 
 **İlişkiler ve sınır:** CLI hook ve codex_notify kullanır; memory.lifecycle politika kaynağıdır. multiai_test yanlış session alt dizisinin seçilmemesini, transcript yolunu ve reentrant/provider protokollerini doğrular.
 
@@ -1318,11 +1406,11 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 #### [`src/respectedbrain/maintenance/backup/publish_git_snapshot.py`](../src/respectedbrain/maintenance/backup/publish_git_snapshot.py)
 
-**Rol:** Kasa bakım ve içe alma aracı.
+**Rol:** Ürün motoru.
 
-**Amaç / sorumluluk:** Opt-in Git snapshot için dosya adı secret guard, kök depo ve remote divergence denetimi uygular; fetch başarısızsa eski ref ile devam etmez, commit başarısızsa push/başarı receipt üretmez.
+**Amaç / sorumluluk:** Opt-in immutable Git snapshot yayıncısıdır; kullanıcı index’ini ve HEAD’ini korur, index/tree içeriklerini sır taramasından geçirir, commit-tree ile taranan tree’yi bağlar, receipt’ten aldığı remote parent’la zinciri kurar ve force-with-lease ile doğrulanmış push uygular.
 
-**İlişkiler ve sınır:** main selected_vault ve UUID state receipt yolunu kullanır; kaynak deposunda bu inceleme canlı push çalıştırmaz. Secret içerik taraması ve gerçek uzak yayın kabulü ayrı hardening alanıdır.
+**İlişkiler ve sınır:** tests/security_hardening_fourth_fix_test.py, snapshot_immutable_publish_test.py ve secret_scanner_test.py tarafından doğrulanır.
 
 ### src/respectedbrain/maintenance/ingestion
 
@@ -1336,11 +1424,11 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 #### [`src/respectedbrain/maintenance/ingestion/defuddle.py`](../src/respectedbrain/maintenance/ingestion/defuddle.py)
 
-**Rol:** Kasa bakım ve içe alma aracı.
+**Rol:** Ürün motoru.
 
-**Amaç / sorumluluk:** Stdlib HTMLParser ile reklam/menu/script/style gürültüsünü çıkarıp Markdown üretir; URL fetch ve tüm redirect hedeflerini SSRF filtresinden geçirir.
+**Amaç / sorumluluk:** HTML içeriğini Markdown’a çevirir ve güvenli web alımı sağlar: URL doğrulama, DNS pinning, mutlak request deadline, bounded resolver havuzu ve redirect/body boyut sınırları uygular.
 
-**İlişkiler ve sınır:** url_safety fetch ve redirect URL'lerini doğrular; --output hedefi maintenance.mutable_target(ctx, Path(args.output)) ile korunur. --file girdisi doğrudan yerel dosya olarak açılır; selected_vault kullanılmaz. Dış içerik veri olarak HTMLParser'dan geçirilir; URL kontrolü taşıma bağlantısının DNS adresine sabitlenmesi garantisi değildir. Kullanılmayan private konsol helperi kaldırıldı; mevcut main/API çağrıları ve davranış testleri korundu.
+**İlişkiler ve sınır:** url_safety.py ile çalışır; tests/security_hardening_fourth_fix_test.py ve dns_pinning_transport_test.py doğrular.
 
 #### [`src/respectedbrain/maintenance/ingestion/mine_agent_history.py`](../src/respectedbrain/maintenance/ingestion/mine_agent_history.py)
 
@@ -1352,11 +1440,11 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 #### [`src/respectedbrain/maintenance/ingestion/url_safety.py`](../src/respectedbrain/maintenance/ingestion/url_safety.py)
 
-**Rol:** Kasa bakım ve içe alma aracı.
+**Rol:** Ürün motoru.
 
-**Amaç / sorumluluk:** URL scheme/port/host/IP/DNS üzerinde private/loopback/metadata ve obfuscated adresleri reddeder; canonical text/hash ile tekrar içeriğini karşılaştırır.
+**Amaç / sorumluluk:** Ajan web araştırmalarında URL ve IP adreslerini doğrular; resolve_safe_addresses ile karışık IPv4/IPv6 yanıtlarını fail-closed reddeder ve genel IP listesini döner.
 
-**İlişkiler ve sınır:** defuddle redirects dahil bu güvenlik sınırını çağırır; otonom-arastirma skill URL güvenlik komutundan yararlanır. Kullanılmayan private konsol helperi kaldırıldı; mevcut main/API çağrıları ve davranış testleri korundu.
+**İlişkiler ve sınır:** src/respectedbrain/maintenance/ingestion/defuddle.py ve gateway bileşenleri tarafından çağrılır.
 
 ### src/respectedbrain/maintenance
 
@@ -1430,9 +1518,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Bağlamla çalışan ürün servisi.
 
-**Amaç / sorumluluk:** Provider transcript JSONL'ini bütçeyle ayıklar, beş bölümlü özeti doğrular ve korumalı daily session upsert yapar. Companion senkronizasyonu tamamlanmadan başarı saymaz; günlük yazımı sonrası özeti pending checkpoint olarak saklar ve hatayı health kaydına yazar.
+**Amaç / sorumluluk:** Direct CLI/API/hook, catch-up ve precompact arşivini session/provenance kilitleri altında doğrular. Native alanlar, nested metadata, available hook provenance, provider ve kanonik UUID sahipliği ortak sınırdan geçer; compatibility-only ve eksik owner reddedilir. Immutable snapshot byte'ı model, arşiv ve timestamp için kullanılır. Arşivden önce archived, günlükten önce pending checkpoint yazar. Ortak owner kontrolü finite timestamp, turns/attempts/hash türleri ve pending özet/tarih/reason/provider/daily_written sözleşmesini doğrular; günlük yazıldı iddiası tek geçerli kalıcı marker bloğunu gerektirir ve insan editleri korunur. FLUSH_REASONS yazıcı ve okuyucunun ortak işlem nedenidir; geçersiz giriş model/checkpoint öncesi reddedilir. Naive giriş zamanı timezone ile kaydedilir. Bozuk kayıt korunur; sağlıklı catch-up adayı devam eder. Ayrılmış session işaretçileri reddedilir; bozuk health JSON sayıları hata raporlamasını çökertmez.
 
-**İlişkiler ve sınır:** CLI memory-flush/hooks/lifecycle çağırır; ModelService özet üretir. Aynı transcript hash'inde Companion retry modeli çağırmadan ve günlükteki insan editini değiştirmeden checkpoint özetini kullanır; kısa precompact pending işi bastırmaz. events.list_events aktif/arşiv olaylarında aynı provider/session/type/time/özet içeriğini arayarak retry olayını çoğaltmaz; projeksiyon hatası pending durumunu korur. Core atomik JSON, UUID state/health ve cache/daily containment korumaları kullanılır.
+**İlişkiler ve sınır:** cli.py available hook payload'ını taşır; lifecycle.py precompact arşivini _flush_session_transcript'e verir. Catch-up provenance, timestamp ve tüketimde aynı snapshot'ı kullanır; ModelService yalnız doğrulanmış turn'leri özetler. core.platform dosya kilidi/containment ve core.config atomik JSON kullanılır. events projection pending checkpoint'ten günlük/model tekrarı olmadan sürer. f7_transcript_integrity_test kabul açıklarını, archive takeover, raw hook conflict, nested/null metadata, provider/UUID çakışması, provenance cleanup ve timestamp swap'ı byte koruması ve gerçek retry/revizyonla sınar.
 
 ### src/respectedbrain/memory/graph
 
@@ -1466,7 +1554,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Bağlamla çalışan ürün servisi.
 
-**Amaç / sorumluluk:** start/prompt/turn/end/precompact/postcompact olaylarında sınırlı Companion/maps/daily bağlamını oluşturur, prompt sayacı ve reflection debt'i yönetir, flush/compile child işlerini başlatır. Eski İngilizce ve events tarafından üretilen Türkçe oturum/aktif konu başlıklarını okur; precompact Session-Logs hedefinde link/reparse sınırı uygular.
+**Amaç / sorumluluk:** start/prompt/turn/end/precompact/postcompact olaylarında sınırlı Companion/maps/daily bağlamını oluşturur, prompt sayacı ve reflection debt'i yönetir, flush/compile child işlerini başlatır. Hook provenance kaydı otomatik temizlenmez; kalıcı çelişki korunur. Eski İngilizce ve üretilen Türkçe oturum başlıklarını okur. Precompact Session-Logs arşivini hedef containment kontrolünden sonra ortak flush kilit/doğrulama yolunda snapshot byte'ından üretir.
 
 **İlişkiler ve sınır:** integrations.hooks.bridge payload normalizasyonuyla handle_event çağırır. bootstrap.launcher_argv kaynak Python ve frozen executable komutlarını ayırır; core.coordination.guarded_writer UUID yazıcı lease sağlar; state DataRoot altındadır. reentrant hook guard döngüyü engeller; maps.refresh_maps başlangıç haritalarını üretir.
 
@@ -1532,11 +1620,11 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 #### [`src/respectedbrain/providers/runner.py`](../src/respectedbrain/providers/runner.py)
 
-**Rol:** Bağlamla çalışan ürün servisi.
+**Rol:** Ürün motoru.
 
-**Amaç / sorumluluk:** Seçili config ile Claude/Codex/Antigravity/Gemini/Cursor ve özel komutu shell açmadan çalıştırır. Bozuk/negatif recursion depth engellenir, hatalı structured response başarı sayılmaz; provider response hatası sınırlı kategoriyle raporlanır.
+**Amaç / sorumluluk:** Yerel LLM sağlayıcılarını (Claude, Codex, Antigravity, Gemini, Cursor) güvenli argüman dizileriyle çalıştırır; tehlikeli bypass bayraklarını engeller, metin modunda araçları ve sandbox politikalarını kısıtlar (Gemini sandbox plan, Cursor fail-closed), custom komut güvenlik sözleşmesini uygular.
 
-**İlişkiler ve sınır:** ModelRunner flush/compile/briefing ve gateway ModelService'idir. Çalıştırıcı ve ProviderStatus aynı executable keşfini kullanır; WSL Windows workspace çağrısı stage yerine genel temp'e geçemez, text fallback davranışı korunur. Özel komut Windows'ta CommandLineToArgvW, diğer sistemlerde shlex ile ayrıştırılır. ProviderStatus gateway'e kopyalanmış instance cache döndürür; monotonic 45 saniye cache ve version probe login/auth başarısını kanıtlamaz (unknown). Native/WSL ortam yönlendirmesi korunur.
+**İlişkiler ve sınır:** respectedbrain.memory.flush ve compile servisleri tarafından çağrılır; tests/provider_permissions_test.py ile doğrulanır.
 
 ### src/respectedbrain/resources
 
@@ -2070,7 +2158,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Bağlamla çalışan ürün servisi.
 
-**Amaç / sorumluluk:** SQLite FTS5/BM25 indeksi, kategori araması ve path/alias/anchor backlink sorgusu sağlar. Artımlı indeks kararını gerçek dosya bayt hash'iyle verir; yalnız mtime'a güvenmez. Frontmatter yalnız baştaki delimiter satırları arasında ayrıştırılır.
+**Amaç / sorumluluk:** SQLite FTS5/BM25 indeksi, kategori araması ve path/alias/anchor backlink sorgusu sağlar. Artımlı indeks kararını gerçek dosya bayt hash'iyle verir; yalnız mtime'a güvenmez. Değişmeyen dosyalarda metin çözümleme ve no-op SQL güncellemeleri ötelenir. Frontmatter yalnız baştaki delimiter satırları arasında ayrıştırılır.
 
 **İlişkiler ve sınır:** CLI search, MCP, gateway ve bounded_recall aynı UUID cache veritabanını kullanır. Constructor ve her connection DB/journal/WAL/SHM yollarını DataRoot sınırında doğrular; writer lease indeks yazımını koordine eder. Vault taraması link/junction ve nested excluded dizinleri geçmez; sorgu sonuçlarında da güncel yol sınırı kontrol edilir. FTS fallback kategori koşulunu korur; nonpositive search/backlink limit boş sonuç üretir. read_head/parse_frontmatter_head API yardımcıları korunur.
 
@@ -2114,7 +2202,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Provider fallback tükenmesi/timeout/auth error kategorileri, Windows görünmez süreçleri ve compiler concurrent-edit allowlist güvenliğini sınar. Odak örnekleri: `test_auto_fallback_exhaustion_returns_last_provider_error`, `test_auto_fallback_handles_timeout_and_advances_to_next_candidate`, `test_auto_fallback_handles_oserror_exec_error_and_advances`. Recursion depth, workspace stage sınırı, malformed JSON ve raw-secret redaction testleri eklenmiştir; Windows özel komut ayrıştırması gerçek Python fixture child ile doğrulanır; gerçek provider çalıştırılmaz.
+**Amaç / sorumluluk:** Provider fallback tükenmesi/timeout/auth error kategorileri, Windows görünmez süreçleri ve compiler concurrent-edit allowlist güvenliğini sınar. Odak örnekleri: 	est_auto_fallback_exhaustion_returns_last_provider_error, 	est_auto_fallback_handles_timeout_and_advances_to_next_candidate, 	est_auto_fallback_handles_oserror_exec_error_and_advances. Recursion depth, workspace stage sınırı, malformed JSON ve raw-secret redaction testleri eklenmiştir; Windows özel komut quoting sözleşmesi (literal apostrof, çift tırnak, unicode) gerçek Python fixture child ile doğrulanır; gerçek provider çalıştırılmaz.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.providers`, `respectedbrain.memory`, `respectedbrain.core`.
 
@@ -2174,6 +2262,14 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **İlişkiler ve sınır:** foundation_integrations_test'in gerçek Windows backend kanıtını ve briefing_schedule_test'i çağırır; run_all Windows kabul kapısıdır.
 
+#### [`tests/dns_pinning_transport_test.py`](../tests/dns_pinning_transport_test.py)
+
+**Rol:** Doğrulama paketi.
+
+**Amaç / sorumluluk:** DNS socket pinning, rebinding önleme, karışık IPv4/IPv6 yanıtlarının reddi, genel zaman aşımı tavanı, sıkı TLS context/SNI ve proxy bypass korumasını sınar.
+
+**İlişkiler ve sınır:** src/respectedbrain/maintenance/ingestion/url_safety.py ve defuddle.py modüllerini doğrular.
+
 #### [`tests/e2e_fresh_install_linux_test.py`](../tests/e2e_fresh_install_linux_test.py)
 
 **Rol:** Davranış/regresyon testi.
@@ -2198,11 +2294,19 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.memory`.
 
+#### [`tests/f7_transcript_integrity_test.py`](../tests/f7_transcript_integrity_test.py)
+
+**Rol:** Güvenlik ve veri bütünlüğü regresyon testi.
+
+**Amaç / sorumluluk:** F7 davranış regresyonları: gerçek lock timeout/byte koruması, direct/raw hook provenance, foreign precompact archive/owner, compatibility/orphan retleri, nested/null metadata, provider/UUID kimliği, immutable gövde/timestamp, Antigravity invocation ve native hata protokolü. Pending kaydın her alanı ve top-level timestamp/turns/hash/attempts için bozuk tür/değer tablosu; ret halinde checkpoint/compatibility byte koruması, sıfır model çağrısı ve sağlıklı catch-up adayının devamı doğrulanır. Geçersiz işlem nedeni yeni checkpoint/model çağrısı oluşturmadan reddedilir. daily_written=True için eksik/insanla değiştirilmiş/çift/bozuk marker günlükleri başarı sayılmaz. Bozuk health NaN hata raporlamasını çökertmez; model/doğrudan günlük işaretçisi enjeksiyonu reddedilir.
+
+**İlişkiler ve sınır:** memory.flush üretim parser, model staging, OS kilidi ve persistence yollarını izole make_context fixture'larında çalıştırır; canlı kasa/provider kullanılmaz. Bridge → CLI olumlu akışlarında CLI saati NOW ile sabittir; gerçek gün/gece yarısı fixture günlük yolunu değiştirmez. core.context.ModelResult ve foundation_support.make_context deterministic model ve iki test kasası sağlar; yarış takvimi ve disk/model hataları kontrollü enjekte edilir.
+
 #### [`tests/foundation_cli_test.py`](../tests/foundation_cli_test.py)
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Module/console girişlerinin aynı dispatcher olmasını, explicit vault seçimini ve hook/MCP protokol stdout'ının korunmasını sınar. Odak örnekleri: `test_module_and_entrypoint_dispatch_identically`, `test_vault_selector_validation`, `test_existing_features_have_one_dispatcher`. Console girişini interpreter kardeşi varsayımı yerine sysconfig scripts dizininden seçerek global kurulum ve venv düzenini birlikte sınar.
+**Amaç / sorumluluk:** Module/console girişlerinin aynı dispatcher olmasını, explicit vault seçimini ve hook/MCP protokol stdout'ının korunmasını sınar. Console girişini sysconfig scripts dizininden seçerek global kurulum ve venv düzenini birlikte sınar. Normal uninstall, --keep-data ve --purge-data için deferred ve doğrudan servise aynı teknik temizleme tercihinin taşındığını doğrular.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.cli`, `respectedbrain.installation.transaction`.
 
@@ -2234,9 +2338,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Inno'nun yalnız stage kabuğu kalmasını, uninstaller/registry sahipliğini ve health başarısızlığında shell baseline rollback'ini sınar. Odak örnekleri: `test_shell_preparation_refuses_unowned_files_and_registry_without_writes`, `test_registration_and_uninstaller_are_owned_by_shared_setup`, `test_failed_health_restores_pre_shell_uninstaller_bytes_and_registry`. Fixture kökleri kanonik yollarla kurulur; macOS /var ve Windows kısa temp adları gerçek yol kimliğiyle karşılaştırılır.
+**Amaç / sorumluluk:** Inno shell hazirligi, sahiplik reddi, provenance fail-closed, paylasilan setup kaydi ve CLI `_inno-prepare` receipt/hata zincirini sinar. Odak ornekleri: `test_shell_preparation_refuses_unowned_files_and_registry_without_writes`, `test_registration_and_uninstaller_are_owned_by_shared_setup`, `test_cli_prepare_fails_closed_without_attestation_and_writes_receipt`.
 
-**İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.paths`, `respectedbrain.installation.ownership`, `respectedbrain.installation.windows`, `respectedbrain.core.errors`, `respectedbrain.integrations.backend`.
+**İlişkiler ve sınır:** unittest kesfi tests/run_all.py ve CI tarafindan yapilir; production servisleri gecici fixture kokleriyle sinanir, kisisel vault kullanilmaz.
 
 #### [`tests/foundation_install_support.py`](../tests/foundation_install_support.py)
 
@@ -2298,17 +2402,17 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Gerçek frozen/Inno kurulum, kullanımda executable update, başarısız health rollback ve managed uninstall senaryolarını native Windows'ta sınar. Odak örnekleri: `test_executable_in_use_update_and_health_rollback`, `test_readonly_app_root_writes_cache_only_to_data`, `test_actual_inno_install_update_and_owned_uninstall`. Fixture kökleri kanonik yollarla kurulur; macOS /var ve Windows kısa temp adları gerçek yol kimliğiyle karşılaştırılır. Native Inno compiler için CI INNO_COMPILER girdisini kullanır; OS temp alias fixture kökü kanonikleştirilir.
+**Amaç / sorumluluk:** Gercek Windows EXE/Inno zincirini dogrular: kurulum, kullanimda update/health rollback, readonly AppRoot, unsigned dagitim fail-closed ve gercek Apps kaldirma komutunun varsayilan teknik purge siniri (vault, unknown ve backups korunur).
 
-**İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.installation.payload`, `respectedbrain.installation.ownership`.
+**İlişkiler ve sınır:** unittest kesfi tests/run_all.py ve CI tarafindan yapilir; native Inno compiler icin INNO_COMPILER kullanilir, kisisel vault kullanilmaz.
 
 #### [`tests/foundation_operations_test.py`](../tests/foundation_operations_test.py)
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Bakım işlemlerinde note/ayar/baseline koruması ve phase rollback sınanır; bozuk manifest, kanonik olmayan paket yolu, sağlık timeoutu, kurtarma sonrası güncel manifest, geç kullanıcı düzenlemesi ve migration teknik sahiplik kaydının korunması regresyonları içerir.
+**Amaç / sorumluluk:** Bakim islemlerinde note/ayar/baseline korumasi ve phase rollback sinanir; bozuk manifest, kanonik olmayan paket yolu, saglik timeoutu, kurtarma sonrasi guncel manifest, gec kullanici duzenlemesi, migration teknik sahiplik kaydinin korunmasi ve aktif Inno shell sahipligi regresyonlarini icerir.
 
-**İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.config`, `respectedbrain.installation.setup`, `respectedbrain.installation.update`, `respectedbrain.installation.repair`, `respectedbrain.installation.uninstall`, `respectedbrain.core.paths`, `respectedbrain.vault.registry`, `respectedbrain.integrations.backend`, `respectedbrain.installation.ownership`, `respectedbrain.installation.transaction`.
+**İlişkiler ve sınır:** unittest kesfi tests/run_all.py ve CI tarafindan yapilir; production servisleri gecici fixture kokleriyle sinanir, kisisel vault kullanilmaz.
 
 #### [`tests/foundation_packaged_commands_test.py`](../tests/foundation_packaged_commands_test.py)
 
@@ -2346,7 +2450,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Gateway ayar değişikliklerinin legacy tree olmadan kullanıcı ConfigStore'una kaydolmasını sınar. Odak örnekleri: `test_gateway_config_is_user_config_even_without_legacy_tree`. Ayrıca gerçek geçici HTTP sunucusunda Host/Origin, hatalı JSON/gövde boyutu, BusyError 503, traversal/junction, çakışmasız capture, kısmi indeksleme başarısı ve dürüst sağlık/güncelleme durumunu sınar; Node ile güncelleme UI fonksiyonunu çalıştırır.
+**Amaç / sorumluluk:** Gateway ayar değişikliklerinin legacy tree olmadan kullanıcı ConfigStore'una kaydolmasını sınar. Odak örnekleri: `test_gateway_config_is_user_config_even_without_legacy_tree`. Ayrıca gerçek geçici HTTP sunucusunda Host/Origin/Sec-Fetch-Site cross-site reddi, hatalı JSON/gövde boyutu, BusyError 503, traversal/junction, çakışmasız capture, kısmi indeksleme başarısı ve dürüst sağlık/güncelleme durumunu sınar; Node ile güncelleme UI fonksiyonunu çalıştırır.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.gateway.server`, `respectedbrain.core.config`.
 
@@ -2354,7 +2458,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Pure yeni vault, dolu unregistered hedef reddi, tekrar kurulum/insan notu koruması ve health/busy gate sınanır; önceki manifestte AppRoot dışındaki owned dosyanın tekrar kurulumda silinmemesi doğrulanır.
+**Amaç / sorumluluk:** Pure yeni vault, dolu unregistered hedef reddi, tekrar kurulum/insan notu koruması ve health/busy gate sınanır. Gerçek NativeBackend geçici kökleriyle beş yerel hook'un setup/update/repair boyunca sahipli kalması, purge/keep-data uninstall'da temizlenmesi ve not hash'lerinin korunması doğrulanır. Kullanıcı değiştirdiği hook conflict ile korunur; health hatasında yerel hook kayıtları rollback edilir.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.paths`, `respectedbrain.core.config`, `respectedbrain.installation.setup`, `respectedbrain.installation.ownership`, `respectedbrain.installation`, `respectedbrain.installation.transaction`.
 
@@ -2410,9 +2514,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Test altyapısı veya native kabul girişi.
 
-**Amaç / sorumluluk:** Bash girişinde sekiz explicit-context Python hook regresyonunu çalıştırır: protocol, provider normalization, Antigravity/Codex transcript güvenliği, shared lifecycle ve Windows/WSL vault path eşleşmesi.
+**Amaç / sorumluluk:** Bash girişinde sekiz explicit-context Python hook regresyonunu çalıştırır; kaynak kökünü PYTHONPATH ile bağlar, BASH/WSL ve Windows path ayrımını korur.
 
-**İlişkiler ve sınır:** foundation_integrations_test ve multiai_test gerçek ürün köprülerini geçici fixture/mock provider ile sınar; shell compatibility engine'i çalıştırmaz. Bash bulunan tests/run_all host'larında çağrılır.
+**İlişkiler ve sınır:** foundation_integrations_test ve multiai_test geçici fixture/mock provider ile çağrılır; tests/run_all.py host kapısında çalıştırılır.
 
 #### [`tests/hybrid_wsl_smoke.ps1`](../tests/hybrid_wsl_smoke.ps1)
 
@@ -2490,7 +2594,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Beş provider render output ve bridge normalization/transcript seçimini, WSL context/notify/fallback uyarlamalarını ve generated drift'i sınar. Odak örnekleri: `test_generated_files_have_no_drift`, `test_all_provider_configs_point_to_bridge`, `test_fresh_generated_adapters_expose_only_the_current_product_identity`. Ayrıca Codex transcript kimliğinin alt dizisiyle yanlış oturum seçilmesini ve junction notify chain dosyasının forwarding öncesi reddini doğrular.
+**Amaç / sorumluluk:** Beş provider render output ve bridge normalization/transcript seçimini, WSL context/notify/fallback uyarlamalarını ve generated drift'i sınar. Odak örnekleri: `test_generated_files_have_no_drift`, `test_all_provider_configs_point_to_bridge`, `test_fresh_generated_adapters_expose_only_the_current_product_identity`. Ayrıca eksik hook workspace'in vault varsayılmadığını, Codex transcript kimliğinin alt dizisiyle yanlış oturum seçilmesini ve junction notify chain dosyasının forwarding öncesi reddini doğrular.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.integrations.backend`, `respectedbrain.integrations`, `respectedbrain.integrations.hooks`, `respectedbrain.providers`, `respectedbrain.core.config`.
 
@@ -2542,6 +2646,22 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.integrations.backend`, `respectedbrain.integrations`, `respectedbrain.core.errors`, `respectedbrain.installation.common`, `respectedbrain.core.paths`.
 
+#### [`tests/provenance_lifecycle_transport_test.py`](../tests/provenance_lifecycle_transport_test.py)
+
+**Rol:** Davranış/regresyon testi.
+
+**Amaç / sorumluluk:** Scoped synthetic SLSA attestation'ın setup, update, repair ve deferred update yaşam döngüsünde taşınmasını, ownership manifest'e eklenmesini ve normal consumer'ın provenance olmadan fail-closed kalmasını Windows fixture'ında sınar.
+
+**İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; işlem yalnız geçici Roots/backend üzerinde yürütülür, gerçek kurulum yapılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.installation.provenance`, `respectedbrain.installation.payload`, `respectedbrain.installation.setup`, `respectedbrain.installation.update`, `respectedbrain.installation.repair`, `respectedbrain.installation.deferred`, `respectedbrain.installation.ownership`.
+
+#### [`tests/provider_permissions_test.py`](../tests/provider_permissions_test.py)
+
+**Rol:** Doğrulama paketi.
+
+**Amaç / sorumluluk:** Tüm sağlayıcıların izin atlayan bypass seçeneklerinden arındırıldığını, metin/workspace sandbox ayrımını, çalışma zamanı dosya sınır ihlallerini ve custom komut güvenlik sözleşmesini sınar.
+
+**İlişkiler ve sınır:** src/respectedbrain/providers/runner.py modülünü doğrular.
+
 #### [`tests/regression_matrix_test.py`](../tests/regression_matrix_test.py)
 
 **Rol:** Davranış/regresyon testi.
@@ -2550,6 +2670,22 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.memory`, `respectedbrain.integrations.hooks`, `respectedbrain.providers`, `respectedbrain.core`, `respectedbrain.briefing`, `respectedbrain.maintenance`, `respectedbrain.core.context`.
 
+#### [`tests/release_provenance_test.py`](../tests/release_provenance_test.py)
+
+**Rol:** Doğrulama paketi.
+
+**Amaç / sorumluluk:** SLSA build provenance, paket SHA-256 kriptografik bağı, repo/workflow/ref sınırları, imzasız/sahte imza durumlarındaki fail-closed davranışları sınar.
+
+**İlişkiler ve sınır:** src/respectedbrain/installation/provenance.py ve payload.py modüllerini doğrular.
+
+#### [`tests/release_workflow_security_test.py`](../tests/release_workflow_security_test.py)
+
+**Rol:** Davranış/regresyon testi.
+
+**Amaç / sorumluluk:** Release workflow'ta checksum-pinli gh kurulumu, native build, manifest attestation download/embed, strict consumer verify, outer asset attest/verify ve publish sırasını; temiz smoke ortamının unsigned/provider/PYTHONPATH bypass'larından arındırılmasını sınar.
+
+**İlişkiler ve sınır:** `.github/workflows/release.yml` kaynak sözleşmesi ile `tests/smoke/platform_smoke.py` clean-environment yardımcıını statik ve davranışsal doğrular. Gerçek GitHub Actions OIDC/imza koşturması yapmaz; dış release kanıtı bu testin kapsamı dışındadır.
+
 #### [`tests/repair_daily_test.py`](../tests/repair_daily_test.py)
 
 **Rol:** Davranış/regresyon testi.
@@ -2557,6 +2693,14 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 **Amaç / sorumluluk:** Exact/near duplicate daily blokları, ayrı oturum koruması, backup ve batch/date/help CLI exit davranışlarını sınar. Odak örnekleri: `test_repair_daily_file_not_found`, `test_repair_daily_file_single_block_creates_backup_and_returns_unmodified`, `test_repair_daily_file_exact_duplicate_blocks`.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.maintenance`.
+
+#### [`tests/repair_writer_coordination_test.py`](../tests/repair_writer_coordination_test.py)
+
+**Rol:** Davranis/regresyon testi.
+
+**Amaç / sorumluluk:** Iki kasanin ayni kurulumu paylastigi senaryoda diger kasanin aktif yazici lease'i varken repair cagrisinin paylasilan AppRoot/manifest/config uzerinde degisiklik yapmadan guvenli sekilde reddedildigini dogrular; lease birakildiginda dogrulanmis repair'in basarili oldugunu, mutation transaction'inin tum kasalari quiesce ettigini (yalnizca secili UUID degil) ve kurtarma/rollback akisinin tum kasalari koordine ettigini test eder.
+
+**İlişkiler ve sınır:** unittest kesfi tests/run_all.py ve CI tarafindan yapilir; production setup/repair servisleri gecici fixture kokleriyle sinanir, kisisel vault kullanilmaz. Dogrudan sindadigi urun import noktalari: respectedbrain.installation.repair, respectedbrain.installation.transaction, respectedbrain.core.coordination, respectedbrain.vault.registry.
 
 #### [`tests/repository_map_test.py`](../tests/repository_map_test.py)
 
@@ -2602,9 +2746,41 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Transcript cap/modern Codex extraction, flush/compile cache staging, summary validation ve durable günlük pipeline güvenlik regresyonlarını sınar. Odak örnekleri: `test_engines_do_not_import_posix_locking_directly`, `test_flush_temp_directory_uses_uuid_cache_parent`, `test_compile_stage_uses_uuid_cache_parent_and_remains_external`. Ayrıca cache/daily junction, eşzamanlı JSON, bozuk durum, kısa precompact, başarılı oturum revizyonu, canlı edit çatışması ve promote/rollback kurtarma regresyonlarını geçici fixture ile sınar.
+**Amaç / sorumluluk:** Transcript cap/modern Codex extraction, flush/compile cache staging, summary validation ve durable günlük pipeline güvenlik regresyonlarını sınar. Odak örnekleri: `test_engines_do_not_import_posix_locking_directly`, `test_flush_temp_directory_uses_uuid_cache_parent`, `test_compile_stage_uses_uuid_cache_parent_and_remains_external`. Ayrıca F7 cross-vault catch-up provenance, retry/duplicate ve Windows/WSL path regresyonlarını; duplicate session ID, farklı transcript identity, provider session ID mismatch, bozuk provenance replay ve malformed metadata fail-closed davranışlarını; direct flush ownership, legacy/invalid transcript state, yeni session, same-transcript revision, failed retry ve structurally invalid provider payload regresyonlarını; cache/daily junction, eşzamanlı JSON, bozuk durum, kısa precompact, başarılı oturum revizyonu, canlı edit çatışması ve promote/rollback kurtarma regresyonlarını geçici fixture ile sınar.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.memory`, `respectedbrain.providers.runner`, `respectedbrain.core.config`, `respectedbrain.core.context`.
+
+#### [`tests/secret_scanner_test.py`](../tests/secret_scanner_test.py)
+
+**Rol:** Doğrulama paketi.
+
+**Amaç / sorumluluk:** Not içeriklerindeki sentetik token ve anahtar bloklarının sızıntısız tespiti, sliding window sınır bölünmesi, Git index blob taraması ve symlink kaçışlarını sınar.
+
+**İlişkiler ve sınır:** src/respectedbrain/maintenance/backup/publish_git_snapshot.py modülünü doğrular.
+
+#### [`tests/security_hardening_fifth_fix_test.py`](../tests/security_hardening_fifth_fix_test.py)
+
+**Rol:** Davranış/regresyon testi.
+
+**Amaç / sorumluluk:** Besinci inceleme sertlestirmesini sinar: eksik/bozuk attestation ile update, repair, deferred activation, copy_helper ve prepare_shell fail-closed kalir; degistirilmis kaynak paket helper uretmez; `_inno-prepare` `--package` olmadan basarisizdir; fixture provenance ile gercek yayin imzasi ayrimi ve wizard/cli kaynaginda mojibake olmadigi dogrulanir.
+
+**İlişkiler ve sınır:** unittest kesfi tests/run_all.py ve CI tarafindan yapilir; tests/foundation_install_support.py fixture'larini ve tests/foundation_transactions_test.py Backend'ini kullanir. Dogrudan sinadigi urun import noktalari: `respectedbrain.installation.provenance`, `payload`, `setup`, `update`, `repair`, `deferred`, `windows` ve `respectedbrain.cli`.
+
+#### [`tests/security_hardening_fourth_fix_test.py`](../tests/security_hardening_fourth_fix_test.py)
+
+**Rol:** Güvenlik regression testi.
+
+**Amaç / sorumluluk:** Dördüncü inceleme bulgularını sınar: ardışık snapshot zinciri, HTTP mutlak deadline ve frozen GUI Tcl/Tk paketleme.
+
+**İlişkiler ve sınır:** publish_git_snapshot.py, defuddle.py ve tools/build_installer.py davranışlarını geçici Git/socket fixture’larıyla doğrular.
+
+#### [`tests/security_hardening_third_fix_test.py`](../tests/security_hardening_third_fix_test.py)
+
+**Rol:** Güvenlik/regresyon testi.
+
+**Amaç / sorumluluk:** Üçüncü incelemenin regresyonları: custom child retleri, exact gh identity/issuer/ref argv'si, unsigned env bypass, HTTP mutlak deadline, bounded resolver, nonzero çıktı ve detached descendant containment. DNS shutdown testi gerçek resolver worker'ın bloklandığını readiness işaretiyle bekler; yalnız çıkış süresini ölçerek interpreter/import başlangıcını sözleşmeden ayırır.
+
+**İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; process/network testleri sentetik subprocess/socket/thread fixture kullanır. Doğrudan sınadığı ürün import noktaları: `respectedbrain.providers.runner`, `respectedbrain.installation.provenance`, `respectedbrain.installation.payload`, `respectedbrain.maintenance.ingestion.defuddle`.
 
 #### [`tests/smart_tools_test.py`](../tests/smart_tools_test.py)
 
@@ -2623,6 +2799,14 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 **Amaç / sorumluluk:** Fiziksel host smoke komutlarını ve JSON overall=VERIFIED + exit 0 kanıt ölçütünü açıklar.
 
 **İlişkiler ve sınır:** platform_smoke.py ve platform wrapper'ları geçici HOME/vault kullanır; test raporu gerçek kişisel profile erişmez.
+
+#### [`tests/smoke/lifecycle_driver.py`](../tests/smoke/lifecycle_driver.py)
+
+**Rol:** Test altyapısı veya native kabul girişi.
+
+**Amaç / sorumluluk:** İzole physical-smoke işlemi için setup, update, repair, deferred-update veya uninstall çağrısını strict provenance varsayılanıyla tek yaşam döngüsü eylemi olarak yürütür; non-setup seçimini kayıtlı vault-id üzerinden bağlar.
+
+**İlişkiler ve sınır:** `tests/smoke/platform_smoke.py` bu sürücüyü geçici AppRoot/DataRoot/VaultRoot ve fixture package ile çağırır; doğrudan çalıştırıldığında da yalnız verilen köklerde işlem yapar. Ürün servis importları `respectedbrain.installation.setup/update/repair/uninstall/deferred` ve `respectedbrain.vault.registry.build_context` üzerinden bağlanır.
 
 #### [`tests/smoke/linux.sh`](../tests/smoke/linux.sh)
 
@@ -2644,7 +2828,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Test altyapısı veya native kabul girişi.
 
-**Amaç / sorumluluk:** Geçici HOME/AppRoot/DataRoot/vault üzerinde native kurulum, beş adapter, turn upsert, iki update ve managed uninstall kontrollerini süre/platform kanıt JSON'una döker. macOS kaynak paketi ve geçici kurulum hedefi .app uzantılı bundle olur; diğer hostların düz dizin yerleşimi korunur.
+**Amaç / sorumluluk:** Geçici HOME/AppRoot/DataRoot/vault üzerinde native kurulum, beş adapter, turn upsert, repair, iki update, deferred self-update receipt ve managed uninstall kabulünü kanıt JSON'una döker. Global test bağlantıları eklenirken önceki yerel hook sahiplik/baseline kayıtları korunur; manifestte kalmaları ve uninstall sonrası beş yerel dosyanın yokluğu ayrıca doğrulanır. Fixture provenance fail-closed tüketici yolunu sınar; gerçek yayın kanıtı değildir. macOS .app bundle ve Windows deferred receipt sınırları korunur.
 
 **İlişkiler ve sınır:** Linux/macOS/WSL/Windows wrapper'ları aynı runner'ı çalıştırır; run_all yalnız çalıştığı gerçek host'u verified sayar. Doğrudan sınadığı ürün import noktaları: `respectedbrain.installation.payload`, `respectedbrain.core.config`, `respectedbrain.core.paths`, `respectedbrain.vault.registry`, `respectedbrain.integrations.backend`, `respectedbrain.integrations.rendering`, `respectedbrain.installation.transaction`, `respectedbrain.installation.operations`, `respectedbrain.installation.ownership`.
 
@@ -2666,6 +2850,14 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 ### tests
 
+#### [`tests/snapshot_immutable_publish_test.py`](../tests/snapshot_immutable_publish_test.py)
+
+**Rol:** Güvenlik/regresyon testi.
+
+**Amaç / sorumluluk:** Gerçek geçici Git repo ve bare remote ile scan sonrası isolated-index injection, staged-only secret, clean-filter secret injection ve tracked/ignored not korunumunu; publication'ın yalnız taranmış immutable tree commit'ini push etmesini sınar.
+
+**İlişkiler ve sınır:** Git bulunamadığında kontrollü skip uygular; commit/push yalnız TemporaryDirectory içindeki fixture bare remote'a gider. Doğrudan sınadığı ürün import noktası: `respectedbrain.maintenance.backup.publish_git_snapshot.publish_if_due` ve secret scan yardımcılarıdır.
+
 #### [`tests/source_cleanup_test.py`](../tests/source_cleanup_test.py)
 
 **Rol:** Davranış/regresyon testi.
@@ -2686,7 +2878,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Aynı session upsert, 24 process günlük writer, midnight/late revision, notify opaque chaining ve failed-session catch-up retry davranışlarını sınar. Odak örnekleri: `test_later_turn_replaces_the_same_session_without_touching_human_text`, `test_two_sessions_survive_concurrent_updates_without_truncation`, `test_twenty_four_processes_share_one_daily_without_lost_updates`. Kalıcı kilit kimliğini, bozuk günlük işaretçilerinde bayt korumasını ve atomik staging sırasında insan düzenlemesini de sınar.
+**Amaç / sorumluluk:** Aynı session upsert, 24 process günlük writer, midnight/late revision, notify chaining ve failed-session catch-up retry davranışlarını sınar. Shared flush AppContext kökleri fixture'da gerçek vault/state ayrımıyla korunur; farklı transcript late revision ownership conflict ile reddedilir.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.memory`, `respectedbrain.integrations.hooks`.
 
@@ -2694,9 +2886,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Owned unchanged global/MCP/task/shortcut restore, bilinmeyen/değişmiş kayıt koruması ve explicit data purge sırasında vault'un korunmasını sınar. Odak örnekleri: `test_remove_global_integrations_restores_user_configs_exactly`, `test_notify_without_previous_chain_removes_only_owned_registration`, `test_notify_restores_opaque_original_outer_notifier_and_removes_owned_chain`.
+**Amaç / sorumluluk:** Owned unchanged global/MCP/task/shortcut restore, bilinmeyen/degismis kayit korumasi sinanir; varsayilan uninstall'in kanitli teknik kayitlari temizledigini, `--keep-data` secenegiyle bunun atlandigini ve vault/unknown/backups korundugunu dogrular.
 
-**İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.config`, `respectedbrain.vault.registry`, `respectedbrain.installation.uninstall`, `respectedbrain.installation.ownership`, `respectedbrain.integrations.backend`, `respectedbrain`.
+**İlişkiler ve sınır:** unittest kesfi tests/run_all.py ve CI tarafindan yapilir; production servisleri gecici fixture kokleriyle sinanir, kisisel vault kullanilmaz.
 
 #### [`tests/update_cli_test.py`](../tests/update_cli_test.py)
 
@@ -2750,7 +2942,7 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Gerçek Windows hook subprocess'leri, fallback CLI stub, catch-up, compile cache, directory junction reddi ve transactional update'i sınar. Odak örnekleri: `test_all_provider_manifests_use_native_absolute_commands`, `test_start_prompt_end_and_precompact_run_in_separate_processes`, `test_provider_first_retryable_failure_uses_the_next_real_cli_stub`.
+**Amaç / sorumluluk:** Gerçek Windows hook subprocess'leri, fallback CLI stub, catch-up, compile cache, directory junction reddi ve transactional update'i sınar. Precompact/end fixture'ı aynı oturum/provider kimliğini ve açık workspace'i korur. Odak örnekleri: `test_all_provider_manifests_use_native_absolute_commands`, `test_start_prompt_end_and_precompact_run_in_separate_processes`, `test_provider_first_retryable_failure_uses_the_next_real_cli_stub`.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.resources`, `respectedbrain.core.paths`, `respectedbrain.core.config`, `respectedbrain.vault.registry`, `respectedbrain.integrations.backend`, `respectedbrain.integrations.rendering`, `respectedbrain.memory.lifecycle`, `respectedbrain.providers`, `respectedbrain.memory.flush`, `respectedbrain.memory`, `respectedbrain.vault.maps`, `respectedbrain.installation.setup`, `respectedbrain.installation.update`.
 
@@ -2758,15 +2950,15 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Explicit GUI vault/package/profile ve false integration seçeneklerini; kayıtlı/fresh hedef ve action-time path değişikliğinde doğru hidden profile seçimini, explicit empty değerleri ve update package picker sınırını headless gerçek Tcl değişkenleriyle sınar. Fresh temp fixture kökü kanonikleştirilir; alias üzerinden oluşturulan fixture ile canonical servis hedefinin eşitlik/fault injection sözleşmesi korunur.
+**Amaç / sorumluluk:** Explicit GUI vault/package/profile ve false integration seceneklerini; kayitli/fresh hedef ve action-time path degisikliginde dogru hidden profile secimini, explicit empty degerleri, update package picker sinirini ve welcome personalizasyon kapisini headless sahte Tcl degiskenleriyle sinar.
 
-**İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain`, `respectedbrain.core.config`, `respectedbrain.core.paths`, `respectedbrain.installation`, `respectedbrain.installation.transaction`.
+**İlişkiler ve sınır:** unittest kesfi tests/run_all.py ve CI tarafindan yapilir; production servisleri gecici fixture kokleriyle sinanir, kisisel vault kullanilmaz.
 
 #### [`tests/wizard_test.py`](../tests/wizard_test.py)
 
 **Rol:** Davranış/regresyon testi.
 
-**Amaç / sorumluluk:** Wizard ve source launcher'ın shared setup kullanmasını; genesis placeholders, repeat/vault koruması, provider priority/failfast ve native MCP bağlantılarını sınar. Odak örnekleri: `test_automated_install_creates_complete_vault_and_resolves_placeholders`, `test_fresh_native_install_renders_hooks_for_final_registered_uuid`, `test_install_refuses_non_empty_unregistered_directory`.
+**Amaç / sorumluluk:** Wizard ve source launcher'ın shared setup kullanmasını; genesis placeholders, repeat/vault koruması, provider priority/failfast ve native MCP bağlantılarını sınar. Native yerel hook kontrolleri ExternalChange kayıtlarını gerçek geçici dosyalara yazan NativeBackend kullanır; son UUID ve stable launcher içerikleri diskte doğrulanır.
 
 **İlişkiler ve sınır:** unittest keşfi tests/run_all.py ve CI tarafından yapılır; production servisleri geçici fixture kökleriyle sınanır, kişisel vault kullanılmaz. Doğrudan sınadığı ürün import noktaları: `respectedbrain.core.config`, `respectedbrain.vault.registry`, `respectedbrain.installation`, `respectedbrain.installation.setup`, `respectedbrain.installation.transaction`, `respectedbrain`.
 
@@ -2784,9 +2976,9 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 **Rol:** Depo sözleşmesi.
 
-**Amaç / sorumluluk:** PyInstaller ile platformun kendi çalışma ortamını taşıyan uygulamayı üretir, iç symbolic link'leri güvenli şekilde normalleştirir, dağıtım hash manifest'i ve native kurulum kabuğunu hazırlar. macOS konsol bootloader'ının aradığı Contents/Frameworks köküne onedir runtime içeriğini, Contents/MacOS içine CLI launcher'ını koyar; yeniden build eski bundle üyelerini tutmaz.
+**Amaç / sorumluluk:** Native onedir dağıtımı ve Windows Inno installer’ı üretir; tam Tcl/Tk runtime’ını denetler, tkinter/_tkinter ve Tcl/Tk kaynaklarını paketler, macOS iç linkleri normalleştirir, hash manifest yazar ve Inno derleyicisini çağırır.
 
-**İlişkiler ve sınır:** pyproject/resources/packaging girdidir; dist çıktıdır; validate_package ve verify_distribution üretilen dosyaların bütünlüğünü denetler.
+**İlişkiler ve sınır:** packaging girdilerini kullanır; verify_distribution.py çıktıyı denetler; tests/security_hardening_fourth_fix_test.py Tcl/Tk paketleme sözleşmesini sınar.
 
 #### [`tools/repository_map.py`](../tools/repository_map.py)
 
@@ -2806,11 +2998,11 @@ Her kayıt bir dosyayı açıklar; boş `.gitkeep` ve paket `__init__.py` dosyal
 
 #### [`tools/verify_distribution.py`](../tools/verify_distribution.py)
 
-**Rol:** Depo sözleşmesi.
+**Rol:** Geliştirici aracı.
 
-**Amaç / sorumluluk:** Kaynak checkout ve sistem Python'u bulunmayan PATH altında frozen launcher sürümü, kaynak erişimi, geçici UUID kasa, hook ve MCP protokolünü gerçek süreçlerle sınar.
+**Amaç / sorumluluk:** Native frozen dağıtım paketlerinin sürüm, registry, harita, arama, hook ve MCP smoke testlerini çalıştırır; --require-provenance ile SLSA build provenance doğrulaması uygular.
 
-**İlişkiler ve sınır:** installation.payload doğrulamasını kullanır; native build/release ve tests/run_all için ilk geçiş kapısıdır.
+**İlişkiler ve sınır:** .github/workflows/ci.yml, release.yml ve src/respectedbrain/installation/payload.py ile bağlanır.
 
 ## Haritayı güncel tutma sözleşmesi
 

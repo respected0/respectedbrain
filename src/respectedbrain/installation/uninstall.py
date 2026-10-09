@@ -1,4 +1,4 @@
-"""Delete only unchanged owned files; preserve DataRoot by default and all notes."""
+"""Delete only unchanged owned files; purge proven technical records by default, never notes."""
 from respectedbrain.core.errors import FoundationError
 from respectedbrain.integrations.backend import ExternalChange
 from .ownership import read_manifest, prove_ownership
@@ -6,7 +6,7 @@ from .operations import validate_manifest_roots
 from .transaction import Transaction, OperationResult, recover_transactions
 
 
-def uninstall(ctx, *, backend, purge_data=False, shell_active=False, shell_proof=None) -> OperationResult:
+def uninstall(ctx, *, backend, purge_data=True, shell_active=False, shell_proof=None) -> OperationResult:
     tx = None
     try:
         # A running Inno executable cannot delete itself. Inno's intrinsic
@@ -15,8 +15,10 @@ def uninstall(ctx, *, backend, purge_data=False, shell_active=False, shell_proof
         if any(result.conflicts for result in recover_transactions(ctx.paths.data_root, backend)):
             return OperationResult(False, "", ("Unfinished rollback conflict",))
         conflicts = []
+        manifest_path = ctx.paths.data_root / "install-manifest.json"
+        manifest_before = manifest_path.read_bytes()
         with Transaction(ctx.paths.data_root, backend) as tx:
-            manifest = read_manifest(ctx.paths.data_root / "install-manifest.json")
+            manifest = read_manifest(manifest_path)
             validate_manifest_roots(ctx, manifest)
             dat_proven = bool(shell_active and shell_proof is not None and shell_proof())
             for item in manifest.files:
@@ -40,6 +42,12 @@ def uninstall(ctx, *, backend, purge_data=False, shell_active=False, shell_proof
                     continue
                 tx.remove(item.path, expected_hash=item.sha256)
             result = tx.commit()
+            if purge_data and not conflicts:
+                if manifest_path.is_file() and manifest_path.read_bytes() == manifest_before:
+                    manifest_path.unlink()
+                else:
+                    conflicts.append(str(manifest_path))
+                    return OperationResult(False, result.tx_id, tuple(conflicts))
             # Unknown files and backup journals are deliberately retained.
             return OperationResult(not conflicts, result.tx_id, tuple(conflicts))
     except (FoundationError, OSError, ValueError) as error:

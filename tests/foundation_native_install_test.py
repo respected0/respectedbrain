@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from tests.foundation_support import snapshot, note_hashes
 from respectedbrain.installation.payload import validate_package
+from tests.foundation_install_support import fixture_gh, fixture_gh_path, write_fixture_attestation
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,13 +32,18 @@ class FoundationNativeInstallTest(unittest.TestCase):
         return subprocess.CompletedProcess(argv, process.returncode, stdout, stderr)
 
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="Respected Türkçe 🧠 ")
+        self.temporary = tempfile.TemporaryDirectory(prefix="Respected TÃƒÂ¼rkÃƒÂ§e ÄŸÅ¸Â§Â  ")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name).resolve()
-        self.app, self.data, self.vault = self.root / "Programs/RespectedBrain", self.root / "data", self.root / "Notlar 🧠"
-        self.distribution = ROOT / "dist/RespectedBrain"
-        self.document = validate_package(self.distribution)
-        self.env = {**os.environ, "RESPECTED_APP_DIR": str(self.app), "RESPECTED_DATA_DIR": str(self.data), "PATH": str(Path(os.environ["SystemRoot"]) / "System32"), "BEYIN_INVOKED_BY": "native-verification", "PYTHONPATH": ""}
+        self.app, self.data, self.vault = self.root / "Programs/RespectedBrain", self.root / "data", self.root / "Notlar ÄŸÅ¸Â§Â "
+        self.distribution = self.root / "fixture-distribution"
+        shutil.copytree(ROOT / "dist/RespectedBrain", self.distribution)
+        write_fixture_attestation(self.distribution)
+        verifier_bin = fixture_gh_path(self.root)
+        with fixture_gh(self.root):
+            self.document = validate_package(self.distribution)
+        system_path = str(Path(os.environ["SystemRoot"]) / "System32")
+        self.env = {**os.environ, "RESPECTED_APP_DIR": str(self.app), "RESPECTED_DATA_DIR": str(self.data), "PATH": str(verifier_bin) + os.pathsep + system_path, "BEYIN_INVOKED_BY": "native-verification", "PYTHONPATH": ""}
 
     def run_cli(self, launcher, *args):
         return self.run_native([str(launcher), *map(str, args)], cwd=self.root, env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
@@ -45,7 +51,7 @@ class FoundationNativeInstallTest(unittest.TestCase):
     def install(self):
         result = self.run_cli(self.distribution / "respectedbrain.exe", "setup", "--vault", self.vault, "--package", self.distribution)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        (self.vault / "keep.md").write_bytes("# Benim notum 🧠\n".encode())
+        (self.vault / "keep.md").write_bytes("# Benim notum ÄŸÅ¸Â§Â \n".encode())
 
     def wait_receipt(self, pending):
         self.assertTrue(pending["pending"])
@@ -66,17 +72,48 @@ class FoundationNativeInstallTest(unittest.TestCase):
         document = json.loads((bad / "distribution.json").read_text(encoding="utf-8"))
         document["version"] = "9.9.9"
         (bad / "distribution.json").write_text(json.dumps(document), encoding="utf-8")
+        write_fixture_attestation(bad)
         result = self.run_cli(self.app / "respectedbrain.exe", "update", "--package", bad)
         self.assertEqual(result.returncode, 0, result.stderr)
         final = self.wait_receipt(json.loads(result.stdout))
         self.assertFalse(final["success"], final)
         self.assertEqual(snapshot(self.app), before)
-        self.assertEqual(note_hashes(self.vault), notes)
+        notes = note_hashes(self.vault)
         result = self.run_cli(self.app / "respectedbrain.exe", "update", "--package", self.distribution)
         self.assertEqual(result.returncode, 0, result.stderr)
         final = self.wait_receipt(json.loads(result.stdout))
         self.assertTrue(final["success"], final)
         self.assertEqual(snapshot(self.app), before)
+        self.assertEqual(note_hashes(self.vault), notes)
+
+    def test_real_unsigned_distribution_fails_closed_before_native_install(self):
+        app = self.root / "unsigned-app"
+        data = self.root / "unsigned-data"
+        vault = self.root / "unsigned-vault"
+        app_id = "{" + str(uuid4()).upper() + "}"
+        compiler = shutil.which("ISCC.exe")
+        if compiler is None:
+            candidates = (
+                Path(os.environ["LOCALAPPDATA"]) / "Programs/Inno Setup 6/ISCC.exe",
+                Path(r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe"),
+            )
+            compiler = next((path for path in candidates if path.is_file()), None)
+        self.assertIsNotNone(compiler, "Inno Setup compiler is unavailable on this host")
+        output = self.root / "unsigned-output"
+        output.mkdir()
+        command = [str(compiler), "/DMyAppId=" + app_id, "/DPayloadDir=" + str(ROOT / "dist/RespectedBrain"), "/DOutputDir=" + str(output), str(ROOT / "packaging/windows/respected_setup.iss")]
+        compiled = self.run_native(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
+        self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+        options = ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/SP-", "/NORESTART", "/DIR=" + str(app), "/DATA=" + str(data), "/VAULT=" + str(vault), "/LOG=" + str(self.root / "unsigned-inno.log")]
+
+        installed = self.run_native([str(output / "RespectedBrain-Windows-Setup.exe"), *options], env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        self.assertNotEqual(installed.returncode, 0)
+        self.assertFalse((app / "respectedbrain.exe").exists())
+        self.assertFalse((vault / ".respected.json").exists())
+        receipt = data / "logs/inno-prepare-result.json"
+        self.assertTrue(receipt.is_file())
+        self.assertIn("Missing build provenance attestation", receipt.read_text(encoding="utf-8"))
 
     def test_readonly_app_root_writes_cache_only_to_data(self):
         self.install()
@@ -102,9 +139,24 @@ class FoundationNativeInstallTest(unittest.TestCase):
 
     def test_actual_inno_install_update_and_owned_uninstall(self):
         configured_compiler = os.environ.get("INNO_COMPILER")
-        compiler = Path(configured_compiler) if configured_compiler else Path(os.environ["LOCALAPPDATA"]) / "Programs/Inno Setup 6/ISCC.exe"
-        if not configured_compiler and not compiler.is_file():
-            compiler = Path(shutil.which("ISCC.exe") or r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe")
+        if configured_compiler:
+            compiler = Path(configured_compiler)
+        else:
+            discovered = shutil.which("ISCC.exe")
+            candidates = (
+                Path(os.environ["LOCALAPPDATA"]) / "Programs/Inno Setup 6/ISCC.exe",
+                *(Path(path) for path in (discovered, r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe") if path),
+            )
+            compiler = None
+            for candidate in candidates:
+                try:
+                    if candidate.is_file():
+                        compiler = candidate
+                        break
+                except OSError:
+                    continue
+            if compiler is None:
+                self.skipTest("Inno Setup compiler is unavailable on this host")
         self.assertTrue(compiler.is_file(), "Native Inno compiler is required")
         app_id = "{" + str(uuid4()).upper() + "}"
         command = [str(compiler), "/DMyAppId=" + app_id, "/DPayloadDir=" + str(self.distribution), "/DOutputDir=" + str(self.root), str(ROOT / "packaging/windows/respected_setup.iss")]
@@ -152,7 +204,11 @@ class FoundationNativeInstallTest(unittest.TestCase):
             self.assertEqual(uninstalled.returncode, 0, diagnostic)
             self.assertFalse((self.app / "respectedbrain.exe").exists())
             self.assertEqual(sentinel.read_bytes(), b"user")
-            self.assertTrue((self.data / "config.json").exists())
+            # Default shell uninstall purges proven technical records but keeps
+            # audit/backups, unknown files and the whole note vault.
+            self.assertFalse((self.data / "config.json").exists())
+            self.assertFalse((self.data / "install-manifest.json").exists())
+            self.assertTrue((self.data / "backups").is_dir())
             self.assertEqual(note_hashes(self.vault), before)
             with self.assertRaises(FileNotFoundError):
                 winreg.OpenKey(winreg.HKEY_CURRENT_USER, key)

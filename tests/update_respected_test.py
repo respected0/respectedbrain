@@ -59,6 +59,7 @@ class UpdateRespectedTest(unittest.TestCase):
     def plan(self):
         return plan_migration(self.legacy,self.vault,roots=self.roots,backend=self.backend,profile=self.profile)
     def apply(self,plan=None,**kwargs):
+        kwargs.setdefault('require_provenance', False)
         return apply_migration(plan or self.plan(),roots=self.roots,package=self.package,backend=self.backend,**kwargs)
     def backups(self):
         return sorted((self.roots.data_root / "backups").glob("tx-*"))

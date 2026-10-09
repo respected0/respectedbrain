@@ -1,7 +1,50 @@
 """Existing native wizard UI backed by the same installation services as CLI."""
 from __future__ import annotations
+import os
 from pathlib import Path
+import sys
 import threading
+
+
+def ensure_tcl_tk_environment() -> None:
+    """Ensure TCL_LIBRARY and TK_LIBRARY point to valid tcl/tk resource directories."""
+    if os.name != "nt":
+        return
+    prefixes = [
+        getattr(sys, "_MEIPASS", None),
+        getattr(sys, "base_prefix", None),
+        sys.prefix,
+        Path(sys.executable).parent if getattr(sys, "frozen", False) else None,
+    ]
+    tcl_candidates = ["tcl/tcl8.6", "lib/tcl8.6", "_tcl_data", "tcl8.6"]
+    tk_candidates = ["tcl/tk8.6", "lib/tk8.6", "_tk_data", "tk8.6"]
+    if "TCL_LIBRARY" not in os.environ:
+        for prefix in prefixes:
+            if not prefix:
+                continue
+            base = Path(prefix)
+            for sub in tcl_candidates:
+                candidate = base / sub
+                if (candidate / "init.tcl").is_file():
+                    os.environ["TCL_LIBRARY"] = candidate.resolve().as_posix()
+                    break
+            if "TCL_LIBRARY" in os.environ:
+                break
+    if "TK_LIBRARY" not in os.environ:
+        for prefix in prefixes:
+            if not prefix:
+                continue
+            base = Path(prefix)
+            for sub in tk_candidates:
+                candidate = base / sub
+                if (candidate / "tk.tcl").is_file():
+                    os.environ["TK_LIBRARY"] = candidate.resolve().as_posix()
+                    break
+            if "TK_LIBRARY" in os.environ:
+                break
+
+
+ensure_tcl_tk_environment()
 import tkinter as tk
 from tkinter import messagebox, ttk, filedialog
 
@@ -11,23 +54,23 @@ from respectedbrain.core.config import ConfigStore
 from respectedbrain.installation.setup import setup
 
 
-def run_action(mode, roots, vault, *, profile, desired, backend, package=None):
+def run_action(mode, roots, vault, *, profile, desired, backend, package=None, require_provenance=None):
     if mode in ("install", "modify"):
-        return setup(roots, vault, profile=profile, desired=desired, backend=backend, package=package)
+        return setup(roots, vault, profile=profile, desired=desired, backend=backend, package=package, require_provenance=require_provenance)
     ctx = bootstrap(vault=vault, env={"RESPECTED_APP_DIR": str(roots.app_root), "RESPECTED_DATA_DIR": str(roots.data_root)})
     if mode in ("update", "uninstall"):
         from .deferred import defer_operation
-        queued = defer_operation(ctx, mode=mode, package=package)
+        queued = defer_operation(ctx, mode=mode, package=package, purge_data=True, require_provenance=require_provenance)
         if queued is not None:
             return queued
     if mode == "update":
         from respectedbrain.installation.update import update
         if package is None:
             raise ValueError("Güncelleme için doğrulanmış yeni paket seçilmeli")
-        return update(ctx, package=package, backend=backend)
+        return update(ctx, package=package, backend=backend, require_provenance=require_provenance)
     if mode == "repair":
         from respectedbrain.installation.repair import repair
-        return repair(ctx, backend=backend)
+        return repair(ctx, backend=backend, package=package, require_provenance=require_provenance)
     if mode == "uninstall":
         from respectedbrain.installation.uninstall import uninstall
         return uninstall(ctx, backend=backend)
@@ -36,6 +79,7 @@ def run_action(mode, roots, vault, *, profile, desired, backend, package=None):
 
 class SetupWizard:
     def __init__(self, root: tk.Tk, *, roots=None, backend=None, vault=None, package=None, profile=None, desired=None) -> None:
+        ensure_tcl_tk_environment()
         self.root = root
         self.roots = roots or application_roots()
         if backend is None:
@@ -44,11 +88,13 @@ class SetupWizard:
         self.backend = backend
         self.package = Path(package).resolve() if package is not None else None
         self.root.title(f"Respected Brain {__version__} — Kurulum & Bakım")
-        self.root.geometry("680x640")
+        self.root.geometry("680x720")
         self.root.resizable(False, False)
         self.root.configure(bg="#0d1117")
         self.vault_path_var = tk.StringVar(value=str(self.roots.default_vault))
+        self.vault_name_var = tk.StringVar(value=self.roots.default_vault.name)
         self.user_name_var = tk.StringVar(value=Path.home().name)
+        self.user_bio_var = tk.StringVar(value="")
         self.companion_var = tk.StringVar(value="Companion")
         self.model_choice_var = tk.StringVar(value="auto")
         self.mode_var = tk.StringVar(value="install")
@@ -73,10 +119,16 @@ class SetupWizard:
         if selected_vault is not None:
             self.vault_path_var.set(str(selected_vault))
         self.profile.update(self.explicit_profile)
+        self.vault_name_var.set(self.profile.get("OS_NAME", Path(self.vault_path_var.get()).name))
         self.user_name_var.set(self.profile.get("USER_NAME", Path.home().name))
+        self.user_bio_var.set(self.profile.get("USER_BIO", ""))
         self.companion_var.set(self.profile.get("COMPANION", "Companion"))
         if "summary_provider" in self.profile:
             self.model_choice_var.set(self.profile["summary_provider"])
+        # Remember the inherited widget defaults so the action can tell an
+        # intentional edit apart from a stale value left over from another vault.
+        self.default_os_name = self.vault_name_var.get()
+        self.default_user_bio = self.user_bio_var.get()
         self._build_ui()
         self._on_mode_change()
         self._log(f"Program: {self.roots.app_root}")
@@ -184,7 +236,21 @@ class SetupWizard:
         )
         browse_btn.pack(side="right")
 
-        # 3. User & Companion Profile Frame
+        # 3. Vault identity and user context
+        identity_frame = tk.LabelFrame(card, text=" Kasa ve Kullanıcı Bağlamı ", bg="#161b22", fg="#58a6ff", font=("Segoe UI", 9, "bold"), padx=8, pady=4)
+        identity_frame.pack(fill="x", pady=(0, 8))
+
+        vault_name_label = tk.Label(identity_frame, text="Kasa Adı:", bg="#161b22", fg="#c9d1d9", font=("Segoe UI", 9))
+        vault_name_label.grid(row=0, column=0, sticky="w", pady=2)
+        vault_name_entry = tk.Entry(identity_frame, textvariable=self.vault_name_var, bg="#090d13", fg="#f0f6fc", width=30, relief="flat", highlightbackground="#30363d", highlightthickness=1)
+        vault_name_entry.grid(row=0, column=1, sticky="w", padx=(6, 20), pady=2)
+
+        bio_label = tk.Label(identity_frame, text="Ne Yapıyorsunuz?", bg="#161b22", fg="#c9d1d9", font=("Segoe UI", 9))
+        bio_label.grid(row=1, column=0, sticky="w", pady=2)
+        bio_entry = tk.Entry(identity_frame, textvariable=self.user_bio_var, bg="#090d13", fg="#f0f6fc", width=52, relief="flat", highlightbackground="#30363d", highlightthickness=1)
+        bio_entry.grid(row=1, column=1, sticky="w", padx=6, pady=2)
+
+        # 4. User & Companion Profile Frame
         self.profile_frame = tk.LabelFrame(card, text=" Kullanıcı & Companion Profili ", bg="#161b22", fg="#58a6ff", font=("Segoe UI", 9, "bold"), padx=8, pady=4)
         self.profile_frame.pack(fill="x", pady=(0, 8))
 
@@ -282,21 +348,36 @@ class SetupWizard:
         mode = self.mode_var.get()
         vault = Path(self.vault_path_var.get().strip()).resolve()
         package = self.package
-        if mode == "update" and package is None:
+        if mode in ("update", "repair") and package is None:
             chosen = filedialog.askdirectory(title="Yeni Dağıtım Paketini Seçin")
             if not chosen:
                 return
             package = Path(chosen).resolve()
-        if mode == "uninstall" and not messagebox.askyesno("Programı Kaldır", "Program kaldırılacak. Notlar ve ayarlar korunacak. Devam edilsin mi?"):
+        if mode == "uninstall" and not messagebox.askyesno("Programı Kaldır", "Program ve kanıtlı teknik kayıtları kaldırılacak. Notlar ve bilinmeyen dosyalar korunacak. Devam edilsin mi?"):
             return
         config = ConfigStore(self.roots.data_root).read()
         settings = next((entry.get("settings", {}) for entry in config["vaults"].values()
                          if Path(entry["path"]).resolve() == vault), {})
-        profile = {**settings, **self.explicit_profile, "USER_NAME": self.user_name_var.get().strip() or Path.home().name,
-                   "COMPANION": self.companion_var.get().strip() or "Companion",
-                   "summary_provider": self.model_choice_var.get()}
-        profile.setdefault("OS_NAME", vault.name)
-        profile.setdefault("USER_BIO", "")
+        # Hidden continuity fields are re-resolved from the *currently selected*
+        # vault so switching to a fresh or different vault never inherits the
+        # previous active vault's profile. Explicit CLI values win, including
+        # intentional empty strings that must not fall back to saved values.
+        profile = {**settings, **self.explicit_profile}
+        profile["USER_NAME"] = self.user_name_var.get().strip() or settings.get("USER_NAME") or Path.home().name
+        profile["COMPANION"] = self.companion_var.get().strip() or settings.get("COMPANION") or "Companion"
+        profile["summary_provider"] = self.model_choice_var.get()
+
+        def hidden_value(key, widget_value, inherited_value, fallback):
+            if key in self.explicit_profile:
+                return self.explicit_profile[key]
+            if widget_value != inherited_value:
+                return widget_value
+            if key in settings:
+                return settings[key]
+            return fallback
+
+        profile["OS_NAME"] = hidden_value("OS_NAME", self.vault_name_var.get(), self.default_os_name, vault.name)
+        profile["USER_BIO"] = hidden_value("USER_BIO", self.user_bio_var.get(), self.default_user_bio, "")
         desired = {"global": self.global_rules_var.get(), "mcp": self.mcp_server_var.get(),
                    "schedule": self.schedule_var.get(), "shortcut": self.desktop_shortcut_var.get()}
         self.btn_action.configure(state="disabled")
@@ -325,7 +406,14 @@ class SetupWizard:
 
 
 def main(*, roots=None, backend=None, vault=None, package=None, profile=None, desired=None) -> int:
+    ensure_tcl_tk_environment()
     root = tk.Tk()
     SetupWizard(root, roots=roots, backend=backend, vault=vault, package=package, profile=profile, desired=desired)
+    timeout = os.environ.get("RESPECTED_GUI_TIMEOUT")
+    if timeout:
+        try:
+            root.after(int(float(timeout) * 1000), root.destroy)
+        except ValueError:
+            pass
     root.mainloop()
     return 0

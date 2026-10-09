@@ -1,8 +1,6 @@
 """CLI and headless UI preserve explicit setup choices through the action boundary."""
-from functools import partial
 from pathlib import Path
 import tempfile
-import tkinter as tk
 import unittest
 from unittest import mock
 
@@ -19,6 +17,17 @@ class InlineThread:
 
     def start(self):
         self.target()
+
+
+class FakeVariable:
+    def __init__(self, value=None, **_kwargs):
+        self.value = "" if value is None else value
+
+    def get(self):
+        return self.value
+
+    def set(self, value):
+        self.value = value
 
 
 class WizardOptionsTest(unittest.TestCase):
@@ -40,10 +49,8 @@ class WizardOptionsTest(unittest.TestCase):
             integrations={"global": True, "mcp": True, "schedule": True, "shortcut": True}))
 
     def make_wizard(self, **options):
-        # Tcl variables are real; only display-dependent widgets are replaced.
-        interpreter = tk.Tcl()
-        with mock.patch.object(wizard.tk, "StringVar", partial(tk.StringVar, master=interpreter)), \
-             mock.patch.object(wizard.tk, "BooleanVar", partial(tk.BooleanVar, master=interpreter)), \
+        with mock.patch.object(wizard.tk, "StringVar", FakeVariable), \
+             mock.patch.object(wizard.tk, "BooleanVar", FakeVariable), \
              mock.patch.object(wizard.SetupWizard, "_build_ui"), \
              mock.patch.object(wizard.SetupWizard, "_on_mode_change"), \
              mock.patch.object(wizard.SetupWizard, "_log"):
@@ -108,11 +115,15 @@ class WizardOptionsTest(unittest.TestCase):
 
     def test_explicit_fresh_vault_does_not_inherit_active_vault_profile(self):
         ui = self.make_wizard(vault=self.vault)
+        ui.vault_name_var.set("Beynim")
+        ui.user_name_var.set("Ada")
+        ui.user_bio_var.set("Algoritma mimarı")
+        ui.companion_var.set("Atlas")
         call = self.perform_action(ui)
         self.assertEqual(call.args, ("install", self.roots, self.vault))
         self.assertEqual(call.kwargs["profile"], {
-            "USER_NAME": Path.home().name, "COMPANION": "Companion", "OS_NAME": "selected-vault",
-            "USER_BIO": "", "summary_provider": "claude"})
+            "USER_NAME": "Ada", "COMPANION": "Atlas", "OS_NAME": "Beynim",
+            "USER_BIO": "Algoritma mimarı", "summary_provider": "claude"})
 
     def test_explicit_registered_vault_uses_its_own_profile_before_overrides(self):
         self.store.update(lambda config: config["vaults"].update(second={
@@ -192,6 +203,19 @@ class WizardOptionsTest(unittest.TestCase):
             call = self.perform_action(ui)
         self.assertEqual(call.kwargs["package"], self.package)
         picker.assert_called_once()
+
+    def test_welcome_opens_personalization_only_when_profile_is_incomplete(self):
+        self.store.update(lambda config: config["vaults"]["saved"]["settings"].pop("USER_BIO"))
+        with mock.patch.object(cli, "application_roots", return_value=self.roots), \
+             mock.patch.object(wizard, "main", return_value=0) as welcome:
+            self.assertEqual(cli.main(["welcome"]), 0)
+        self.assertEqual(welcome.call_count, 1)
+
+        self.store.update(lambda config: config["vaults"]["saved"]["settings"].update(USER_BIO=""))
+        with mock.patch.object(cli, "application_roots", return_value=self.roots), \
+             mock.patch.object(wizard, "main", return_value=0) as welcome:
+            self.assertEqual(cli.main(["welcome"]), 0)
+        welcome.assert_not_called()
 
 
 if __name__ == "__main__":

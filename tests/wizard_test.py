@@ -19,7 +19,7 @@ class WizardTest(unittest.TestCase):
     def action(self, *, mode="install", profile=None, desired=None, package=None):
         values={"OS_NAME":"AdaOS","USER_NAME":"Ada Lovelace","USER_BIO":"Algoritma Mimarı","COMPANION":"Babbage","platform":"windows-native","user_home":str(self.root / "home")}
         values.update(profile or {})
-        return wizard.run_action(mode,self.roots,self.vault,profile=values,desired=self.desired if desired is None else desired,backend=self.backend,package=self.package if package is None else package)
+        return wizard.run_action(mode,self.roots,self.vault,profile=values,desired=self.desired if desired is None else desired,backend=self.backend,package=self.package if package is None else package,require_provenance=False)
 
     def test_automated_install_creates_complete_vault_and_resolves_placeholders(self):
         result=self.action(profile={"summary_provider":"antigravity","provider_priority":["antigravity","codex"]})
@@ -34,6 +34,8 @@ class WizardTest(unittest.TestCase):
         self.assertFalse((self.vault / ".beyin").exists())
 
     def test_fresh_native_install_renders_hooks_for_final_registered_uuid(self):
+        from respectedbrain.integrations.backend import NativeBackend
+        self.backend = NativeBackend(self.roots.data_root)
         self.assertTrue(self.action().success)
         identity=json.loads((self.vault / ".respected.json").read_text())["vault_id"]
         content=(self.vault / ".claude/settings.json").read_text(encoding="utf-8")
@@ -76,6 +78,8 @@ class WizardTest(unittest.TestCase):
         self.assertEqual(snapshot(self.vault),before)
 
     def test_native_install_persists_only_stable_application_launcher(self):
+        from respectedbrain.integrations.backend import NativeBackend
+        self.backend = NativeBackend(self.roots.data_root)
         self.assertTrue(self.action().success)
         content=(self.vault / ".claude/settings.json").read_text(encoding="utf-8")
         self.assertIn("respectedbrain.exe",content)

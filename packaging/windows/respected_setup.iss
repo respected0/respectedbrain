@@ -39,6 +39,7 @@ Source: "{#PayloadDir}\*"; DestDir: "{tmp}\payload"; Flags: ignoreversion recurs
 var
   VaultPage: TInputDirWizardPage;
   Prepared: Boolean;
+  SetupFailed: Boolean;
 
 function VaultDir: String;
 begin
@@ -56,6 +57,11 @@ begin
   Result := ' --app-root "' + ExpandConstant('{app}') + '" --data-root "' + DataDir + '" --vault "' + VaultDir + '"';
 end;
 
+function ReceiptHint(Operation: String): String;
+begin
+  Result := DataDir + '\logs\inno-' + Operation + '-result.json';
+end;
+
 procedure InitializeWizard;
 begin
   VaultPage := CreateInputDirPage(wpSelectDir, 'Not kasası', 'Programdan ayrı not klasörünüz', 'Mevcut notlar yerinde korunur. Program ve ayarlar kendi klasörlerine kurulur.', False, '');
@@ -69,26 +75,46 @@ begin
   Result := '';
   if Prepared then Exit;
   ExtractTemporaryFiles('{tmp}\payload\*');
-  if not Exec(ExpandConstant('{tmp}\payload\respectedbrain.exe'), '_inno-prepare' + RootArgs + ' --request "' + ExpandConstant('{tmp}\before.json') + '" --registry-key "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1"', '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
-    Result := 'Kurulum ön denetimi başarısız. Program ve not klasörlerini kontrol edin.'
-  else Prepared := True;
+  { Strict release provenance is verified from the staged --package bytes here,
+    before Inno writes AppRoot or touches DataRoot/VaultRoot content. }
+  if not Exec(ExpandConstant('{tmp}\payload\respectedbrain.exe'), '_inno-prepare' + RootArgs + ' --request "' + ExpandConstant('{tmp}\before.json') + '" --registry-key "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1" --package "' + ExpandConstant('{tmp}\payload') + '"', '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then begin
+    SetupFailed := True;
+    Result := 'Kurulum ön denetimi başarısız: sürüm kaynağı doğrulanamadı. Ayrıntı için: ' + ReceiptHint('prepare');
+  end else Prepared := True;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var Code: Integer;
 begin
   if CurStep = ssPostInstall then begin
-    if not Exec(ExpandConstant('{tmp}\payload\respectedbrain.exe'), '_inno-deploy' + RootArgs + ' --package "' + ExpandConstant('{tmp}\payload') + '" --request "' + ExpandConstant('{tmp}\before.json') + '"', '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
-      RaiseException('Ortak kurulum servisi başarısız. İşlem günlüğü ve yedekler ayarlar klasöründedir.');
+    if not Exec(ExpandConstant('{tmp}\payload\respectedbrain.exe'), '_inno-deploy' + RootArgs + ' --package "' + ExpandConstant('{tmp}\payload') + '" --request "' + ExpandConstant('{tmp}\before.json') + '"', '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then begin
+      SetupFailed := True;
+      MsgBox('Ortak kurulum servisi başarısız. Ayrıntı için: ' + ReceiptHint('deploy'), mbError, MB_OK);
+    end;
   end;
   if CurStep = ssDone then begin
-    if not Exec(ExpandConstant('{app}\respectedbrain.exe'), '_inno-seal' + RootArgs, '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
-      RaiseException('Kaldırıcı günlüğünün son doğrulaması başarısız.');
+    { A failed deploy must not trigger a second exception during finalization. }
+    if SetupFailed then Exit;
+    if not Exec(ExpandConstant('{app}\respectedbrain.exe'), '_inno-seal' + RootArgs, '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then begin
+      SetupFailed := True;
+      MsgBox('Kaldırıcı günlüğünün son doğrulaması başarısız. Ayrıntı için: ' + ReceiptHint('seal'), mbError, MB_OK);
+    end else if not WizardSilent then begin
+      { Personalization is deferred to first use: the visible Setup collects no
+        personal data, and welcome is a no-op when the profile is already
+        complete, so it never asks twice. }
+      Exec(ExpandConstant('{app}\respectedbrain.exe'), 'welcome' + RootArgs, '', SW_SHOW, ewNoWait, Code);
+    end;
   end;
 end;
 
+function GetCustomSetupExitCode: Integer;
+begin
+  { Guarantee a nonzero exit after any handled failure or exception. }
+  if SetupFailed then Result := 1 else Result := 0;
+end;
+
 function InitializeUninstall(): Boolean;
-var Code: Integer;
+var Code: Integer; PurgeArg: String;
 begin
   { Copy a verified full application to OS temp before deleting its own payload. }
   if ExpandConstant('{param:PROOF|}') = '' then begin
@@ -97,7 +123,9 @@ begin
       MsgBox('Respected Brain uygulamasını Windows uygulama listesinden kaldırın.', mbInformation, MB_OK);
     Exit;
   end;
+  PurgeArg := '--purge-data';
+  if ExpandConstant('{param:PURGEDATA|1}') = '0' then PurgeArg := '--no-purge-data';
   Result := Exec(ExpandConstant('{app}\respectedbrain.exe'), '_inno-copy-helper --app-root "' + ExpandConstant('{app}') + '" --output "' + ExpandConstant('{tmp}\helper') + '"', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
   if Result then
-    Result := Exec(ExpandConstant('{tmp}\helper\respectedbrain.exe'), '_inno-uninstall --app-root "' + ExpandConstant('{app}') + '" --data-root "' + ExpandConstant('{param:DATA|{localappdata}\RespectedBrain}') + '" --vault "' + ExpandConstant('{param:VAULT|{userdocs}\RespectedOS}') + '" --proof "' + ExpandConstant('{param:PROOF|}') + '" --proof-hash "' + ExpandConstant('{param:PROOFHASH|}') + '"', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
+    Result := Exec(ExpandConstant('{tmp}\helper\respectedbrain.exe'), '_inno-uninstall --app-root "' + ExpandConstant('{app}') + '" --data-root "' + ExpandConstant('{param:DATA|{localappdata}\RespectedBrain}') + '" --vault "' + ExpandConstant('{param:VAULT|{userdocs}\RespectedOS}') + '" ' + PurgeArg + ' --proof "' + ExpandConstant('{param:PROOF|}') + '" --proof-hash "' + ExpandConstant('{param:PROOFHASH|}') + '"', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
 end;

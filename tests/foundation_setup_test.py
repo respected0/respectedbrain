@@ -45,6 +45,7 @@ class FoundationSetupTest(unittest.TestCase):
         self.addCleanup(self.health.stop)
 
     def install(self, **kwargs):
+        kwargs.setdefault("require_provenance", False)
         return setup(self.roots, self.vault, profile={"OS_NAME": "RespectedOS", "USER_NAME": "Ada", "USER_BIO": "Test", "COMPANION": "Atlas", "platform": "windows-native", "user_home": str(self.root / "home")}, desired=self.desired, backend=self.backend, package=kwargs.pop("package", self.package), **kwargs)
 
     def test_fresh_setup_is_pure_vault(self):
@@ -98,7 +99,7 @@ class FoundationSetupTest(unittest.TestCase):
 
     def test_profile_provider_is_saved_and_repeat_preserves_preference(self):
         result = setup(self.roots, self.vault, profile={"summary_provider": "codex"}, desired=self.desired,
-                       backend=self.backend, package=self.package)
+                       backend=self.backend, package=self.package, require_provenance=False)
         self.assertTrue(result.success, result.conflicts)
         self.assertEqual(ConfigStore(self.roots.data_root).read()["preferences"]["summary_provider"], "codex")
         self.assertTrue(self.install(package=None).success)
@@ -112,3 +113,65 @@ class FoundationSetupTest(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(service.call_args.args, (self.roots, self.vault))
         self.assertEqual(service.call_args.kwargs["package"], self.package)
+
+    def test_local_hooks_are_owned_through_maintenance_and_removed_without_notes(self):
+        from respectedbrain.integrations.backend import NativeBackend
+        from respectedbrain.installation.update import update
+        from respectedbrain.installation.repair import repair
+        from respectedbrain.installation.uninstall import uninstall
+        from respectedbrain.vault.registry import build_context
+        names = ('.agents/hooks.json', '.claude/settings.json', '.codex/hooks.json',
+                 '.cursor/hooks.json', '.gemini/settings.json')
+        for purge in (True, False):
+            with self.subTest(purge=purge):
+                root = self.root / str(purge)
+                home = root / 'home'
+                home.mkdir(parents=True)
+                roots = Roots(root / 'app', root / 'data', root / 'vault')
+                backend = NativeBackend(roots.data_root)
+                result = setup(roots, roots.default_vault, profile={'platform': 'windows-native',
+                    'user_home': str(home)}, desired=self.desired, backend=backend,
+                    package=self.package, require_provenance=False)
+                self.assertTrue(result.success, result.conflicts)
+                ctx = build_context(roots, ConfigStore(roots.data_root), vault=roots.default_vault, vault_id=None, env={})
+                notes = note_hashes(roots.default_vault)
+                expected = {str(roots.default_vault / name) for name in names}
+                for operation in (lambda: update(ctx, package=self.package, backend=backend, require_provenance=False),
+                                  lambda: repair(ctx, backend=backend, require_provenance=False)):
+                    result = operation()
+                    self.assertTrue(result.success, result.conflicts)
+                    manifest = read_manifest(roots.data_root / 'install-manifest.json')
+                    self.assertTrue(expected.issubset({item.key for item in manifest.external}))
+                    self.assertTrue(all((roots.default_vault / name).exists() for name in names))
+                result = uninstall(ctx, backend=backend, purge_data=purge)
+                self.assertTrue(result.success, result.conflicts)
+                self.assertTrue(all(not (roots.default_vault / name).exists() for name in names))
+                self.assertEqual(note_hashes(roots.default_vault), notes)
+
+    def test_uninstall_preserves_changed_local_hook_and_reports_conflict(self):
+        from respectedbrain.integrations.backend import NativeBackend
+        from respectedbrain.installation.uninstall import uninstall
+        from respectedbrain.vault.registry import build_context
+        self.backend = NativeBackend(self.roots.data_root)
+        self.assertTrue(self.install().success)
+        ctx = build_context(self.roots, ConfigStore(self.roots.data_root), vault=self.vault, vault_id=None, env={})
+        path = self.vault / '.claude/settings.json'
+        document = json.loads(path.read_text(encoding='utf-8'))
+        document['user-setting'] = 'preserve this'
+        path.write_text(json.dumps(document), encoding='utf-8')
+        before = path.read_bytes()
+        notes = note_hashes(self.vault)
+        result = uninstall(ctx, backend=self.backend)
+        self.assertFalse(result.success)
+        self.assertIn('file:' + str(path), result.conflicts)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(note_hashes(self.vault), notes)
+
+    def test_local_hook_registration_rolls_back_when_install_health_fails(self):
+        from respectedbrain.integrations.backend import NativeBackend
+        self.backend = NativeBackend(self.roots.data_root)
+        with patch('respectedbrain.installation.payload.validate_installed_health', side_effect=OSError('health failure')):
+            result = self.install()
+        self.assertFalse(result.success)
+        self.assertEqual(result.conflicts, ('health failure',))
+        self.assertFalse(self.vault.exists())

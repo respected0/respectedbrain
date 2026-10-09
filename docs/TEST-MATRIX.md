@@ -38,6 +38,7 @@ Codex/Antigravity ile bu geliştirme sürecinde oturum akışı gözlemleri bulu
 | [Modüler temel doğrulaması](records/2026-10-modular-foundation/VERIFICATION.md) | İlk source/Windows native ve salt okunur eski canlı envanter; o tarihin platform sınırları |
 | [Kaynak temizliği doğrulaması](records/2026-10-source-cleanup/VERIFICATION.md) | Eski kaynak kapanışı ve paket/shell/yedek kanıtı |
 | [Installer/atlas/yayın kaydı](records/2026-10-installer-release/EXECUTION.md) | Son gerçek CI, Python sürüm/alias/race araştırmaları ve worktree kapanışı |
+| [Dördüncü inceleme düzeltmesi](records/2026-10-security-hardening/FOURTH_REVIEW_REMEDIATION.md) | 2026-10-07 yerel güvenlik düzeltmeleri, frozen GUI, Inno ve tam yerel suite kanıtları |
 | `records/2026-09-legacy/TEST-MATRIX.md` | Yerel arşiv yedeğinde; önceki layout, 370 test ve eski host/provider gözlemleri (tarihsel referans) |
 | [Belge düzenleme doğrulaması](records/2026-10-documentation/REORGANIZATION.md) | Doküman yolları, atlas, komut örnekleri ve yerel yedek arşivi |
 

@@ -10,7 +10,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -372,17 +371,18 @@ def _finish_session(
                 logs_dir = vault_root / "🔮 850-Companion" / "Session-Logs"
                 if not runtime_platform.path_within_vault(logs_dir, vault_root):
                     raise ValueError("unsafe-session-log")
-                logs_dir.mkdir(parents=True, exist_ok=True)
                 target_log = logs_dir / f"{now:%Y%m%d_%H%M%S}_{key[:8]}.jsonl"
                 if not runtime_platform.path_within_vault(target_log, vault_root):
                     raise ValueError("unsafe-session-log")
-                try:
-                    shutil.copyfile(t_path, target_log)
-                except OSError:
-                    try:
-                        target_log.write_bytes(t_path.read_bytes())
-                    except OSError:
-                        pass
+                from .flush import _flush_session_transcript, _validate_flush_paths
+                _validate_flush_paths(ctx, now)
+                archived = _flush_session_transcript(
+                    vault_root, state_dir, t_path, payload["session_id"], "precompact", now,
+                    None, ctx.paths.cache_dir, ctx=ctx, provider=provider,
+                    hook_payload=payload, archive_path=target_log,
+                )
+                if not archived:
+                    raise ValueError("session-archive-rejected")
 
     launch_reason = {
         "turn": "turn",
@@ -439,6 +439,7 @@ def handle_event(ctx: AppContext, *, event: str, session_id: str, transcript: Pa
     provider = payload.get("provider", "auto")
     value = dict(payload)
     value["session_id"] = session_id
+    value["provider"] = provider
     if transcript is not None:
         value["transcript_path"] = str(transcript)
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -448,6 +449,11 @@ def handle_event(ctx: AppContext, *, event: str, session_id: str, transcript: Pa
     if not isinstance(session_id, str) or not session_id:
         _record_health(state_dir, event, "missing-session-id", now)
         return ""
+    try:
+        from .flush import record_hook_workspace
+        record_hook_workspace(state_dir, ctx.paths.vault_id, session_id, provider, value)
+    except (OSError, ValueError, TypeError):
+        _record_health(state_dir, event, "provenance-write-failed", now)
     try:
         if event == "start":
             context = start_context(vault, state_dir, session_id, now, ctx)

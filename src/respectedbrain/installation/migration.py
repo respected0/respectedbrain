@@ -335,7 +335,8 @@ def _verify_outputs(files, copied, external, backend) -> None:
 
 
 def apply_migration(plan: MigrationPlan, *, roots: Roots, package: Path,
-                    backend: IntegrationBackend, fault: Callable[[str], None] | None = None, shell=None) -> OperationResult:
+                    backend: IntegrationBackend, fault: Callable[[str], None] | None = None, shell=None,
+                    require_provenance=None) -> OperationResult:
     """Activate a verified distribution and migrate approved hashes with WAL rollback."""
     from respectedbrain.vault.registry import VaultRegistry, MACHINE_FIELDS
     from . import payload
@@ -359,8 +360,9 @@ def apply_migration(plan: MigrationPlan, *, roots: Roots, package: Path,
         ctx = AppContext(AppPaths(roots.app_root, roots.data_root, vault, identity), config, ResourceCatalog())
         _validate_targets(plan, ctx)
         _regular_hash(package / "distribution.json")
-        document = payload.validate_package(package)
-        for name in (*document["files"], "distribution.json"):
+        document = payload.validate_package(package, require_provenance=require_provenance)
+        members = payload.package_members(package, document)
+        for name in members:
             _regular_hash(package / name)
             _regular_hash(roots.app_root / name)
         manifest_path = roots.data_root / "install-manifest.json"
@@ -402,11 +404,11 @@ def apply_migration(plan: MigrationPlan, *, roots: Roots, package: Path,
             tx.backup(manifest_path)
             tx.checkpoint("backup")
             staged = tx.directory / "stage"
-            for name in (*document["files"], "distribution.json"):
+            for name in members:
                 tx.replace(package / name, staged / name)
-            payload.validate_package(staged)
+            payload.validate_package(staged, require_provenance=require_provenance)
             tx.checkpoint("stage")
-            document, files = activate_package(roots, staged, tx, previous)
+            document, files = activate_package(roots, staged, tx, previous, require_provenance=require_provenance)
             tx.checkpoint("activate")
             copied = []
             for row in plan.entries:
@@ -457,9 +459,9 @@ def apply_migration(plan: MigrationPlan, *, roots: Roots, package: Path,
                 owned_external[(registration.kind, registration.key)] = shell.owned_registration(previous)
             tx.checkpoint("integrations")
             tx.checkpoint("health")
-            for name in (*document["files"], "distribution.json"):
+            for name in members:
                 _regular_hash(roots.app_root / name)
-            payload.validate_package(roots.app_root)
+            payload.validate_package(roots.app_root, require_provenance=require_provenance)
             payload.validate_installed_health(roots.app_root, document, roots.data_root)
             tx.checkpoint("cleanup")
             for row in plan.entries:

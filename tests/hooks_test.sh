@@ -5,6 +5,7 @@ TEST_ROOT=$(CDPATH= cd -- "${BASH_SOURCE[0]%/*}/.." 2>/dev/null && pwd)
 cd "$TEST_ROOT"
 PYTHON_COMMAND=${RESPECTED_TEST_PYTHON:-python3}
 export PYTHONIOENCODING=utf-8
+export PYTHONPATH=${TEST_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}
 "$PYTHON_COMMAND" -m unittest -v \
  tests.foundation_integrations_test.FoundationIntegrationsTest.test_hook_protocol_uses_selected_uuid_state_and_stable_session_id \
  tests.multiai_test.MultiAITest.test_bridge_normalizes_provider_inputs_and_outputs \
